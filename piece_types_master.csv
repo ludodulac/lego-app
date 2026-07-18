@@ -1,0 +1,170 @@
+engine_id,name,category,width_studs,length_studs,height_studs,status,priority,num_rebrickable_variants,num_colors_available
+BRICK_2X4X3,Brick 2 x 4 x 3,Bricks,2,4,3,ACTIVE,1,298,10
+BRICK_1X6,Brick 1 x 6,Bricks,1,6,1.0,ACTIVE,1,236,65
+BRICK_1X1,Brick 1 X 1,Bricks,1,1,1.0,ACTIVE,1,180,80
+BRICK_1X4,Brick 1 x 4,Bricks,1,4,1.0,ACTIVE,1,180,75
+BRICK_1X8,Brick 1 x 8,Bricks,1,8,1.0,ACTIVE,1,166,53
+BRICK_1X2,Brick 1 x 2,Bricks,1,2,1.0,ACTIVE,1,140,73
+BRICK_1X3,Brick 1 x 3,Bricks,1,3,1.0,ACTIVE,1,93,67
+BRICK_2X2,Brick 2 x 2,Bricks,2,2,1.0,ACTIVE,1,89,70
+BRICK_2X4,Brick 2 x 4,Bricks,2,4,1.0,ACTIVE,1,88,74
+BRICK_1X2X2,Brick 1 x 2 x 2,Bricks,1,2,2,ACTIVE,1,72,17
+BRICK_1X2X5,Brick 1 x 2 x 5,Bricks,1,2,5,ACTIVE,1,18,30
+BRICK_1X4X3,Brick 1 x 4 x 3,Bricks,1,4,3,ACTIVE,1,18,17
+BRICK_2X6X3,Brick 2 x 6 x 3,Bricks,2,6,3,ACTIVE,1,15,6
+BRICK_1X6X5,Brick 1 x 6 x 5,Bricks,1,6,5,ACTIVE,1,11,17
+BRICK_2X10,Brick 2 x 10,Bricks,2,10,1.0,ACTIVE,1,11,26
+BRICK_2X8,Brick 2 x 8,Bricks,2,8,1.0,ACTIVE,1,11,39
+BRICK_1X2X3,Brick 1 x 2 x 3,Bricks,1,2,3,ACTIVE,1,9,2
+BRICK_2X4_WITHOUT_CROSS_SUPPORTS,Brick 2 x 4 without Cross Supports,Bricks,2,4,1.0,ACTIVE,1,9,4
+BRICK_1X10,Brick 1 x 10,Bricks,1,10,1.0,ACTIVE,1,7,30
+BRICK_2X2_WITHOUT_INSIDE_RIDGES,Brick 2 x 2 without Inside Ridges,Bricks,2,2,1.0,ACTIVE,1,7,14
+BRICK_1X2_WITHOUT_BOTTOM_TUBE,Brick 1 x 2 without Bottom Tube,Bricks,1,2,1.0,ACTIVE,1,6,18
+BRICK_2X3,Brick 2 x 3,Bricks,2,3,1.0,ACTIVE,1,5,57
+BRICK_2X3_WITHOUT_CROSS_SUPPORTS,Brick 2 x 3 without Cross Supports,Bricks,2,3,1.0,ACTIVE,1,5,0
+BRICK_2X2X3,Brick 2 x 2 x 3,Bricks,2,2,3,ACTIVE,1,4,24
+BRICK_1X16,Brick 1 x 16,Bricks,1,16,1.0,ACTIVE,1,3,25
+BRICK_1X2X5_WITHOUT_SIDE_SUPPORTS,Brick 1 x 2 x 5 without Side Supports,Bricks,1,2,5,ACTIVE,1,3,10
+BRICK_1X3X5_WITHOUT_SIDE_SUPPORTS,Brick 1 x 3 x 5 without Side Supports,Bricks,1,3,5,ACTIVE,1,3,3
+BRICK_1X5X2,Brick 1 x 5 x 2,Bricks,1,5,2,ACTIVE,1,3,1
+BRICK_2X6,Brick 2 x 6,Bricks,2,6,1.0,ACTIVE,1,3,66
+BRICK_1X12,Brick 1 x 12,Bricks,1,12,1.0,ACTIVE,1,2,26
+BRICK_1X2X2_WITHOUT_BOTTOM_TUBE,Brick 1 x 2 x 2 without Bottom Tube,Bricks,1,2,2,ACTIVE,1,2,0
+BRICK_10X20,Brick 10 x 20,Bricks,10,20,1.0,ACTIVE,1,2,0
+BRICK_4X4_CORNER,Brick 4 x 4 Corner,Bricks,4,4,1.0,ACTIVE,1,2,0
+BRICK_SOFT_2X2,Brick Soft 2 x 2,Bricks,2,2,1.0,ACTIVE,1,2,4
+BRICK_SOFT_2X4,Brick Soft 2 x 4,Bricks,2,4,1.0,ACTIVE,1,2,4
+PLATE_1X1,Plate 1 x 1,Plates,1,1,0.33,ACTIVE,1,38,81
+PLATE_1X3,Plate 1 x 3,Plates,1,3,0.33,ACTIVE,1,25,62
+PLATE_1X2,Plate 1 x 2,Plates,1,2,0.33,ACTIVE,1,15,85
+PLATE_1X4,Plate 1 x 4,Plates,1,4,0.33,ACTIVE,1,6,72
+PLATE_1X6,Plate 1 x 6,Plates,1,6,0.33,ACTIVE,1,5,59
+PLATE_1X1X2_3,Plate 1 x 1 x 2/3,Plates,1,1,2/3,ACTIVE,1,3,2
+PLATE_1X8,Plate 1 x 8,Plates,1,8,0.33,ACTIVE,1,3,47
+PLATE_4X8,Plate 4 x 8,Plates,4,8,0.33,ACTIVE,1,3,43
+PLATE_6X8,Plate 6 x 8,Plates,6,8,0.33,ACTIVE,1,3,43
+PLATE_2X8,Plate 2 x 8,Plates,2,8,0.33,ACTIVE,1,2,45
+PLATE_4X10,Plate 4 x 10,Plates,4,10,0.33,ACTIVE,1,2,38
+TILE_2X2,Tile 2 x 2,Tiles,2,2,0.33,ACTIVE,1,1291,60
+TILE_2X4,Tile 2 x 4,Tiles,2,4,0.33,ACTIVE,1,546,46
+TILE_1X2,Tile 1 x 2,Tiles,1,2,0.33,ACTIVE,1,478,79
+TILE_1X1,Tile 1 x 1,Tiles,1,1,0.33,ACTIVE,1,366,73
+TILE_1X4,Tile 1 x 4,Tiles,1,4,0.33,ACTIVE,1,200,72
+TILE_2X3,Tile 2 x 3,Tiles,2,3,0.33,ACTIVE,1,176,31
+TILE_1X8,Tile 1 x 8,Tiles,1,8,0.33,ACTIVE,1,145,45
+TILE_2X6,Tile 2 x 6,Tiles,2,6,0.33,ACTIVE,1,101,31
+TILE_1X3,Tile 1 x 3,Tiles,1,3,0.33,ACTIVE,1,66,42
+TILE_1X6,Tile 1 x 6,Tiles,1,6,0.33,ACTIVE,1,48,55
+TILE_8X16,Tile 8 x 16,Tiles,8,16,0.33,ACTIVE,1,37,12
+TILE_4X4,Tile 4 x 4,Tiles,4,4,0.33,ACTIVE,1,28,15
+TILE_6X6,Tile 6 x 6,Tiles,6,6,0.33,ACTIVE,1,25,16
+TILE_2X3_WANTED_POSTER,"Tile 2 x 3, Wanted Poster",Tiles,2,3,0.33,ACTIVE,1,5,1
+TILE_6X8,Tile 6 x 8,Tiles,6,8,0.33,ACTIVE,1,5,2
+TILE_2X2_CORNER,Tile 2 x 2 Corner,Tiles,2,2,0.33,ACTIVE,1,4,22
+TILE_4X8,Tile 4 x 8,Tiles,4,8,0.33,ACTIVE,1,3,3
+TILE_1X2_WITH_PURPLE_BRIGHT_PINK_SQUARES_MINECRAFT,"Tile 1 x 2 with Purple, Bright Pink Squares (Minecraft)",Tiles,1,2,0.33,ACTIVE,1,2,1
+TILE_2X3_WITH_GOLDEN_CHINESE_MANDARIN,Tile 2 x 3 with Golden Chinese/Mandarin,Tiles,2,3,0.33,ACTIVE,1,2,1
+BASEPLATE_32X32,Baseplate 32 x 32,Baseplates,32,32,0.33,ACTIVE,2,60,13
+BASEPLATE,Baseplate,Baseplates,,,0.33,EXPERIMENTAL,2,15,1
+BASEPLATE_24X32,Baseplate 24 x 32,Baseplates,24,32,0.33,ACTIVE,2,14,0
+BASEPLATE_RAISED_32X32,Baseplate Raised 32 x 32,Baseplates,32,32,0.33,ACTIVE,2,10,5
+BASEPLATE_RAISED_32X48X6,Baseplate Raised 32 x 48 x 6,Baseplates,32,48,6,ACTIVE,2,10,7
+BASEPLATE_16X32,Baseplate 16 x 32,Baseplates,16,32,0.33,ACTIVE,2,9,13
+BASEPLATE_16X24,Baseplate 16 x 24,Baseplates,16,24,0.33,ACTIVE,2,6,4
+BASEPLATE_16X16_ROAD_DRIVEWAY,Baseplate 16 x 16 Road / Driveway,Baseplates,16,16,0.33,ACTIVE,2,5,2
+BASEPLATE_32X32_SPLIT,Baseplate 32 x 32 Split,Baseplates,32,32,0.33,ACTIVE,2,5,1
+BASEPLATE_RAISED_32X32_CANYON,Baseplate Raised 32 x 32 Canyon,Baseplates,32,32,0.33,ACTIVE,2,5,3
+BASEPLATE_24X40,Baseplate 24 x 40,Baseplates,24,40,0.33,ACTIVE,2,4,0
+BASEPLATE_14X20,Baseplate 14 x 20,Baseplates,14,20,0.33,ACTIVE,2,3,0
+SPORTS_FIELD_SECTION_8X16,Sports Field Section 8 x 16,Baseplates,8,16,0.33,ACTIVE,2,3,3
+BASEPLATE_16X16,Baseplate 16 x 16,Baseplates,16,16,0.33,ACTIVE,2,2,14
+BASEPLATE_32X32_WIDE_ROAD_9_STUD,"Baseplate 32 x 32 Wide Road, 9-Stud",Baseplates,32,32,0.33,ACTIVE,2,2,1
+BASEPLATE_48X48,Baseplate 48 x 48,Baseplates,48,48,0.33,ACTIVE,2,2,11
+BASEPLATE_RAISED_22X22X10_MOUNTAIN,Baseplate Raised 22 x 22 x 10 Mountain,Baseplates,22,22,10,ACTIVE,2,2,2
+BASEPLATE_RAISED_48X48,Baseplate Raised 48 x 48,Baseplates,48,48,0.33,ACTIVE,2,2,3
+BASEPLATE_RAMP_16X32_INCLINED_ROAD,"Baseplate Ramp 16 x 32 Inclined, Road",Baseplates,16,32,0.33,ACTIVE,2,2,1
+BASEPLATE_RAMP_32X16_STRAIGHT_ROAD,"Baseplate Ramp 32 x 16 Straight, Road",Baseplates,32,16,0.33,ACTIVE,2,2,2
+BRICK_SLOPED_45_2X2,Brick Sloped 45° 2 x 2,Bricks Sloped,2,2,1.0,ACTIVE,2,84,53
+BRICK_SLOPED_65_2X2X2,Brick Sloped 65° 2 x 2 x 2,Bricks Sloped,2,2,2,ACTIVE,2,78,19
+BRICK_SLOPED_30_1X2X2_3,Brick Sloped 30° 1 x 2 x 2/3,Bricks Sloped,1,2,2/3,ACTIVE,2,61,47
+BRICK_SLOPED_33_3X2,Brick Sloped 33° 3 x 2,Bricks Sloped,3,2,1.0,ACTIVE,2,53,39
+BRICK_SLOPED_33_3X4,Brick Sloped 33° 3 x 4,Bricks Sloped,3,4,1.0,ACTIVE,2,30,30
+BRICK_SLOPED_30_1X1X2_3_CHEESE_SLOPE,Brick Sloped 30° 1 x 1 x 2/3 (Cheese Slope),Bricks Sloped,1,1,2/3,ACTIVE,2,29,62
+BRICK_SLOPED_2X2_NO_STUDS,Brick Sloped 2 x 2 No Studs,Bricks Sloped,2,2,1.0,ACTIVE,2,25,13
+BRICK_SLOPED_45_2X4,Brick Sloped 45° 2 x 4,Bricks Sloped,2,4,1.0,ACTIVE,2,22,31
+BRICK_SLOPED_18_4X2,Brick Sloped 18° 4 x 2,Bricks Sloped,4,2,1.0,ACTIVE,2,15,24
+BRICK_SLOPED_45_2X1,Brick Sloped 45° 2 x 1,Bricks Sloped,2,1,1.0,ACTIVE,2,15,8
+BRICK_SLOPED_INVERTED_45_2X2,Brick Sloped Inverted 45° 2 x 2,Bricks Sloped,2,2,1.0,ACTIVE,2,14,44
+BRICK_SLOPED_10_6X8,Brick Sloped 10° 6 x 8,Bricks Sloped,6,8,1.0,ACTIVE,2,10,22
+BRICK_SLOPED_33_3X2_SMOOTH,Brick Sloped 33° 3 x 2 Smooth,Bricks Sloped,3,2,1.0,ACTIVE,2,9,6
+BRICK_SLOPED_30_1X1X2_3,Brick Sloped 30° 1 x 1 x 2/3,Bricks Sloped,1,1,2/3,ACTIVE,2,8,6
+BRICK_SLOPED_33_3X6,Brick Sloped 33° 3 x 6,Bricks Sloped,3,6,1.0,ACTIVE,2,6,18
+BRICK_SLOPED_33_2X2_DOUBLE_INVERTED,Brick Sloped 33° 2 x 2 Double / Inverted,Bricks Sloped,2,2,1.0,ACTIVE,2,5,12
+BRICK_SLOPED_75_2X2X3,Brick Sloped 75° 2 x 2 x 3,Bricks Sloped,2,2,3,ACTIVE,2,5,28
+BRICK_SLOPED_33_2X4_DOUBLE,Brick Sloped 33° 2 x 4 Double,Bricks Sloped,2,4,1.0,ACTIVE,2,4,16
+BRICK_SLOPED_45_10X2X2_DOUBLE,Brick Sloped 45° 10 x 2 x 2 Double,Bricks Sloped,10,2,2,ACTIVE,2,4,11
+BRICK_SLOPED_45_2X3,Brick Sloped 45° 2 x 3,Bricks Sloped,2,3,1.0,ACTIVE,2,4,21
+BRICK_SLOPED_45_2X4_DOUBLE,Brick Sloped 45° 2 x 4 Double,Bricks Sloped,2,4,1.0,ACTIVE,2,4,21
+BRICK_SLOPED_45_4X4,Brick Sloped 45° 4 x 4,Bricks Sloped,4,4,1.0,ACTIVE,2,4,5
+BRICK_SLOPED_18_2X1X2_3,Brick Sloped 18° 2 x 1 x 2/3,Bricks Sloped,2,1,2/3,ACTIVE,2,3,24
+BRICK_SLOPED_25_1X8X3,Brick Sloped 25° 1 x 8 x 3,Bricks Sloped,1,8,3,ACTIVE,2,3,10
+BRICK_SLOPED_33_3X1,Brick Sloped 33° 3 x 1,Bricks Sloped,3,1,1.0,ACTIVE,2,3,45
+BRICK_SLOPED_45_2X1_TRIPLE,Brick Sloped 45° 2 x 1 Triple,Bricks Sloped,2,1,1.0,ACTIVE,2,3,3
+BRICK_SLOPED_75_2X2X2_QUADRUPLE_CONVEX,Brick Sloped 75° 2 x 2 x 2 Quadruple Convex,Bricks Sloped,2,2,2,ACTIVE,2,3,15
+BRICK_SLOPED_INVERTED_45_2X1,Brick Sloped Inverted 45° 2 x 1,Bricks Sloped,2,1,1.0,ACTIVE,2,3,49
+BRICK_SLOPED_INVERTED_75_2X1X3,Brick Sloped Inverted 75° 2 x 1 x 3,Bricks Sloped,2,1,3,ACTIVE,2,3,35
+BRICK_SLOPED_1X6X1,Brick Sloped 1 x 6 x 1,Bricks Sloped,1,6,1,ACTIVE,2,2,2
+BRICK_SLOPED_18_4X1,Brick Sloped 18° 4 x 1,Bricks Sloped,4,1,1.0,ACTIVE,2,2,18
+BRICK_SLOPED_30_1X4X2_3,Brick Sloped 30° 1 x 4 x 2/3,Bricks Sloped,1,4,2/3,ACTIVE,2,2,5
+BRICK_SLOPED_33_3X3,Brick Sloped 33° 3 x 3,Bricks Sloped,3,3,1.0,ACTIVE,2,2,19
+BRICK_SLOPED_33_3X6_NO_INNER_WALLS,Brick Sloped 33° 3 x 6 No Inner Walls,Bricks Sloped,3,6,1.0,ACTIVE,2,2,8
+BRICK_SLOPED_45_2X1_WITH_2_3_CUTOUT,Brick Sloped 45° 2 x 1 with 2/3 Cutout,Bricks Sloped,2,1,1.0,ACTIVE,2,2,35
+BRICK_SLOPED_45_2X1_WITHOUT_BOTTOM_PIN,Brick Sloped 45° 2 x 1 without Bottom Pin,Bricks Sloped,2,1,1.0,ACTIVE,2,2,0
+BRICK_SLOPED_45_3X4_DOUBLE_33,Brick Sloped 45° 3 x 4 Double / 33°,Bricks Sloped,3,4,1.0,ACTIVE,2,2,17
+BRICK_SLOPED_55_1X6X5,Brick Sloped 55° 1 x 6 x 5,Bricks Sloped,1,6,5,ACTIVE,2,2,23
+BRICK_SLOPED_65_2X1X2,Brick Sloped 65° 2 x 1 x 2,Bricks Sloped,2,1,2,ACTIVE,2,2,36
+BRICK_SLOPED_65_2X2X2_SMOOTH_WITHOUT_BOTTOM_TUBE,Brick Sloped 65° 2 x 2 x 2 Smooth without Bottom Tube,Bricks Sloped,2,2,2,ACTIVE,2,2,14
+GLASS_FOR_WINDOW_1X4X6,Glass for Window 1 x 4 x 6,Windows and Doors,1,4,6,ACTIVE,2,30,21
+GLASS_FOR_FRAME_1X6X6,Glass for Frame 1 x 6 x 6,Windows and Doors,1,6,6,ACTIVE,2,21,10
+GLASS_FOR_WINDOW_1X2X2_FLAT,Glass for Window 1 x 2 x 2 Flat,Windows and Doors,1,2,2,ACTIVE,2,15,18
+DOOR_1X4X5_TRAIN_LEFT,Door 1 x 4 x 5 Train Left,Windows and Doors,1,4,5,ACTIVE,2,9,14
+DOOR_1X4X5_TRAIN_RIGHT,Door 1 x 4 x 5 Train Right,Windows and Doors,1,4,5,ACTIVE,2,9,12
+DOOR_1X3X1_LEFT,Door 1 x 3 x 1 Left,Windows and Doors,1,3,1,ACTIVE,2,8,22
+DOOR_1X3X1_RIGHT,Door 1 x 3 x 1 Right,Windows and Doors,1,3,1,ACTIVE,2,8,19
+GLASS_FOR_FRAME_1X6X7,Glass for Frame 1 x 6 x 7,Windows and Doors,1,6,7,ACTIVE,2,6,3
+GLASS_FOR_WINDOW_1X2X2,Glass for Window 1 x 2 x 2,Windows and Doors,1,2,2,ACTIVE,2,6,4
+GLASS_FOR_WINDOW_1X4X3,Glass for Window 1 x 4 x 3,Windows and Doors,1,4,3,ACTIVE,2,6,8
+GLASS_FOR_WINDOW_1X4X3_OPENING,Glass for Window 1 x 4 x 3 - Opening,Windows and Doors,1,4,3,ACTIVE,2,6,2
+GLASS_FOR_WINDOW_1X4X5,Glass for Window 1 x 4 x 5,Windows and Doors,1,4,5,ACTIVE,2,6,5
+DOOR_1X4_1_2X6,Door 1 x 4 1/2 x 6,Windows and Doors,1,4,,EXPERIMENTAL,2,4,3
+DOOR_1X4X6_SMOOTH,Door 1 x 4 x 6 Smooth,Windows and Doors,1,4,6,ACTIVE,2,4,2
+WINDOW_1X1X2_EXTENDED_LIP,"Window 1 x 1 x 2, Extended Lip",Windows and Doors,1,1,2,ACTIVE,2,4,0
+WINDOW_1X2X1_EXTENDED_LIP,"Window 1 x 2 x 1, Extended Lip",Windows and Doors,1,2,1,ACTIVE,2,4,0
+WINDOW_1X2X2_CLASSIC_EXTENDED_LIP,"Window 1 x 2 x 2 Classic, Extended Lip",Windows and Doors,1,2,2,ACTIVE,2,4,0
+WINDOW_1X4X5,Window 1 x 4 x 5,Windows and Doors,1,4,5,ACTIVE,2,4,10
+DOOR_1X3X4_LEFT,Door 1 x 3 x 4 Left,Windows and Doors,1,3,4,ACTIVE,2,3,2
+DOOR_1X3X4_RIGHT,Door 1 x 3 x 4 Right,Windows and Doors,1,3,4,ACTIVE,2,3,2
+DOOR_1X5X4_LEFT,Door 1 x 5 x 4 Left,Windows and Doors,1,5,4,ACTIVE,2,3,3
+DOOR_1X5X4_RIGHT,Door 1 x 5 x 4 Right,Windows and Doors,1,5,4,ACTIVE,2,3,3
+DOOR_3X6,Door 3 x 6,Windows and Doors,3,6,,EXPERIMENTAL,2,3,8
+DOOR_FRAME_2X8X8,Door Frame 2 x 8 x 8,Windows and Doors,2,8,8,ACTIVE,2,3,3
+FRAME_2X16X6,Frame 2 x 16 x 6,Windows and Doors,2,16,6,ACTIVE,2,3,2
+WINDOW_2X4X3_FRAME,Window 2 x 4 x 3 Frame,Windows and Doors,2,4,3,ACTIVE,2,3,14
+WINDOW_BAY_3X8X6,Window Bay 3 x 8 x 6,Windows and Doors,3,8,6,ACTIVE,2,3,2
+DOOR_1X2X3_LEFT_WITH_FIXED_GLASS,"Door 1 x 2 x 3 Left with , Fixed Glass",Windows and Doors,1,2,3,ACTIVE,2,2,0
+DOOR_1X2X3_RIGHT_FIXED_GLASS,Door 1 x 2 x 3 Right Fixed Glass,Windows and Doors,1,2,3,ACTIVE,2,2,0
+DOOR_1X2X3_RIGHT_NO_GLASS,Door 1 x 2 x 3 Right No Glass,Windows and Doors,1,2,3,ACTIVE,2,2,0
+DOOR_1X3X2_LEFT,Door 1 x 3 x 2 Left,Windows and Doors,1,3,2,ACTIVE,2,2,11
+DOOR_1X3X2_LEFT_OPEN_BETWEEN_TOP_AND_BOTTOM_HINGE,Door 1 x 3 x 2 Left - Open Between Top and Bottom Hinge,Windows and Doors,1,3,2,ACTIVE,2,2,15
+DOOR_1X3X2_RIGHT,Door 1 x 3 x 2 Right,Windows and Doors,1,3,2,ACTIVE,2,2,12
+DOOR_1X3X2_RIGHT_OPEN_BETWEEN_TOP_AND_BOTTOM_HINGE,Door 1 x 3 x 2 Right - Open Between Top and Bottom Hinge,Windows and Doors,1,3,2,ACTIVE,2,2,16
+DOOR_2X5X5_SWIVEL_BRACKET_BASE,"Door 2 x 5 x 5 Swivel, Bracket Base",Windows and Doors,2,5,5,ACTIVE,2,2,7
+DOOR_2X5X5_SWIVEL_FLAT_BASE,"Door 2 x 5 x 5 Swivel, Flat Base",Windows and Doors,2,5,5,ACTIVE,2,2,5
+DOOR_SLIDING_TYPE_1,Door Sliding - Type 1,Windows and Doors,,,,EXPERIMENTAL,2,2,4
+GLASS_FOR_WINDOW_1X3X2,Glass for Window 1 x 3 x 2,Windows and Doors,1,3,2,ACTIVE,2,2,1
+WINDOW_1X1X2_SHORT_LIP,"Window 1 x 1 x 2, Short Lip",Windows and Doors,1,1,2,ACTIVE,2,2,0
+WINDOW_1X2X1_SHORT_LIP,"Window 1 x 2 x 1, Short Lip",Windows and Doors,1,2,1,ACTIVE,2,2,0
+WINDOW_1X2X2_CLASSIC_SHORT_LIP,"Window 1 x 2 x 2 Classic, Short Lip",Windows and Doors,1,2,2,ACTIVE,2,2,4
+WINDOW_1X2X2_PLANE,Window 1 x 2 x 2 Plane,Windows and Doors,1,2,2,ACTIVE,2,2,13
+WINDOW_1X6X2,Window 1 x 6 x 2,Windows and Doors,1,6,2,ACTIVE,2,2,0
+WINDOW_1X6X2_WITH_SHUTTERS,Window 1 x 6 x 2 with Shutters,Windows and Doors,1,6,2,ACTIVE,2,2,0
