@@ -58,5 +58,8 @@ def test_four_facade_openings_reach_geometry_and_brick_pipeline() -> None:
 
     assert multi_export.brick_model.width_studs == baseline_export.brick_model.width_studs
     assert multi_export.brick_model.depth_studs == baseline_export.brick_model.depth_studs
-    assert multi_export.bom.total_parts < baseline_export.bom.total_parts
+    # Openings can increase the number of pieces because large wall bricks are
+    # fragmented around a window. What matters is that the shell changes.
+    assert multi_export.bom.total_parts != baseline_export.bom.total_parts
+    assert multi_export.bom.lines != baseline_export.bom.lines
     assert multi_export.assembly_plan.total_parts == multi_export.bom.total_parts
