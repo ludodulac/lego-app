@@ -33,9 +33,13 @@ def _cors_origins() -> list[str]:
     ]
 
 
+def _engine_revision() -> str:
+    return os.getenv("RENDER_GIT_COMMIT", "local").strip() or "local"
+
+
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.3.0",
+    version="0.4.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -53,13 +57,16 @@ def health() -> dict[str, str | bool]:
         "status": "ok",
         "service": "brickhouse-engine",
         "vision_enabled": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "engine_revision": _engine_revision(),
     }
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
 def build(request: BuildRequest) -> BrickExportBundle:
     try:
-        return run_m0_pipeline_model(request.building, front_width_studs=request.front_width_studs)
+        bundle = run_m0_pipeline_model(request.building, front_width_studs=request.front_width_studs)
+        bundle.metadata.engine_revision = _engine_revision()
+        return bundle
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
