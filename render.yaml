@@ -2,6 +2,7 @@ services:
   - type: web
     name: brickhouse-api
     runtime: python
+    plan: free
     buildCommand: pip install .
     startCommand: uvicorn brickhouse.api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
