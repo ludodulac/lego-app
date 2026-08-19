@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building.models import Facade
 
-from .roof import SpatialRoof
+from .roof import SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 
 
@@ -58,60 +58,26 @@ class BrickModel(BaseModel):
 
 
 def _roof_category(part_id: str, side: str) -> Literal["roof_tile", "ridge_tile"]:
-    if side == "ridge":
-        if not part_id.startswith("RIDGE_TILE_"):
-            raise ValueError(f"ridge placement uses non-ridge part {part_id!r}")
-        return "ridge_tile"
-    if not part_id.startswith("ROOF_TILE_"):
-        raise ValueError(f"roof plane placement uses non-roof-tile part {part_id!r}")
-    return "roof_tile"
+    try:
+        definition = create_m0_roof_catalog().get(part_id)
+    except KeyError as exc:
+        raise ValueError(f"unknown canonical roof part {part_id!r}") from exc
+    expected = "ridge_tile" if side == "ridge" else "roof_tile"
+    if definition.category != expected:
+        raise ValueError(f"roof placement {part_id!r} has category {definition.category!r}, expected {expected!r}")
+    return expected
 
 
 def generate_brick_model(shell: SpatialBrickShell, roof: SpatialRoof) -> BrickModel:
-    """Merge spatial walls and roof into the canonical deterministic BrickModel."""
+    """Merge spatial walls and support-aware roof into the canonical BrickModel."""
     if shell.building_id != roof.building_id:
         raise ValueError("spatial shell and roof must reference the same building")
-
     parts: list[BrickModelPart] = []
-
     for index, placement in enumerate(shell.placements, start=1):
-        parts.append(
-            BrickModelPart(
-                placement_id=f"wall-{index:06d}",
-                part_id=placement.brick_id,
-                category="brick",
-                component="wall",
-                x_studs=placement.x_studs,
-                y_studs=placement.y_studs,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
-                facade=placement.facade,
-            )
-        )
-
+        parts.append(BrickModelPart(placement_id=f"wall-{index:06d}", part_id=placement.brick_id, category="brick", component="wall", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade))
     for index, placement in enumerate(roof.placements, start=1):
-        parts.append(
-            BrickModelPart(
-                placement_id=f"roof-{index:06d}",
-                part_id=placement.part_id,
-                category=_roof_category(placement.part_id, placement.side),
-                component="roof",
-                x_studs=placement.x_studs,
-                y_studs=placement.y_studs,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
-                roof_side=placement.side,
-            )
-        )
-
+        parts.append(BrickModelPart(placement_id=f"roof-{index:06d}", part_id=placement.part_id, category=_roof_category(placement.part_id, placement.side), component="roof", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, roof_side=placement.side))
     wall_top = shell.height_bricks * 3
-    roof_top = max((placement.z_plates + 1 for placement in roof.placements), default=wall_top)
-
-    return BrickModel(
-        building_id=shell.building_id,
-        volume_id=shell.volume_id,
-        width_studs=shell.width_studs,
-        depth_studs=shell.depth_studs,
-        height_plates=max(wall_top, roof_top),
-        parts=parts,
-    )
+    catalog = create_m0_roof_catalog()
+    roof_top = max((p.z_plates + catalog.get(p.part_id).height_plates for p in roof.placements), default=wall_top)
+    return BrickModel(building_id=shell.building_id, volume_id=shell.volume_id, width_studs=shell.width_studs, depth_studs=shell.depth_studs, height_plates=max(wall_top, roof_top), parts=parts)
