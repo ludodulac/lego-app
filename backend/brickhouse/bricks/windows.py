@@ -25,12 +25,18 @@ class WindowPartPlacement(BaseModel):
     x_studs:int=Field(ge=0); y_studs:int=Field(ge=0); z_plates:int=Field(ge=0)
     rotation_quarter_turns:Literal[0,1,2,3]=0
 
-def _to_global(facade:Facade,local_x:int,z_bricks:int,width_studs:int,depth_studs:int)->tuple[int,int,int,Literal[0,1,2,3]]:
+def _to_global(facade:Facade,local_x:int,opening_width:int,z_bricks:int,width_studs:int,depth_studs:int)->tuple[int,int,int,Literal[0,1,2,3]]:
+    """Map facade-local window origin to global studs with correct orientation.
+
+    Window part IDs use LEGO 1xN dimensions: the N axis must run horizontally
+    along the facade. Front/rear therefore use a quarter turn; side facades do
+    not. Mirrored rear/left origins account for the full opening width.
+    """
     z=z_bricks*3
-    if facade is Facade.FRONT:return local_x,0,z,0
-    if facade is Facade.REAR:return width_studs-local_x-1,depth_studs-1,z,0
-    if facade is Facade.RIGHT:return width_studs-1,local_x,z,1
-    return 0,depth_studs-local_x-1,z,1
+    if facade is Facade.FRONT:return local_x,0,z,1
+    if facade is Facade.REAR:return width_studs-local_x-opening_width,depth_studs-1,z,1
+    if facade is Facade.RIGHT:return width_studs-1,local_x,z,0
+    return 0,depth_studs-local_x-opening_width,z,0
 
 def choose_window_assembly(width_studs:int,height_bricks:int)->WindowAssemblyDefinition|None:
     """Return a validated assembly only for an exact rasterized opening fit."""
@@ -46,7 +52,7 @@ def generate_window_assemblies(building:BuildingModel,shell:BuildingBrickShell)-
             if not opening or opening.type is not OpeningType.WINDOW:continue
             assembly=choose_window_assembly(raster.width_studs,raster.height_bricks)
             if assembly is None:continue
-            x,y,z,rotation=_to_global(facade,raster.x_studs,raster.z_bricks,front,depth)
+            x,y,z,rotation=_to_global(facade,raster.x_studs,raster.width_studs,raster.z_bricks,front,depth)
             placements.extend((
                 WindowPartPlacement(part_id=assembly.frame_part_id,category="window_frame",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
                 WindowPartPlacement(part_id=assembly.pane_part_id,category="window_pane",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
