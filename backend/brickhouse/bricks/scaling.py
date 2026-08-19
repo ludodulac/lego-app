@@ -34,6 +34,8 @@ def _distance(a: Point3D, b: Point3D) -> float:
 
 
 def _wall_metric_size(wall: WallGeometry) -> tuple[float, float]:
+    if len(wall.corners) != 4:
+        raise ValueError("wall geometry must contain exactly four corners")
     width = _distance(wall.corners[0], wall.corners[1])
     height = abs(wall.corners[3].z - wall.corners[0].z)
     if width <= 0 or height <= 0:
@@ -41,7 +43,10 @@ def _wall_metric_size(wall: WallGeometry) -> tuple[float, float]:
     return width, height
 
 
-def _opening_local_bounds(wall: WallGeometry, opening: OpeningGeometry) -> tuple[float, float, float, float]:
+def _opening_local_bounds(
+    wall: WallGeometry,
+    opening: OpeningGeometry,
+) -> tuple[float, float, float, float]:
     wall_start = wall.corners[0]
     wall_end = wall.corners[1]
     vx = wall_end.x - wall_start.x
@@ -98,8 +103,13 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
         courses_per_meter=courses_per_meter,
         openings=grid_openings,
     )
-    # Reuse BH-007 validation for bounds and opening overlaps after quantization.
-    generate_wall_layout_with_openings(spec.width_studs, spec.height_bricks, spec.openings)
+
+    # Reuse BH-007 validation for opening bounds and overlaps after quantization.
+    generate_wall_layout_with_openings(
+        width_studs=spec.width_studs,
+        height_bricks=spec.height_bricks,
+        openings=spec.openings,
+    )
     return spec
 
 
