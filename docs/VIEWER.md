@@ -1,34 +1,34 @@
-# 3D BrickModel viewer (BH-015)
+# 3D BrickModel viewer
 
-The first viewer is a static browser client under `frontend/`. It consumes the BH-014 export bundle and does not reconstruct architectural geometry.
+The viewer is a static browser client under `frontend/`. It consumes the BrickHouse export bundle and does not reconstruct architectural geometry.
 
 ## Files
 
 - `frontend/index.html` — viewer UI and Three.js import map.
 - `frontend/styles.css` — responsive desktop/mobile layout.
-- `frontend/viewer.js` — validation, BrickModel rendering, OrbitControls and camera framing.
-- `frontend/sample-export.json` — small schema-compatible demo model.
+- `frontend/viewer.js` — validation, BrickModel rendering, OrbitControls, camera framing and assembly playback.
+- `frontend/sample-export.json` — sample bundle; the Pages workflow regenerates it from the reference BuildingModel before deployment.
 
 ## Run locally
 
 The viewer uses ES modules and `fetch()`, so serve the folder over HTTP rather than opening `index.html` directly from the filesystem.
 
-From the repository root:
-
 ```bash
 python -m http.server 8000 --directory frontend
 ```
 
-Then open `http://localhost:8000` in a browser.
+Then open `http://localhost:8000`.
 
 ## Controls
 
-- left drag / touch drag: orbit;
-- wheel / pinch: zoom;
+- left/touch drag: orbit;
+- wheel/pinch: zoom;
 - right drag: pan;
 - **Recentrer la vue**: auto-frame the current model;
-- **Ouvrir un JSON**: load a local BH-014 export bundle;
+- **Ouvrir un JSON**: load a local export bundle;
 - **Recharger l’exemple**: reload `sample-export.json`.
+
+When an `assembly_plan` is present, an additional mounting card appears with a slider, previous/next controls and a full-model button. At a selected step, all parts referenced by that step and every previous step are visible; later parts are hidden. Older bundles without `assembly_plan` remain compatible and simply show the complete model.
 
 ## Rendering conventions
 
@@ -41,6 +41,4 @@ Then open `http://localhost:8000` in a browser.
 
 ## Current limitations
 
-This is a geometry/debug viewer, not the final product UI. Parts are rendered as simple boxes rather than exact supplier meshes. Studs/tubes, realistic roof slopes, colors from the BuildingModel, selection, editing, construction steps and photo workflow are not implemented yet.
-
-The current Three.js dependency is pinned in the import map so the prototype remains reproducible. A later application milestone can move the viewer into the full bundled frontend stack.
+This remains a geometry/debug viewer rather than the final product UI. Parts are boxes rather than exact supplier meshes. Studs/tubes, realistic roof slopes, click selection, editing, animation and human-optimized instruction steps are not implemented yet.
