@@ -6,10 +6,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from brickhouse.building.models import Facade
+from brickhouse.building.models import Facade, RidgeDirection
 
 from .facade_details import FacadeDetailPlacement
-from .roof import SpatialRoof, create_m0_roof_catalog
+from .roof import SUPPORTED_SLOPE_FAMILIES, SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 
 PartCategory = Literal["brick", "roof_tile", "ridge_tile", "window_frame", "window_pane", "facade_detail"]
@@ -77,17 +77,82 @@ def _roof_category(part_id: str, side: str) -> Literal["roof_tile", "ridge_tile"
     return expected
 
 
+def _roof_family(roof: SpatialRoof):
+    catalog = create_m0_roof_catalog()
+    family_ids = {
+        catalog.get(placement.part_id).slope_family
+        for placement in roof.placements
+        if placement.side in {"negative", "positive"}
+    }
+    family_ids.discard(None)
+    if len(family_ids) != 1:
+        raise ValueError("gable wall generation requires exactly one roof slope family")
+    family_id = next(iter(family_ids))
+    return next(family for family in SUPPORTED_SLOPE_FAMILIES if family.id == family_id)
+
+
+def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof) -> list[BrickModelPart]:
+    """Fill both gable ends with inset stepped brickwork following the roof family."""
+    family = _roof_family(roof)
+    wall_top = shell.height_bricks * 3
+    negative = [placement for placement in roof.placements if placement.side == "negative"]
+    if not negative:
+        return []
+    if roof.ridge_direction is RidgeDirection.DEPTH:
+        slope_axes = {placement.x_studs for placement in negative}
+        span = shell.width_studs
+        facades = (Facade.FRONT, Facade.REAR)
+    else:
+        slope_axes = {placement.y_studs for placement in negative}
+        span = shell.depth_studs
+        facades = (Facade.LEFT, Facade.RIGHT)
+    course_count = len(slope_axes)
+    result: list[BrickModelPart] = []
+    index = 1
+    for facade in facades:
+        for level in range(course_count):
+            trim = 1 + level * family.course_advance_studs
+            start = trim
+            end = span - trim
+            if end <= start:
+                continue
+            z_plates = wall_top + level * family.rise_plates
+            for local in range(start, end):
+                if roof.ridge_direction is RidgeDirection.DEPTH:
+                    x = local
+                    y = 1 if facade is Facade.FRONT else max(shell.depth_studs - 2, 0)
+                else:
+                    x = 1 if facade is Facade.LEFT else max(shell.width_studs - 2, 0)
+                    y = local
+                result.append(
+                    BrickModelPart(
+                        placement_id=f"gable-{index:06d}",
+                        part_id="BRICK_1X1",
+                        category="brick",
+                        component="wall",
+                        x_studs=x,
+                        y_studs=y,
+                        z_plates=z_plates,
+                        rotation_quarter_turns=0,
+                        facade=facade,
+                    )
+                )
+                index += 1
+    return result
+
+
 def generate_brick_model(
     shell: SpatialBrickShell,
     roof: SpatialRoof,
     facade_details: list[FacadeDetailPlacement] | None = None,
 ) -> BrickModel:
-    """Merge spatial walls, facade details and support-aware roof into BrickModel."""
+    """Merge spatial walls, closed gable ends, facade details and roof into BrickModel."""
     if shell.building_id != roof.building_id:
         raise ValueError("spatial shell and roof must reference the same building")
     parts: list[BrickModelPart] = []
     for index, placement in enumerate(shell.placements, start=1):
         parts.append(BrickModelPart(placement_id=f"wall-{index:06d}", part_id=placement.brick_id, category="brick", component="wall", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade))
+    parts.extend(_generate_gable_wall_parts(shell, roof))
     for index, placement in enumerate(facade_details or [], start=1):
         parts.append(BrickModelPart(placement_id=f"detail-{index:06d}", part_id=placement.part_id, category=placement.category, component="facade_detail", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade))
     for index, placement in enumerate(roof.placements, start=1):
