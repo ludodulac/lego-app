@@ -56,6 +56,14 @@ class OpeningType(str, Enum):
     GARAGE_DOOR = "garage_door"
 
 
+class WindowStyle(str, Enum):
+    SIMPLE = "simple"
+    FOUR_PANE = "four_pane"
+    TRADITIONAL_TALL = "traditional_tall"
+    PAIRED = "paired"
+    BAY = "bay"
+
+
 class Opening(BaseModel):
     id: str
     type: OpeningType
@@ -66,6 +74,16 @@ class Opening(BaseModel):
     width: float = Field(gt=0)
     height: float = Field(gt=0)
     source: SourceInfo
+    window_style: WindowStyle | None = None
+    has_sill: bool | None = None
+    has_decorative_surround: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_window_metadata(self) -> "Opening":
+        window_fields = (self.window_style, self.has_sill, self.has_decorative_surround)
+        if self.type is not OpeningType.WINDOW and any(value is not None for value in window_fields):
+            raise ValueError("window-specific metadata may only be defined on window openings")
+        return self
 
 
 class RoofType(str, Enum):
