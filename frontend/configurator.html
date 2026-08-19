@@ -3,34 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BrickHouse — Configurateur</title>
+  <title>BrickHouse — Décrire ma maison</title>
   <link rel="stylesheet" href="./configurator.css" />
 </head>
 <body>
-  <header class="topbar"><a href="./index.html">← Viewer 3D</a><strong>BrickHouse</strong><a href="./photo.html">Analyser des photos →</a></header>
+  <header class="topbar"><a href="./index.html">← Accueil</a><strong>BrickHouse</strong><a href="./photo.html">Analyser des photos →</a></header>
   <main class="layout">
     <section class="panel">
-      <p class="eyebrow">Prototype connecté</p>
+      <p class="eyebrow">Étape 1 · Comprendre le bâtiment</p>
       <h1>Créer une maison</h1>
-      <p class="intro">Décrivez une maison : BrickHouse génère son modèle architectural puis l’envoie au moteur public pour produire une construction en briques, sa nomenclature et ses étapes de montage.</p>
+      <p class="intro">Décrivez une maison : BrickHouse génère son modèle architectural puis l’envoie au moteur public pour produire une construction en briques, sa liste de pièces et ses étapes de montage.</p>
       <form id="building-form">
         <div class="field wide"><label for="name">Nom du projet</label><input id="name" value="Ma maison" required /></div>
         <div class="field"><label for="width">Largeur façade (m)</label><input id="width" type="number" min="3" max="60" step="0.1" value="10" required /></div>
         <div class="field"><label for="depth">Profondeur (m)</label><input id="depth" type="number" min="3" max="60" step="0.1" value="8" required /></div>
         <div class="field"><label for="height">Hauteur murs (m)</label><input id="height" type="number" min="2.4" max="12" step="0.1" value="5.6" required /></div>
-        <div class="field"><label for="floors">Étages</label><select id="floors"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></div>
-        <div class="field"><label for="pitch">Pente du toit</label><input id="pitch" type="number" min="10" max="70" step="1" value="35" required /></div>
-        <div class="field"><label for="ridge">Direction du faîtage</label><select id="ridge"><option value="depth" selected>Profondeur</option><option value="width">Largeur</option></select></div>
-        <div class="field"><label for="ground-windows">Fenêtres façade RDC</label><select id="ground-windows"><option>0</option><option selected>2</option><option>4</option></select></div>
-        <div class="field"><label for="upper-windows">Fenêtres façade étage</label><select id="upper-windows"><option>0</option><option selected>2</option><option>4</option></select></div>
+        <div class="field"><label for="floors">Niveaux</label><select id="floors"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></div>
+        <div class="field"><label for="pitch">Pente du toit (°)</label><input id="pitch" type="number" min="10" max="70" step="1" value="35" required /></div>
+        <div class="field"><label for="ridge">Direction du faîtage</label><select id="ridge"><option value="depth" selected>Avant ↔ arrière</option><option value="width">Gauche ↔ droite</option></select></div>
+        <div class="field"><label for="ground-windows">Fenêtres façade bas</label><select id="ground-windows"><option>0</option><option selected>2</option><option>4</option></select></div>
+        <div class="field"><label for="upper-windows">Fenêtres façade haut</label><select id="upper-windows"><option>0</option><option selected>2</option><option>4</option></select></div>
         <label class="check wide"><input id="door" type="checkbox" checked /> Porte d’entrée centrée</label>
-        <div class="field"><label for="studs">Largeur de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
+        <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
         <details class="wide"><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
-        <div class="actions wide"><button type="submit">Prévisualiser les données</button><button id="download-model" type="button" disabled>Télécharger JSON</button><button id="build-bricks" type="button" class="primary" disabled>Construire ma maquette</button></div>
+        <div class="actions wide"><button type="submit">Prévisualiser les données</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="build-bricks" type="button" class="primary" disabled>Construire ma maquette</button></div>
       </form>
       <p id="status" class="status">Le serveur gratuit peut demander environ une minute pour se réveiller après une période d’inactivité.</p>
     </section>
-    <section class="preview-panel"><div class="preview-head"><div><p class="eyebrow">Modèle architectural</p><h2>BuildingModel</h2></div><span id="validity">En attente</span></div><pre id="json-preview">Remplissez le formulaire puis cliquez sur « Prévisualiser les données ».</pre></section>
+    <section class="preview-panel"><div class="preview-head"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2>Maison comprise par BrickHouse</h2></div><span id="validity">En attente</span></div><pre id="json-preview">Remplissez le formulaire puis cliquez sur « Prévisualiser les données ».</pre></section>
   </main>
   <script type="module" src="./configurator.js"></script>
 </body>
