@@ -1,5 +1,5 @@
-from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES, choose_window_assembly, _to_global
-from brickhouse.building.models import Facade
+from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES, choose_window_assembly, choose_window_layout, _to_global
+from brickhouse.building.models import Facade, WindowStyle
 
 
 def test_validated_window_families_are_explicit_and_unique():
@@ -14,6 +14,18 @@ def test_choose_window_assembly_requires_exact_fit():
     assert choose_window_assembly(4, 3).frame_part_id == "WINDOW_1X4X3_60594"
     assert choose_window_assembly(3, 3) is None
     assert choose_window_assembly(4, 2) is None
+
+
+def test_style_layout_is_faithful_instead_of_merely_dimensionally_possible():
+    simple = choose_window_layout(WindowStyle.SIMPLE, 4, 3)
+    assert len(simple) == 1 and simple[0][0].frame_part_id == "WINDOW_1X4X3_60594"
+    paired = choose_window_layout(WindowStyle.PAIRED, 4, 3)
+    assert [offset for _, offset in paired] == [0, 2]
+    assert all(a.frame_part_id == "WINDOW_1X2X3_60593" for a, _ in paired)
+    assert choose_window_layout(WindowStyle.FOUR_PANE, 4, 3) == ()
+    assert choose_window_layout(WindowStyle.BAY, 4, 3) == ()
+    assert choose_window_layout(WindowStyle.TRADITIONAL_TALL, 2, 2) == ()
+    assert choose_window_layout(WindowStyle.TRADITIONAL_TALL, 2, 3)
 
 
 def test_window_global_mapping_runs_long_axis_along_each_facade():
