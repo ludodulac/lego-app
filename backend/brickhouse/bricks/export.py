@@ -15,6 +15,7 @@ class BrickExportMetadata(BaseModel):
     generator: Literal["brickhouse-engine"] = "brickhouse-engine"
     coordinate_system: Literal["stud-grid"] = "stud-grid"
     vertical_unit: Literal["plate"] = "plate"
+    engine_revision: str | None = None
 
 
 class BrickExportBundle(BaseModel):
