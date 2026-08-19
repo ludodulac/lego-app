@@ -29,3 +29,9 @@ Ce fichier conserve les décisions structurantes afin que les humains et les age
 ## ADR-007 — Les scripts historiques sont conservés mais non officiels
 
 **Décision :** `scripts/build_database.py`, `scripts/build_master_catalog.py` et `scripts/normalize_types.py` sont des travaux exploratoires utiles. Ils restent dans le dépôt, mais ne sont pas encore la chaîne de génération officielle et devront être révisés avant réutilisation.
+
+## ADR-008 — L'échelle du modèle préserve les proportions physiques de la grille
+
+**Décision :** la géométrie réelle reste exprimée en mètres. La maquette choisit une échelle en tenons par mètre, puis la hauteur est dérivée avec la proportion physique de la grille (8 mm par tenon horizontal, 9,6 mm par rangée de brique standard). Les ouvertures sont quantifiées dans la même échelle ; elles ne sont pas redimensionnées indépendamment.
+
+**Conséquence :** un bâtiment complet devra utiliser une échelle globale partagée par toutes ses façades. Le choix d'une largeur cible par mur dans BH-008 est une primitive de validation, pas le mécanisme final de génération bâtiment.
