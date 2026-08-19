@@ -4,80 +4,40 @@
   background: #0b1020;
   color: #f4f7fb;
 }
-
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body { min-height: 100vh; background: radial-gradient(circle at top left, #17233f, #0b1020 55%); }
-button, .file-button { font: inherit; }
-
-.app-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(260px, 340px) 1fr;
-}
-
-.panel {
-  padding: 28px;
-  border-right: 1px solid rgba(255,255,255,.09);
-  background: rgba(8, 13, 27, .82);
-  backdrop-filter: blur(18px);
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
+button, .file-button, input { font: inherit; }
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(260px, 340px) 1fr; }
+.panel { padding: 28px; border-right: 1px solid rgba(255,255,255,.09); background: rgba(8,13,27,.82); backdrop-filter: blur(18px); display: flex; flex-direction: column; gap: 24px; }
 .eyebrow { margin: 0 0 8px; text-transform: uppercase; letter-spacing: .15em; font-size: 12px; opacity: .65; }
 h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); line-height: 1; }
 h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .08em; opacity: .72; }
 .intro { margin: 14px 0 0; line-height: 1.55; opacity: .72; }
-
 .controls { display: grid; gap: 10px; }
-button, .file-button {
-  border: 1px solid rgba(255,255,255,.13);
-  border-radius: 12px;
-  padding: 11px 14px;
-  background: rgba(255,255,255,.07);
-  color: inherit;
-  cursor: pointer;
-  text-align: center;
-  transition: transform .15s ease, background .15s ease;
-}
+button, .file-button { border: 1px solid rgba(255,255,255,.13); border-radius: 12px; padding: 11px 14px; background: rgba(255,255,255,.07); color: inherit; cursor: pointer; text-align: center; transition: transform .15s ease, background .15s ease; }
 button:hover, .file-button:hover { background: rgba(255,255,255,.12); transform: translateY(-1px); }
+button:disabled { opacity: .4; cursor: default; transform: none; }
 #file-input { display: none; }
-
-.status-card, .legend {
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 16px;
-  padding: 16px;
-  background: rgba(255,255,255,.035);
-}
+.status-card, .legend { border: 1px solid rgba(255,255,255,.09); border-radius: 16px; padding: 16px; background: rgba(255,255,255,.035); }
 dl { margin: 0; display: grid; gap: 9px; }
 dl div { display: flex; justify-content: space-between; gap: 12px; }
 dt { opacity: .58; }
 dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .legend p { margin: 8px 0; display: flex; align-items: center; gap: 9px; opacity: .78; }
 .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.swatch.wall { background: #d6c5a3; }
-.swatch.roof { background: #b25d52; }
-.swatch.ridge { background: #e8a76b; }
+.swatch.wall { background: #d6c5a3; }.swatch.roof { background: #b25d52; }.swatch.ridge { background: #e8a76b; }
 .message { min-height: 1.3em; margin: 0; font-size: 13px; color: #ffcf7d; line-height: 1.45; }
-
+.assembly-card { display: grid; gap: 12px; }
+.assembly-card[hidden] { display: none; }
+.assembly-header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.assembly-header strong { font-size: 14px; line-height: 1.35; }
+.assembly-header span { opacity: .62; font-size: 12px; white-space: nowrap; }
+#assembly-range { width: 100%; accent-color: #e8a76b; }
+.assembly-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .viewer-wrap { position: relative; min-width: 0; min-height: 100vh; overflow: hidden; }
 #viewer { width: 100%; height: 100%; display: block; outline: none; }
-.viewer-hint {
-  position: absolute;
-  left: 50%; bottom: 20px;
-  transform: translateX(-50%);
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(7,11,22,.68);
-  border: 1px solid rgba(255,255,255,.08);
-  font-size: 12px;
-  white-space: nowrap;
-  opacity: .7;
-  pointer-events: none;
-}
-
+.viewer-hint { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: rgba(7,11,22,.68); border: 1px solid rgba(255,255,255,.08); font-size: 12px; white-space: nowrap; opacity: .7; pointer-events: none; }
 @media (max-width: 760px) {
   .app-shell { grid-template-columns: 1fr; grid-template-rows: auto minmax(58vh, 1fr); }
   .panel { padding: 18px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.09); gap: 16px; }
