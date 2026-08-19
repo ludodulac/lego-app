@@ -1,0 +1,59 @@
+{
+  "schema_version": "0.1",
+  "building_id": "viewer-demo-house",
+  "volume_id": "main",
+  "metadata": {
+    "generator": "brickhouse-engine",
+    "coordinate_system": "stud-grid",
+    "vertical_unit": "plate"
+  },
+  "brick_model": {
+    "schema_version": "0.1",
+    "building_id": "viewer-demo-house",
+    "volume_id": "main",
+    "width_studs": 12,
+    "depth_studs": 8,
+    "height_plates": 15,
+    "parts": [
+      {"placement_id":"wall-000001","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":0,"z_plates":0,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000002","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":0,"z_plates":0,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000003","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":7,"z_plates":0,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000004","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":7,"z_plates":0,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000005","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":1,"z_plates":0,"rotation_quarter_turns":0,"facade":"left"},
+      {"placement_id":"wall-000006","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":11,"y_studs":1,"z_plates":0,"rotation_quarter_turns":0,"facade":"right"},
+      {"placement_id":"wall-000007","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":0,"z_plates":3,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000008","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":0,"z_plates":3,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000009","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":7,"z_plates":3,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000010","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":7,"z_plates":3,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000011","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":1,"z_plates":3,"rotation_quarter_turns":0,"facade":"left"},
+      {"placement_id":"wall-000012","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":11,"y_studs":1,"z_plates":3,"rotation_quarter_turns":0,"facade":"right"},
+      {"placement_id":"wall-000013","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":0,"z_plates":6,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000014","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":0,"z_plates":6,"rotation_quarter_turns":1,"facade":"front"},
+      {"placement_id":"wall-000015","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":7,"z_plates":6,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000016","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":6,"y_studs":7,"z_plates":6,"rotation_quarter_turns":1,"facade":"rear"},
+      {"placement_id":"wall-000017","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":0,"y_studs":1,"z_plates":6,"rotation_quarter_turns":0,"facade":"left"},
+      {"placement_id":"wall-000018","part_id":"BRICK_1X6","category":"brick","component":"wall","x_studs":11,"y_studs":1,"z_plates":6,"rotation_quarter_turns":0,"facade":"right"},
+      {"placement_id":"roof-000001","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":1,"y_studs":0,"z_plates":10,"rotation_quarter_turns":0,"roof_side":"negative"},
+      {"placement_id":"roof-000002","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":2,"y_studs":0,"z_plates":11,"rotation_quarter_turns":0,"roof_side":"negative"},
+      {"placement_id":"roof-000003","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":3,"y_studs":0,"z_plates":12,"rotation_quarter_turns":0,"roof_side":"negative"},
+      {"placement_id":"roof-000004","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":4,"y_studs":0,"z_plates":13,"rotation_quarter_turns":0,"roof_side":"negative"},
+      {"placement_id":"roof-000005","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":7,"y_studs":0,"z_plates":13,"rotation_quarter_turns":0,"roof_side":"positive"},
+      {"placement_id":"roof-000006","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":8,"y_studs":0,"z_plates":12,"rotation_quarter_turns":0,"roof_side":"positive"},
+      {"placement_id":"roof-000007","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":9,"y_studs":0,"z_plates":11,"rotation_quarter_turns":0,"roof_side":"positive"},
+      {"placement_id":"roof-000008","part_id":"ROOF_TILE_1X8","category":"roof_tile","component":"roof","x_studs":10,"y_studs":0,"z_plates":10,"rotation_quarter_turns":0,"roof_side":"positive"},
+      {"placement_id":"roof-000009","part_id":"RIDGE_TILE_1X8","category":"ridge_tile","component":"roof","x_studs":5,"y_studs":0,"z_plates":14,"rotation_quarter_turns":0,"roof_side":"ridge"}
+    ]
+  },
+  "bom": {
+    "schema_version": "0.1",
+    "building_id": "viewer-demo-house",
+    "volume_id": "main",
+    "total_parts": 27,
+    "unique_part_types": 3,
+    "lines": [
+      {"part_id":"BRICK_1X6","category":"brick","quantity":18},
+      {"part_id":"RIDGE_TILE_1X8","category":"ridge_tile","quantity":1},
+      {"part_id":"ROOF_TILE_1X8","category":"roof_tile","quantity":8}
+    ]
+  }
+}
