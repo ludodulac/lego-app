@@ -7,7 +7,7 @@ body { margin: 0; }
 .document { width: min(900px, calc(100% - 28px)); margin: 28px auto 60px; }
 .cover, .step-card { background: #fff; border-radius: 18px; box-shadow: 0 12px 36px rgba(29,41,57,.08); padding: 28px; margin-bottom: 20px; }
 .cover { min-height: 320px; display: flex; flex-direction: column; justify-content: center; }
-.eyebrow { text-transform: uppercase; letter-spacing: .16em; font-size: 12px; color: #667085; margin: 0 0 10px; }
+.eyebrow, .step-kicker { text-transform: uppercase; letter-spacing: .16em; font-size: 12px; color: #667085; margin: 0 0 10px; }
 h1 { font-size: clamp(38px, 7vw, 68px); margin: 0; line-height: .95; }
 #instruction-subtitle { color: #667085; font-size: 18px; }
 dl { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 24px 0 0; }
@@ -15,24 +15,19 @@ dl div { background: #f7f9fc; border-radius: 12px; padding: 14px; }
 dt { color: #667085; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 dd { margin: 5px 0 0; font-weight: 700; }
 .steps { display: grid; gap: 20px; }
-.step-card { break-inside: avoid; page-break-inside: avoid; }
-.step-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; border-bottom: 1px solid #eaecf0; padding-bottom: 14px; margin-bottom: 18px; }
-.step-heading h2 { margin: 0; font-size: 24px; }
-.step-heading span { color: #667085; font-size: 13px; }
+.step-card { break-inside: avoid; page-break-inside: avoid; border-top: 5px solid #e5a15f; }
+.step-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; border-bottom: 1px solid #eaecf0; padding-bottom: 14px; margin-bottom: 14px; }
+.step-heading h2 { margin: 0; font-size: 28px; }
+.step-heading span { color: #667085; font-size: 13px; text-align: right; }
+.step-callout { padding: 12px 14px; margin-bottom: 16px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 13px; font-weight: 650; }
 .part-list { display: grid; gap: 9px; }
-.part-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; padding: 10px 12px; background: #f8fafc; border-radius: 10px; }
+.part-row { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 10px; }
+.part-swatch { width: 14px; height: 14px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.part-swatch.brick { background: #d8c7a4; }.part-swatch.roof_tile { background: #b9564b; }.part-swatch.ridge_tile { background: #e5a15f; }
 .part-id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .quantity { font-weight: 800; }
 .message { color: #b42318; font-weight: 600; }
 .cumulative { margin-top: 16px; color: #667085; font-size: 13px; }
-@media (max-width: 700px) { .document { width: min(100% - 16px, 900px); margin-top: 12px; } .cover, .step-card { border-radius: 12px; padding: 18px; } dl { grid-template-columns: 1fr 1fr; } }
-@media print {
-  :root { background: white; }
-  body { background: white; }
-  .no-print { display: none !important; }
-  .document { width: auto; margin: 0; }
-  .cover, .step-card { box-shadow: none; border: 0; border-radius: 0; margin: 0; padding: 14mm 12mm; }
-  .cover { min-height: 95vh; page-break-after: always; }
-  .step-card { page-break-after: always; }
-  .step-card:last-child { page-break-after: auto; }
-}
+.cumulative strong { color: #172033; }
+@media (max-width: 700px) { .document { width: min(100% - 16px, 900px); margin-top: 12px; } .cover, .step-card { border-radius: 12px; padding: 18px; } dl { grid-template-columns: 1fr 1fr; } .step-heading { align-items: flex-start; flex-direction: column; } .step-heading span { text-align: left; } }
+@media print { :root, body { background: white; } .no-print { display: none !important; } .document { width: auto; margin: 0; } .cover, .step-card { box-shadow: none; border-radius: 0; margin: 0; padding: 14mm 12mm; } .cover { border: 0; min-height: 95vh; page-break-after: always; } .step-card { border-top: 4px solid #e5a15f; page-break-after: always; } .step-card:last-child { page-break-after: auto; } }
