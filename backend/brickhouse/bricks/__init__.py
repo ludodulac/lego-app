@@ -1,5 +1,7 @@
 """Canonical brick definitions used by the BrickHouse engine."""
 
+from brickhouse.bricks.bom import BillOfMaterials, BOMLine, generate_bom
+from brickhouse.bricks.brick_model import BrickModel, BrickModelPart, generate_brick_model
 from brickhouse.bricks.building_layout import (
     BuildingBrickShell,
     BuildingWallLayout,
@@ -35,8 +37,12 @@ from brickhouse.bricks.spatial import (
 )
 
 __all__ = [
+    "BOMLine",
+    "BillOfMaterials",
     "BrickCatalog",
     "BrickDefinition",
+    "BrickModel",
+    "BrickModelPart",
     "BrickPlacement",
     "BuildingBrickShell",
     "BuildingWallLayout",
@@ -53,6 +59,8 @@ __all__ = [
     "create_m0_roof_catalog",
     "discretize_wall_geometry",
     "discretize_wall_geometry_at_scale",
+    "generate_bom",
+    "generate_brick_model",
     "generate_building_brick_shell",
     "generate_scaled_wall_layout",
     "generate_simple_wall_layout",
