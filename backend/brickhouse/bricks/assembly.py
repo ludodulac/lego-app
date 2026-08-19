@@ -40,28 +40,58 @@ class AssemblyPlan(BaseModel):
         return self
 
 
+def _phase_for_part(part) -> str:
+    if part.component == "wall":
+        return "wall"
+    if part.component == "roof":
+        return "roof"
+    if part.category == "window_frame":
+        return "window_frame"
+    if part.category == "window_pane":
+        return "window_pane"
+    return "facade_detail"
+
+
 def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
-    """Generate a simple bottom-up M0 plan covering every placement exactly once."""
+    """Generate a bottom-up plan with physically sensible window sequencing.
+
+    Real window frames are placed before their panes. Other facade details remain
+    separate, so the printable instructions never ask the builder to insert a
+    pane before the supporting frame exists.
+    """
     groups: dict[tuple[str, int], list[str]] = defaultdict(list)
     for part in model.parts:
-        groups[(part.component, part.z_plates)].append(part.placement_id)
+        groups[(_phase_for_part(part), part.z_plates)].append(part.placement_id)
 
     ordered_groups: list[tuple[str, int]] = []
-    for component in ("wall", "facade_detail", "roof"):
-        z_values = sorted(z for (kind, z) in groups if kind == component)
-        ordered_groups.extend((component, z) for z in z_values)
+    for phase in ("wall", "window_frame", "window_pane", "facade_detail", "roof"):
+        z_values = sorted(z for (kind, z) in groups if kind == phase)
+        ordered_groups.extend((phase, z) for z in z_values)
 
-    labels = {"wall": "Murs", "facade_detail": "Fenêtres et détails", "roof": "Toiture"}
+    labels = {
+        "wall": "Murs",
+        "window_frame": "Cadres de fenêtres",
+        "window_pane": "Vitrages",
+        "facade_detail": "Détails de façade",
+        "roof": "Toiture",
+    }
+    components: dict[str, PartComponent] = {
+        "wall": "wall",
+        "window_frame": "facade_detail",
+        "window_pane": "facade_detail",
+        "facade_detail": "facade_detail",
+        "roof": "roof",
+    }
     steps: list[AssemblyStep] = []
-    for sequence, (component, z_plates) in enumerate(ordered_groups, start=1):
-        placement_ids = sorted(groups[(component, z_plates)])
+    for sequence, (phase, z_plates) in enumerate(ordered_groups, start=1):
+        placement_ids = sorted(groups[(phase, z_plates)])
         steps.append(
             AssemblyStep(
                 step_id=f"step-{sequence:04d}",
                 sequence=sequence,
-                component=component,
+                component=components[phase],
                 z_plates=z_plates,
-                title=f"{labels[component]} — niveau {z_plates} plates",
+                title=f"{labels[phase]} — niveau {z_plates} plates",
                 placement_ids=placement_ids,
             )
         )
