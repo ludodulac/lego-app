@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "brickhouse-ai"
 version = "0.1.0"
@@ -14,6 +18,13 @@ dev = [
 
 [project.scripts]
 brickhouse-m0 = "brickhouse.pipeline:main"
+
+[tool.setuptools]
+package-dir = {"" = "backend"}
+
+[tool.setuptools.packages.find]
+where = ["backend"]
+include = ["brickhouse*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
