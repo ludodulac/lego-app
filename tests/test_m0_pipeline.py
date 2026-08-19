@@ -9,6 +9,10 @@ from brickhouse.pipeline import run_m0_pipeline, write_m0_export
 REFERENCE_HOUSE = Path("docs/examples/building-model-simple-house.json")
 
 
+def _brick_span(part_id: str) -> int:
+    return int(part_id.rsplit("X", 1)[-1])
+
+
 def test_reference_house_runs_end_to_end():
     bundle = run_m0_pipeline(REFERENCE_HOUSE, front_width_studs=48)
 
@@ -29,12 +33,17 @@ def test_reference_house_closes_both_gable_ends():
     assert gables
     assert {part.facade.value for part in gables} == {"front", "rear"}
     assert all(part.component == "wall" and part.category == "brick" for part in gables)
-    assert all(part.part_id == "BRICK_1X1" for part in gables)
+    assert any(part.part_id != "BRICK_1X1" for part in gables)
+    assert {part.y_studs for part in gables if part.facade.value == "front"} == {0}
+    assert {part.y_studs for part in gables if part.facade.value == "rear"} == {bundle.brick_model.depth_studs - 1}
     front_levels = sorted({part.z_plates for part in gables if part.facade.value == "front"})
     rear_levels = sorted({part.z_plates for part in gables if part.facade.value == "rear"})
     assert front_levels == rear_levels
     assert len(front_levels) > 1
-    widths_by_level = [sum(1 for part in gables if part.facade.value == "front" and part.z_plates == level) for level in front_levels]
+    widths_by_level = [
+        sum(_brick_span(part.part_id) for part in gables if part.facade.value == "front" and part.z_plates == level)
+        for level in front_levels
+    ]
     assert widths_by_level == sorted(widths_by_level, reverse=True)
     assert widths_by_level[-1] < widths_by_level[0]
 
