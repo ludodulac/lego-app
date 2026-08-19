@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building.models import Facade
 
+from .facade_details import FacadeDetailPlacement
 from .roof import SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 
@@ -76,13 +77,19 @@ def _roof_category(part_id: str, side: str) -> Literal["roof_tile", "ridge_tile"
     return expected
 
 
-def generate_brick_model(shell: SpatialBrickShell, roof: SpatialRoof) -> BrickModel:
-    """Merge spatial walls and support-aware roof into the canonical BrickModel."""
+def generate_brick_model(
+    shell: SpatialBrickShell,
+    roof: SpatialRoof,
+    facade_details: list[FacadeDetailPlacement] | None = None,
+) -> BrickModel:
+    """Merge spatial walls, facade details and support-aware roof into BrickModel."""
     if shell.building_id != roof.building_id:
         raise ValueError("spatial shell and roof must reference the same building")
     parts: list[BrickModelPart] = []
     for index, placement in enumerate(shell.placements, start=1):
         parts.append(BrickModelPart(placement_id=f"wall-{index:06d}", part_id=placement.brick_id, category="brick", component="wall", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade))
+    for index, placement in enumerate(facade_details or [], start=1):
+        parts.append(BrickModelPart(placement_id=f"detail-{index:06d}", part_id=placement.part_id, category=placement.category, component="facade_detail", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade))
     for index, placement in enumerate(roof.placements, start=1):
         parts.append(BrickModelPart(placement_id=f"roof-{index:06d}", part_id=placement.part_id, category=_roof_category(placement.part_id, placement.side), component="roof", x_studs=placement.x_studs, y_studs=placement.y_studs, z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns, roof_side=placement.side))
     wall_top = shell.height_bricks * 3
