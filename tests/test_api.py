@@ -31,9 +31,15 @@ def _analysis_result() -> PhotoAnalysisResult:
 
 def test_health_endpoint(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "brickhouse-engine", "vision_enabled": False}
+    assert response.json() == {"status": "ok", "service": "brickhouse-engine", "vision_enabled": False, "engine_revision": "local"}
+
+
+def test_health_reports_render_revision(monkeypatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc123")
+    assert client.get("/health").json()["engine_revision"] == "abc123"
 
 
 def test_health_reports_vision_when_key_is_configured(monkeypatch):
@@ -41,12 +47,14 @@ def test_health_reports_vision_when_key_is_configured(monkeypatch):
     assert client.get("/health").json()["vision_enabled"] is True
 
 
-def test_build_endpoint_returns_canonical_export():
+def test_build_endpoint_returns_canonical_export(monkeypatch):
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "test-revision")
     response = client.post("/api/v1/build", json={"building": _reference_building(), "front_width_studs": 48})
     assert response.status_code == 200
     payload = response.json()
     assert payload["schema_version"] == "0.1"
     assert payload["building_id"] == "building_simple_house_001"
+    assert payload["metadata"]["engine_revision"] == "test-revision"
     assert payload["bom"]["total_parts"] == len(payload["brick_model"]["parts"])
     assert payload["assembly_plan"]["total_parts"] == payload["bom"]["total_parts"]
     assert any(part["part_id"].startswith("BRICK_SLOPED_33_") for part in payload["brick_model"]["parts"])
