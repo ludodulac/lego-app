@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from .assembly import AssemblyPlan
 from .bom import BillOfMaterials
 from .brick_model import BrickModel
 
@@ -23,6 +24,7 @@ class BrickExportBundle(BaseModel):
     metadata: BrickExportMetadata = BrickExportMetadata()
     brick_model: BrickModel
     bom: BillOfMaterials
+    assembly_plan: AssemblyPlan | None = None
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "BrickExportBundle":
@@ -36,16 +38,28 @@ class BrickExportBundle(BaseModel):
             raise ValueError("BOM volume_id does not match export volume_id")
         if self.bom.total_parts != len(self.brick_model.parts):
             raise ValueError("BOM total_parts does not match BrickModel part count")
+        if self.assembly_plan is not None:
+            if self.assembly_plan.building_id != self.building_id:
+                raise ValueError("AssemblyPlan building_id does not match export building_id")
+            if self.assembly_plan.volume_id != self.volume_id:
+                raise ValueError("AssemblyPlan volume_id does not match export volume_id")
+            if self.assembly_plan.total_parts != len(self.brick_model.parts):
+                raise ValueError("AssemblyPlan total_parts does not match BrickModel part count")
         return self
 
 
-def create_export_bundle(model: BrickModel, bom: BillOfMaterials) -> BrickExportBundle:
-    """Create the viewer/export bundle from one BrickModel and its BOM."""
+def create_export_bundle(
+    model: BrickModel,
+    bom: BillOfMaterials,
+    assembly_plan: AssemblyPlan | None = None,
+) -> BrickExportBundle:
+    """Create the viewer/export bundle from one BrickModel, BOM and optional assembly plan."""
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
         brick_model=model,
         bom=bom,
+        assembly_plan=assembly_plan,
     )
 
 
