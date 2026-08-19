@@ -18,29 +18,44 @@ const assemblyNext = document.querySelector('#assembly-next');
 const assemblyFull = document.querySelector('#assembly-full');
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0e1528);
+scene.background = new THREE.Color(0x101827);
+scene.fog = new THREE.Fog(0x101827, 65, 150);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.screenSpacePanning = true;
-scene.add(new THREE.HemisphereLight(0xffffff, 0x25324a, 2.2));
-const keyLight = new THREE.DirectionalLight(0xffffff, 2.8);
-keyLight.position.set(10, 18, 12);
+scene.add(new THREE.HemisphereLight(0xdcecff, 0x20283a, 2.35));
+const keyLight = new THREE.DirectionalLight(0xfff4df, 3.1);
+keyLight.position.set(18, 28, 16);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -55; keyLight.shadow.camera.right = 55;
+keyLight.shadow.camera.top = 55; keyLight.shadow.camera.bottom = -55;
 scene.add(keyLight);
-const ground = new THREE.GridHelper(80, 80, 0x506080, 0x26324a);
+const fillLight = new THREE.DirectionalLight(0x9ec5ff, 0.75);
+fillLight.position.set(-14, 10, -18);
+scene.add(fillLight);
+const ground = new THREE.GridHelper(80, 80, 0x53627c, 0x27344b);
 ground.position.y = -0.01;
 scene.add(ground);
 const modelGroup = new THREE.Group();
 scene.add(modelGroup);
 
-const materials = {
-  brick: new THREE.MeshStandardMaterial({ color: 0xd6c5a3, roughness: 0.78, metalness: 0.02 }),
-  roof_tile: new THREE.MeshStandardMaterial({ color: 0xb25d52, roughness: 0.72, metalness: 0.02 }),
-  ridge_tile: new THREE.MeshStandardMaterial({ color: 0xe8a76b, roughness: 0.68, metalness: 0.02 }),
-};
+const palette = { brick: 0xd8c7a4, roof_tile: 0xb9564b, ridge_tile: 0xe5a15f };
+const materials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.01 })]));
+const fadedMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, transparent: true, opacity: 0.32, depthWrite: false })]));
+const highlightMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.34, metalness: 0.02, emissive: color, emissiveIntensity: 0.18 })]));
+const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x171b24, transparent: true, opacity: 0.34 });
+const studGeometry = new THREE.CylinderGeometry(0.30, 0.30, 0.15, 14);
+const studDetailEnabled = !window.matchMedia('(max-width: 760px)').matches;
 
 let lastBundle = null;
 let meshByPlacementId = new Map();
@@ -66,16 +81,39 @@ function validateBundle(bundle) {
     if (bundle.assembly_plan.total_parts !== bundle.brick_model.parts.length) throw new Error('AssemblyPlan incomplet.');
   }
 }
-function clearModel() { while (modelGroup.children.length) { const child = modelGroup.children.pop(); child.geometry?.dispose(); } meshByPlacementId = new Map(); }
+function clearModel() { while (modelGroup.children.length) modelGroup.remove(modelGroup.children[0]); meshByPlacementId = new Map(); }
+function materialFor(part, state = 'normal') {
+  const key = palette[part.category] ? part.category : 'brick';
+  return state === 'current' ? highlightMaterials[key] : state === 'previous' ? fadedMaterials[key] : materials[key];
+}
+function setPartState(group, state) {
+  group.visible = state !== 'hidden';
+  if (!group.visible) return;
+  group.userData.state = state;
+  const material = materialFor(group.userData.part, state);
+  group.traverse((child) => { if (child.isMesh) child.material = material; });
+}
 function makePartMesh(part) {
   const { width, length, heightPlates } = parseCanonicalDimensions(part);
   const height = heightPlates * PLATE_WORLD_HEIGHT;
+  const group = new THREE.Group();
+  group.userData = { part, state: 'normal' };
   const geometry = new THREE.BoxGeometry(width * 0.96, height * 0.92, length * 0.96);
-  const mesh = new THREE.Mesh(geometry, materials[part.category] ?? materials.brick);
-  mesh.position.set(part.x_studs + width / 2, part.z_plates * PLATE_WORLD_HEIGHT + height / 2, part.y_studs + length / 2);
-  mesh.userData = part;
-  mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: 0x151922, transparent: true, opacity: 0.45 })));
-  return mesh;
+  const body = new THREE.Mesh(geometry, materialFor(part));
+  body.castShadow = true; body.receiveShadow = true;
+  body.add(new THREE.LineSegments(new THREE.EdgesGeometry(geometry), edgeMaterial));
+  group.add(body);
+  const addStuds = part.category === 'brick' && (studDetailEnabled || width * length <= 4);
+  if (addStuds) {
+    for (let x = 0; x < width; x += 1) for (let z = 0; z < length; z += 1) {
+      const stud = new THREE.Mesh(studGeometry, materialFor(part));
+      stud.position.set(x - (width - 1) / 2, height * 0.46 + 0.07, z - (length - 1) / 2);
+      stud.castShadow = true;
+      group.add(stud);
+    }
+  }
+  group.position.set(part.x_studs + width / 2, part.z_plates * PLATE_WORLD_HEIGHT + height / 2, part.y_studs + length / 2);
+  return group;
 }
 function updateSummary(bundle) {
   const model = bundle.brick_model;
@@ -91,20 +129,21 @@ function frameModel() {
 }
 function configureAssembly(bundle) {
   const plan = bundle.assembly_plan;
-  if (!plan || !plan.steps?.length) { assemblyCard.hidden = true; currentAssemblyStep = null; for (const mesh of meshByPlacementId.values()) mesh.visible = true; return; }
+  if (!plan || !plan.steps?.length) { assemblyCard.hidden = true; currentAssemblyStep = null; for (const mesh of meshByPlacementId.values()) setPartState(mesh, 'normal'); return; }
   assemblyCard.hidden = false; assemblyRange.min = '0'; assemblyRange.max = String(plan.steps.length - 1); showAssemblyStep(0);
 }
 function showAssemblyStep(index) {
   const plan = lastBundle?.assembly_plan; if (!plan?.steps?.length) return;
   const clamped = Math.max(0, Math.min(index, plan.steps.length - 1)); currentAssemblyStep = clamped; assemblyRange.value = String(clamped);
-  const visibleIds = new Set(); let cumulative = 0;
-  for (let i = 0; i <= clamped; i += 1) { for (const id of plan.steps[i].placement_ids) visibleIds.add(id); cumulative += plan.steps[i].placement_ids.length; }
-  for (const [id, mesh] of meshByPlacementId) mesh.visible = visibleIds.has(id);
-  const step = plan.steps[clamped]; assemblyTitle.textContent = step.title; assemblyProgress.textContent = `Étape ${step.sequence}/${plan.total_steps} · ${cumulative}/${plan.total_parts} pièces`;
+  const previousIds = new Set(); let cumulative = 0;
+  for (let i = 0; i < clamped; i += 1) { for (const id of plan.steps[i].placement_ids) previousIds.add(id); cumulative += plan.steps[i].placement_ids.length; }
+  const step = plan.steps[clamped]; const currentIds = new Set(step.placement_ids); cumulative += currentIds.size;
+  for (const [id, mesh] of meshByPlacementId) setPartState(mesh, currentIds.has(id) ? 'current' : previousIds.has(id) ? 'previous' : 'hidden');
+  assemblyTitle.textContent = step.title; assemblyProgress.textContent = `Étape ${step.sequence}/${plan.total_steps} · +${step.placement_ids.length} · ${cumulative}/${plan.total_parts} pièces`;
   assemblyPrev.disabled = clamped === 0; assemblyNext.disabled = clamped === plan.steps.length - 1;
 }
 function showFullModel() {
-  for (const mesh of meshByPlacementId.values()) mesh.visible = true; currentAssemblyStep = null;
+  for (const mesh of meshByPlacementId.values()) setPartState(mesh, 'normal'); currentAssemblyStep = null;
   const plan = lastBundle?.assembly_plan; assemblyTitle.textContent = 'Modèle complet'; assemblyProgress.textContent = plan ? `${plan.total_parts} pièces` : '';
   assemblyPrev.disabled = false; assemblyNext.disabled = false;
 }
