@@ -26,14 +26,14 @@ dt { opacity: .58; }
 dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .legend p { margin: 8px 0; display: flex; align-items: center; gap: 9px; opacity: .78; }
 .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.swatch.wall { background: #d6c5a3; }.swatch.roof { background: #b25d52; }.swatch.ridge { background: #e8a76b; }
+.swatch.wall { background: #d8c7a4; }.swatch.roof { background: #b9564b; }.swatch.ridge { background: #e5a15f; }
 .message { min-height: 1.3em; margin: 0; font-size: 13px; color: #ffcf7d; line-height: 1.45; }
 .assembly-card { display: grid; gap: 12px; }
 .assembly-card[hidden] { display: none; }
 .assembly-header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .assembly-header strong { font-size: 14px; line-height: 1.35; }
-.assembly-header span { opacity: .62; font-size: 12px; white-space: nowrap; }
-#assembly-range { width: 100%; accent-color: #e8a76b; }
+.assembly-header span { opacity: .72; font-size: 12px; white-space: nowrap; color: #ffd08a; }
+#assembly-range { width: 100%; accent-color: #e5a15f; }
 .assembly-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .viewer-wrap { position: relative; min-width: 0; min-height: 100vh; overflow: hidden; }
 #viewer { width: 100%; height: 100%; display: block; outline: none; }
