@@ -37,11 +37,23 @@ def _roof(building_id="house"):
 def test_brick_model_merges_wall_gable_and_roof_parts():
     model = generate_brick_model(_shell(), _roof())
     gables = [part for part in model.parts if part.placement_id.startswith("gable-")]
-    assert len(gables) == 16
-    assert len(model.parts) == 22
-    assert sum(part.component == "wall" for part in model.parts) == 19
+    assert gables
+    assert sum(part.component == "wall" for part in model.parts) == 3 + len(gables)
     assert sum(part.component == "roof" for part in model.parts) == 3
     assert model.height_plates == 10
+
+
+def test_gables_use_long_bricks_and_align_with_facade_planes():
+    model = generate_brick_model(_shell(), _roof())
+    gables = [part for part in model.parts if part.placement_id.startswith("gable-")]
+    assert any(part.part_id != "BRICK_1X1" for part in gables)
+    front = [part for part in gables if part.facade is Facade.FRONT]
+    rear = [part for part in gables if part.facade is Facade.REAR]
+    assert front and rear
+    assert {part.y_studs for part in front} == {0}
+    assert {part.y_studs for part in rear} == {7}
+    assert min(part.x_studs for part in front) >= 2
+    assert max(part.x_studs for part in front) <= 7
 
 
 def test_brick_model_generates_stable_unique_ids_and_metadata():
@@ -65,16 +77,16 @@ def test_brick_model_is_deterministic():
     assert generate_brick_model(_shell(), _roof()).model_dump(mode="json") == generate_brick_model(_shell(), _roof()).model_dump(mode="json")
 
 
-def test_bom_aggregates_canonical_parts_and_totals():
-    bom = generate_bom(generate_brick_model(_shell(), _roof()))
+def test_bom_aggregates_all_generated_parts_and_totals():
+    model = generate_brick_model(_shell(), _roof())
+    bom = generate_bom(model)
     quantities = {line.part_id: line.quantity for line in bom.lines}
-    assert quantities["BRICK_1X4"] == 2
-    assert quantities["BRICK_1X2"] == 1
-    assert quantities["BRICK_1X1"] == 16
+    assert quantities["BRICK_1X4"] >= 2
+    assert quantities["BRICK_1X2"] >= 1
     assert quantities["BRICK_SLOPED_45_2X4"] == 2
     assert quantities["TILE_2X2"] == 1
-    assert bom.total_parts == 22
-    assert bom.unique_part_types == 5
+    assert bom.total_parts == len(model.parts)
+    assert sum(quantities.values()) == len(model.parts)
 
 
 def test_bom_order_and_serialization_are_deterministic():
