@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from brickhouse.geometry.models import OpeningGeometry, Point3D, WallGeometry
 
-from .placement import WallBrickLayout, WallGridOpening, generate_wall_layout_with_openings
+from .placement import WallBrickLayout, WallOpeningGrid, generate_wall_layout_with_openings
 
 # Physical proportions of the canonical construction grid. A stud pitch is
 # 8 mm and one standard brick course (3 plates) is 9.6 mm, so a metric model
@@ -22,7 +22,7 @@ class WallGridSpec(BaseModel):
     height_bricks: int = Field(gt=0)
     studs_per_meter: float = Field(gt=0)
     courses_per_meter: float = Field(gt=0)
-    openings: list[WallGridOpening]
+    openings: list[WallOpeningGrid]
 
 
 def _round_half_up(value: float) -> int:
@@ -34,8 +34,6 @@ def _distance(a: Point3D, b: Point3D) -> float:
 
 
 def _wall_metric_size(wall: WallGeometry) -> tuple[float, float]:
-    if len(wall.corners) != 4:
-        raise ValueError("wall geometry must contain exactly four corners")
     width = _distance(wall.corners[0], wall.corners[1])
     height = abs(wall.corners[3].z - wall.corners[0].z)
     if width <= 0 or height <= 0:
@@ -69,18 +67,13 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
     courses_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO
     height_bricks = max(1, _round_half_up(height_m * courses_per_meter))
 
-    grid_openings: list[WallGridOpening] = []
+    grid_openings: list[WallOpeningGrid] = []
     for opening in wall.openings:
         x0_m, x1_m, z0_m, z1_m = _opening_local_bounds(wall, opening)
-        x0 = _round_half_up(x0_m * studs_per_meter)
-        x1 = _round_half_up(x1_m * studs_per_meter)
-        z0 = _round_half_up(z0_m * courses_per_meter)
-        z1 = _round_half_up(z1_m * courses_per_meter)
-
-        x0 = min(max(x0, 0), target_width_studs)
-        x1 = min(max(x1, 0), target_width_studs)
-        z0 = min(max(z0, 0), height_bricks)
-        z1 = min(max(z1, 0), height_bricks)
+        x0 = min(max(_round_half_up(x0_m * studs_per_meter), 0), target_width_studs)
+        x1 = min(max(_round_half_up(x1_m * studs_per_meter), 0), target_width_studs)
+        z0 = min(max(_round_half_up(z0_m * courses_per_meter), 0), height_bricks)
+        z1 = min(max(_round_half_up(z1_m * courses_per_meter), 0), height_bricks)
 
         if x1 <= x0 or z1 <= z0:
             raise ValueError(
@@ -88,7 +81,7 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
             )
 
         grid_openings.append(
-            WallGridOpening(
+            WallOpeningGrid(
                 id=opening.id,
                 x_studs=x0,
                 z_bricks=z0,
@@ -97,8 +90,7 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
             )
         )
 
-    # WallGridOpening placement validation also rejects overlapping openings.
-    return WallGridSpec(
+    spec = WallGridSpec(
         wall_id=wall.id,
         width_studs=target_width_studs,
         height_bricks=height_bricks,
@@ -106,6 +98,9 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
         courses_per_meter=courses_per_meter,
         openings=grid_openings,
     )
+    # Reuse BH-007 validation for bounds and opening overlaps after quantization.
+    generate_wall_layout_with_openings(spec.width_studs, spec.height_bricks, spec.openings)
+    return spec
 
 
 def generate_scaled_wall_layout(wall: WallGeometry, target_width_studs: int) -> WallBrickLayout:
