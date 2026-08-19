@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BrickHouse — Maquette 3D</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"}}</script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="panel">
+        <div><p class="eyebrow">BrickHouse</p><h1>Votre maquette</h1><p class="intro">Explorez le modèle 3D, parcourez le montage et récupérez la notice ou la liste des pièces.</p></div>
+        <section class="controls" aria-label="Navigation et contrôles du modèle">
+          <a class="file-button" href="./index.html">← Accueil BrickHouse</a>
+          <a class="file-button" href="./configurator.html">Créer une autre maison</a>
+          <label class="file-button" for="file-input">Ouvrir un export JSON</label><input id="file-input" type="file" accept="application/json,.json" />
+          <button id="reset-view" type="button">Recentrer la vue</button><button id="load-sample" type="button">Charger l’exemple</button>
+          <a class="file-button" href="./instructions.html">Ouvrir la notice</a><button id="download-bom" type="button">Télécharger la liste des pièces</button>
+        </section>
+        <section class="status-card"><h2>Maquette</h2><dl id="model-summary"><div><dt>Projet</dt><dd>—</dd></div><div><dt>Pièces</dt><dd>—</dd></div><div><dt>Types</dt><dd>—</dd></div><div><dt>Taille</dt><dd>—</dd></div></dl></section>
+        <section id="assembly-card" class="status-card assembly-card" hidden><h2>Montage</h2><div class="assembly-header"><strong id="assembly-title">—</strong><span id="assembly-progress">—</span></div><input id="assembly-range" type="range" min="0" max="0" value="0" step="1" /><div class="assembly-buttons"><button id="assembly-prev" type="button">← Précédent</button><button id="assembly-next" type="button">Suivant →</button></div><button id="assembly-full" type="button">Voir le modèle complet</button></section>
+        <section class="legend" aria-label="Légende"><h2>Légende</h2><p><span class="swatch wall"></span>Murs</p><p><span class="swatch roof"></span>Toiture</p><p><span class="swatch ridge"></span>Faîtage</p></section>
+        <p id="message" class="message" role="status"></p>
+      </aside>
+      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas><div class="viewer-hint">Glisser pour tourner · molette/pincer pour zoomer · clic droit pour déplacer</div></section>
+    </main>
+    <script type="module" src="./viewer.js"></script>
+  </body>
+</html>
