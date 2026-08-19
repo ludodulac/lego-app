@@ -7,20 +7,21 @@
   <link rel="stylesheet" href="./photo.css" />
 </head>
 <body>
-  <header class="topbar"><a href="./index.html">← Viewer 3D</a><strong>BrickHouse</strong><span>Analyse photo M0</span></header>
+  <header class="topbar"><a href="./index.html">← Viewer 3D</a><strong>BrickHouse</strong><a href="./configurator.html">Configurateur →</a></header>
   <main class="layout">
     <section class="panel">
       <p class="eyebrow">La promesse BrickHouse</p>
       <h1>Photographier la maison</h1>
-      <p class="intro">Ajoutez de 1 à 6 vues de la même maison. Face, côtés et arrière améliorent la reconstruction, mais ne sont pas obligatoires.</p>
+      <p class="intro">Ajoutez de 1 à 6 vues de la même maison. Face, côtés et arrière amélioreront la reconstruction. Le parcours est prêt, mais l’analyse IA réelle reste volontairement désactivée tant qu’aucun fournisseur de vision n’est configuré.</p>
+      <div class="result-card warning"><strong>Mode prototype gratuit</strong><p>Le moteur maison → briques est en ligne. L’analyse des photos sera activée séparément ; aucune dépense n’est engagée pour l’instant.</p></div>
       <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small>JPEG, PNG ou WebP · 6 photos maximum</small></div>
       <div id="photo-list" class="photo-list"></div>
       <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. Derrière le garage il n’y a pas de fenêtre."></textarea></div>
       <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel" /></div>
-      <div class="field"><label for="studs">Largeur souhaitée de la maquette (tenons)</label><input id="studs" type="number" min="16" max="160" step="2" value="48" /></div>
-      <div class="field"><label for="api-url">URL API BrickHouse</label><input id="api-url" type="url" placeholder="https://api.brickhouse..." /></div>
+      <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
+      <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
       <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger BuildingModel</button><button id="build-bricks" type="button" disabled>Construire avec cette estimation</button></div>
-      <p id="status" class="status"></p>
+      <p id="status" class="status">L’analyse photo indiquera clairement ce qui est observé, inféré ou incertain.</p>
     </section>
     <section class="result-panel">
       <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>
