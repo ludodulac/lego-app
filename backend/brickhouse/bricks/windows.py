@@ -34,11 +34,19 @@ def _to_global(facade:Facade,local_x:int,opening_width:int,z_bricks:int,width_st
     return 0,depth_studs-local_x-opening_width,z,0
 
 def choose_window_assembly(width_studs:int,height_bricks:int)->WindowAssemblyDefinition|None:
-    """Return a validated single assembly only for an exact raster fit."""
     return next((a for a in VALIDATED_WINDOW_ASSEMBLIES if a.width_studs==width_studs and a.height_bricks==height_bricks),None)
 
-def _assembly_for_part_width(width:int,height:int)->WindowAssemblyDefinition|None:
-    return choose_window_assembly(width,height)
+def choose_window_layout(style:WindowStyle,width_studs:int,height_bricks:int)->tuple[tuple[WindowAssemblyDefinition,int],...]:
+    """Choose a faithful validated layout, returning assemblies + local offsets."""
+    if style in {WindowStyle.FOUR_PANE,WindowStyle.BAY}:return ()
+    if style is WindowStyle.PAIRED:
+        if width_studs!=4:return ()
+        half=choose_window_assembly(2,height_bricks)
+        return ((half,0),(half,2)) if half else ()
+    assembly=choose_window_assembly(width_studs,height_bricks)
+    if not assembly:return ()
+    if style is WindowStyle.TRADITIONAL_TALL and height_bricks!=3:return ()
+    return ((assembly,0),)
 
 def _emit_pair(placements:list[WindowPartPlacement],assembly:WindowAssemblyDefinition,facade:Facade,local_x:int,z_bricks:int,front:int,depth:int)->None:
     x,y,z,rotation=_to_global(facade,local_x,assembly.width_studs,z_bricks,front,depth)
@@ -48,13 +56,6 @@ def _emit_pair(placements:list[WindowPartPlacement],assembly:WindowAssemblyDefin
     ))
 
 def generate_window_assemblies(building:BuildingModel,shell:BuildingBrickShell)->tuple[list[WindowPartPlacement],set[str]]:
-    """Emit only real assemblies that faithfully represent the requested style.
-
-    SIMPLE uses any validated exact single-window fit. TRADITIONAL_TALL requires
-    a 3-brick-high family. PAIRED uses two validated 2-stud windows side by side.
-    FOUR_PANE and BAY deliberately retain their masonry fallback until a genuine
-    compatible specialty family is validated.
-    """
     openings={o.id:o for o in building.openings}; walls={w.facade:w for w in shell.walls}
     front=walls[Facade.FRONT].grid.width_studs; depth=walls[Facade.RIGHT].grid.width_studs
     placements:list[WindowPartPlacement]=[]; fitted:set[str]=set()
@@ -63,17 +64,9 @@ def generate_window_assemblies(building:BuildingModel,shell:BuildingBrickShell)-
             opening=openings.get(raster.id)
             if not opening or opening.type is not OpeningType.WINDOW:continue
             style=opening.window_style or WindowStyle.SIMPLE
-            if style in {WindowStyle.FOUR_PANE,WindowStyle.BAY}:continue
-            if style is WindowStyle.PAIRED:
-                if raster.width_studs!=4:continue
-                half=_assembly_for_part_width(2,raster.height_bricks)
-                if half is None:continue
-                _emit_pair(placements,half,facade,raster.x_studs,raster.z_bricks,front,depth)
-                _emit_pair(placements,half,facade,raster.x_studs+2,raster.z_bricks,front,depth)
-                fitted.add(raster.id);continue
-            assembly=choose_window_assembly(raster.width_studs,raster.height_bricks)
-            if assembly is None:continue
-            if style is WindowStyle.TRADITIONAL_TALL and assembly.height_bricks!=3:continue
-            _emit_pair(placements,assembly,facade,raster.x_studs,raster.z_bricks,front,depth)
+            layout=choose_window_layout(style,raster.width_studs,raster.height_bricks)
+            if not layout:continue
+            for assembly,offset in layout:
+                _emit_pair(placements,assembly,facade,raster.x_studs+offset,raster.z_bricks,front,depth)
             fitted.add(raster.id)
     return placements,fitted
