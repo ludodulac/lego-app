@@ -10,9 +10,6 @@ from brickhouse.geometry.models import OpeningGeometry, Point3D, WallGeometry
 
 from .placement import WallBrickLayout, WallOpeningGrid, generate_wall_layout_with_openings
 
-# Physical proportions of the canonical construction grid. A stud pitch is
-# 8 mm and one standard brick course (3 plates) is 9.6 mm, so a metric model
-# scaled by studs-per-meter uses courses-per-meter = studs-per-meter / 1.2.
 COURSES_PER_STUD_RATIO = 1.0 / 1.2
 
 
@@ -62,28 +59,29 @@ def _opening_local_bounds(
     return min(projected), max(projected), min(vertical), max(vertical)
 
 
-def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> WallGridSpec:
-    """Map one metric wall to an integer brick grid using a coherent model scale."""
-    if target_width_studs <= 0:
-        raise ValueError("target_width_studs must be positive")
+def discretize_wall_geometry_at_scale(
+    wall: WallGeometry,
+    studs_per_meter: float,
+) -> WallGridSpec:
+    """Map a metric wall using an already-selected building-wide scale."""
+    if studs_per_meter <= 0:
+        raise ValueError("studs_per_meter must be positive")
 
     width_m, height_m = _wall_metric_size(wall)
-    studs_per_meter = target_width_studs / width_m
+    width_studs = max(1, _round_half_up(width_m * studs_per_meter))
     courses_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO
     height_bricks = max(1, _round_half_up(height_m * courses_per_meter))
 
     grid_openings: list[WallOpeningGrid] = []
     for opening in wall.openings:
         x0_m, x1_m, z0_m, z1_m = _opening_local_bounds(wall, opening)
-        x0 = min(max(_round_half_up(x0_m * studs_per_meter), 0), target_width_studs)
-        x1 = min(max(_round_half_up(x1_m * studs_per_meter), 0), target_width_studs)
+        x0 = min(max(_round_half_up(x0_m * studs_per_meter), 0), width_studs)
+        x1 = min(max(_round_half_up(x1_m * studs_per_meter), 0), width_studs)
         z0 = min(max(_round_half_up(z0_m * courses_per_meter), 0), height_bricks)
         z1 = min(max(_round_half_up(z1_m * courses_per_meter), 0), height_bricks)
 
         if x1 <= x0 or z1 <= z0:
-            raise ValueError(
-                f"opening {opening.id!r} collapses at target scale {target_width_studs} studs"
-            )
+            raise ValueError(f"opening {opening.id!r} collapses at selected building scale")
 
         grid_openings.append(
             WallOpeningGrid(
@@ -97,20 +95,26 @@ def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> Wal
 
     spec = WallGridSpec(
         wall_id=wall.id,
-        width_studs=target_width_studs,
+        width_studs=width_studs,
         height_bricks=height_bricks,
         studs_per_meter=studs_per_meter,
         courses_per_meter=courses_per_meter,
         openings=grid_openings,
     )
-
-    # Reuse BH-007 validation for opening bounds and overlaps after quantization.
     generate_wall_layout_with_openings(
         width_studs=spec.width_studs,
         height_bricks=spec.height_bricks,
         openings=spec.openings,
     )
     return spec
+
+
+def discretize_wall_geometry(wall: WallGeometry, target_width_studs: int) -> WallGridSpec:
+    """Map one wall by deriving scale from its own target width."""
+    if target_width_studs <= 0:
+        raise ValueError("target_width_studs must be positive")
+    width_m, _ = _wall_metric_size(wall)
+    return discretize_wall_geometry_at_scale(wall, target_width_studs / width_m)
 
 
 def generate_scaled_wall_layout(wall: WallGeometry, target_width_studs: int) -> WallBrickLayout:
