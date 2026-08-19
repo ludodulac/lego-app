@@ -73,7 +73,7 @@ def analyze_building_photos(
 
     api = client or OpenAI()
     response = api.responses.create(
-        model=model or os.getenv("OPENAI_VISION_MODEL", "gpt-5.6-terra"),
+        model=model or os.getenv("OPENAI_VISION_MODEL", "gpt-5"),
         instructions=SYSTEM_PROMPT,
         input=[{"role": "user", "content": content}],
         text={
