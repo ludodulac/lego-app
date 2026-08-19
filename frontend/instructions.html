@@ -8,17 +8,18 @@
 </head>
 <body>
   <header class="toolbar no-print">
-    <a href="./index.html">← Viewer 3D</a>
-    <label class="button" for="instruction-file">Ouvrir un JSON</label>
+    <a href="./viewer.html">← Maquette 3D</a>
+    <a href="./index.html">Accueil</a>
+    <label class="button" for="instruction-file">Ouvrir un export JSON</label>
     <input id="instruction-file" type="file" accept="application/json,.json" />
-    <button id="load-instruction-sample" type="button">Recharger l’exemple</button>
+    <button id="load-instruction-sample" type="button">Charger l’exemple</button>
     <button id="print-instructions" type="button">Imprimer / Enregistrer en PDF</button>
-    <button id="download-bom" type="button">Télécharger la BOM CSV</button>
+    <button id="download-bom" type="button">Télécharger la liste des pièces</button>
   </header>
 
   <main id="document" class="document">
     <section class="cover">
-      <p class="eyebrow">BrickHouse M0</p>
+      <p class="eyebrow">BrickHouse</p>
       <h1>Notice de montage</h1>
       <p id="instruction-subtitle">Chargement…</p>
       <dl id="instruction-summary"></dl>
