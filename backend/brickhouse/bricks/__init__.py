@@ -20,6 +20,11 @@ from brickhouse.bricks.scaling import (
     discretize_wall_geometry_at_scale,
     generate_scaled_wall_layout,
 )
+from brickhouse.bricks.spatial import (
+    GlobalBrickPlacement,
+    SpatialBrickShell,
+    generate_spatial_brick_shell,
+)
 
 __all__ = [
     "BrickCatalog",
@@ -27,6 +32,8 @@ __all__ = [
     "BrickPlacement",
     "BuildingBrickShell",
     "BuildingWallLayout",
+    "GlobalBrickPlacement",
+    "SpatialBrickShell",
     "WallBrickLayout",
     "WallGridSpec",
     "WallOpeningGrid",
@@ -36,5 +43,6 @@ __all__ = [
     "generate_building_brick_shell",
     "generate_scaled_wall_layout",
     "generate_simple_wall_layout",
+    "generate_spatial_brick_shell",
     "generate_wall_layout_with_openings",
 ]
