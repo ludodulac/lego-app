@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://brickhouse.local/schemas/building-model/0.1",
+  "title": "BuildingModel",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "building_type",
+    "units",
+    "volumes",
+    "openings",
+    "roofs",
+    "appearance",
+    "metadata"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "id": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "building_type": {
+      "type": "string",
+      "enum": ["detached_house", "building", "apartment_section", "other"]
+    },
+    "units": {"const": "m"},
+    "volumes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/volume"}
+    },
+    "openings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/opening"}
+    },
+    "roofs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/roof"}
+    },
+    "appearance": {"$ref": "#/$defs/appearance"},
+    "metadata": {"$ref": "#/$defs/metadata"}
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "confidence"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["observed", "user_provided", "inferred", "generated_default"]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "position3d": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "z"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "z": {"type": "number"}
+      }
+    },
+    "volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "shape", "position", "width", "depth", "height", "floors", "source"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "shape": {"const": "rectangular_prism"},
+        "position": {"$ref": "#/$defs/position3d"},
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "depth": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0},
+        "floors": {"type": "integer", "minimum": 1, "maximum": 3},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "opening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "volume_id",
+        "facade",
+        "offset_horizontal",
+        "offset_vertical",
+        "width",
+        "height",
+        "source"
+      ],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "enum": ["window", "door", "garage_door"]},
+        "volume_id": {"type": "string", "minLength": 1},
+        "facade": {"type": "string", "enum": ["front", "rear", "left", "right"]},
+        "offset_horizontal": {"type": "number", "minimum": 0},
+        "offset_vertical": {"type": "number", "minimum": 0},
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "roof": {
+      "oneOf": [
+        {"$ref": "#/$defs/flatRoof"},
+        {"$ref": "#/$defs/gableRoof"}
+      ]
+    },
+    "flatRoof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "volume_id", "type", "overhang", "source"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "volume_id": {"type": "string", "minLength": 1},
+        "type": {"const": "flat"},
+        "overhang": {"type": "number", "minimum": 0},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "gableRoof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "volume_id", "type", "ridge_direction", "pitch_degrees", "overhang", "source"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "volume_id": {"type": "string", "minLength": 1},
+        "type": {"const": "gable"},
+        "ridge_direction": {"type": "string", "enum": ["width", "depth"]},
+        "pitch_degrees": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 90},
+        "overhang": {"type": "number", "minimum": 0},
+        "source": {"$ref": "#/$defs/source"}
+      }
+    },
+    "colorSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["color"],
+      "properties": {
+        "color": {"type": "string", "minLength": 1}
+      }
+    },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["walls", "roof", "frames"],
+      "properties": {
+        "walls": {"$ref": "#/$defs/colorSlot"},
+        "roof": {"$ref": "#/$defs/colorSlot"},
+        "frames": {"$ref": "#/$defs/colorSlot"}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_from", "notes"],
+      "properties": {
+        "created_from": {
+          "type": "string",
+          "enum": ["synthetic", "photo_analysis", "user_edit"]
+        },
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}
