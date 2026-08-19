@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrickHouse — Notice de montage</title>
+  <link rel="stylesheet" href="./instructions.css" />
+</head>
+<body>
+  <header class="toolbar no-print">
+    <a href="./index.html">← Viewer 3D</a>
+    <label class="button" for="instruction-file">Ouvrir un JSON</label>
+    <input id="instruction-file" type="file" accept="application/json,.json" />
+    <button id="load-instruction-sample" type="button">Recharger l’exemple</button>
+    <button id="print-instructions" type="button">Imprimer / Enregistrer en PDF</button>
+    <button id="download-bom" type="button">Télécharger la BOM CSV</button>
+  </header>
+
+  <main id="document" class="document">
+    <section class="cover">
+      <p class="eyebrow">BrickHouse M0</p>
+      <h1>Notice de montage</h1>
+      <p id="instruction-subtitle">Chargement…</p>
+      <dl id="instruction-summary"></dl>
+    </section>
+    <p id="instruction-message" class="message"></p>
+    <section id="steps" class="steps"></section>
+  </main>
+
+  <script type="module" src="./instructions.js"></script>
+</body>
+</html>
