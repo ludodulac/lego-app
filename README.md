@@ -2,58 +2,92 @@
 
 > Nom de travail. Le dépôt conserve pour l'instant le nom `lego-app`.
 
-BrickHouse AI est un projet de logiciel destiné à transformer la représentation d'un bâtiment (maison, immeuble, partie d'appartement, etc.) en un modèle constructible avec des briques de construction compatibles, puis à produire une visualisation 3D, une nomenclature de pièces (BOM) et, à terme, une notice de montage.
+BrickHouse AI transforme une représentation structurée d'un bâtiment en modèle constructible avec des briques de construction compatibles, puis produit une visualisation 3D et une nomenclature de pièces (BOM). Le produit final devra pouvoir partir d'une ou plusieurs photos et d'indications textuelles, mais le moteur M0 est volontairement déterministe avant d'ajouter l'analyse d'images par IA.
 
-Le produit final devra pouvoir partir d'une ou plusieurs photos et d'indications textuelles. Toutefois, le développement commence volontairement par le cœur déterministe du système : construire correctement une maison paramétrique connue avant d'ajouter l'analyse d'images par IA.
+## Pipeline actuel
 
-## Principe d'architecture
+Le cœur M0 fonctionne selon :
 
-Le pipeline cible est :
+`BuildingModel -> BuildingGeometry -> BuildingBrickShell -> SpatialBrickShell + SpatialRoof -> BrickModel -> BOM -> BrickExportBundle`
+
+La cible produit complète reste :
 
 `PhotoEvidence -> BuildingModel -> BuildingGeometry -> BrickModel -> AssemblyPlan`
 
-Pour la première milestone (M0), le pipeline commence directement à `BuildingModel`.
+Les modèles IA ne doivent pas générer directement une liste de briques. Ils devront produire ou enrichir une représentation architecturale structurée, ensuite traitée par les moteurs déterministes.
 
-Les modèles IA ne doivent pas générer directement une liste de briques. Ils doivent produire ou enrichir une représentation architecturale structurée, ensuite traitée par les moteurs déterministes.
+## Ce que M0 sait déjà faire
 
-## Milestone M0 — Digital Brick House
+- valider un `BuildingModel` structuré en mètres ;
+- générer les quatre murs et les ouvertures ;
+- appliquer une échelle cohérente à toute la maison ;
+- placer des briques autour des portes et fenêtres ;
+- décaler les joints entre rangées ;
+- lier les quatre façades dans une coque 3D avec angles alternés ;
+- générer un premier toit à deux pans en grille ;
+- produire un `BrickModel` unique ;
+- produire une BOM ;
+- exporter le résultat en JSON ;
+- afficher ce JSON dans un viewer 3D web.
 
-Objectif : à partir d'une description structurée d'une maison simple, générer automatiquement un modèle en briques, l'afficher en 3D et produire une BOM exacte.
+## Lancer le pipeline M0
 
-M0 n'inclut pas encore :
+Python 3.12+ est requis.
 
-- analyse de photos ;
-- API OpenAI ou Anthropic dans le produit ;
-- paiement ;
-- commande de pièces ;
-- fournisseur obligatoire ;
-- application mobile native ;
-- infrastructure cloud complexe.
+```bash
+python -m pip install -e ".[dev]"
+brickhouse-m0 docs/examples/building-model-simple-house.json frontend/sample-export.json --front-width-studs 48
+```
+
+Le fichier produit est directement lisible par le viewer.
+
+## Lancer le viewer localement
+
+```bash
+python -m http.server 8000 --directory frontend
+```
+
+Puis ouvrir `http://localhost:8000` dans un navigateur. Le viewer permet rotation, zoom, déplacement, recentrage et chargement d'un export JSON local.
+
+## Tests et intégration continue
+
+```bash
+pytest -q
+```
+
+Le workflow `.github/workflows/ci.yml` exécute automatiquement la suite de tests et le pipeline de référence sur GitHub Actions pour chaque push sur `main` et chaque pull request.
+
+## Déploiement du viewer
+
+`.github/workflows/pages.yml` est prêt à reconstruire la vraie maison de référence avec le moteur puis à publier `frontend/` sur GitHub Pages. Voir `docs/DEPLOYMENT.md`.
 
 ## Structure actuelle
 
-- `backend/` — futur backend/API (prévu en Python/FastAPI).
-- `frontend/` — future application web.
-- `data/raw/` — données sources externes non transformées.
-- `data/processed/` — données dérivées et catalogues expérimentaux.
-- `data/database/` — emplacement réservé aux données/base locale si nécessaire.
-- `scripts/` — scripts expérimentaux d'import, normalisation et construction de catalogue.
-- `docs/` — spécifications et décisions d'architecture.
-- `tests/` — tests automatisés à venir.
+- `backend/brickhouse/building/` — contrat `BuildingModel` et validation ;
+- `backend/brickhouse/geometry/` — géométrie architecturale ;
+- `backend/brickhouse/bricks/` — catalogue, placement, échelle, coque 3D, toit, BrickModel, BOM et export ;
+- `backend/brickhouse/pipeline.py` — pipeline M0 de bout en bout ;
+- `frontend/` — viewer 3D statique ;
+- `data/raw/` — données sources externes non transformées ;
+- `data/processed/` — données dérivées/catalogues exploratoires ;
+- `scripts/` — scripts historiques d'import/normalisation, non considérés comme pipeline officiel ;
+- `docs/` — spécifications et décisions d'architecture ;
+- `tests/` — tests automatisés.
 
 ## Catalogue de pièces
 
-Règle fondamentale : le moteur ne doit pas dépendre des références d'un fournisseur ou d'une marque.
+Le moteur ne dépend pas des références d'un fournisseur ou d'une marque. Il utilise des identifiants fonctionnels internes, par exemple `BRICK_2X4`. Les références Rebrickable, LDraw ou celles de futurs fournisseurs seront des mappings externes.
 
-Il utilise des identifiants fonctionnels internes, par exemple `BRICK_2X4`. Les références Rebrickable, LDraw ou celles de futurs fournisseurs seront des mappings externes.
+Le fichier `data/processed/piece_types_master.csv` est un travail exploratoire conservé, mais il ne constitue pas encore la spécification géométrique définitive du moteur.
 
-Le fichier `data/processed/piece_types_master.csv` est un travail exploratoire existant. Il est conservé, mais il ne constitue pas encore la spécification géométrique définitive du moteur.
+## Périmètre encore hors M0
 
-## Scripts existants
-
-Les scripts présents dans `scripts/` proviennent de la phase exploratoire précédente. Ils sont conservés afin de ne perdre aucun travail, mais leur pipeline n'est pas encore considéré comme stable.
-
-En particulier, certains attendent des fichiers intermédiaires qui ne sont pas actuellement présents ou rangés aux emplacements historiques. Ne pas considérer ces scripts comme la chaîne de build officielle tant qu'ils n'ont pas été révisés.
+- analyse de photos ;
+- génération de questions à l'utilisateur pour les zones invisibles ;
+- vraies géométries fournisseur des pièces ;
+- optimiseur avancé de stabilité/coût/disponibilité ;
+- `AssemblyPlan` et notice de montage ;
+- API SaaS, authentification, stockage cloud, paiement ou commande de pièces.
 
 ## Règles de développement
 
@@ -64,13 +98,6 @@ En particulier, certains attendent des fichiers intermédiaires qui ne sont pas 
 5. Préserver explicitement les hypothèses et niveaux de confiance lorsque l'analyse photo sera ajoutée.
 6. Préférer un petit catalogue géométriquement fiable à un grand catalogue mal défini.
 
-## Prochaines étapes
-
-- BH-002 : spécifier `BuildingModel`.
-- Définir ensuite `BuildingGeometry`, `BrickModel` et `AssemblyPlan`.
-- Construire un catalogue minimal de pièces pour le moteur.
-- Générer les premiers murs et bâtiments synthétiques avant de brancher l'IA photo.
-
 ## Statut
 
-Projet en phase de fondation technique. Les données historiques et scripts exploratoires ont été conservés intentionnellement pendant la restructuration.
+Le moteur M0 possède maintenant une chaîne de bout en bout depuis un `BuildingModel` JSON jusqu'au viewer 3D et à la BOM. La prochaine grande phase est de rendre ce résultat réellement constructible/assemblable, puis d'introduire progressivement l'analyse photo.
