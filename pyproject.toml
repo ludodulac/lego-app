@@ -12,6 +12,9 @@ dev = [
   "pytest>=8,<9",
 ]
 
+[project.scripts]
+brickhouse-m0 = "brickhouse.pipeline:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["backend"]
