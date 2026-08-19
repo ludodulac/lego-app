@@ -1,13 +1,14 @@
 """Validated real LEGO window assemblies for BrickHouse.
 
 Compatibility is explicit: a pane is never paired to a frame by name similarity.
-Families below are backed by catalog compatibility, not inferred from dimensions.
+Styles are also explicit: specialty styles fall back to masonry until BrickHouse
+has a validated LEGO family that actually represents them.
 """
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 from pydantic import BaseModel, Field
-from brickhouse.building.models import BuildingModel, Facade, OpeningType
+from brickhouse.building.models import BuildingModel, Facade, OpeningType, WindowStyle
 from .building_layout import BuildingBrickShell
 
 @dataclass(frozen=True)
@@ -26,12 +27,6 @@ class WindowPartPlacement(BaseModel):
     rotation_quarter_turns:Literal[0,1,2,3]=0
 
 def _to_global(facade:Facade,local_x:int,opening_width:int,z_bricks:int,width_studs:int,depth_studs:int)->tuple[int,int,int,Literal[0,1,2,3]]:
-    """Map facade-local window origin to global studs with correct orientation.
-
-    Window part IDs use LEGO 1xN dimensions: the N axis must run horizontally
-    along the facade. Front/rear therefore use a quarter turn; side facades do
-    not. Mirrored rear/left origins account for the full opening width.
-    """
     z=z_bricks*3
     if facade is Facade.FRONT:return local_x,0,z,1
     if facade is Facade.REAR:return width_studs-local_x-opening_width,depth_studs-1,z,1
@@ -39,8 +34,26 @@ def _to_global(facade:Facade,local_x:int,opening_width:int,z_bricks:int,width_st
     return 0,depth_studs-local_x-opening_width,z,0
 
 def choose_window_assembly(width_studs:int,height_bricks:int)->WindowAssemblyDefinition|None:
-    """Return a validated assembly only for an exact rasterized opening fit."""
     return next((a for a in VALIDATED_WINDOW_ASSEMBLIES if a.width_studs==width_studs and a.height_bricks==height_bricks),None)
+
+def choose_window_layout(style:WindowStyle,width_studs:int,height_bricks:int)->tuple[tuple[WindowAssemblyDefinition,int],...]:
+    """Choose a faithful validated layout, returning assemblies + local offsets."""
+    if style in {WindowStyle.FOUR_PANE,WindowStyle.BAY}:return ()
+    if style is WindowStyle.PAIRED:
+        if width_studs!=4:return ()
+        half=choose_window_assembly(2,height_bricks)
+        return ((half,0),(half,2)) if half else ()
+    assembly=choose_window_assembly(width_studs,height_bricks)
+    if not assembly:return ()
+    if style is WindowStyle.TRADITIONAL_TALL and height_bricks!=3:return ()
+    return ((assembly,0),)
+
+def _emit_pair(placements:list[WindowPartPlacement],assembly:WindowAssemblyDefinition,facade:Facade,local_x:int,z_bricks:int,front:int,depth:int)->None:
+    x,y,z,rotation=_to_global(facade,local_x,assembly.width_studs,z_bricks,front,depth)
+    placements.extend((
+        WindowPartPlacement(part_id=assembly.frame_part_id,category="window_frame",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
+        WindowPartPlacement(part_id=assembly.pane_part_id,category="window_pane",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
+    ))
 
 def generate_window_assemblies(building:BuildingModel,shell:BuildingBrickShell)->tuple[list[WindowPartPlacement],set[str]]:
     openings={o.id:o for o in building.openings}; walls={w.facade:w for w in shell.walls}
@@ -50,11 +63,10 @@ def generate_window_assemblies(building:BuildingModel,shell:BuildingBrickShell)-
         for raster in walls[facade].grid.openings:
             opening=openings.get(raster.id)
             if not opening or opening.type is not OpeningType.WINDOW:continue
-            assembly=choose_window_assembly(raster.width_studs,raster.height_bricks)
-            if assembly is None:continue
-            x,y,z,rotation=_to_global(facade,raster.x_studs,raster.width_studs,raster.z_bricks,front,depth)
-            placements.extend((
-                WindowPartPlacement(part_id=assembly.frame_part_id,category="window_frame",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
-                WindowPartPlacement(part_id=assembly.pane_part_id,category="window_pane",facade=facade,x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=rotation),
-            )); fitted.add(raster.id)
+            style=opening.window_style or WindowStyle.SIMPLE
+            layout=choose_window_layout(style,raster.width_studs,raster.height_bricks)
+            if not layout:continue
+            for assembly,offset in layout:
+                _emit_pair(placements,assembly,facade,raster.x_studs+offset,raster.z_bricks,front,depth)
+            fitted.add(raster.id)
     return placements,fitted
