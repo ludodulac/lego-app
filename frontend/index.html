@@ -35,10 +35,11 @@
     </section>
 
     <section class="status-strip" aria-label="État du prototype">
-      <div class="status"><small>Moteur de briques</small><strong class="ok">Opérationnel</strong></div>
-      <div class="status"><small>API publique</small><strong class="ok">En ligne sur Render Free</strong></div>
-      <div class="status"><small>Analyse photo IA</small><strong class="wait">En attente d'activation</strong></div>
+      <div class="status"><small>Moteur de briques</small><strong id="engine-status" class="ok">Opérationnel</strong></div>
+      <div class="status"><small>API publique</small><strong id="api-status" class="ok">Vérification…</strong></div>
+      <div class="status"><small>Analyse photo IA</small><strong id="vision-status" class="wait">En attente d'activation</strong></div>
     </section>
   </main>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
