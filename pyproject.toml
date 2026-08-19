@@ -1,0 +1,17 @@
+[project]
+name = "brickhouse-ai"
+version = "0.1.0"
+description = "Core contracts for BrickHouse AI"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend"]
