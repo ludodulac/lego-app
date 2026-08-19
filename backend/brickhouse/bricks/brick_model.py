@@ -11,12 +11,15 @@ from brickhouse.building.models import Facade
 from .roof import SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 
+PartCategory = Literal["brick", "roof_tile", "ridge_tile", "window_frame", "window_pane", "facade_detail"]
+PartComponent = Literal["wall", "roof", "facade_detail"]
+
 
 class BrickModelPart(BaseModel):
     placement_id: str
     part_id: str
-    category: Literal["brick", "roof_tile", "ridge_tile"]
-    component: Literal["wall", "roof"]
+    category: PartCategory
+    component: PartComponent
     x_studs: int = Field(ge=0)
     y_studs: int = Field(ge=0)
     z_plates: int = Field(ge=0)
@@ -31,12 +34,17 @@ class BrickModelPart(BaseModel):
                 raise ValueError("wall parts require facade and must not define roof_side")
             if self.category != "brick":
                 raise ValueError("wall parts must use category 'brick'")
-        else:
+        elif self.component == "roof":
             if self.roof_side is None or self.facade is not None:
                 raise ValueError("roof parts require roof_side and must not define facade")
             expected = "ridge_tile" if self.roof_side == "ridge" else "roof_tile"
             if self.category != expected:
                 raise ValueError(f"roof part on side {self.roof_side!r} must use category {expected!r}")
+        else:
+            if self.facade is None or self.roof_side is not None:
+                raise ValueError("facade detail parts require facade and must not define roof_side")
+            if self.category not in {"brick", "window_frame", "window_pane", "facade_detail"}:
+                raise ValueError("facade detail parts must use a facade-compatible category")
         return self
 
 
