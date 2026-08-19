@@ -28,6 +28,18 @@
     <section id="steps" class="steps"></section>
   </main>
 
+  <script>
+    // Keep the manual and viewer on the same generated project without a backend session.
+    const brickHouseOriginalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const target = typeof input === 'string' ? input : input?.url || '';
+      if (target.endsWith('sample-export.json')) {
+        const current = localStorage.getItem('brickhouse.currentExport');
+        if (current) return Promise.resolve(new Response(current, { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return brickHouseOriginalFetch(input, init);
+    };
+  </script>
   <script type="module" src="./instructions.js"></script>
 </body>
 </html>
