@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from brickhouse.building.validation import load_building_model
+from brickhouse.bricks.assembly import generate_assembly_plan
 from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.brick_model import generate_brick_model
 from brickhouse.bricks.building_layout import generate_building_brick_shell
@@ -34,7 +35,8 @@ def run_m0_pipeline(
     spatial_roof = generate_spatial_gable_roof(geometry, building_shell)
     brick_model = generate_brick_model(spatial_shell, spatial_roof)
     bom = generate_bom(brick_model)
-    return create_export_bundle(brick_model, bom)
+    assembly_plan = generate_assembly_plan(brick_model)
+    return create_export_bundle(brick_model, bom, assembly_plan)
 
 
 def write_m0_export(
@@ -54,7 +56,7 @@ def write_m0_export(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="brickhouse-m0",
-        description="Generate a BrickHouse M0 BrickModel/BOM JSON export from a BuildingModel JSON file.",
+        description="Generate a BrickHouse M0 BrickModel/BOM/AssemblyPlan JSON export from a BuildingModel JSON file.",
     )
     parser.add_argument("input", type=Path, help="BuildingModel JSON input")
     parser.add_argument("output", type=Path, help="Output export JSON path")
@@ -76,7 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(
         f"Generated {args.output}: "
-        f"{bundle.bom.total_parts} parts, {bundle.bom.unique_part_types} canonical types"
+        f"{bundle.bom.total_parts} parts, {bundle.bom.unique_part_types} canonical types, "
+        f"{bundle.assembly_plan.total_steps if bundle.assembly_plan else 0} assembly steps"
     )
     return 0
 
