@@ -1,17 +1,39 @@
 # Gable roof generation — support-aware M0
 
-BH-025 replaces the old floating-row roof approximation with an explicit support chain built from piece-family IDs already present in `data/processed/piece_types_master.csv`.
+BH-025 replaced the old floating-row roof approximation with an explicit support chain built from piece-family IDs already present in `data/processed/piece_types_master.csv`. BH-028 adds deterministic selection between the slope families whose support geometry is currently modeled by the engine.
 
-## Roof pieces used by M0
+## Modeled roof slope families
 
-Slope courses currently use:
+The processed source catalog contains many sloped-brick families (including 18°, 30°, 33°, 45°, 65° and others), but BrickHouse only treats a family as constructible after its rise/run and overlap rule have been modeled explicitly.
+
+The current support registry includes:
+
+### 33° family
+
+- `BRICK_SLOPED_33_3X2`
+- `BRICK_SLOPED_33_3X4`
+- `BRICK_SLOPED_33_3X6`
+
+Engine support abstraction:
+- footprint depth across pitch: 3 studs;
+- course advance: 2 studs;
+- overlap: 1 stud row;
+- rise: 3 plates per course.
+
+### 45° family
 
 - `BRICK_SLOPED_45_2X1`
 - `BRICK_SLOPED_45_2X2`
 - `BRICK_SLOPED_45_2X3`
 - `BRICK_SLOPED_45_2X4`
 
-The ridge bridge currently uses:
+Engine support abstraction:
+- footprint depth across pitch: 2 studs;
+- course advance: 1 stud;
+- overlap: 1 stud row;
+- rise: 3 plates per course.
+
+The ridge bridge uses:
 
 - `TILE_2X2`
 - `TILE_2X3`
@@ -19,29 +41,37 @@ The ridge bridge currently uses:
 
 These IDs already exist in the processed source catalog. They are not display-only `ROOF_TILE_*` placeholders.
 
+## Pitch selection
+
+BrickHouse computes the target pitch from the metric `RoofPlaneGeometry`, then selects the modeled family with the smallest absolute angular difference. Exact ties are resolved toward the lower pitch for deterministic output.
+
+For example, the 35° reference house now selects the 33° family instead of blindly using 45°.
+
+Families present in the CSV but not yet present in the support registry are intentionally ignored until their legal overlap/connection abstraction is implemented. This avoids claiming constructibility simply because a similarly named catalog part exists.
+
 ## Connection rule
 
-Each sloped brick is two studs deep across the roof pitch. A new course advances inward by one stud, so one stud row overlaps the preceding course in plan. Its bottom connection therefore lands on the high connection row of the previous course.
+The first course of each side starts at wall-top height and contacts the eave wall. Each later course advances inward by the selected family's exact course advance, overlaps the previous course, and rises by the selected family's exact connection rise.
 
-For the selected M0 45-degree family, each inward course rises by exactly one standard brick height (3 plates). The piece geometry dictates that rise; the engine no longer stretches or tilts a roof part to force an arbitrary metric Z value.
-
-The first course of each side starts at wall-top height and contacts the eave wall. At the center, both sides terminate at adjacent high rows at the same elevation. A two-stud-wide tile bridge spans those two rows and acts as the ridge cap.
+At the center, a two-stud-wide ridge tile must overlap the innermost supported course of both roof sides.
 
 `validate_roof_support()` rejects a roof when:
 
 - an eave course is not anchored at the wall top;
-- a later course has no one-row overlap with the previous course;
-- the vertical rise differs from the selected slope family's connection rise;
+- a later course does not follow the selected family's horizontal course advance;
+- a later course has no overlap with the previous course;
+- the vertical rise differs from the selected family's connection rise;
+- the two sides use different slope families;
 - the ridge does not overlap the innermost course of both roof sides.
 
-The current M0 implementation also requires an even slope span. This avoids ambiguous center collisions until an odd-width ridge strategy is added.
+The current M0 implementation still requires an even slope span. This avoids ambiguous center collisions until an odd-width ridge strategy is added.
 
-## Relationship to the photographed roof pitch
+## Design principle
 
-The real metric roof geometry is still read and validated upstream, but M0 no longer deforms a 45-degree part to match that pitch. The constructible piece family wins. A later selector will choose the closest suitable family among the 18°, 25°, 30°, 33°, 45° and other sloped families already present in the source catalog.
+The constructible piece family wins over arbitrary geometric deformation. BrickHouse approximates the photographed roof using the closest **modeled and supported** family rather than stretching a piece to force an exact visual pitch.
 
-That means this version prioritizes **physical connection consistency over exact roof-pitch fidelity**. This is deliberate: a slightly different but buildable roof is preferable to a visually accurate roof made of impossible floating parts.
+This deliberately prioritizes **physical connection consistency over perfect roof-pitch fidelity**.
 
 ## Remaining work
 
-The support rule is still an engine-level approximation of legal stud/underside connections, not a complete supplier-exact connection graph. Future work includes exact variant mapping, richer connector geometry, automatic slope-family selection, odd spans, roof overhangs, dormers, hips/valleys, chimneys, gutters, and structural subassemblies where required.
+Future roof work includes adding support models for 18°, 30° and other useful catalog families, exact supplier-variant mapping, odd spans, roof overhangs, dormers, hips/valleys, chimneys, gutters, and richer connector geometry.
