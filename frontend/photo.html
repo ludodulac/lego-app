@@ -19,15 +19,15 @@
       <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel" /></div>
       <div class="field"><label for="studs">Largeur souhaitée de la maquette (tenons)</label><input id="studs" type="number" min="16" max="160" step="2" value="48" /></div>
       <div class="field"><label for="api-url">URL API BrickHouse</label><input id="api-url" type="url" placeholder="https://api.brickhouse..." /></div>
-      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger BuildingModel</button><button id="build-bricks" type="button" disabled>Construire en briques</button></div>
+      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger BuildingModel</button><button id="build-bricks" type="button" disabled>Construire avec cette estimation</button></div>
       <p id="status" class="status"></p>
     </section>
     <section class="result-panel">
       <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>
       <div id="result" hidden>
         <div class="result-header"><div><p class="eyebrow">Proposition architecturale</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
-        <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>BrickHouse a identifié des éléments qui peuvent changer la maquette.</p></section>
-        <section class="result-card"><h3>Questions</h3><div id="questions" class="questions"></div></section>
+        <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez aux points que vous connaissez. Vous pouvez aussi conserver les estimations actuelles.</p></section>
+        <section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Vos réponses seront réinjectées avec les mêmes photos.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section>
         <section class="result-card"><h3>Hypothèses utilisées</h3><ul id="assumptions"></ul></section>
         <details class="result-card"><summary>Voir le BuildingModel JSON</summary><pre id="json-preview"></pre></details>
       </div>
