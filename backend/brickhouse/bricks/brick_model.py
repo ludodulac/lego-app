@@ -92,59 +92,48 @@ def _roof_family(roof: SpatialRoof):
 
 
 _GABLE_BRICKS: tuple[tuple[int, str], ...] = (
-    (8, "BRICK_1X8"),
-    (6, "BRICK_1X6"),
-    (4, "BRICK_1X4"),
-    (3, "BRICK_1X3"),
-    (2, "BRICK_1X2"),
-    (1, "BRICK_1X1"),
+    (8, "BRICK_1X8"), (6, "BRICK_1X6"), (4, "BRICK_1X4"),
+    (3, "BRICK_1X3"), (2, "BRICK_1X2"), (1, "BRICK_1X1"),
 )
 
 
 def _tile_gable_course(start: int, end: int, reverse: bool) -> list[tuple[int, str, int]]:
-    """Tile one gable course with long supported wall bricks.
-
-    Alternate direction between courses so vertical joints do not form one
-    continuous weak seam and the gable visually matches the main wall bond.
-    """
     length = end - start
     remaining = length
     spans: list[tuple[int, str]] = []
     while remaining:
         for span, part_id in _GABLE_BRICKS:
             if span <= remaining:
-                spans.append((span, part_id))
-                remaining -= span
-                break
+                spans.append((span, part_id)); remaining -= span; break
     if reverse:
         spans.reverse()
     cursor = start
     out: list[tuple[int, str, int]] = []
     for span, part_id in spans:
-        out.append((cursor, part_id, span))
-        cursor += span
+        out.append((cursor, part_id, span)); cursor += span
     return out
 
 
 def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof) -> list[BrickModelPart]:
-    """Fill both gable ends with facade-aligned bonded brickwork below the roof.
+    """Fill gable ends with bonded courses whose stepped top follows the roof.
 
-    A full-height wall brick may only begin once the sloped roof element has
-    reached one complete brick of rise. Therefore each gable course starts after
-    the slope family's full footprint depth, then advances with each roof course.
-    This prevents rectangular wall bricks from poking through the sloped tiles.
+    Course N occupies the horizontal interval between the Nth roof anchors on
+    both sides.  This deliberately uses the roof course *advance* rather than
+    the full slope-piece footprint: overlapping slope bricks need masonry under
+    their connection zone.  The old footprint-based trim created the visible
+    black staircase/gap between wall and roof.
     """
     family = _roof_family(roof)
     wall_top = shell.height_bricks * 3
-    negative = [placement for placement in roof.placements if placement.side == "negative"]
+    negative = [p for p in roof.placements if p.side == "negative"]
     if not negative:
         return []
     if roof.ridge_direction is RidgeDirection.DEPTH:
-        slope_axes = {placement.x_studs for placement in negative}
+        slope_axes = sorted({p.x_studs for p in negative})
         span = shell.width_studs
         facades = (Facade.FRONT, Facade.REAR)
     else:
-        slope_axes = {placement.y_studs for placement in negative}
+        slope_axes = sorted({p.y_studs for p in negative})
         span = shell.depth_studs
         facades = (Facade.LEFT, Facade.RIGHT)
     course_count = len(slope_axes)
@@ -152,42 +141,31 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof) -> l
     index = 1
     for facade in facades:
         for level in range(course_count):
-            trim = family.footprint_depth_studs + level * family.course_advance_studs
-            start = trim
-            end = span - trim
+            # Roof anchors move inward by course_advance_studs each level.
+            # Keep the masonry directly below that connection line; the slope
+            # element itself provides the diagonal outer surface.
+            trim = (level + 1) * family.course_advance_studs
+            start, end = trim, span - trim
             if end <= start:
                 continue
             z_plates = wall_top + level * family.rise_plates
             for local, part_id, brick_span in _tile_gable_course(start, end, reverse=bool(level % 2)):
                 if roof.ridge_direction is RidgeDirection.DEPTH:
-                    x = local
-                    y = 0 if facade is Facade.FRONT else shell.depth_studs - 1
+                    x = local; y = 0 if facade is Facade.FRONT else shell.depth_studs - 1
                 else:
-                    x = 0 if facade is Facade.LEFT else shell.width_studs - 1
-                    y = local
-                result.append(
-                    BrickModelPart(
-                        placement_id=f"gable-{index:06d}",
-                        part_id=part_id,
-                        category="brick",
-                        component="wall",
-                        x_studs=x,
-                        y_studs=y,
-                        z_plates=z_plates,
-                        rotation_quarter_turns=1 if brick_span > 1 else 0,
-                        facade=facade,
-                    )
-                )
+                    x = 0 if facade is Facade.LEFT else shell.width_studs - 1; y = local
+                result.append(BrickModelPart(
+                    placement_id=f"gable-{index:06d}", part_id=part_id,
+                    category="brick", component="wall", x_studs=x, y_studs=y,
+                    z_plates=z_plates,
+                    rotation_quarter_turns=1 if brick_span > 1 else 0,
+                    facade=facade,
+                ))
                 index += 1
     return result
 
 
-def generate_brick_model(
-    shell: SpatialBrickShell,
-    roof: SpatialRoof,
-    facade_details: list[FacadeDetailPlacement] | None = None,
-) -> BrickModel:
-    """Merge spatial walls, closed gable ends, facade details and roof into BrickModel."""
+def generate_brick_model(shell: SpatialBrickShell, roof: SpatialRoof, facade_details: list[FacadeDetailPlacement] | None = None) -> BrickModel:
     if shell.building_id != roof.building_id:
         raise ValueError("spatial shell and roof must reference the same building")
     parts: list[BrickModelPart] = []
