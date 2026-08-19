@@ -1,5 +1,6 @@
 """Canonical brick definitions used by the BrickHouse engine."""
 
+from brickhouse.bricks.assembly import AssemblyPlan, AssemblyStep, generate_assembly_plan
 from brickhouse.bricks.bom import BillOfMaterials, BOMLine, generate_bom
 from brickhouse.bricks.brick_model import BrickModel, BrickModelPart, generate_brick_model
 from brickhouse.bricks.building_layout import (
@@ -43,6 +44,8 @@ from brickhouse.bricks.spatial import (
 )
 
 __all__ = [
+    "AssemblyPlan",
+    "AssemblyStep",
     "BOMLine",
     "BillOfMaterials",
     "BrickCatalog",
@@ -69,6 +72,7 @@ __all__ = [
     "discretize_wall_geometry",
     "discretize_wall_geometry_at_scale",
     "export_bundle_json",
+    "generate_assembly_plan",
     "generate_bom",
     "generate_brick_model",
     "generate_building_brick_shell",
