@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -33,14 +34,78 @@ _CANONICAL_SPANNING_BRICKS: tuple[tuple[int, str], ...] = (
     (2, "BRICK_1X2"),
     (1, "BRICK_1X1"),
 )
+_BRICK_ID_BY_SPAN = dict(_CANONICAL_SPANNING_BRICKS)
+
+
+def _internal_joints(composition: tuple[int, ...]) -> frozenset[int]:
+    joints: set[int] = set()
+    x = 0
+    for span in composition[:-1]:
+        x += span
+        joints.add(x)
+    return frozenset(joints)
+
+
+def _choose_course_composition(
+    width_studs: int,
+    previous_joints: frozenset[int],
+) -> tuple[int, ...]:
+    """Find the best exact composition without enumerating all compositions."""
+
+    @lru_cache(maxsize=None)
+    def solve(x_studs: int) -> tuple[int, int, tuple[int, ...]] | None:
+        if x_studs == width_studs:
+            return 0, 0, ()
+
+        best: tuple[int, int, tuple[int, ...]] | None = None
+        for span, _ in _CANONICAL_SPANNING_BRICKS:
+            end = x_studs + span
+            if end > width_studs:
+                continue
+
+            tail = solve(end)
+            if tail is None:
+                continue
+
+            tail_overlap, tail_count, tail_spans = tail
+            boundary_overlap = 1 if end < width_studs and end in previous_joints else 0
+            candidate = (
+                boundary_overlap + tail_overlap,
+                1 + tail_count,
+                (span, *tail_spans),
+            )
+
+            if best is None:
+                best = candidate
+                continue
+
+            candidate_key = (
+                candidate[0],
+                candidate[1],
+                tuple(-value for value in candidate[2]),
+            )
+            best_key = (
+                best[0],
+                best[1],
+                tuple(-value for value in best[2]),
+            )
+            if candidate_key < best_key:
+                best = candidate
+
+        return best
+
+    result = solve(0)
+    if result is None:
+        raise RuntimeError(f"no exact canonical brick composition for width {width_studs}")
+    return result[2]
 
 
 def generate_simple_wall_layout(width_studs: int, height_bricks: int) -> WallBrickLayout:
-    """Fill a 1-stud-thick rectangular wall using a deterministic greedy strategy.
+    """Fill a 1-stud-thick wall with exact coverage and stagger adjacent joints.
 
-    BH-005 intentionally ignores openings, staggered joints, structural bonding,
-    colors, and metric-to-grid conversion. Each course is filled left-to-right
-    using the largest canonical 1xN brick that fits the remaining span.
+    The first course minimizes brick count and then prefers larger pieces.
+    Each later course first minimizes internal joints shared with the previous
+    course, then brick count, then prefers larger pieces deterministically.
     """
     layout = WallBrickLayout(
         wall_width_studs=width_studs,
@@ -48,22 +113,21 @@ def generate_simple_wall_layout(width_studs: int, height_bricks: int) -> WallBri
         placements=[],
     )
     catalog = create_m0_brick_catalog()
+    previous_joints: frozenset[int] = frozenset()
 
     for course in range(height_bricks):
+        composition = _choose_course_composition(width_studs, previous_joints)
         x = 0
-        remaining = width_studs
 
-        while remaining:
-            span, brick_id = next(
-                (span, brick_id)
-                for span, brick_id in _CANONICAL_SPANNING_BRICKS
-                if span <= remaining
-            )
+        for span in composition:
+            brick_id = _BRICK_ID_BY_SPAN[span]
             brick = catalog.get(brick_id)
             rotation = 0 if span == 1 else 1
             footprint_x, footprint_y = brick.footprint(rotation)
             if footprint_x != span or footprint_y != 1:
-                raise RuntimeError(f"canonical brick {brick_id} does not match wall placement assumptions")
+                raise RuntimeError(
+                    f"canonical brick {brick_id} does not match wall placement assumptions"
+                )
 
             layout.placements.append(
                 BrickPlacement(
@@ -75,6 +139,7 @@ def generate_simple_wall_layout(width_studs: int, height_bricks: int) -> WallBri
                 )
             )
             x += span
-            remaining -= span
+
+        previous_joints = _internal_joints(composition)
 
     return layout
