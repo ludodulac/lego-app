@@ -1,30 +1,44 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>BrickHouse — Viewer 3D</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"}}</script>
-  </head>
-  <body>
-    <main class="app-shell">
-      <aside class="panel">
-        <div><p class="eyebrow">BrickHouse M0</p><h1>Viewer 3D</h1><p class="intro">Visualisation du BrickModel et de ses étapes de montage.</p></div>
-        <section class="controls" aria-label="Contrôles du modèle">
-          <a class="file-button" href="./photo.html">Analyser des photos</a>
-          <a class="file-button" href="./configurator.html">Configurer une maison</a>
-          <label class="file-button" for="file-input">Ouvrir un JSON</label><input id="file-input" type="file" accept="application/json,.json" />
-          <button id="reset-view" type="button">Recentrer la vue</button><button id="load-sample" type="button">Recharger l’exemple</button>
-          <a class="file-button" href="./instructions.html">Notice imprimable</a><button id="download-bom" type="button">Télécharger BOM CSV</button>
-        </section>
-        <section class="status-card"><h2>Modèle</h2><dl id="model-summary"><div><dt>Bâtiment</dt><dd>—</dd></div><div><dt>Pièces</dt><dd>—</dd></div><div><dt>Types</dt><dd>—</dd></div><div><dt>Taille</dt><dd>—</dd></div></dl></section>
-        <section id="assembly-card" class="status-card assembly-card" hidden><h2>Montage</h2><div class="assembly-header"><strong id="assembly-title">—</strong><span id="assembly-progress">—</span></div><input id="assembly-range" type="range" min="0" max="0" value="0" step="1" /><div class="assembly-buttons"><button id="assembly-prev" type="button">← Précédent</button><button id="assembly-next" type="button">Suivant →</button></div><button id="assembly-full" type="button">Voir le modèle complet</button></section>
-        <section class="legend" aria-label="Légende"><h2>Légende</h2><p><span class="swatch wall"></span>Murs</p><p><span class="swatch roof"></span>Toiture</p><p><span class="swatch ridge"></span>Faîtage</p></section>
-        <p id="message" class="message" role="status"></p>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrickHouse — Votre maison en briques</title>
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+  <main class="shell">
+    <nav class="nav">
+      <a class="brand" href="./index.html">BrickHouse</a>
+      <div class="nav-links"><a href="./viewer.html">Viewer 3D</a><a href="./instructions.html">Notice</a></div>
+    </nav>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">De votre maison à une maquette constructible</p>
+        <h1>Construisez votre maison en briques.</h1>
+        <p>BrickHouse transforme une description — et bientôt vos photos — en une maquette réellement montable, avec modèle 3D, étapes de construction et liste exacte des pièces.</p>
+      </div>
+      <aside class="hero-card">
+        <strong>Le parcours BrickHouse</strong>
+        <p>Une seule chaîne de données, de la maison réelle jusqu'à la notice.</p>
+        <div class="pipeline"><span><b>1</b> Comprendre la maison</span><span><b>2</b> Valider sa géométrie</span><span><b>3</b> Choisir des pièces compatibles</span><span><b>4</b> Construire et suivre la notice</span></div>
       </aside>
-      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas><div class="viewer-hint">Glisser pour tourner · molette/pincer pour zoomer · clic droit pour déplacer</div></section>
-    </main>
-    <script type="module" src="./viewer.js"></script>
-  </body>
+    </section>
+
+    <section>
+      <div class="section-title"><h2>Comment voulez-vous commencer ?</h2><p>Le configurateur manuel fonctionne déjà de bout en bout. L'analyse photo est prête côté produit mais attend l'activation d'un fournisseur IA.</p></div>
+      <div class="choices">
+        <a class="choice" href="./configurator.html"><span class="number">Disponible maintenant</span><h3>Décrire ma maison</h3><p>Indiquez les dimensions, le nombre d'étages, les fenêtres, la porte et la pente du toit. BrickHouse génère ensuite la maquette via le moteur hébergé.</p><span class="cta">Créer une maquette →</span></a>
+        <a class="choice disabled" href="./photo.html"><span class="number">Prototype prêt</span><h3>Analyser des photos</h3><p>Ajoutez plusieurs vues de votre maison, complétez avec du texte, puis laissez BrickHouse proposer un BuildingModel et poser des questions sur les zones incertaines.</p><span class="cta">Vision IA non activée pour l'instant →</span></a>
+      </div>
+    </section>
+
+    <section class="status-strip" aria-label="État du prototype">
+      <div class="status"><small>Moteur de briques</small><strong class="ok">Opérationnel</strong></div>
+      <div class="status"><small>API publique</small><strong class="ok">En ligne sur Render Free</strong></div>
+      <div class="status"><small>Analyse photo IA</small><strong class="wait">En attente d'activation</strong></div>
+    </section>
+  </main>
+</body>
 </html>
