@@ -67,23 +67,29 @@ def _course_local_bricks(
     wall: BuildingWallLayout,
     course: int,
     wall_owns_corners: bool,
-) -> list[tuple[str, int, int]]:
-    """Return (brick_id, local_x, span) for one reconstructed wall course."""
-    previous_joints: frozenset[int] = frozenset()
-    if course > 0:
-        # Corner weaving is the primary structural rule here. Joint staggering
-        # remains deterministic within the current course but is not carried
-        # across the re-tiled facade in BH-010.
-        previous_joints = frozenset()
-
+    previous_joints: frozenset[int],
+) -> tuple[list[tuple[str, int, int]], frozenset[int]]:
+    """Return local bricks plus internal joints for one reconstructed course."""
+    segments = _corner_trimmed_segments(wall, course, wall_owns_corners)
     result: list[tuple[str, int, int]] = []
-    for start, end in _corner_trimmed_segments(wall, course, wall_owns_corners):
+    raw_joints: set[int] = set()
+
+    for start, end in segments:
         composition = _choose_segment_composition(start, end, previous_joints)
         x = start
         for span in composition:
             result.append((_BRICK_ID_BY_SPAN[span], x, span))
             x += span
-    return result
+            raw_joints.add(x)
+
+    segment_edges = {edge for segment in segments for edge in segment}
+    width = wall.grid.width_studs
+    internal = frozenset(
+        joint
+        for joint in raw_joints
+        if joint not in segment_edges and 0 < joint < width
+    )
+    return result, internal
 
 
 def _to_global(
@@ -156,13 +162,25 @@ def generate_spatial_brick_shell(shell: BuildingBrickShell) -> SpatialBrickShell
 
     placements: list[GlobalBrickPlacement] = []
     occupied: set[tuple[int, int, int]] = set()
+    previous_joints_by_facade: dict[Facade, frozenset[int]] = {
+        facade: frozenset()
+        for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT)
+    }
 
     for course in range(height):
         horizontal_owns = course % 2 == 0
         for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
             wall_owns = horizontal_owns if facade in {Facade.FRONT, Facade.REAR} else not horizontal_owns
             wall = by_facade[facade]
-            for brick_id, local_x, span in _course_local_bricks(wall, course, wall_owns):
+            local_bricks, internal_joints = _course_local_bricks(
+                wall,
+                course,
+                wall_owns,
+                previous_joints_by_facade[facade],
+            )
+            previous_joints_by_facade[facade] = internal_joints
+
+            for brick_id, local_x, span in local_bricks:
                 placement = _to_global(
                     facade,
                     local_x,
