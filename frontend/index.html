@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BrickHouse — Viewer 3D</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="panel">
+        <div>
+          <p class="eyebrow">BrickHouse M0</p>
+          <h1>Viewer 3D</h1>
+          <p class="intro">Visualisation du BrickModel exporté par le moteur.</p>
+        </div>
+
+        <section class="controls" aria-label="Contrôles du modèle">
+          <label class="file-button" for="file-input">Ouvrir un JSON</label>
+          <input id="file-input" type="file" accept="application/json,.json" />
+          <button id="reset-view" type="button">Recentrer la vue</button>
+          <button id="load-sample" type="button">Recharger l’exemple</button>
+        </section>
+
+        <section class="status-card">
+          <h2>Modèle</h2>
+          <dl id="model-summary">
+            <div><dt>Bâtiment</dt><dd>—</dd></div>
+            <div><dt>Pièces</dt><dd>—</dd></div>
+            <div><dt>Types</dt><dd>—</dd></div>
+            <div><dt>Taille</dt><dd>—</dd></div>
+          </dl>
+        </section>
+
+        <section class="legend" aria-label="Légende">
+          <h2>Légende</h2>
+          <p><span class="swatch wall"></span>Murs</p>
+          <p><span class="swatch roof"></span>Toiture</p>
+          <p><span class="swatch ridge"></span>Faîtage</p>
+        </section>
+
+        <p id="message" class="message" role="status"></p>
+      </aside>
+
+      <section class="viewer-wrap">
+        <canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas>
+        <div class="viewer-hint">Glisser pour tourner · molette/pincer pour zoomer · clic droit pour déplacer</div>
+      </section>
+    </main>
+
+    <script type="module" src="./viewer.js"></script>
+  </body>
+</html>
