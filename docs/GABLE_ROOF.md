@@ -1,44 +1,47 @@
 # Gable roof generation — support-aware M0
 
-The gable roof is no longer treated as a set of visually convenient floating rows. BH-025 introduces an explicit M0 support rule and maps the roof to piece-family IDs already present in `data/processed/piece_types_master.csv`.
+BH-025 replaces the old floating-row roof approximation with an explicit support chain built from piece-family IDs already present in `data/processed/piece_types_master.csv`.
 
 ## Roof pieces used by M0
 
-Slope courses use the existing catalog family:
+Slope courses currently use:
 
 - `BRICK_SLOPED_45_2X1`
 - `BRICK_SLOPED_45_2X2`
 - `BRICK_SLOPED_45_2X3`
 - `BRICK_SLOPED_45_2X4`
 
-The ridge cap uses existing tile families:
+The ridge bridge currently uses:
 
-- `TILE_1X1`
-- `TILE_1X2`
-- `TILE_1X4`
+- `TILE_2X2`
+- `TILE_2X3`
+- `TILE_2X4`
 
-These are engine piece-family IDs already present in the processed source catalog. They are not invented display-only `ROOF_TILE_*` names.
+These IDs already exist in the processed source catalog. They are not display-only `ROOF_TILE_*` placeholders.
 
-## M0 connection rule
+## Connection rule
 
-Each sloped course is two studs deep across the roof pitch. Courses advance inward by one stud at a time, so the new course overlaps the preceding course by one stud row in plan. That shared row represents the stud/underside connection used by the support validator.
+Each sloped brick is two studs deep across the roof pitch. A new course advances inward by one stud, so one stud row overlaps the preceding course in plan. Its bottom connection therefore lands on the high connection row of the previous course.
 
-The validator requires:
+For the selected M0 45-degree family, each inward course rises by exactly one standard brick height (3 plates). The piece geometry dictates that rise; the engine no longer stretches or tilts a roof part to force an arbitrary metric Z value.
 
-1. the first course of each roof side to start at wall-top height and contact its eave wall;
-2. every later course to overlap the previous course;
-3. no unsupported downward step and no vertical jump greater than the M0 connection limit;
-4. the ridge cap to overlap the innermost course of both roof sides;
-5. deterministic placement without duplicated center courses.
+The first course of each side starts at wall-top height and contacts the eave wall. At the center, both sides terminate at adjacent high rows at the same elevation. A two-stud-wide tile bridge spans those two rows and acts as the ridge cap.
 
-A roof that breaks these conditions raises an error instead of being exported as if it were constructible.
+`validate_roof_support()` rejects a roof when:
 
-## Geometry
+- an eave course is not anchored at the wall top;
+- a later course has no one-row overlap with the previous course;
+- the vertical rise differs from the selected slope family's connection rise;
+- the ridge does not overlap the innermost course of both roof sides.
 
-The metric rise/run from `BuildingGeometry` is still quantized onto the global stud/plate grid. The two-stud slope family provides the physical connection footprint while the Z sequence follows the target roof pitch as closely as the M0 grid allows.
+The current M0 implementation also requires an even slope span. This avoids ambiguous center collisions until an odd-width ridge strategy is added.
 
-## Current limitation
+## Relationship to the photographed roof pitch
 
-This is an important structural improvement, but it is not yet a full supplier-exact connection solver. The processed catalog tells us piece families, dimensions, availability counts and colors; it does not yet encode every underside tube, stud, hinge or legal connection surface for every variant. A later catalog layer will map the chosen engine family to exact purchasable variants and richer connection geometry.
+The real metric roof geometry is still read and validated upstream, but M0 no longer deforms a 45-degree part to match that pitch. The constructible piece family wins. A later selector will choose the closest suitable family among the 18°, 25°, 30°, 33°, 45° and other sloped families already present in the source catalog.
 
-Other later work includes roof overhangs, dormers, hips/valleys, chimneys, gutters, and automated selection among 18°, 25°, 30°, 33°, 45° and other slope families already present in the source data.
+That means this version prioritizes **physical connection consistency over exact roof-pitch fidelity**. This is deliberate: a slightly different but buildable roof is preferable to a visually accurate roof made of impossible floating parts.
+
+## Remaining work
+
+The support rule is still an engine-level approximation of legal stud/underside connections, not a complete supplier-exact connection graph. Future work includes exact variant mapping, richer connector geometry, automatic slope-family selection, odd spans, roof overhangs, dormers, hips/valleys, chimneys, gutters, and structural subassemblies where required.
