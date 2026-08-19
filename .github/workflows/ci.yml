@@ -27,6 +27,12 @@ jobs:
       - name: Run tests
         run: pytest -q
 
+      - name: Check frontend JavaScript syntax
+        run: |
+          node --check frontend/viewer.js
+          node --check frontend/instructions.js
+          node --check frontend/configurator.js
+
       - name: Run reference M0 pipeline
         run: >-
           brickhouse-m0
