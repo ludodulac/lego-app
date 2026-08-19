@@ -2,31 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const PLATE_WORLD_HEIGHT = 1 / 2.5;
-const canvas = document.querySelector('#viewer');
-const messageEl = document.querySelector('#message');
-const summaryEl = document.querySelector('#model-summary');
-const fileInput = document.querySelector('#file-input');
-const resetButton = document.querySelector('#reset-view');
-const sampleButton = document.querySelector('#load-sample');
-const downloadBomButton = document.querySelector('#download-bom');
-const assemblyCard = document.querySelector('#assembly-card');
-const assemblyTitle = document.querySelector('#assembly-title');
-const assemblyProgress = document.querySelector('#assembly-progress');
-const assemblyRange = document.querySelector('#assembly-range');
-const assemblyPrev = document.querySelector('#assembly-prev');
-const assemblyNext = document.querySelector('#assembly-next');
-const assemblyFull = document.querySelector('#assembly-full');
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101827); scene.fog = new THREE.Fog(0x101827, 65, 150);
-const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.screenSpacePanning = true;
-scene.add(new THREE.HemisphereLight(0xdcecff, 0x20283a, 2.35)); const keyLight = new THREE.DirectionalLight(0xfff4df, 3.1); keyLight.position.set(18, 28, 16); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048); keyLight.shadow.camera.left = -55; keyLight.shadow.camera.right = 55; keyLight.shadow.camera.top = 55; keyLight.shadow.camera.bottom = -55; scene.add(keyLight); const fillLight = new THREE.DirectionalLight(0x9ec5ff, 0.75); fillLight.position.set(-14, 10, -18); scene.add(fillLight);
-const ground = new THREE.GridHelper(80, 80, 0x53627c, 0x27344b); ground.position.y = -0.01; scene.add(ground); const modelGroup = new THREE.Group(); scene.add(modelGroup);
-const palette = { brick: 0xd8c7a4, roof_tile: 0xb9564b, ridge_tile: 0xe5a15f };
-const materials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.01 })]));
-const fadedMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.62, transparent: true, opacity: 0.32, depthWrite: false })]));
-const highlightMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.34, emissive: color, emissiveIntensity: 0.18 })]));
-const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x171b24, transparent: true, opacity: 0.34 }); const studGeometry = new THREE.CylinderGeometry(0.30, 0.30, 0.15, 14); const studDetailEnabled = !window.matchMedia('(max-width: 760px)').matches;
+const canvas = document.querySelector('#viewer'); const messageEl = document.querySelector('#message'); const summaryEl = document.querySelector('#model-summary'); const fileInput = document.querySelector('#file-input'); const resetButton = document.querySelector('#reset-view'); const sampleButton = document.querySelector('#load-sample'); const downloadBomButton = document.querySelector('#download-bom'); const assemblyCard = document.querySelector('#assembly-card'); const assemblyTitle = document.querySelector('#assembly-title'); const assemblyProgress = document.querySelector('#assembly-progress'); const assemblyRange = document.querySelector('#assembly-range'); const assemblyPrev = document.querySelector('#assembly-prev'); const assemblyNext = document.querySelector('#assembly-next'); const assemblyFull = document.querySelector('#assembly-full');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101827); scene.fog = new THREE.Fog(0x101827, 65, 150); const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000); const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.screenSpacePanning = true;
+scene.add(new THREE.HemisphereLight(0xdcecff, 0x20283a, 2.35)); const keyLight = new THREE.DirectionalLight(0xfff4df, 3.1); keyLight.position.set(18, 28, 16); keyLight.castShadow = true; keyLight.shadow.mapSize.set(2048, 2048); keyLight.shadow.camera.left = -55; keyLight.shadow.camera.right = 55; keyLight.shadow.camera.top = 55; keyLight.shadow.camera.bottom = -55; scene.add(keyLight); const fillLight = new THREE.DirectionalLight(0x9ec5ff, 0.75); fillLight.position.set(-14, 10, -18); scene.add(fillLight); const ground = new THREE.GridHelper(80, 80, 0x53627c, 0x27344b); ground.position.y = -0.01; scene.add(ground); const modelGroup = new THREE.Group(); scene.add(modelGroup);
+const palette = { brick: 0xd8c7a4, roof_tile: 0xb9564b, ridge_tile: 0xe5a15f }; const materials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.01 })])); const fadedMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.62, transparent: true, opacity: 0.32, depthWrite: false })])); const highlightMaterials = Object.fromEntries(Object.entries(palette).map(([key, color]) => [key, new THREE.MeshStandardMaterial({ color, roughness: 0.34, emissive: color, emissiveIntensity: 0.18 })])); const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x171b24, transparent: true, opacity: 0.34 }); const studGeometry = new THREE.CylinderGeometry(0.30, 0.30, 0.15, 14); const studDetailEnabled = !window.matchMedia('(max-width: 760px)').matches;
 let lastBundle = null; let meshByPlacementId = new Map(); let currentAssemblyStep = null;
 function setMessage(text = '') { messageEl.textContent = text; }
 function parseCanonicalDimensions(part) { const match = part.part_id.match(/_(\d+)X(\d+)$/); if (!match) throw new Error(`Dimensions inconnues pour ${part.part_id}`); let width = Number(match[1]); let length = Number(match[2]); if (part.rotation_quarter_turns % 2 === 1) [width, length] = [length, width]; return { width, length, heightPlates: part.category === 'brick' ? 3 : 1 }; }
