@@ -29,10 +29,16 @@ def _analysis_result() -> PhotoAnalysisResult:
     )
 
 
-def test_health_endpoint():
+def test_health_endpoint(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "brickhouse-engine"}
+    assert response.json() == {"status": "ok", "service": "brickhouse-engine", "vision_enabled": False}
+
+
+def test_health_reports_vision_when_key_is_configured(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    assert client.get("/health").json()["vision_enabled"] is True
 
 
 def test_build_endpoint_returns_canonical_export():
@@ -64,7 +70,18 @@ def test_invalid_target_width_returns_422():
     assert response.status_code == 422
 
 
+def test_photo_analysis_is_disabled_without_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    response = client.post(
+        "/api/v1/analyze-photos",
+        files=[("photos", ("front.jpg", b"fake-jpeg-front", "image/jpeg"))],
+    )
+    assert response.status_code == 503
+    assert "pas activée" in response.json()["detail"]
+
+
 def test_photo_analysis_endpoint_returns_mocked_structured_result(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     captured = {}
     def fake_analyze(photos, *, user_notes="", known_front_width_m=None):
         captured["count"] = len(photos)
@@ -89,6 +106,7 @@ def test_photo_analysis_endpoint_returns_mocked_structured_result(monkeypatch):
 
 
 def test_photo_analysis_rejects_unsupported_file_type(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(api_module, "analyze_building_photos", lambda *args, **kwargs: _analysis_result())
     response = client.post(
         "/api/v1/analyze-photos",
@@ -98,6 +116,7 @@ def test_photo_analysis_rejects_unsupported_file_type(monkeypatch):
 
 
 def test_photo_analysis_rejects_too_many_photos(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(api_module, "analyze_building_photos", lambda *args, **kwargs: _analysis_result())
     files = [("photos", (f"p{i}.jpg", b"photo", "image/jpeg")) for i in range(7)]
     response = client.post("/api/v1/analyze-photos", files=files)
