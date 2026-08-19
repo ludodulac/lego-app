@@ -3,24 +3,23 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from .brick_model import BrickModel
+from .brick_model import BrickModel, PartComponent
 
 
 class AssemblyStep(BaseModel):
     step_id: str
     sequence: int = Field(gt=0)
-    component: Literal["wall", "roof"]
+    component: PartComponent
     z_plates: int = Field(ge=0)
     title: str
     placement_ids: list[str] = Field(min_length=1)
 
 
 class AssemblyPlan(BaseModel):
-    schema_version: Literal["0.1"] = "0.1"
+    schema_version: str = "0.1"
     building_id: str
     volume_id: str
     total_steps: int = Field(gt=0)
@@ -48,21 +47,21 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
         groups[(part.component, part.z_plates)].append(part.placement_id)
 
     ordered_groups: list[tuple[str, int]] = []
-    for component in ("wall", "roof"):
+    for component in ("wall", "facade_detail", "roof"):
         z_values = sorted(z for (kind, z) in groups if kind == component)
         ordered_groups.extend((component, z) for z in z_values)
 
+    labels = {"wall": "Murs", "facade_detail": "Fenêtres et détails", "roof": "Toiture"}
     steps: list[AssemblyStep] = []
     for sequence, (component, z_plates) in enumerate(ordered_groups, start=1):
         placement_ids = sorted(groups[(component, z_plates)])
-        label = "Murs" if component == "wall" else "Toiture"
         steps.append(
             AssemblyStep(
                 step_id=f"step-{sequence:04d}",
                 sequence=sequence,
                 component=component,
                 z_plates=z_plates,
-                title=f"{label} — niveau {z_plates} plates",
+                title=f"{labels[component]} — niveau {z_plates} plates",
                 placement_ids=placement_ids,
             )
         )
