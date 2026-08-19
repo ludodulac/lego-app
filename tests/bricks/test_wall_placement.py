@@ -18,13 +18,32 @@ def _covered_cells(layout):
     return cells
 
 
-def test_16_by_6_wall_uses_two_1x8_bricks_per_course():
+def _course_spans(layout, course):
+    catalog = create_m0_brick_catalog()
+    placements = [p for p in layout.placements if p.z_plates == course * 3]
+    placements.sort(key=lambda p: p.x_studs)
+    return [catalog.get(p.brick_id).footprint(p.rotation_quarter_turns)[0] for p in placements]
+
+
+def _course_joints(layout, course):
+    spans = _course_spans(layout, course)
+    joints = set()
+    x = 0
+    for span in spans[:-1]:
+        x += span
+        joints.add(x)
+    return joints
+
+
+def test_16_by_6_wall_staggers_adjacent_courses():
     layout = generate_simple_wall_layout(16, 6)
-    assert len(layout.placements) == 12
-    assert all(p.brick_id == "BRICK_1X8" for p in layout.placements)
+    assert _course_spans(layout, 0) == [8, 8]
+    assert _course_spans(layout, 1) == [6, 8, 2]
+    for course in range(1, 6):
+        assert _course_joints(layout, course - 1).isdisjoint(_course_joints(layout, course))
 
 
-def test_17_wide_wall_falls_back_to_1x1():
+def test_17_wide_first_course_falls_back_to_1x1():
     layout = generate_simple_wall_layout(17, 1)
     assert [p.brick_id for p in layout.placements] == [
         "BRICK_1X8",
@@ -34,17 +53,18 @@ def test_17_wide_wall_falls_back_to_1x1():
     assert [p.x_studs for p in layout.placements] == [0, 8, 16]
 
 
-def test_10_wide_wall_uses_8_plus_2():
+def test_10_wide_first_course_uses_8_plus_2():
     layout = generate_simple_wall_layout(10, 1)
     assert [p.brick_id for p in layout.placements] == ["BRICK_1X8", "BRICK_1X2"]
 
 
-def test_wall_has_exact_coverage_without_overlap():
-    layout = generate_simple_wall_layout(13, 4)
+@pytest.mark.parametrize("width,height", [(13, 4), (16, 6), (17, 5)])
+def test_wall_has_exact_coverage_without_overlap(width, height):
+    layout = generate_simple_wall_layout(width, height)
     cells = _covered_cells(layout)
-    assert len(cells) == 13 * 4
-    assert len(set(cells)) == 13 * 4
-    assert set(cells) == {(x, z) for z in range(4) for x in range(13)}
+    assert len(cells) == width * height
+    assert len(set(cells)) == width * height
+    assert set(cells) == {(x, z) for z in range(height) for x in range(width)}
 
 
 def test_each_course_starts_at_zero_and_uses_plate_height_grid():
