@@ -8,6 +8,12 @@ from brickhouse.bricks.building_layout import (
     generate_building_brick_shell,
 )
 from brickhouse.bricks.catalog import create_m0_brick_catalog
+from brickhouse.bricks.export import (
+    BrickExportBundle,
+    BrickExportMetadata,
+    create_export_bundle,
+    export_bundle_json,
+)
 from brickhouse.bricks.models import BrickCatalog, BrickDefinition
 from brickhouse.bricks.placement import (
     BrickPlacement,
@@ -41,6 +47,8 @@ __all__ = [
     "BillOfMaterials",
     "BrickCatalog",
     "BrickDefinition",
+    "BrickExportBundle",
+    "BrickExportMetadata",
     "BrickModel",
     "BrickModelPart",
     "BrickPlacement",
@@ -55,10 +63,12 @@ __all__ = [
     "WallBrickLayout",
     "WallGridSpec",
     "WallOpeningGrid",
+    "create_export_bundle",
     "create_m0_brick_catalog",
     "create_m0_roof_catalog",
     "discretize_wall_geometry",
     "discretize_wall_geometry_at_scale",
+    "export_bundle_json",
     "generate_bom",
     "generate_brick_model",
     "generate_building_brick_shell",
