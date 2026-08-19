@@ -1,6 +1,7 @@
 const photosInput=document.querySelector('#photos'),photoList=document.querySelector('#photo-list'),notesInput=document.querySelector('#notes'),knownWidthInput=document.querySelector('#known-width'),studsInput=document.querySelector('#studs'),apiInput=document.querySelector('#api-url'),analyzeButton=document.querySelector('#analyze'),refineButton=document.querySelector('#refine'),downloadButton=document.querySelector('#download-model'),buildButton=document.querySelector('#build-bricks'),statusEl=document.querySelector('#status'),emptyState=document.querySelector('#empty-state'),resultEl=document.querySelector('#result'),resultName=document.querySelector('#result-name'),confidenceEl=document.querySelector('#confidence'),confirmationCard=document.querySelector('#confirmation-card'),questionsEl=document.querySelector('#questions'),assumptionsEl=document.querySelector('#assumptions'),jsonPreview=document.querySelector('#json-preview');
 let analysis=null;
-apiInput.value=localStorage.getItem('brickhouse.engineApiUrl')??'';
+const DEFAULT_API_URL='https://brickhouse-api.onrender.com';
+apiInput.value=localStorage.getItem('brickhouse.engineApiUrl')??DEFAULT_API_URL;
 function apiBase(){return apiInput.value.trim().replace(/\/$/,'');}
 apiInput.addEventListener('change',()=>{const base=apiBase();if(base)localStorage.setItem('brickhouse.engineApiUrl',base);else localStorage.removeItem('brickhouse.engineApiUrl');});
 function selectedPhotos(){return [...(photosInput.files??[])];}
