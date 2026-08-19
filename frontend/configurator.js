@@ -1,5 +1,6 @@
 const form=document.querySelector('#building-form'),preview=document.querySelector('#json-preview'),statusEl=document.querySelector('#status'),validity=document.querySelector('#validity'),downloadButton=document.querySelector('#download-model'),buildButton=document.querySelector('#build-bricks'),apiInput=document.querySelector('#api-url');
 let currentModel=null;
+const DEFAULT_API_URL='https://brickhouse-api.onrender.com';
 const number=id=>Number(document.querySelector(`#${id}`).value);
 const text=id=>document.querySelector(`#${id}`).value.trim();
 const source={kind:'user_provided',confidence:1};
@@ -11,6 +12,6 @@ function renderModel(){try{currentModel=buildModel();preview.textContent=JSON.st
 function downloadJson(data,fileName){const blob=new Blob([JSON.stringify(data,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fileName;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}
 form.addEventListener('submit',event=>{event.preventDefault();try{renderModel();}catch{}});
 downloadButton.addEventListener('click',()=>{if(!currentModel)return;downloadJson(currentModel,`${currentModel.id}.json`);});
-apiInput.value=localStorage.getItem('brickhouse.engineApiUrl')??'';
+apiInput.value=localStorage.getItem('brickhouse.engineApiUrl')??DEFAULT_API_URL;
 apiInput.addEventListener('change',()=>{const value=apiInput.value.trim().replace(/\/$/,'');if(value)localStorage.setItem('brickhouse.engineApiUrl',value);else localStorage.removeItem('brickhouse.engineApiUrl');});
 buildButton.addEventListener('click',async()=>{let model;try{model=currentModel??renderModel();}catch{return;}const base=apiInput.value.trim().replace(/\/$/,'');if(!base){statusEl.textContent='Le BuildingModel est prêt. L’API moteur n’est pas encore hébergée : vous pouvez télécharger le JSON maintenant.';return;}const studs=number('studs');buildButton.disabled=true;statusEl.textContent='Construction de la maquette en cours…';try{localStorage.setItem('brickhouse.engineApiUrl',base);const response=await fetch(`${base}/api/v1/build`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({building:model,front_width_studs:studs})});const payload=await response.json();if(!response.ok)throw new Error(typeof payload.detail==='string'?payload.detail:`Erreur moteur HTTP ${response.status}`);localStorage.setItem('brickhouse.pendingExport',JSON.stringify(payload));window.location.href='./index.html';}catch(error){statusEl.textContent=`Impossible de construire : ${error.message}`;buildButton.disabled=false;}});
