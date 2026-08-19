@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .brick_model import BrickModel
+from .brick_model import BrickModel, PartCategory
 
 
 class BOMLine(BaseModel):
     part_id: str
-    category: Literal["brick", "roof_tile", "ridge_tile"]
+    category: PartCategory
     quantity: int = Field(gt=0)
 
 
 class BillOfMaterials(BaseModel):
-    schema_version: Literal["0.1"] = "0.1"
+    schema_version: str = "0.1"
     building_id: str
     volume_id: str
     total_parts: int = Field(gt=0)
