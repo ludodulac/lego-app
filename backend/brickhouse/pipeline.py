@@ -12,6 +12,7 @@ from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.brick_model import generate_brick_model
 from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.export import BrickExportBundle, create_export_bundle, export_bundle_json
+from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.roof import generate_spatial_gable_roof
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.geometry import generate_building_geometry
@@ -30,8 +31,9 @@ def run_m0_pipeline_model(
     geometry = generate_building_geometry(building)
     building_shell = generate_building_brick_shell(geometry, front_width_studs)
     spatial_shell = generate_spatial_brick_shell(building_shell)
+    facade_details = generate_window_surrounds(building, building_shell)
     spatial_roof = generate_spatial_gable_roof(geometry, building_shell)
-    brick_model = generate_brick_model(spatial_shell, spatial_roof)
+    brick_model = generate_brick_model(spatial_shell, spatial_roof, facade_details)
     bom = generate_bom(brick_model)
     assembly_plan = generate_assembly_plan(brick_model)
     return create_export_bundle(brick_model, bom, assembly_plan)
