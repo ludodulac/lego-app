@@ -22,4 +22,4 @@ def test_windows_generate_facade_detail_parts_and_steps() -> None:
 
     detail_steps = [step for step in bundle.assembly_plan.steps if step.component == "facade_detail"]
     assert detail_steps
-    assert any(step.title.startswith("Fenêtres et détails") for step in detail_steps)
+    assert any(step.title.startswith("Détails de façade") for step in detail_steps)
