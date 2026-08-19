@@ -1,5 +1,6 @@
 import pytest
 
+from brickhouse.bricks.catalog import create_m0_brick_catalog
 from brickhouse.bricks.scaling import (
     COURSES_PER_STUD_RATIO,
     discretize_wall_geometry,
@@ -151,11 +152,12 @@ def test_invalid_target_width_is_rejected(target):
         discretize_wall_geometry(_front_wall(), target)
 
 
-def test_quantization_that_makes_openings_overlap_is_rejected():
-    first = _opening("first", 1.0, 2.1, 1.0, 2.0)
-    second = _opening("second", 2.11, 3.2, 1.0, 2.0)
-    with pytest.raises(ValueError, match="overlap"):
-        discretize_wall_geometry(_front_wall(openings=[first, second]), 10)
+def test_multiple_openings_preserve_order_and_remain_disjoint():
+    first = _opening("first", 1.0, 2.0, 1.0, 2.0)
+    second = _opening("second", 3.0, 4.0, 1.0, 2.0)
+    spec = discretize_wall_geometry(_front_wall(openings=[first, second]), 50)
+    assert [opening.id for opening in spec.openings] == ["first", "second"]
+    assert spec.openings[0].x_end <= spec.openings[1].x_studs
 
 
 def test_scaled_layout_keeps_opening_cells_empty():
@@ -163,6 +165,7 @@ def test_scaled_layout_keeps_opening_cells_empty():
     wall = _front_wall(width=10, height=5, openings=[door])
     layout = generate_scaled_wall_layout(wall, 40)
     opening = layout.openings[0]
+    catalog = create_m0_brick_catalog()
 
     assert layout.wall_width_studs == 40
     assert opening.x_studs == 16
@@ -170,9 +173,11 @@ def test_scaled_layout_keeps_opening_cells_empty():
 
     for placement in layout.placements:
         course = placement.z_plates // 3
+        brick = catalog.get(placement.brick_id)
+        span, depth = brick.footprint(placement.rotation_quarter_turns)
+        assert depth == 1
         if opening.z_bricks <= course < opening.z_end:
             assert not (
                 placement.x_studs < opening.x_end
-                and opening.x_studs < placement.x_studs
-                + (1 if placement.brick_id == "BRICK_1X1" else int(placement.brick_id.split("X")[-1]))
+                and opening.x_studs < placement.x_studs + span
             )
