@@ -7,8 +7,9 @@ def test_render_blueprint_targets_fastapi_and_healthcheck():
     assert "--host 0.0.0.0" in text
     assert "--port $PORT" in text
     assert "healthCheckPath: /health" in text
-    assert "OPENAI_API_KEY" in text
-    assert "sync: false" in text
+    assert "plan: free" in text
+    # Vision is deliberately optional in the zero-cost prototype deployment.
+    assert "OPENAI_API_KEY" not in text
 
 
 def test_dockerfile_runs_same_api_contract():
