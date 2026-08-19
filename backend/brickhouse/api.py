@@ -35,7 +35,7 @@ def _cors_origins() -> list[str]:
 
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.2.0",
+    version="0.3.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -48,8 +48,12 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "brickhouse-engine"}
+def health() -> dict[str, str | bool]:
+    return {
+        "status": "ok",
+        "service": "brickhouse-engine",
+        "vision_enabled": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+    }
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
@@ -66,6 +70,11 @@ async def analyze_photos(
     user_notes: str = Form(default=""),
     known_front_width_m: float | None = Form(default=None),
 ) -> PhotoAnalysisResult:
+    if not os.getenv("OPENAI_API_KEY", "").strip():
+        raise HTTPException(
+            status_code=503,
+            detail="L’analyse photo IA n’est pas activée sur ce serveur. Le moteur BrickHouse reste disponible gratuitement.",
+        )
     if not 1 <= len(photos) <= 6:
         raise HTTPException(status_code=422, detail="Envoyez entre 1 et 6 photos.")
     if known_front_width_m is not None and known_front_width_m <= 0:
