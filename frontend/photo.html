@@ -7,10 +7,10 @@
   <link rel="stylesheet" href="./photo.css" />
 </head>
 <body>
-  <header class="topbar"><a href="./index.html">← Viewer 3D</a><strong>BrickHouse</strong><a href="./configurator.html">Configurateur →</a></header>
+  <header class="topbar"><a href="./index.html">← Accueil</a><strong>BrickHouse</strong><a href="./configurator.html">Décrire ma maison →</a></header>
   <main class="layout">
     <section class="panel">
-      <p class="eyebrow">La promesse BrickHouse</p>
+      <p class="eyebrow">Étape 1 · Comprendre à partir des photos</p>
       <h1>Photographier la maison</h1>
       <p class="intro">Ajoutez de 1 à 6 vues de la même maison. Face, côtés et arrière amélioreront la reconstruction. Le parcours est prêt, mais l’analyse IA réelle reste volontairement désactivée tant qu’aucun fournisseur de vision n’est configuré.</p>
       <div class="result-card warning"><strong>Mode prototype gratuit</strong><p>Le moteur maison → briques est en ligne. L’analyse des photos sera activée séparément ; aucune dépense n’est engagée pour l’instant.</p></div>
@@ -20,17 +20,17 @@
       <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel" /></div>
       <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
       <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
-      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger BuildingModel</button><button id="build-bricks" type="button" disabled>Construire avec cette estimation</button></div>
+      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       <p id="status" class="status">L’analyse photo indiquera clairement ce qui est observé, inféré ou incertain.</p>
     </section>
     <section class="result-panel">
       <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>
       <div id="result" hidden>
-        <div class="result-header"><div><p class="eyebrow">Proposition architecturale</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
+        <div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
         <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez aux points que vous connaissez. Vous pouvez aussi conserver les estimations actuelles.</p></section>
         <section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Vos réponses seront réinjectées avec les mêmes photos.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section>
         <section class="result-card"><h3>Hypothèses utilisées</h3><ul id="assumptions"></ul></section>
-        <details class="result-card"><summary>Voir le BuildingModel JSON</summary><pre id="json-preview"></pre></details>
+        <details class="result-card"><summary>Voir les données techniques</summary><pre id="json-preview"></pre></details>
       </div>
     </section>
   </main>
