@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BrickHouse — Analyser des photos</title>
+  <link rel="stylesheet" href="./photo.css" />
+</head>
+<body>
+  <header class="topbar"><a href="./index.html">← Viewer 3D</a><strong>BrickHouse</strong><span>Analyse photo M0</span></header>
+  <main class="layout">
+    <section class="panel">
+      <p class="eyebrow">La promesse BrickHouse</p>
+      <h1>Photographier la maison</h1>
+      <p class="intro">Ajoutez de 1 à 6 vues de la même maison. Face, côtés et arrière améliorent la reconstruction, mais ne sont pas obligatoires.</p>
+      <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small>JPEG, PNG ou WebP · 6 photos maximum</small></div>
+      <div id="photo-list" class="photo-list"></div>
+      <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. Derrière le garage il n’y a pas de fenêtre."></textarea></div>
+      <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel" /></div>
+      <div class="field"><label for="studs">Largeur souhaitée de la maquette (tenons)</label><input id="studs" type="number" min="16" max="160" step="2" value="48" /></div>
+      <div class="field"><label for="api-url">URL API BrickHouse</label><input id="api-url" type="url" placeholder="https://api.brickhouse..." /></div>
+      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger BuildingModel</button><button id="build-bricks" type="button" disabled>Construire en briques</button></div>
+      <p id="status" class="status"></p>
+    </section>
+    <section class="result-panel">
+      <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>
+      <div id="result" hidden>
+        <div class="result-header"><div><p class="eyebrow">Proposition architecturale</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
+        <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>BrickHouse a identifié des éléments qui peuvent changer la maquette.</p></section>
+        <section class="result-card"><h3>Questions</h3><div id="questions" class="questions"></div></section>
+        <section class="result-card"><h3>Hypothèses utilisées</h3><ul id="assumptions"></ul></section>
+        <details class="result-card"><summary>Voir le BuildingModel JSON</summary><pre id="json-preview"></pre></details>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="./photo.js"></script>
+</body>
+</html>
