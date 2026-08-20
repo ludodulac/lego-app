@@ -10,6 +10,8 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
+      - key: OPENAI_API_KEY
+        sync: false
       - key: OPENAI_VISION_MODEL
         value: gpt-5
       - key: BRICKHOUSE_CORS_ORIGINS
