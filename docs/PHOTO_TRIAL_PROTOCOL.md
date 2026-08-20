@@ -41,11 +41,25 @@ Avant de construire les briques, vérifier :
 - nombre et répartition des portes/fenêtres sur chaque façade ;
 - distinction observed / user_provided / inferred ;
 - hypothèses et questions réellement utiles ;
+- base d'échelle et indices de proportions ;
 - compatibilité M0 (`buildable`, blockers, warnings).
 
 On ne juge pas encore la précision au centimètre. On cherche une représentation architecturale cohérente et honnête.
 
-## 5. Critères à vérifier après génération LEGO
+## 5. Sauvegarder le rapport d'essai
+
+Après chaque analyse réelle, cliquer sur **Télécharger le rapport d'essai** avant de modifier ou remplacer les photos.
+
+Ce fichier contient :
+- la révision exacte du moteur ;
+- le fournisseur et le modèle de vision utilisés ;
+- le nom, type et taille de chaque fichier photo, mais **jamais le contenu des images** ;
+- la mesure réelle fournie et la taille de maquette demandée ;
+- le `PhotoAnalysisResult` complet : BuildingModel, confiance, hypothèses, questions, base d'échelle, indices de proportions et compatibilité M0.
+
+Le rapport ne contient aucune clé API. Il sert de trace reproductible pour comparer deux versions du moteur sans dépendre de captures d'écran ou de souvenirs.
+
+## 6. Critères à vérifier après génération LEGO
 
 Dans le viewer :
 - silhouette générale reconnaissable ;
@@ -66,7 +80,7 @@ Dans la notice :
 - étapes suffisamment courtes ;
 - sous-assemblages de fenêtres compréhensibles.
 
-## 6. Résultat du test
+## 7. Résultat du test
 
 Noter chaque écart dans l'une des catégories suivantes :
 - VISION : mauvaise compréhension des photos ;
@@ -78,6 +92,6 @@ Noter chaque écart dans l'une des catégories suivantes :
 
 Cette classification est importante : elle évite de corriger le viewer pour masquer une erreur venant de la vision, ou de modifier la vision pour compenser un défaut du moteur LEGO.
 
-## 7. Condition de passage à la maison suivante
+## 8. Condition de passage à la maison suivante
 
 On passe à une deuxième maison lorsque le premier cas simple arrive de bout en bout au viewer, à la BOM et à la notice, avec une silhouette et des ouvertures principales raisonnablement fidèles et sans simplification architecturale silencieuse.
