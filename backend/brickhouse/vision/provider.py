@@ -1,15 +1,11 @@
-"""Explicit provider selection for BrickHouse photo analysis.
-
-Provider choice is configuration, not inference: this prevents a secret appearing on
-an environment from silently changing where house photos are sent.
-"""
+"""Explicit provider selection for BrickHouse photo analysis."""
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 from typing import Literal
 
-from .gemini_provider import analyze_building_photos_gemini
+from .gemini_provider import GeminiHTTPError, analyze_building_photos_gemini
 from .models import PhotoAnalysisResult
 from .openai_provider import PhotoInput, analyze_building_photos
 
@@ -17,7 +13,9 @@ VisionProviderName = Literal["openai", "gemini"]
 
 
 class VisionProviderError(RuntimeError):
-    """Safe provider-facing failure suitable for conversion to HTTP 502."""
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -47,32 +45,33 @@ def vision_status() -> VisionStatus:
     return VisionStatus(False, None, None, "unknown_provider")
 
 
+def _gemini_error_code(status_code: int) -> str:
+    if status_code == 400:
+        return "gemini_request_rejected"
+    if status_code in {401, 403}:
+        return "gemini_auth_or_access"
+    if status_code == 404:
+        return "gemini_model_unavailable"
+    if status_code == 429:
+        return "gemini_quota_or_rate_limit"
+    if status_code >= 500:
+        return "gemini_upstream_unavailable"
+    return "gemini_http_error"
+
+
 def analyze_with_configured_provider(
-    photos: list[PhotoInput],
-    *,
-    user_notes: str = "",
-    known_front_width_m: float | None = None,
+    photos: list[PhotoInput], *, user_notes: str = "", known_front_width_m: float | None = None,
 ) -> PhotoAnalysisResult:
     status = vision_status()
     if not status.ready or status.provider is None:
-        raise VisionProviderError(f"vision provider is not ready: {status.reason}")
+        raise VisionProviderError(status.reason)
     try:
         if status.provider == "openai":
-            return analyze_building_photos(
-                photos,
-                user_notes=user_notes,
-                known_front_width_m=known_front_width_m,
-                model=status.model,
-            )
-        return analyze_building_photos_gemini(
-            photos,
-            user_notes=user_notes,
-            known_front_width_m=known_front_width_m,
-            model=status.model,
-        )
+            return analyze_building_photos(photos, user_notes=user_notes, known_front_width_m=known_front_width_m, model=status.model)
+        return analyze_building_photos_gemini(photos, user_notes=user_notes, known_front_width_m=known_front_width_m, model=status.model)
     except ValueError:
         raise
+    except GeminiHTTPError as exc:
+        raise VisionProviderError(_gemini_error_code(exc.status_code)) from exc
     except Exception as exc:
-        # Provider SDK/HTTP exceptions should never leak response bodies, keys or
-        # account details through the public BrickHouse API.
-        raise VisionProviderError("configured vision provider failed") from exc
+        raise VisionProviderError("configured_provider_failed") from exc
