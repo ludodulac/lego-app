@@ -28,7 +28,7 @@ def _output() -> str:
     building["metadata"]["created_from"] = "photo_analysis"
     building["metadata"]["notes"] = "proposition vision"
     return json.dumps({
-        "schema_version": "0.1",
+        "schema_version": "0.3",
         "building": building,
         "questions": [{
             "id": "q_rear",
@@ -38,7 +38,14 @@ def _output() -> str:
         }],
         "assumptions": ["Arrière rectangulaire simple."],
         "confidence": 0.71,
-        "needs_confirmation": True
+        "needs_confirmation": True,
+        "scale_basis": "Largeur de façade fournie par l’utilisateur : 10 m.",
+        "proportion_evidence": [{
+            "facade": "front",
+            "observation": "Les positions des fenêtres sont exprimées comme rapports sur la largeur de façade avant conversion en mètres.",
+            "method": "known_scale_anchor",
+            "confidence": 0.9
+        }]
     })
 
 
@@ -56,6 +63,8 @@ def test_provider_sends_multiple_images_as_data_urls_and_parses_contract():
     )
     assert result.building.metadata.created_from == "photo_analysis"
     assert result.needs_confirmation is True
+    assert result.scale_basis and "10 m" in result.scale_basis
+    assert result.proportion_evidence[0].method == "known_scale_anchor"
     kwargs = client.responses.kwargs
     assert kwargs["model"] == "test-vision-model"
     content = kwargs["input"][0]["content"]
@@ -68,6 +77,13 @@ def test_provider_sends_multiple_images_as_data_urls_and_parses_contract():
     assert "do NOT force every property" in instructions
     assert "downstream BrickHouse compatibility layer" in instructions
     assert "multiple rectangular volumes" in instructions
+    assert "Never treat raw image pixel distances" in instructions
+    assert "wall edge -> opening" in instructions
+    assert "known_front_width_m" in instructions
+    assert "proportion_evidence" in instructions
+    prompt = content[0]["text"]
+    assert "Recover normalized architectural proportions" in prompt
+    assert "Correct mentally for perspective" in prompt
 
 
 def test_provider_rejects_invalid_photo_contract_before_network():
