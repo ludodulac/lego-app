@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from .brick_model import BrickModel, PartComponent
 
+MAX_PARTS_PER_STEP = 12
+
 
 class AssemblyStep(BaseModel):
     step_id: str
@@ -52,12 +54,17 @@ def _phase_for_part(part) -> str:
     return "facade_detail"
 
 
-def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
-    """Generate a bottom-up plan with physically sensible window sequencing.
+def _chunks(items: list[str], size: int = MAX_PARTS_PER_STEP) -> list[list[str]]:
+    """Split a dense construction level into short, deterministic actions."""
+    return [items[index:index + size] for index in range(0, len(items), size)]
 
-    Real window frames are placed before their panes. Other facade details remain
-    separate, so the printable instructions never ask the builder to insert a
-    pane before the supporting frame exists.
+
+def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
+    """Generate a practical bottom-up plan with physically sensible sequencing.
+
+    Frames precede panes, details precede the roof, and dense levels are split
+    into small actions so a printable instruction page never asks the builder
+    to locate and place an overwhelming number of new parts at once.
     """
     groups: dict[tuple[str, int], list[str]] = defaultdict(list)
     for part in model.parts:
@@ -82,16 +89,24 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
         "facade_detail": "facade_detail",
         "roof": "roof",
     }
+    pending: list[tuple[str, int, list[str], int, int]] = []
+    for phase, z_plates in ordered_groups:
+        chunks = _chunks(sorted(groups[(phase, z_plates)]))
+        for chunk_index, placement_ids in enumerate(chunks, start=1):
+            pending.append((phase, z_plates, placement_ids, chunk_index, len(chunks)))
+
     steps: list[AssemblyStep] = []
-    for sequence, (phase, z_plates) in enumerate(ordered_groups, start=1):
-        placement_ids = sorted(groups[(phase, z_plates)])
+    for sequence, (phase, z_plates, placement_ids, chunk_index, chunk_count) in enumerate(pending, start=1):
+        title = f"{labels[phase]} — niveau {z_plates} plates"
+        if chunk_count > 1:
+            title += f" · partie {chunk_index}/{chunk_count}"
         steps.append(
             AssemblyStep(
                 step_id=f"step-{sequence:04d}",
                 sequence=sequence,
                 component=components[phase],
                 z_plates=z_plates,
-                title=f"{labels[phase]} — niveau {z_plates} plates",
+                title=title,
                 placement_ids=placement_ids,
             )
         )
