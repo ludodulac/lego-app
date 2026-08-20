@@ -15,6 +15,12 @@ from .openai_provider import PhotoInput, SYSTEM_PROMPT
 MAX_GEMINI_INLINE_RAW_BYTES = 14 * 1024 * 1024
 
 
+class GeminiHTTPError(RuntimeError):
+    def __init__(self, status_code: int):
+        super().__init__(f"Gemini HTTP {status_code}")
+        self.status_code = status_code
+
+
 def _prompt(user_notes: str, known_front_width_m: float | None) -> str:
     return (
         "Analyze these photos as different views of the same property. "
@@ -37,7 +43,6 @@ def _extract_text(payload: dict[str, Any]) -> str:
 
 
 def _clean_json_text(text: str) -> str:
-    """Accept JSON itself and the common accidental Markdown fence wrapper."""
     value = text.strip()
     if value.startswith("```"):
         lines = value.splitlines()
@@ -58,8 +63,6 @@ def _repair_prompt(invalid_text: str, exc: Exception) -> str:
         errors = exc.errors(include_url=False, include_context=False)
     else:
         errors = [{"error": str(exc)}]
-    # Do not ask the model to reinterpret the architecture: this pass only
-    # repairs JSON/schema/cross-field consistency.
     return (
         "Repair the following BrickHouse photo-analysis candidate so it validates exactly against the supplied JSON schema. "
         "Preserve all architectural observations, dimensions and uncertainty unless a value itself violates a schema or cross-field constraint. "
@@ -70,25 +73,16 @@ def _repair_prompt(invalid_text: str, exc: Exception) -> str:
 
 
 def _post_json(http: httpx.Client, url: str, key: str, body: dict[str, Any]) -> str:
-    response = http.post(
-        url,
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json=body,
-    )
-    response.raise_for_status()
+    response = http.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body)
+    if not response.is_success:
+        raise GeminiHTTPError(response.status_code)
     return _extract_text(response.json())
 
 
 def analyze_building_photos_gemini(
-    photos: list[PhotoInput],
-    *,
-    user_notes: str = "",
-    known_front_width_m: float | None = None,
-    client: httpx.Client | None = None,
-    model: str | None = None,
-    api_key: str | None = None,
+    photos: list[PhotoInput], *, user_notes: str = "", known_front_width_m: float | None = None,
+    client: httpx.Client | None = None, model: str | None = None, api_key: str | None = None,
 ) -> PhotoAnalysisResult:
-    """Analyze 1–6 photos with Gemini and validate/repair the shared result contract."""
     if not 1 <= len(photos) <= 6:
         raise ValueError("photo analysis requires between 1 and 6 images")
     if known_front_width_m is not None and known_front_width_m <= 0:
@@ -107,18 +101,11 @@ def analyze_building_photos_gemini(
     if not key.strip():
         raise ValueError("Gemini API key is not configured")
 
-    parts: list[dict[str, Any]] = [
-        {"inline_data": {"mime_type": photo.media_type, "data": base64.b64encode(photo.content).decode("ascii")}}
-        for photo in photos
-    ]
+    parts = [{"inline_data": {"mime_type": p.media_type, "data": base64.b64encode(p.content).decode("ascii")}} for p in photos]
     parts.append({"text": _prompt(user_notes, known_front_width_m)})
     schema = PhotoAnalysisResult.model_json_schema()
     generation = {"responseMimeType": "application/json", "responseJsonSchema": schema}
-    body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": generation,
-    }
+    body = {"system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]}, "contents": [{"role": "user", "parts": parts}], "generationConfig": generation}
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{selected_model}:generateContent"
     owns_client = client is None
     http = client or httpx.Client(timeout=90.0)
@@ -127,11 +114,7 @@ def analyze_building_photos_gemini(
         try:
             return _validate_result(text)
         except (json.JSONDecodeError, ValidationError, ValueError) as first_error:
-            repair_body = {
-                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                "contents": [{"role": "user", "parts": [{"text": _repair_prompt(text, first_error)}]}],
-                "generationConfig": generation,
-            }
+            repair_body = {"system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]}, "contents": [{"role": "user", "parts": [{"text": _repair_prompt(text, first_error)}]}], "generationConfig": generation}
             repaired = _post_json(http, url, key, repair_body)
             try:
                 return _validate_result(repaired)
