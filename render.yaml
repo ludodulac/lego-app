@@ -10,9 +10,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
+      - key: BRICKHOUSE_VISION_PROVIDER
+        value: none
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_VISION_MODEL
         value: gpt-5
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_VISION_MODEL
+        value: gemini-3.6-flash
       - key: BRICKHOUSE_CORS_ORIGINS
         value: https://ludodulac.github.io
