@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAIError
 from pydantic import BaseModel, Field
 
 from brickhouse.building.models import BuildingModel
@@ -27,6 +28,8 @@ class Capabilities(BaseModel):
     engine_ready: bool = True
     photo_analysis_ready: bool
     photo_provider: str | None = None
+    photo_model: str | None = None
+    photo_analysis_reason: str
     max_photos: int = MAX_PHOTOS
     supported_photo_types: list[str]
     max_photo_bytes: int = MAX_PHOTO_BYTES
@@ -53,9 +56,19 @@ def _vision_enabled() -> bool:
     return bool(os.getenv("OPENAI_API_KEY", "").strip())
 
 
+def _vision_model() -> str:
+    return os.getenv("OPENAI_VISION_MODEL", "gpt-5").strip() or "gpt-5"
+
+
+def _vision_reason() -> str:
+    if _vision_enabled():
+        return "ready"
+    return "missing_server_api_key"
+
+
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.6.0",
+    version="0.7.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -73,6 +86,7 @@ def health() -> dict[str, str | bool]:
         "status": "ok",
         "service": "brickhouse-engine",
         "vision_enabled": _vision_enabled(),
+        "vision_model": _vision_model(),
         "engine_revision": _engine_revision(),
     }
 
@@ -83,6 +97,8 @@ def capabilities() -> Capabilities:
     return Capabilities(
         photo_analysis_ready=enabled,
         photo_provider="openai" if enabled else None,
+        photo_model=_vision_model() if enabled else None,
+        photo_analysis_reason=_vision_reason(),
         supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES),
         engine_revision=_engine_revision(),
     )
@@ -136,3 +152,10 @@ async def analyze_photos(
         return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        # Do not leak provider internals or credentials to the browser. The user
+        # only needs to know that the external vision call failed and can retry.
+        raise HTTPException(
+            status_code=502,
+            detail="Le fournisseur de vision n’a pas pu terminer l’analyse. Réessayez dans un instant ; si le problème persiste, vérifiez la configuration serveur.",
+        ) from exc
