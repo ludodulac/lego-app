@@ -16,7 +16,9 @@ class ClarificationQuestion(BaseModel):
 
 
 class PhotoAnalysisResult(BaseModel):
-    schema_version: Literal["0.2"] = "0.2"
+    # 0.2 adds compatibility metadata. Accept 0.1 provider payloads so stored/test
+    # analyses remain readable; the API enriches every live response itself.
+    schema_version: Literal["0.1", "0.2"] = "0.2"
     building: BuildingModel
     questions: list[ClarificationQuestion] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
