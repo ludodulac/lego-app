@@ -12,16 +12,16 @@
     <section class="panel">
       <p class="eyebrow">Étape 1 · Comprendre à partir des photos</p>
       <h1>Photographier la maison</h1>
-      <p class="intro">Ajoutez de 1 à 6 vues de la même maison. Face, côtés et arrière amélioreront la reconstruction. Le parcours est prêt, mais l’analyse IA réelle reste volontairement désactivée tant qu’aucun fournisseur de vision n’est configuré.</p>
-      <div class="result-card warning"><strong>Mode prototype gratuit</strong><p>Le moteur maison → briques est en ligne. L’analyse des photos sera activée séparément ; aucune dépense n’est engagée pour l’instant.</p></div>
-      <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small>JPEG, PNG ou WebP · 6 photos maximum</small></div>
+      <p class="intro">Ajoutez plusieurs vues de la même maison. Pour un premier essai utile, privilégiez la façade avant, les deux côtés et l’arrière, prises avec assez de recul pour voir le toit et les ouvertures.</p>
+      <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>BrickHouse vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
+      <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 6 photos maximum · 12 Mo maximum par photo</small></div>
       <div id="photo-list" class="photo-list"></div>
       <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. Derrière le garage il n’y a pas de fenêtre."></textarea></div>
-      <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel" /></div>
+      <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel mais très utile pour l’échelle" /></div>
       <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
       <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
-      <div class="actions"><button id="analyze" class="primary" type="button">Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
-      <p id="status" class="status">L’analyse photo indiquera clairement ce qui est observé, inféré ou incertain.</p>
+      <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
+      <p id="status" class="status">Connexion au moteur BrickHouse…</p>
     </section>
     <section class="result-panel">
       <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>

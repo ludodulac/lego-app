@@ -14,11 +14,22 @@ from brickhouse.vision.openai_provider import PhotoInput, analyze_building_photo
 
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
 SUPPORTED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_PHOTOS = 6
 
 
 class BuildRequest(BaseModel):
     building: BuildingModel
     front_width_studs: int = Field(default=DEFAULT_FRONT_WIDTH_STUDS, gt=0, le=256)
+
+
+class Capabilities(BaseModel):
+    engine_ready: bool = True
+    photo_analysis_ready: bool
+    photo_provider: str | None = None
+    max_photos: int = MAX_PHOTOS
+    supported_photo_types: list[str]
+    max_photo_bytes: int = MAX_PHOTO_BYTES
+    engine_revision: str
 
 
 def _cors_origins() -> list[str]:
@@ -37,9 +48,13 @@ def _engine_revision() -> str:
     return os.getenv("RENDER_GIT_COMMIT", "local").strip() or "local"
 
 
+def _vision_enabled() -> bool:
+    return bool(os.getenv("OPENAI_API_KEY", "").strip())
+
+
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.4.0",
+    version="0.5.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -56,9 +71,20 @@ def health() -> dict[str, str | bool]:
     return {
         "status": "ok",
         "service": "brickhouse-engine",
-        "vision_enabled": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "vision_enabled": _vision_enabled(),
         "engine_revision": _engine_revision(),
     }
+
+
+@app.get("/api/v1/capabilities", response_model=Capabilities)
+def capabilities() -> Capabilities:
+    enabled = _vision_enabled()
+    return Capabilities(
+        photo_analysis_ready=enabled,
+        photo_provider="openai" if enabled else None,
+        supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES),
+        engine_revision=_engine_revision(),
+    )
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
@@ -77,13 +103,13 @@ async def analyze_photos(
     user_notes: str = Form(default=""),
     known_front_width_m: float | None = Form(default=None),
 ) -> PhotoAnalysisResult:
-    if not os.getenv("OPENAI_API_KEY", "").strip():
+    if not _vision_enabled():
         raise HTTPException(
             status_code=503,
             detail="L’analyse photo IA n’est pas activée sur ce serveur. Le moteur BrickHouse reste disponible gratuitement.",
         )
-    if not 1 <= len(photos) <= 6:
-        raise HTTPException(status_code=422, detail="Envoyez entre 1 et 6 photos.")
+    if not 1 <= len(photos) <= MAX_PHOTOS:
+        raise HTTPException(status_code=422, detail=f"Envoyez entre 1 et {MAX_PHOTOS} photos.")
     if known_front_width_m is not None and known_front_width_m <= 0:
         raise HTTPException(status_code=422, detail="known_front_width_m doit être positif.")
     prepared: list[PhotoInput] = []
