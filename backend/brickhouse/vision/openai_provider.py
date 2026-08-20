@@ -25,10 +25,24 @@ Architectural interpretation rules:
 - Describe the real building as faithfully as the current BuildingModel schema allows; do NOT force every property into the LEGO engine's current M0 limitations.
 - Use multiple rectangular volumes when a materially visible extension/garage/wing cannot honestly be represented by one rectangle.
 - Represent a roof as gable only when the photos support a two-slope gable roof. Represent a clearly flat roof as flat.
-- If the roof is materially different from both supported schema types (for example hip/complex roof), do not silently relabel it as gable. Omit an unsupported/uncertain roof if necessary, set needs_confirmation=true, explain the limitation in assumptions, and ask a required clarification question.
+- If the roof is materially different from both supported schema types, do not silently relabel it as gable. Omit an unsupported/uncertain roof if necessary, set needs_confirmation=true, explain the limitation in assumptions, and ask a required clarification question.
 - Detect/estimate facade doors and windows that materially affect the miniature.
 - If a side or the rear is missing, prefer the simplest coherent continuation supported by visible evidence; do not invent elaborate hidden extensions.
-- If absolute scale is unknown, create a plausible provisional metric scale and explicitly list the assumption and ask for one useful real measurement. If known_front_width_m is supplied, use it as the primary scale anchor.
+
+Perspective and proportion rules — critical:
+- Never treat raw image pixel distances as real-world distances when the facade is oblique to the camera.
+- Explicitly reason about perspective: parallel architectural lines may converge in the image, nearer openings may appear larger, and vertical dimensions photographed from ground level are foreshortened.
+- Recover proportions from repeated architectural alignments and ratios on the same physical plane: wall edge -> opening, opening width, gap between openings, opening -> opposite wall edge, ground -> sill, window -> eaves, eaves -> ridge.
+- Prefer ratios measured along the same facade plane, then reconcile those ratios across other views of that facade/building.
+- Use corners, eaves, ridge lines, floor bands, window rows and repeated openings as geometric constraints. Symmetry may be evidence but must not be assumed when the photos contradict it.
+- Cross-check every important dimension against all useful photos. When two views disagree because of perspective or occlusion, prefer the interpretation that is geometrically consistent across views and lower confidence rather than averaging blindly.
+- If a facade is photographed close to straight-on, use it as the strongest source for horizontal opening placement on that facade. Oblique views are especially useful for depth and corner relationships.
+- If known_front_width_m is supplied, it is the primary metric scale anchor. First recover normalized facade proportions, then convert those ratios to meters using that known width. Do not independently rescale each opening.
+- If no real dimension is known, preserve normalized proportions consistently and choose only a provisional metric scale. State exactly what was used as the provisional scale basis and request one useful measurement.
+- For every important inferred proportion, populate proportion_evidence with the facade, observation, method and confidence. scale_basis must explain how metric scale was established.
+- If perspective, cropping, vegetation, parked cars or another obstruction makes an important spacing unreliable, mark the evidence as uncertain and ask a clarification question when the uncertainty could materially change the miniature.
+
+Evidence and uncertainty rules:
 - SourceInfo is essential: use observed for details clearly visible in photos, user_provided for facts in user notes/known measurements, inferred for geometric completion, generated_default only for deliberate fallback values.
 - Confidence must reflect uncertainty. Set needs_confirmation=true whenever an impactful dimension, hidden facade, roof geometry, extension, terrace, opening layout, or scale is uncertain.
 - Ask concise clarification questions only for uncertainties that could materially change the miniature.
@@ -71,7 +85,9 @@ def analyze_building_photos(
         "Analyze these photos as different views of the same property. "
         f"User notes: {user_notes.strip() or 'none provided'}. "
         f"Known front width in meters: {known_front_width_m if known_front_width_m is not None else 'unknown'}. "
-        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions and assumptions. "
+        "Recover normalized architectural proportions before assigning metric dimensions. "
+        "Correct mentally for perspective and cross-check wall-edge/opening/roof spacing across all available views. "
+        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
         "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
     )
     content: list[dict[str, object]] = [{"type": "input_text", "text": prompt}]

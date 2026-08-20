@@ -15,13 +15,29 @@ class ClarificationQuestion(BaseModel):
     importance: Literal["required", "recommended"]
 
 
+class ProportionEvidence(BaseModel):
+    """One explicit piece of evidence used to recover real architectural proportions."""
+    facade: Literal["front", "rear", "left", "right", "global"]
+    observation: str
+    method: Literal[
+        "perspective_corrected_ratio",
+        "cross_view_consistency",
+        "known_scale_anchor",
+        "architectural_alignment",
+        "uncertain",
+    ]
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class PhotoAnalysisResult(BaseModel):
-    # 0.2 adds compatibility metadata. Accept 0.1 provider payloads so stored/test
-    # analyses remain readable; the API enriches every live response itself.
-    schema_version: Literal["0.1", "0.2"] = "0.2"
+    # 0.2 adds compatibility metadata; 0.3 adds explicit proportion/scale evidence.
+    # Older provider/stored payloads remain readable and are enriched by live analysis.
+    schema_version: Literal["0.1", "0.2", "0.3"] = "0.3"
     building: BuildingModel
     questions: list[ClarificationQuestion] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
     needs_confirmation: bool
     m0_compatibility: M0Compatibility | None = None
+    scale_basis: str | None = None
+    proportion_evidence: list[ProportionEvidence] = Field(default_factory=list)
