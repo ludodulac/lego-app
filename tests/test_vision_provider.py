@@ -64,6 +64,10 @@ def test_provider_sends_multiple_images_as_data_urls_and_parses_contract():
     assert images[0]["image_url"].startswith("data:image/jpeg;base64,")
     assert images[1]["image_url"].startswith("data:image/png;base64,")
     assert kwargs["text"]["format"]["type"] == "json_schema"
+    instructions = kwargs["instructions"]
+    assert "do NOT force every property" in instructions
+    assert "downstream BrickHouse compatibility layer" in instructions
+    assert "multiple rectangular volumes" in instructions
 
 
 def test_provider_rejects_invalid_photo_contract_before_network():
