@@ -59,7 +59,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.8.1", description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.9.0", description="Photos, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -73,6 +73,12 @@ def health() -> dict[str, str | bool | None]:
 def capabilities() -> Capabilities:
     vision = vision_status()
     return Capabilities(photo_analysis_ready=vision.ready, photo_provider=vision.provider, photo_model=vision.model, photo_analysis_reason=vision.reason, supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES), engine_revision=_engine_revision())
+
+
+@app.post("/api/v1/validate-analysis", response_model=PhotoAnalysisResult)
+def validate_external_analysis(result: PhotoAnalysisResult) -> PhotoAnalysisResult:
+    """Validate provider-independent BrickHouse JSON and recompute M0 compatibility."""
+    return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
