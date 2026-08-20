@@ -40,57 +40,39 @@ def _cors_origins() -> list[str]:
     configured = os.getenv("BRICKHOUSE_CORS_ORIGINS", "")
     if configured.strip():
         return [origin.strip() for origin in configured.split(",") if origin.strip()]
-    return [
-        "https://ludodulac.github.io",
-        "http://localhost:5173",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
+    return ["https://ludodulac.github.io", "http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:8000"]
 
 
 def _engine_revision() -> str:
     return os.getenv("RENDER_GIT_COMMIT", "local").strip() or "local"
 
 
-app = FastAPI(
-    title="BrickHouse Engine API",
-    version="0.8.0",
-    description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins(),
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
-)
+def _vision_error_detail(code: str) -> str:
+    messages = {
+        "gemini_request_rejected": "Gemini a refusé la requête d’analyse (HTTP 400). La configuration du schéma ou de la requête doit être corrigée côté BrickHouse.",
+        "gemini_auth_or_access": "Gemini refuse l’accès (HTTP 401/403). Vérifiez la clé GEMINI_API_KEY et les autorisations du projet Google AI Studio.",
+        "gemini_model_unavailable": "Le modèle Gemini configuré n’est pas accessible à cette clé (HTTP 404).",
+        "gemini_quota_or_rate_limit": "La limite ou le quota Gemini a été atteint (HTTP 429). Attendez un peu ou vérifiez les limites du niveau gratuit dans Google AI Studio.",
+        "gemini_upstream_unavailable": "Gemini est momentanément indisponible (erreur 5xx). Réessayez plus tard.",
+        "gemini_http_error": "Gemini a renvoyé une erreur HTTP non prévue. Le code détaillé est conservé côté serveur.",
+    }
+    return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
+
+
+app = FastAPI(title="BrickHouse Engine API", version="0.8.1", description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
 @app.get("/health")
 def health() -> dict[str, str | bool | None]:
     vision = vision_status()
-    return {
-        "status": "ok",
-        "service": "brickhouse-engine",
-        "vision_enabled": vision.ready,
-        "vision_provider": vision.provider,
-        "vision_model": vision.model,
-        "vision_reason": vision.reason,
-        "engine_revision": _engine_revision(),
-    }
+    return {"status": "ok", "service": "brickhouse-engine", "vision_enabled": vision.ready, "vision_provider": vision.provider, "vision_model": vision.model, "vision_reason": vision.reason, "engine_revision": _engine_revision()}
 
 
 @app.get("/api/v1/capabilities", response_model=Capabilities)
 def capabilities() -> Capabilities:
     vision = vision_status()
-    return Capabilities(
-        photo_analysis_ready=vision.ready,
-        photo_provider=vision.provider,
-        photo_model=vision.model,
-        photo_analysis_reason=vision.reason,
-        supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES),
-        engine_revision=_engine_revision(),
-    )
+    return Capabilities(photo_analysis_ready=vision.ready, photo_provider=vision.provider, photo_model=vision.model, photo_analysis_reason=vision.reason, supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES), engine_revision=_engine_revision())
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
@@ -107,17 +89,10 @@ def build(request: BuildRequest) -> BrickExportBundle:
 
 
 @app.post("/api/v1/analyze-photos", response_model=PhotoAnalysisResult)
-async def analyze_photos(
-    photos: list[UploadFile] = File(...),
-    user_notes: str = Form(default=""),
-    known_front_width_m: float | None = Form(default=None),
-) -> PhotoAnalysisResult:
+async def analyze_photos(photos: list[UploadFile] = File(...), user_notes: str = Form(default=""), known_front_width_m: float | None = Form(default=None)) -> PhotoAnalysisResult:
     vision = vision_status()
     if not vision.ready:
-        raise HTTPException(
-            status_code=503,
-            detail=f"L’analyse photo IA n’est pas activée sur ce serveur ({vision.reason}). Le moteur BrickHouse reste disponible.",
-        )
+        raise HTTPException(status_code=503, detail=f"L’analyse photo IA n’est pas activée sur ce serveur ({vision.reason}). Le moteur BrickHouse reste disponible.")
     if not 1 <= len(photos) <= MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Envoyez entre 1 et {MAX_PHOTOS} photos.")
     if known_front_width_m is not None and known_front_width_m <= 0:
@@ -134,16 +109,9 @@ async def analyze_photos(
             raise HTTPException(status_code=413, detail=f"Photo trop volumineuse : {upload.filename}")
         prepared.append(PhotoInput(content=content, media_type=media_type, filename=upload.filename or "photo"))
     try:
-        result = analyze_with_configured_provider(
-            prepared,
-            user_notes=user_notes,
-            known_front_width_m=known_front_width_m,
-        )
+        result = analyze_with_configured_provider(prepared, user_notes=user_notes, known_front_width_m=known_front_width_m)
         return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionProviderError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail="Le fournisseur de vision n’a pas pu terminer l’analyse. Réessayez dans un instant ; si le problème persiste, vérifiez la configuration serveur.",
-        ) from exc
+        raise HTTPException(status_code=502, detail=_vision_error_detail(exc.code)) from exc
