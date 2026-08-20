@@ -1,47 +1,64 @@
 # BrickHouse — activation contrôlée de l'analyse photo
 
-L'analyse photo est volontairement séparée du moteur LEGO. Tant qu'aucune clé de fournisseur de vision n'est configurée, `/build`, le configurateur, le viewer, la BOM et la notice restent utilisables sans analyse IA.
+L'analyse photo est volontairement séparée du moteur LEGO. Le fournisseur est **toujours choisi explicitement** avec `BRICKHOUSE_VISION_PROVIDER`. La présence accidentelle d'une clé dans l'environnement ne suffit donc jamais à envoyer des photos.
 
 ## État désactivé attendu
 
-`GET /api/v1/capabilities` doit renvoyer :
+Par défaut `BRICKHOUSE_VISION_PROVIDER=none`.
+
+`GET /api/v1/capabilities` doit alors renvoyer :
 - `engine_ready: true` ;
 - `photo_analysis_ready: false` ;
 - `photo_provider: null` ;
 - `photo_model: null` ;
-- `photo_analysis_reason: "missing_server_api_key"`.
+- `photo_analysis_reason: "provider_not_selected"`.
 
-`GET /health` expose également `vision_enabled`, `vision_model` et `engine_revision`. Ces champs ne contiennent aucun secret.
+`GET /health` expose également `vision_enabled`, `vision_provider`, `vision_model`, `vision_reason` et `engine_revision`. Ces champs ne contiennent aucun secret.
 
-Dans cet état, la page Photo doit désactiver le bouton d'analyse et ne doit envoyer aucune image.
+Dans cet état, la page Photo désactive le bouton d'analyse et n'envoie aucune image.
 
-## Préparation Render
+## Fournisseurs préparés
 
-`render.yaml` déclare uniquement le **nom** `OPENAI_API_KEY` avec `sync: false`. Cela permet à Render de gérer sa valeur comme un secret saisi dans le dashboard et non synchronisé depuis GitHub. La valeur de la clé ne doit jamais apparaître dans le dépôt.
+### OpenAI
+Variables Render :
+- `BRICKHOUSE_VISION_PROVIDER=openai` ;
+- valeur secrète `OPENAI_API_KEY` ;
+- modèle dans `OPENAI_VISION_MODEL`.
 
-`OPENAI_VISION_MODEL` reste une variable non secrète séparée. Cela permet de changer le modèle d'analyse sans toucher à la clé.
+L'API OpenAI est facturée séparément de ChatGPT. Il faut donc considérer ce choix comme une activation potentiellement payante.
 
-## Activation pour le premier essai réel
+### Google Gemini
+Variables Render :
+- `BRICKHOUSE_VISION_PROVIDER=gemini` ;
+- valeur secrète `GEMINI_API_KEY` ;
+- modèle dans `GEMINI_VISION_MODEL` (Blueprint : `gemini-3.6-flash`).
 
-L'activation est une action volontaire et distincte du déploiement du moteur gratuit :
-1. dans Render, ouvrir le service `brickhouse-api` puis ses variables d'environnement ;
-2. saisir la valeur de `OPENAI_API_KEY` uniquement dans Render ;
-3. vérifier la valeur souhaitée de `OPENAI_VISION_MODEL` ;
-4. redéployer le service ;
-5. ouvrir `/api/v1/capabilities` ;
-6. ne poursuivre que si `photo_analysis_ready` vaut `true`, `photo_provider` vaut `openai`, et `photo_model` correspond au modèle attendu ;
-7. effectuer d'abord un seul essai avec la maison simple définie dans `PHOTO_TRIAL_PROTOCOL.md`.
+BrickHouse utilise pour le MVP l'entrée image inline et les sorties JSON structurées. Le fournisseur documente une limite totale inférieure à 20 Mo pour une requête inline ; BrickHouse applique volontairement une marge plus stricte de 14 Mo de photos brutes cumulées afin de laisser de la place au prompt et au schéma.
 
-Important : l'activation d'une API de vision externe peut entraîner des coûts propres à ce fournisseur. Elle ne doit donc pas être faite automatiquement par le Blueprint ni confondue avec l'abonnement ChatGPT. Le logiciel reste utilisable sans cette activation pour toutes les fonctions qui ne nécessitent pas l'analyse photo.
+Le niveau gratuit Gemini peut être utile pour les premiers essais, mais ses conditions de traitement des données ne doivent pas être confondues avec celles d'une offre payante. Pour des photos de maison réelles, le choix du fournisseur reste donc une décision explicite de l'utilisateur.
 
-## Secret : règle absolue
+## Secrets : règle absolue
 
-La **valeur** de la clé ne doit jamais être placée dans GitHub, dans `render.yaml`, dans le frontend, dans localStorage, dans une capture d'écran ou dans un fichier d'exemple. Seul son nom de variable est déclaré dans le Blueprint.
+`render.yaml` déclare uniquement les **noms** `OPENAI_API_KEY` et `GEMINI_API_KEY` avec `sync: false`. Les valeurs sont saisies uniquement dans Render.
 
-## Retour arrière
+La valeur d'une clé ne doit jamais être placée dans GitHub, le frontend, localStorage, une capture d'écran ou un fichier d'exemple.
 
-Pour désactiver immédiatement la vision, supprimer/vider `OPENAI_API_KEY` dans Render puis redéployer. Le moteur LEGO reste disponible.
+## Activation du premier essai réel
+
+1. choisir explicitement `openai` ou `gemini` ;
+2. dans Render, ouvrir `brickhouse-api` puis ses variables d'environnement ;
+3. saisir uniquement la clé correspondant au fournisseur choisi ;
+4. régler `BRICKHOUSE_VISION_PROVIDER` sur ce fournisseur ;
+5. vérifier le modèle associé ;
+6. redéployer ;
+7. ouvrir `/api/v1/capabilities` ;
+8. ne poursuivre que si `photo_analysis_ready=true`, avec le fournisseur et le modèle attendus ;
+9. faire un seul essai selon `PHOTO_TRIAL_PROTOCOL.md` et télécharger son rapport avant un deuxième appel.
+
+## Retour arrière immédiat
+
+Mettre `BRICKHOUSE_VISION_PROVIDER=none` puis redéployer. Aucune suppression de clé n'est nécessaire pour couper les appels ; le moteur LEGO reste disponible.
 
 ## Critère de réussite avant essais supplémentaires
 
-Ne pas multiplier les appels de vision tant que le premier essai n'a pas été classé selon les catégories VISION / ÉCHELLE / BUILDING MODEL / LEGO ENGINE / VIEWER / NOTICE. L'objectif est de corriger la bonne couche avant de consommer d'autres analyses.
+Ne pas multiplier les appels de vision tant que le premier essai n'a pas été classé selon VISION / ÉCHELLE / BUILDING MODEL / LEGO ENGINE / VIEWER / NOTICE. L'objectif est de corriger la bonne couche avant de consommer d'autres analyses.
