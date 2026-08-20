@@ -1,14 +1,16 @@
-"""Deterministic M0 assembly ordering derived from BrickModel."""
+"""Deterministic practical assembly ordering derived from BrickModel."""
 
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from .brick_model import BrickModel, PartComponent
 
 MAX_PARTS_PER_STEP = 12
+InstructionKind = Literal["placement", "subassembly"]
 
 
 class AssemblyStep(BaseModel):
@@ -18,14 +20,19 @@ class AssemblyStep(BaseModel):
     z_plates: int = Field(ge=0)
     title: str
     placement_ids: list[str] = Field(min_length=1)
+    phase: str
+    bag: int = Field(gt=0)
+    instruction_kind: InstructionKind = "placement"
+    focus: Literal["normal", "closeup"] = "normal"
 
 
 class AssemblyPlan(BaseModel):
-    schema_version: str = "0.1"
+    schema_version: str = "0.2"
     building_id: str
     volume_id: str
     total_steps: int = Field(gt=0)
     total_parts: int = Field(gt=0)
+    total_bags: int = Field(gt=0)
     steps: list[AssemblyStep] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -39,77 +46,115 @@ class AssemblyPlan(BaseModel):
             raise ValueError("assembly plan placement ids must be unique")
         if self.total_parts != len(ids):
             raise ValueError("total_parts does not match referenced placement count")
+        bags = sorted({step.bag for step in self.steps})
+        if bags != list(range(1, self.total_bags + 1)):
+            raise ValueError("assembly bags must be contiguous from 1")
         return self
 
 
 def _phase_for_part(part) -> str:
     if part.component == "wall":
-        return "wall"
+        return "Structure"
     if part.component == "roof":
-        return "roof"
-    if part.category == "window_frame":
-        return "window_frame"
-    if part.category == "window_pane":
-        return "window_pane"
-    return "facade_detail"
+        return "Toiture"
+    if part.category in {"window_frame", "window_pane"}:
+        return "Fenêtres"
+    return "Façades"
 
 
 def _chunks(items: list[str], size: int = MAX_PARTS_PER_STEP) -> list[list[str]]:
-    """Split a dense construction level into short, deterministic actions."""
     return [items[index:index + size] for index in range(0, len(items), size)]
 
 
-def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
-    """Generate a practical bottom-up plan with physically sensible sequencing.
-
-    Frames precede panes, details precede the roof, and dense levels are split
-    into small actions so a printable instruction page never asks the builder
-    to locate and place an overwhelming number of new parts at once.
-    """
-    groups: dict[tuple[str, int], list[str]] = defaultdict(list)
+def _window_subassemblies(model: BrickModel) -> tuple[list[list[str]], set[str]]:
+    """Pair a frame and pane sharing the same final anchor into one mini-build."""
+    frames: dict[tuple, list] = defaultdict(list)
+    panes: dict[tuple, list] = defaultdict(list)
     for part in model.parts:
-        groups[(_phase_for_part(part), part.z_plates)].append(part.placement_id)
+        if part.category not in {"window_frame", "window_pane"}:
+            continue
+        key = (part.facade, part.x_studs, part.y_studs, part.z_plates, part.rotation_quarter_turns)
+        (frames if part.category == "window_frame" else panes)[key].append(part)
+    result: list[list[str]] = []
+    used: set[str] = set()
+    for key in sorted(set(frames) & set(panes), key=lambda value: tuple(str(v) for v in value)):
+        fs = sorted(frames[key], key=lambda p: p.placement_id)
+        ps = sorted(panes[key], key=lambda p: p.placement_id)
+        for frame, pane in zip(fs, ps):
+            result.append([frame.placement_id, pane.placement_id])
+            used.update({frame.placement_id, pane.placement_id})
+    return result, used
 
-    ordered_groups: list[tuple[str, int]] = []
-    for phase in ("wall", "window_frame", "window_pane", "facade_detail", "roof"):
-        z_values = sorted(z for (kind, z) in groups if kind == phase)
-        ordered_groups.extend((phase, z) for z in z_values)
 
-    labels = {
-        "wall": "Murs",
-        "window_frame": "Cadres de fenêtres",
-        "window_pane": "Vitrages",
-        "facade_detail": "Détails de façade",
-        "roof": "Toiture",
-    }
-    components: dict[str, PartComponent] = {
-        "wall": "wall",
-        "window_frame": "facade_detail",
-        "window_pane": "facade_detail",
-        "facade_detail": "facade_detail",
-        "roof": "roof",
-    }
-    pending: list[tuple[str, int, list[str], int, int]] = []
-    for phase, z_plates in ordered_groups:
-        chunks = _chunks(sorted(groups[(phase, z_plates)]))
-        for chunk_index, placement_ids in enumerate(chunks, start=1):
-            pending.append((phase, z_plates, placement_ids, chunk_index, len(chunks)))
+def _bag_for_phase(phase: str) -> int:
+    return {"Structure": 1, "Fenêtres": 2, "Façades": 3, "Toiture": 4}[phase]
+
+
+def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
+    """Generate short steps, mini-build windows and virtual preparation bags."""
+    parts_by_id = {part.placement_id: part for part in model.parts}
+    pending: list[dict] = []
+
+    # 1. Structure: bottom-up, split dense wall levels into manageable actions.
+    wall_groups: dict[int, list[str]] = defaultdict(list)
+    for part in model.parts:
+        if part.component == "wall":
+            wall_groups[part.z_plates].append(part.placement_id)
+    for z in sorted(wall_groups):
+        chunks = _chunks(sorted(wall_groups[z]))
+        for idx, chunk in enumerate(chunks, start=1):
+            title = f"Murs — niveau {z} plates"
+            if len(chunks) > 1:
+                title += f" · partie {idx}/{len(chunks)}"
+            pending.append(dict(component="wall", z=z, title=title, ids=chunk, phase="Structure", kind="placement", focus="normal"))
+
+    # 2. Windows: build frame + pane as a mini-assembly before placing it.
+    assemblies, used_window_ids = _window_subassemblies(model)
+    for index, ids in enumerate(assemblies, start=1):
+        z = min(parts_by_id[pid].z_plates for pid in ids)
+        pending.append(dict(component="facade_detail", z=z, title=f"Assembler la fenêtre {index}", ids=ids, phase="Fenêtres", kind="subassembly", focus="closeup"))
+
+    # Unpaired window parts remain valid individual placement steps.
+    for category, label in (("window_frame", "Cadres de fenêtres"), ("window_pane", "Vitrages")):
+        groups: dict[int, list[str]] = defaultdict(list)
+        for part in model.parts:
+            if part.category == category and part.placement_id not in used_window_ids:
+                groups[part.z_plates].append(part.placement_id)
+        for z in sorted(groups):
+            for chunk in _chunks(sorted(groups[z])):
+                pending.append(dict(component="facade_detail", z=z, title=f"{label} — niveau {z} plates", ids=chunk, phase="Fenêtres", kind="placement", focus="closeup"))
+
+    # 3. Other facade details.
+    detail_groups: dict[int, list[str]] = defaultdict(list)
+    for part in model.parts:
+        if part.component == "facade_detail" and part.category not in {"window_frame", "window_pane"}:
+            detail_groups[part.z_plates].append(part.placement_id)
+    for z in sorted(detail_groups):
+        for chunk in _chunks(sorted(detail_groups[z])):
+            pending.append(dict(component="facade_detail", z=z, title=f"Détails de façade — niveau {z} plates", ids=chunk, phase="Façades", kind="placement", focus="closeup"))
+
+    # 4. Roof last, bottom-up.
+    roof_groups: dict[int, list[str]] = defaultdict(list)
+    for part in model.parts:
+        if part.component == "roof":
+            roof_groups[part.z_plates].append(part.placement_id)
+    for z in sorted(roof_groups):
+        chunks = _chunks(sorted(roof_groups[z]))
+        for idx, chunk in enumerate(chunks, start=1):
+            title = f"Toiture — niveau {z} plates"
+            if len(chunks) > 1:
+                title += f" · partie {idx}/{len(chunks)}"
+            pending.append(dict(component="roof", z=z, title=title, ids=chunk, phase="Toiture", kind="placement", focus="normal"))
 
     steps: list[AssemblyStep] = []
-    for sequence, (phase, z_plates, placement_ids, chunk_index, chunk_count) in enumerate(pending, start=1):
-        title = f"{labels[phase]} — niveau {z_plates} plates"
-        if chunk_count > 1:
-            title += f" · partie {chunk_index}/{chunk_count}"
-        steps.append(
-            AssemblyStep(
-                step_id=f"step-{sequence:04d}",
-                sequence=sequence,
-                component=components[phase],
-                z_plates=z_plates,
-                title=title,
-                placement_ids=placement_ids,
-            )
-        )
+    for sequence, item in enumerate(pending, start=1):
+        phase = item["phase"]
+        steps.append(AssemblyStep(
+            step_id=f"step-{sequence:04d}", sequence=sequence,
+            component=item["component"], z_plates=item["z"], title=item["title"],
+            placement_ids=item["ids"], phase=phase, bag=_bag_for_phase(phase),
+            instruction_kind=item["kind"], focus=item["focus"],
+        ))
 
     all_model_ids = {part.placement_id for part in model.parts}
     all_plan_ids = {placement_id for step in steps for placement_id in step.placement_ids}
@@ -118,10 +163,12 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
         extra = sorted(all_plan_ids - all_model_ids)
         raise RuntimeError(f"assembly coverage mismatch: missing={missing!r}, extra={extra!r}")
 
+    used_bags = sorted({step.bag for step in steps})
+    remap = {old: new for new, old in enumerate(used_bags, start=1)}
+    for step in steps:
+        step.bag = remap[step.bag]
+
     return AssemblyPlan(
-        building_id=model.building_id,
-        volume_id=model.volume_id,
-        total_steps=len(steps),
-        total_parts=len(model.parts),
-        steps=steps,
+        building_id=model.building_id, volume_id=model.volume_id,
+        total_steps=len(steps), total_parts=len(model.parts), total_bags=len(used_bags), steps=steps,
     )
