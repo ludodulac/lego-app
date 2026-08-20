@@ -7,7 +7,7 @@ body { margin: 0; }
 .document { width: min(1040px, calc(100% - 28px)); margin: 28px auto 60px; }
 .cover, .step-card { background: #fff; border-radius: 18px; box-shadow: 0 12px 36px rgba(29,41,57,.08); padding: 28px; margin-bottom: 20px; }
 .cover { min-height: 320px; display: flex; flex-direction: column; justify-content: center; }
-.eyebrow, .step-kicker { text-transform: uppercase; letter-spacing: .16em; font-size: 12px; color: #667085; margin: 0 0 10px; }
+.eyebrow, .step-kicker { text-transform: uppercase; letter-spacing: .13em; font-size: 11px; color: #667085; margin: 0 0 7px; font-weight: 750; }
 h1 { font-size: clamp(38px, 7vw, 68px); margin: 0; line-height: .95; }
 #instruction-subtitle { color: #667085; font-size: 18px; }
 dl { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin: 24px 0 0; }
@@ -15,27 +15,30 @@ dl div { background: #f7f9fc; border-radius: 12px; padding: 14px; }
 dt { color: #667085; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 dd { margin: 5px 0 0; font-weight: 700; }
 .steps { display: grid; gap: 20px; }
-.step-card { break-inside: avoid; page-break-inside: avoid; border-top: 6px solid #e5a15f; }
-.step-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; border-bottom: 1px solid #eaecf0; padding-bottom: 14px; margin-bottom: 18px; }
-.step-heading h2 { margin: 0; font-size: 34px; line-height: 1; }
-.step-heading span { color: #667085; font-size: 14px; text-align: right; }
-.visual-slot { background: #f7f9fc; border: 1px solid #e4e7ec; border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
-.step-preview { width: 100%; height: auto; display: block; aspect-ratio: 12 / 7; }
-.step-layout { display: grid; grid-template-columns: minmax(0,1fr) 150px; gap: 20px; align-items: stretch; }
-.step-layout h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #667085; }
-.part-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+.step-card { break-inside: avoid; page-break-inside: avoid; border-top: 6px solid #e5a15f; position: relative; }
+.step-heading { display: grid; grid-template-columns: 78px minmax(0,1fr) auto; gap: 18px; align-items: center; border-bottom: 1px solid #eaecf0; padding-bottom: 15px; margin-bottom: 16px; }
+.step-number { width: 68px; height: 68px; border-radius: 50%; display: grid; place-items: center; background: #172033; color: #fff; font-size: 30px; font-weight: 900; letter-spacing: -.04em; }
+.step-heading-copy h2 { margin: 0; font-size: 25px; line-height: 1.05; }
+.step-heading-copy .step-kicker { margin-bottom: 5px; }
+.step-heading-meta { text-align: right; color: #667085; font-size: 13px; line-height: 1.45; }
+.step-heading-meta strong { display: block; color: #344054; font-size: 12px; text-transform: uppercase; letter-spacing: .07em; }
+.parts-tray { border: 1px solid #e4e7ec; background: #fff; border-radius: 14px; padding: 11px 12px; margin-bottom: 14px; }
+.parts-tray-title { margin: 0 0 8px; color: #667085; text-transform: uppercase; letter-spacing: .09em; font-size: 10px; font-weight: 800; }
+.part-list { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
 .part-row { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; background: #f8fafc; border-radius: 10px; border: 1px solid #eef1f5; }
-.visual-part-row { grid-template-columns: 80px 10px minmax(0,1fr) auto; min-height: 76px; padding: 7px 10px; }
-.part-icon { width: 80px; height: 60px; display: block; }
-.part-swatch { width: 10px; height: 34px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.10); }
-.part-swatch.brick { background: #d8c7a4; }.part-swatch.roof_tile { background: #b9564b; }.part-swatch.ridge_tile { background: #e5a15f; }
-.part-id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; overflow-wrap: anywhere; color: #475467; }
-.quantity { font-weight: 850; font-size: 18px; white-space: nowrap; }
-.step-note { border-radius: 14px; background: #172033; color: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 120px; }
-.step-note strong { font-size: 38px; line-height: 1; }
-.step-note span { margin-top: 4px; opacity: .7; font-weight: 700; }
-.step-note small { margin-top: 9px; opacity: .65; text-transform: uppercase; letter-spacing: .09em; font-size: 9px; }
+.visual-part-row { grid-template-columns: 58px minmax(0,1fr) auto; min-height: 62px; padding: 5px 9px; }
+.part-icon { width: 58px; height: 46px; display: block; }
+.part-copy { min-width: 0; }
+.part-name { display: block; font-weight: 800; font-size: 12px; color: #344054; line-height: 1.2; }
+.part-id { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; overflow-wrap: anywhere; color: #98a2b3; }
+.quantity { font-weight: 900; font-size: 21px; white-space: nowrap; color: #172033; }
+.visual-slot { background: #f7f9fc; border: 1px solid #e4e7ec; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+.step-preview { width: 100%; height: auto; display: block; aspect-ratio: 12 / 7; }
+.step-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; color: #667085; font-size: 12px; }
+.step-progress { font-weight: 800; color: #344054; }
+.step-total { display: inline-flex; align-items: baseline; gap: 5px; }
+.step-total strong { font-size: 21px; color: #172033; }
 .message { color: #b42318; font-weight: 600; }
-@media (max-width: 700px) { .document { width: min(100% - 16px, 1040px); margin-top: 12px; } .cover, .step-card { border-radius: 12px; padding: 18px; } dl { grid-template-columns: 1fr 1fr; } .step-heading { align-items: flex-start; flex-direction: column; } .step-heading span { text-align: left; } .step-layout { grid-template-columns: 1fr; } .part-list { grid-template-columns: 1fr; } .step-note { min-height: 92px; } }
+@media (max-width: 700px) { .document { width: min(100% - 16px, 1040px); margin-top: 12px; } .cover, .step-card { border-radius: 12px; padding: 18px; } dl { grid-template-columns: 1fr 1fr; } .step-heading { grid-template-columns: 58px minmax(0,1fr); } .step-number { width: 52px; height: 52px; font-size: 24px; } .step-heading-meta { grid-column: 1 / -1; text-align: left; } .part-list { grid-template-columns: 1fr; } }
 @page { size: A4 portrait; margin: 0; }
-@media print { :root, body { background: white; } .no-print { display: none !important; } .document { width: auto; margin: 0; } .cover, .step-card { box-shadow: none; border-radius: 0; margin: 0; padding: 10mm 11mm; } .cover { border: 0; min-height: 297mm; height: 297mm; page-break-after: always; } .step-card { border-top: 4px solid #e5a15f; min-height: 297mm; height: 297mm; overflow: hidden; page-break-after: always; display: flex; flex-direction: column; } .step-card:last-child { page-break-after: auto; } .visual-slot { margin-top: 3mm; margin-bottom: 4mm; flex: 1 1 auto; min-height: 0; display: flex; align-items: center; } .step-preview { width: 100%; max-height: 156mm; } .step-layout { flex: 0 0 auto; } .visual-part-row { min-height: 18mm; } .part-icon { width: 18mm; height: 13mm; } }
+@media print { :root, body { background: white; } .no-print { display: none !important; } .document { width: auto; margin: 0; } .cover, .step-card { box-shadow: none; border-radius: 0; margin: 0; padding: 9mm 10mm; } .cover { border: 0; min-height: 297mm; height: 297mm; page-break-after: always; } .step-card { border-top: 3px solid #e5a15f; min-height: 297mm; height: 297mm; overflow: hidden; page-break-after: always; display: flex; flex-direction: column; } .step-card:last-child { page-break-after: auto; } .step-heading { flex: 0 0 auto; margin-bottom: 3mm; padding-bottom: 3mm; } .step-number { width: 16mm; height: 16mm; font-size: 7mm; } .parts-tray { flex: 0 0 auto; margin-bottom: 3mm; padding: 2mm 2.5mm; } .part-list { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1.5mm; } .visual-part-row { min-height: 14mm; } .part-icon { width: 13mm; height: 10mm; } .visual-slot { margin-bottom: 3mm; flex: 1 1 auto; min-height: 0; display: flex; align-items: center; } .step-preview { width: 100%; max-height: 184mm; } .step-footer { flex: 0 0 auto; padding-top: 1mm; } }
