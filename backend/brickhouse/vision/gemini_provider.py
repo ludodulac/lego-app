@@ -1,4 +1,4 @@
-"""Gemini generateContent provider using the same BrickHouse vision contract."""
+"""Gemini generateContent provider using the shared BrickHouse vision contract."""
 from __future__ import annotations
 
 import base64
@@ -7,13 +7,11 @@ import os
 from typing import Any
 
 import httpx
+from pydantic import ValidationError
 
 from .models import PhotoAnalysisResult
 from .openai_provider import PhotoInput, SYSTEM_PROMPT
 
-# Google documents a <20MB total inline request limit. Base64 expands bytes by
-# roughly 4/3 and the schema/prompt also consume request space, so stay below
-# 14 MiB raw image bytes for a conservative M0 inline request.
 MAX_GEMINI_INLINE_RAW_BYTES = 14 * 1024 * 1024
 
 
@@ -35,7 +33,50 @@ def _extract_text(payload: dict[str, Any]) -> str:
     text = "".join(str(part.get("text", "")) for part in parts if part.get("text"))
     if not text:
         raise ValueError("vision provider returned no structured output")
-    return text
+    return text.strip()
+
+
+def _clean_json_text(text: str) -> str:
+    """Accept JSON itself and the common accidental Markdown fence wrapper."""
+    value = text.strip()
+    if value.startswith("```"):
+        lines = value.splitlines()
+        if lines and lines[0].strip().lower() in {"```", "```json"}:
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        value = "\n".join(lines).strip()
+    return value
+
+
+def _validate_result(text: str) -> PhotoAnalysisResult:
+    return PhotoAnalysisResult.model_validate_json(_clean_json_text(text))
+
+
+def _repair_prompt(invalid_text: str, exc: Exception) -> str:
+    if isinstance(exc, ValidationError):
+        errors = exc.errors(include_url=False, include_context=False)
+    else:
+        errors = [{"error": str(exc)}]
+    # Do not ask the model to reinterpret the architecture: this pass only
+    # repairs JSON/schema/cross-field consistency.
+    return (
+        "Repair the following BrickHouse photo-analysis candidate so it validates exactly against the supplied JSON schema. "
+        "Preserve all architectural observations, dimensions and uncertainty unless a value itself violates a schema or cross-field constraint. "
+        "Do not invent missing observations merely to make validation pass. Return JSON only.\n\n"
+        f"VALIDATION ERRORS:\n{json.dumps(errors, ensure_ascii=False)}\n\n"
+        f"CANDIDATE:\n{invalid_text}"
+    )
+
+
+def _post_json(http: httpx.Client, url: str, key: str, body: dict[str, Any]) -> str:
+    response = http.post(
+        url,
+        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+        json=body,
+    )
+    response.raise_for_status()
+    return _extract_text(response.json())
 
 
 def analyze_building_photos_gemini(
@@ -47,7 +88,7 @@ def analyze_building_photos_gemini(
     model: str | None = None,
     api_key: str | None = None,
 ) -> PhotoAnalysisResult:
-    """Analyze 1–6 photos with Gemini and validate the shared result contract."""
+    """Analyze 1–6 photos with Gemini and validate/repair the shared result contract."""
     if not 1 <= len(photos) <= 6:
         raise ValueError("photo analysis requires between 1 and 6 images")
     if known_front_width_m is not None and known_front_width_m <= 0:
@@ -59,47 +100,43 @@ def analyze_building_photos_gemini(
         if not photo.content:
             raise ValueError(f"empty image: {photo.filename}")
     if sum(len(photo.content) for photo in photos) > MAX_GEMINI_INLINE_RAW_BYTES:
-        raise ValueError(
-            "Pour le fournisseur Gemini, réduisez la taille totale des photos sous 14 Mo pour cet essai."
-        )
+        raise ValueError("Pour le fournisseur Gemini, réduisez la taille totale des photos sous 14 Mo pour cet essai.")
 
     selected_model = model or os.getenv("GEMINI_VISION_MODEL", "gemini-3.6-flash")
     key = api_key or os.getenv("GEMINI_API_KEY", "")
     if not key.strip():
         raise ValueError("Gemini API key is not configured")
 
-    parts: list[dict[str, Any]] = []
-    for photo in photos:
-        parts.append({
-            "inline_data": {
-                "mime_type": photo.media_type,
-                "data": base64.b64encode(photo.content).decode("ascii"),
-            }
-        })
+    parts: list[dict[str, Any]] = [
+        {"inline_data": {"mime_type": photo.media_type, "data": base64.b64encode(photo.content).decode("ascii")}}
+        for photo in photos
+    ]
     parts.append({"text": _prompt(user_notes, known_front_width_m)})
+    schema = PhotoAnalysisResult.model_json_schema()
+    generation = {"responseMimeType": "application/json", "responseJsonSchema": schema}
     body = {
         "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseJsonSchema": PhotoAnalysisResult.model_json_schema(),
-        },
+        "generationConfig": generation,
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{selected_model}:generateContent"
     owns_client = client is None
     http = client or httpx.Client(timeout=90.0)
     try:
-        response = http.post(
-            url,
-            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-            json=body,
-        )
-        response.raise_for_status()
-        text = _extract_text(response.json())
+        text = _post_json(http, url, key, body)
+        try:
+            return _validate_result(text)
+        except (json.JSONDecodeError, ValidationError, ValueError) as first_error:
+            repair_body = {
+                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "contents": [{"role": "user", "parts": [{"text": _repair_prompt(text, first_error)}]}],
+                "generationConfig": generation,
+            }
+            repaired = _post_json(http, url, key, repair_body)
+            try:
+                return _validate_result(repaired)
+            except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+                raise ValueError("vision provider returned invalid structured output after repair") from exc
     finally:
         if owns_client:
             http.close()
-    try:
-        return PhotoAnalysisResult.model_validate_json(text)
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise ValueError("vision provider returned invalid structured output") from exc
