@@ -84,6 +84,37 @@ def test_capabilities_explain_provider_selection(monkeypatch):
     assert enabled["photo_analysis_reason"] == "ready"
 
 
+def test_validate_external_ai_analysis_recomputes_compatibility():
+    payload = _analysis_result().model_dump(mode="json")
+    payload["m0_compatibility"] = {
+        "buildable": False,
+        "blockers": ["untrusted external value"],
+        "warnings": [],
+    }
+    response = client.post("/api/v1/validate-analysis", json=payload)
+    assert response.status_code == 200
+    validated = response.json()
+    assert validated["building"]["metadata"]["created_from"] == "photo_analysis"
+    assert validated["m0_compatibility"]["buildable"] is True
+    assert "untrusted external value" not in validated["m0_compatibility"]["blockers"]
+
+
+def test_validate_external_ai_analysis_rejects_invalid_contract():
+    payload = _analysis_result().model_dump(mode="json")
+    payload["building"]["volumes"][0]["width"] = -10
+    response = client.post("/api/v1/validate-analysis", json=payload)
+    assert response.status_code == 422
+
+
+def test_validated_external_ai_analysis_flows_into_build():
+    payload = _analysis_result().model_dump(mode="json")
+    validated = client.post("/api/v1/validate-analysis", json=payload)
+    assert validated.status_code == 200
+    built = client.post("/api/v1/build", json={"building": validated.json()["building"], "front_width_studs": 48})
+    assert built.status_code == 200
+    assert built.json()["bom"]["total_parts"] > 0
+
+
 def test_build_endpoint_returns_canonical_export(monkeypatch):
     monkeypatch.setenv("RENDER_GIT_COMMIT", "test-revision")
     response = client.post("/api/v1/build", json={"building": _reference_building(), "front_width_studs": 48})
