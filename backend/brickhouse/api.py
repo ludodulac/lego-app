@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
+from brickhouse.vision.compatibility import assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput, analyze_building_photos
 
@@ -54,7 +55,7 @@ def _vision_enabled() -> bool:
 
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.5.0",
+    version="0.6.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -89,6 +90,9 @@ def capabilities() -> Capabilities:
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
 def build(request: BuildRequest) -> BrickExportBundle:
+    compatibility = assess_m0_compatibility(request.building)
+    if not compatibility.buildable:
+        raise HTTPException(status_code=422, detail=" ".join(compatibility.blockers))
     try:
         bundle = run_m0_pipeline_model(request.building, front_width_studs=request.front_width_studs)
         bundle.metadata.engine_revision = _engine_revision()
@@ -124,10 +128,11 @@ async def analyze_photos(
             raise HTTPException(status_code=413, detail=f"Photo trop volumineuse : {upload.filename}")
         prepared.append(PhotoInput(content=content, media_type=media_type, filename=upload.filename or "photo"))
     try:
-        return analyze_building_photos(
+        result = analyze_building_photos(
             prepared,
             user_notes=user_notes,
             known_front_width_m=known_front_width_m,
         )
+        return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
