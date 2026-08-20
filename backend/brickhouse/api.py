@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from openai import OpenAIError
 from pydantic import BaseModel, Field
 
 from brickhouse.building.models import BuildingModel
@@ -12,7 +11,8 @@ from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.vision.compatibility import assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
-from brickhouse.vision.openai_provider import PhotoInput, analyze_building_photos
+from brickhouse.vision.openai_provider import PhotoInput
+from brickhouse.vision.provider import VisionProviderError, analyze_with_configured_provider, vision_status
 
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
 SUPPORTED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -52,23 +52,9 @@ def _engine_revision() -> str:
     return os.getenv("RENDER_GIT_COMMIT", "local").strip() or "local"
 
 
-def _vision_enabled() -> bool:
-    return bool(os.getenv("OPENAI_API_KEY", "").strip())
-
-
-def _vision_model() -> str:
-    return os.getenv("OPENAI_VISION_MODEL", "gpt-5").strip() or "gpt-5"
-
-
-def _vision_reason() -> str:
-    if _vision_enabled():
-        return "ready"
-    return "missing_server_api_key"
-
-
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.7.0",
+    version="0.8.0",
     description="Photos or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan",
 )
 app.add_middleware(
@@ -81,24 +67,27 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str | bool]:
+def health() -> dict[str, str | bool | None]:
+    vision = vision_status()
     return {
         "status": "ok",
         "service": "brickhouse-engine",
-        "vision_enabled": _vision_enabled(),
-        "vision_model": _vision_model(),
+        "vision_enabled": vision.ready,
+        "vision_provider": vision.provider,
+        "vision_model": vision.model,
+        "vision_reason": vision.reason,
         "engine_revision": _engine_revision(),
     }
 
 
 @app.get("/api/v1/capabilities", response_model=Capabilities)
 def capabilities() -> Capabilities:
-    enabled = _vision_enabled()
+    vision = vision_status()
     return Capabilities(
-        photo_analysis_ready=enabled,
-        photo_provider="openai" if enabled else None,
-        photo_model=_vision_model() if enabled else None,
-        photo_analysis_reason=_vision_reason(),
+        photo_analysis_ready=vision.ready,
+        photo_provider=vision.provider,
+        photo_model=vision.model,
+        photo_analysis_reason=vision.reason,
         supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES),
         engine_revision=_engine_revision(),
     )
@@ -123,10 +112,11 @@ async def analyze_photos(
     user_notes: str = Form(default=""),
     known_front_width_m: float | None = Form(default=None),
 ) -> PhotoAnalysisResult:
-    if not _vision_enabled():
+    vision = vision_status()
+    if not vision.ready:
         raise HTTPException(
             status_code=503,
-            detail="L’analyse photo IA n’est pas activée sur ce serveur. Le moteur BrickHouse reste disponible gratuitement.",
+            detail=f"L’analyse photo IA n’est pas activée sur ce serveur ({vision.reason}). Le moteur BrickHouse reste disponible.",
         )
     if not 1 <= len(photos) <= MAX_PHOTOS:
         raise HTTPException(status_code=422, detail=f"Envoyez entre 1 et {MAX_PHOTOS} photos.")
@@ -144,7 +134,7 @@ async def analyze_photos(
             raise HTTPException(status_code=413, detail=f"Photo trop volumineuse : {upload.filename}")
         prepared.append(PhotoInput(content=content, media_type=media_type, filename=upload.filename or "photo"))
     try:
-        result = analyze_building_photos(
+        result = analyze_with_configured_provider(
             prepared,
             user_notes=user_notes,
             known_front_width_m=known_front_width_m,
@@ -152,9 +142,7 @@ async def analyze_photos(
         return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except OpenAIError as exc:
-        # Do not leak provider internals or credentials to the browser. The user
-        # only needs to know that the external vision call failed and can retry.
+    except VisionProviderError as exc:
         raise HTTPException(
             status_code=502,
             detail="Le fournisseur de vision n’a pas pu terminer l’analyse. Réessayez dans un instant ; si le problème persiste, vérifiez la configuration serveur.",
