@@ -47,6 +47,25 @@ def test_health_reports_vision_when_key_is_configured(monkeypatch):
     assert client.get("/health").json()["vision_enabled"] is True
 
 
+def test_capabilities_explain_photo_readiness(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "rev-1")
+    payload = client.get("/api/v1/capabilities").json()
+    assert payload == {
+        "engine_ready": True,
+        "photo_analysis_ready": False,
+        "photo_provider": None,
+        "max_photos": 6,
+        "supported_photo_types": ["image/jpeg", "image/png", "image/webp"],
+        "max_photo_bytes": 12 * 1024 * 1024,
+        "engine_revision": "rev-1",
+    }
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    enabled = client.get("/api/v1/capabilities").json()
+    assert enabled["photo_analysis_ready"] is True
+    assert enabled["photo_provider"] == "openai"
+
+
 def test_build_endpoint_returns_canonical_export(monkeypatch):
     monkeypatch.setenv("RENDER_GIT_COMMIT", "test-revision")
     response = client.post("/api/v1/build", json={"building": _reference_building(), "front_width_studs": 48})
@@ -111,6 +130,28 @@ def test_photo_analysis_endpoint_returns_mocked_structured_result(monkeypatch):
     assert payload["needs_confirmation"] is True
     assert payload["questions"][0]["importance"] == "recommended"
     assert captured == {"count": 2, "notes": "Terrasse à gauche", "width": 10.2}
+
+
+def test_photo_proposal_can_flow_directly_into_brick_build(monkeypatch):
+    """Contract test for the MVP path: photos -> BuildingModel -> BrickExportBundle."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "photo-mvp")
+    monkeypatch.setattr(api_module, "analyze_building_photos", lambda *args, **kwargs: _analysis_result())
+    analyzed = client.post(
+        "/api/v1/analyze-photos",
+        files=[("photos", ("front.jpg", b"fake-jpeg-front", "image/jpeg"))],
+        data={"known_front_width_m": "10.0"},
+    )
+    assert analyzed.status_code == 200
+    proposal = analyzed.json()["building"]
+    built = client.post("/api/v1/build", json={"building": proposal, "front_width_studs": 48})
+    assert built.status_code == 200
+    export = built.json()
+    assert export["building_id"] == proposal["id"]
+    assert export["metadata"]["engine_revision"] == "photo-mvp"
+    assert export["bom"]["total_parts"] == len(export["brick_model"]["parts"])
+    assert export["assembly_plan"]["total_parts"] == export["bom"]["total_parts"]
+    assert export["assembly_plan"]["total_steps"] > 0
 
 
 def test_photo_analysis_rejects_unsupported_file_type(monkeypatch):
