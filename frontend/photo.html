@@ -12,11 +12,12 @@
     <section class="panel">
       <p class="eyebrow">Étape 1 · Comprendre à partir des photos</p>
       <h1>Photographier la maison</h1>
-      <p class="intro">Ajoutez plusieurs vues de la même maison. Pour un premier essai utile, privilégiez la façade avant, les deux côtés et l’arrière, prises avec assez de recul pour voir le toit et les ouvertures.</p>
+      <p class="intro">Ajoutez plusieurs vues de la même maison. BrickHouse croise les vues pour corriger la perspective et retrouver les proportions réelles avant de convertir les distances en mètres.</p>
       <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>BrickHouse vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
+      <details class="result-card" open><summary>Comment prendre des photos utiles</summary><p>Pour un premier essai, privilégiez 4 vues : façade, arrière, côté gauche et côté droit. Prenez assez de recul pour voir les deux bords du mur, le sol, les ouvertures et le toit. Une vue presque de face aide à placer précisément les fenêtres ; une vue en biais aide à comprendre la profondeur et les angles. Évitez si possible les panoramas, zooms extrêmes et cadrages coupant les coins du bâtiment.</p><p>Si vous connaissez une seule mesure réelle — idéalement la largeur de la façade — indiquez-la : BrickHouse conservera d’abord les rapports entre murs, fenêtres et toit, puis utilisera cette mesure comme ancre d’échelle.</p></details>
       <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 6 photos maximum · 12 Mo maximum par photo</small></div>
       <div id="photo-list" class="photo-list"></div>
-      <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. Derrière le garage il n’y a pas de fenêtre."></textarea></div>
+      <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. La façade avant mesure 9,8 m. Les deux fenêtres de droite ont la même largeur."></textarea></div>
       <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel mais très utile pour l’échelle" /></div>
       <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
       <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
@@ -28,6 +29,7 @@
       <div id="result" hidden>
         <div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
         <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez aux points que vous connaissez. Vous pouvez aussi conserver les estimations actuelles.</p></section>
+        <section class="result-card" id="proportions-card" hidden><h3>Proportions et échelle</h3><p id="scale-basis"></p><ul id="proportion-evidence"></ul></section>
         <section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Vos réponses seront réinjectées avec les mêmes photos.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section>
         <section class="result-card"><h3>Hypothèses utilisées</h3><ul id="assumptions"></ul></section>
         <details class="result-card"><summary>Voir les données techniques</summary><pre id="json-preview"></pre></details>
