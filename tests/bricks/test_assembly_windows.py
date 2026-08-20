@@ -22,7 +22,7 @@ def _part(pid, category, component, z=6):
     )
 
 
-def test_window_frames_precede_panes_and_facade_details():
+def test_window_frame_and_pane_form_subassembly_before_facade_details():
     model = BrickModel(
         building_id="house",
         volume_id="main",
@@ -37,13 +37,13 @@ def test_window_frames_precede_panes_and_facade_details():
         ],
     )
     plan = generate_assembly_plan(model)
-    titles = [step.title for step in plan.steps]
-    assert titles == [
+    assert [step.title for step in plan.steps] == [
         "Murs — niveau 0 plates",
-        "Cadres de fenêtres — niveau 6 plates",
-        "Vitrages — niveau 6 plates",
+        "Assembler la fenêtre 1",
         "Détails de façade — niveau 6 plates",
     ]
+    assert plan.steps[1].instruction_kind == "subassembly"
+    assert plan.steps[1].placement_ids == ["frame-1", "pane-1"]
     assert [pid for step in plan.steps for pid in step.placement_ids] == [
         "wall-1", "frame-1", "pane-1", "detail-1"
     ]
