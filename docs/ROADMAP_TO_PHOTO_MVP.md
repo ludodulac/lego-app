@@ -9,10 +9,12 @@ Ce document est la référence de reprise du projet. Le but n'est pas de polir i
 1. comprendre les volumes, proportions, ouvertures et toiture visibles ;
 2. séparer clairement ce qui est observé, fourni par l'utilisateur, inféré ou estimé ;
 3. poser des questions uniquement lorsque l'incertitude peut modifier sensiblement la maquette ;
-4. produire un `BuildingModel` éditable et validé ;
+4. produire un `BuildingModel` éditable et validé pour le MVP simple, puis évoluer vers une `BrickHouse Architectural Scene` paramétrique pour les architectures complexes ;
 5. convertir ce modèle en une construction LEGO cohérente et réellement constructible ;
 6. produire le `BrickModel`, la BOM, le viewer 3D et une notice pratique ;
 7. permettre plusieurs formats physiques de maquette et plusieurs niveaux de fidélité.
+
+La vision cible est documentée dans `ARCHITECTURAL_ANALYSIS_PIPELINE.md` et `UNIVERSAL_ARCHITECTURE_PROMPT.md` : compréhension contextuelle/sémantique, reconstruction géométrique, synthèse en scène paramétrique, puis normalisation vers les capacités LEGO.
 
 ## 2. Ce qui est déjà en place
 
@@ -49,10 +51,12 @@ Ce document est la référence de reprise du projet. Le but n'est pas de polir i
 ### Vision déjà codée
 - page d'upload 1 à 6 photos ;
 - endpoint `/api/v1/analyze-photos` ;
-- provider vision structuré ;
+- fournisseurs vision interchangeables (OpenAI/Gemini) ;
 - `PhotoAnalysisResult` avec confiance, hypothèses et questions ;
 - réinjection des réponses utilisateur ;
-- passage direct du BuildingModel photo vers `/build`.
+- passage direct du BuildingModel photo vers `/build` ;
+- raisonnement explicite sur perspective/proportions ;
+- rapport d'essai reproductible.
 
 ## 3. Chemin critique actuel
 
@@ -69,15 +73,20 @@ Ce document est la référence de reprise du projet. Le but n'est pas de polir i
 - corriger les erreurs de proportions et d'ouvertures ;
 - améliorer les questions de clarification ;
 - stabiliser l'échelle avec une mesure connue quand disponible ;
-- empêcher toute géométrie non supportée de produire silencieusement une fausse reconstruction.
+- empêcher toute géométrie non supportée de produire silencieusement une fausse reconstruction ;
+- séparer progressivement l'analyse en passe contextuelle/sémantique et passe géométrique, sans bloquer le MVP simple.
 
 ### P2 — généraliser l'architecture
 Après validation du flux simple :
+- introduire `BrickHouse Architectural Scene` comme représentation générale ;
+- primitives composables (boîtes, prismes, cylindres, extrusions, surfaces de toiture) ;
+- transformations XYZ et relations entre volumes ;
 - plusieurs volumes ;
 - extensions et garages ;
 - toits plats, monopentes, croupes et combinaisons ;
 - cheminées et lucarnes ;
-- architectures asymétriques et formes atypiques.
+- architectures asymétriques, rotations et formes atypiques ;
+- import d'une analyse externe issue du prompt universel BrickHouse.
 
 ### P3 — fidélité architecturale et extérieurs
 Après robustesse géométrique :
@@ -94,6 +103,7 @@ Après robustesse géométrique :
 - Le chemin critique photo a priorité sur le polish de la notice jusqu'aux premiers essais réels.
 - Une pièce visible dans le viewer doit correspondre à une pièce du BrickModel/BOM ; pas de faux détail graphique servant à masquer une faiblesse du moteur.
 - Une information non visible sur les photos ne doit jamais être déclarée « observée ».
+- Une interprétation contextuelle aide à comprendre la géométrie mais ne devient jamais une mesure sans preuve géométrique, vue croisée ou information utilisateur.
 - Une architecture non supportée doit être signalée ou simplifiée explicitement, jamais inventée silencieusement.
 - Toute modification structurelle doit être couverte par la CI avant fusion dans `main`.
 - Les idées non indispensables au MVP vont dans `docs/IDEAS_FUTURE.md` et ne détournent pas le chemin critique.
