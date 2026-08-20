@@ -31,10 +31,11 @@ def _analysis_result() -> PhotoAnalysisResult:
 
 def test_health_endpoint(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_VISION_MODEL", raising=False)
     monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "brickhouse-engine", "vision_enabled": False, "engine_revision": "local"}
+    assert response.json() == {"status": "ok", "service": "brickhouse-engine", "vision_enabled": False, "vision_model": "gpt-5", "engine_revision": "local"}
 
 
 def test_health_reports_render_revision(monkeypatch):
@@ -44,26 +45,35 @@ def test_health_reports_render_revision(monkeypatch):
 
 def test_health_reports_vision_when_key_is_configured(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    assert client.get("/health").json()["vision_enabled"] is True
+    monkeypatch.setenv("OPENAI_VISION_MODEL", "vision-test-model")
+    payload = client.get("/health").json()
+    assert payload["vision_enabled"] is True
+    assert payload["vision_model"] == "vision-test-model"
 
 
 def test_capabilities_explain_photo_readiness(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_VISION_MODEL", raising=False)
     monkeypatch.setenv("RENDER_GIT_COMMIT", "rev-1")
     payload = client.get("/api/v1/capabilities").json()
     assert payload == {
         "engine_ready": True,
         "photo_analysis_ready": False,
         "photo_provider": None,
+        "photo_model": None,
+        "photo_analysis_reason": "missing_server_api_key",
         "max_photos": 6,
         "supported_photo_types": ["image/jpeg", "image/png", "image/webp"],
         "max_photo_bytes": 12 * 1024 * 1024,
         "engine_revision": "rev-1",
     }
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_VISION_MODEL", "vision-test-model")
     enabled = client.get("/api/v1/capabilities").json()
     assert enabled["photo_analysis_ready"] is True
     assert enabled["photo_provider"] == "openai"
+    assert enabled["photo_model"] == "vision-test-model"
+    assert enabled["photo_analysis_reason"] == "ready"
 
 
 def test_build_endpoint_returns_canonical_export(monkeypatch):
