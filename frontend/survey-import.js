@@ -25,7 +25,7 @@ const surveyBuild = document.querySelector('#build-bricks');
 let currentValidatedSurvey = null;
 
 function surveyApiBase() { return surveyApiInput.value.trim().replace(/\/$/, ''); }
-function surveyEscape(value) { return String(value).replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
+function surveyEscape(value) { return String(value).replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char])); }
 function safeFilename(value) { return String(value || 'brickhouse-survey').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'brickhouse-survey'; }
 function downloadJson(filename, value) { const blob = new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
 
@@ -81,7 +81,20 @@ function withKnownWidth(survey) {
   return clone;
 }
 
-function renderSurveyValidation(payload) {
+function pendingValidatedSurvey() {
+  try {
+    const payload = JSON.parse(localStorage.getItem('brickhouse.pendingArchitecturalSurvey') || 'null');
+    return payload?.valid_for_scene_fusion ? payload.survey : null;
+  } catch { return null; }
+}
+
+function isSurveyExtension(base, candidate) {
+  if (!base || !candidate || base.id !== candidate.id) return false;
+  const baseIndexes = new Set((base.photos ?? []).map(photo => photo.photo_index));
+  return (candidate.photos ?? []).some(photo => !baseIndexes.has(photo.photo_index));
+}
+
+function renderSurveyValidation(payload, { extended = false } = {}) {
   const survey = payload.survey;
   const issues = payload.issues ?? [];
   const errors = issues.filter(issue => issue.severity === 'error');
@@ -95,16 +108,20 @@ function renderSurveyValidation(payload) {
   surveyEmpty.hidden = true;
   surveyResult.hidden = false;
   surveyResultName.textContent = survey.name;
-  surveyConfidence.textContent = payload.valid_for_scene_fusion ? 'Relevé validé' : 'À corriger';
+  surveyConfidence.textContent = payload.valid_for_scene_fusion ? (extended ? 'Relevé étendu validé' : 'Relevé validé') : 'À corriger';
   surveyConfirmation.hidden = false;
   surveyConfirmation.innerHTML = errors.length
-    ? `<h3>Relevé refusé avant reconstruction</h3><p>${errors.map(issue => surveyEscape(issue.message)).join(' ')}</p>`
+    ? `<h3>${extended ? 'Extension refusée' : 'Relevé refusé avant reconstruction'}</h3><p>${errors.map(issue => surveyEscape(issue.message)).join(' ')}</p>`
     : warnings.length
       ? `<h3>Relevé validé avec réserves</h3><p>${warnings.map(issue => surveyEscape(issue.message)).join(' ')}</p>`
-      : '<h3>Relevé architectural validé</h3><p>Les observations peuvent maintenant servir à la reconstruction de scène. Rien n’est encore construit en LEGO.</p>';
+      : extended
+        ? '<h3>Extension du relevé validée</h3><p>Les nouvelles vues ont été ajoutées sans modifier les faits déjà validés.</p>'
+        : '<h3>Relevé architectural validé</h3><p>Les observations peuvent maintenant servir à la reconstruction de scène. Rien n’est encore construit en LEGO.</p>';
 
   surveyQuestions.innerHTML = payload.valid_for_scene_fusion
-    ? '<p><strong>Étape suivante : reconstruction métrique.</strong> Vérifiez d’abord que vos mesures connues sont renseignées ci-dessus, puis téléchargez le relevé validé. Joignez ce fichier et les mêmes photos dans une nouvelle conversation IA avec le prompt Survey → Scene. Réimportez ensuite le fichier ArchitecturalScene obtenu ici.</p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt Survey → Scene ↗</a></p>'
+    ? `<p><strong>Deux chemins sont possibles.</strong> Si toutes les façades utiles sont maintenant documentées, passez à la reconstruction métrique Survey → Scene. S’il manque encore des vues, étendez d’abord ce Survey sans le recommencer.</p>
+       <p><a class="prompt-link" href="./brickhouse-survey-extension-prompt.txt" target="_blank" rel="noopener">Ajouter de nouvelles photos au Survey ↗</a></p>
+       <p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Reconstruire le Survey complet en Scene ↗</a></p>`
     : '<p>Corrigez d’abord les erreurs du relevé. La reconstruction de scène reste désactivée.</p>';
   surveyRefine.disabled = true;
   surveyAssumptions.innerHTML = [
@@ -112,6 +129,7 @@ function renderSurveyValidation(payload) {
     `${survey.observations.length} observation(s), dont ${certainCount} certaine(s).`,
     `${openingCount} ouverture(s) observée(s).`,
     knownWidth ? `Largeur avant connue : ${knownWidth.value} m · mesure utilisateur transportée dans le fichier Survey.` : 'Aucune largeur avant mesurée n’est encore transportée dans ce Survey.',
+    'Un Survey étendu doit conserver exactement les anciennes photos, observations, mesures et le repère canonique.',
     'Les matériaux nominaux et les détails d’ouverture sont conservés séparément des imperfections.',
     'Le relevé ne choisit pas encore la profondeur ni la hauteur globale du bâtiment.',
     'Le fichier Survey validé est la source de vérité sémantique et métrique connue pour la reconstruction suivante.'
@@ -128,8 +146,10 @@ function renderSurveyValidation(payload) {
   surveyReport.disabled = true;
   surveyBuild.disabled = true;
   surveyStatus.textContent = payload.valid_for_scene_fusion
-    ? 'ArchitecturalSurvey valide. Vérifiez vos mesures connues puis téléchargez le relevé validé pour Survey → Scene — ne construisez pas encore.'
-    : 'ArchitecturalSurvey compris mais refusé pour la reconstruction. Corrigez les erreurs sémantiques affichées.';
+    ? extended
+      ? 'Extension ArchitecturalSurvey valide. Les faits précédemment validés ont été conservés. Téléchargez ce nouveau relevé avant l’étape suivante.'
+      : 'ArchitecturalSurvey valide. Vous pouvez soit l’étendre avec d’autres photos, soit passer à Survey → Scene — ne construisez pas encore.'
+    : 'ArchitecturalSurvey compris mais refusé. Corrigez les erreurs sémantiques affichées.';
 }
 
 function restoreValidatedSurvey() {
@@ -184,22 +204,28 @@ surveyImportButton.addEventListener('click', async event => {
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  const base = surveyApiBase();
-  if (!base) { surveyStatus.textContent = 'URL API manquante.'; return; }
+  const baseUrl = surveyApiBase();
+  if (!baseUrl) { surveyStatus.textContent = 'URL API manquante.'; return; }
   parsed = withKnownWidth(parsed);
+  const baseSurvey = pendingValidatedSurvey();
+  const extension = isSurveyExtension(baseSurvey, parsed);
   surveyImportButton.disabled = true;
-  surveyStatus.textContent = 'Validation du relevé architectural par BrickHouse…';
+  surveyStatus.textContent = extension
+    ? 'Contrôle de l’extension : vérification qu’aucun fait validé n’a été modifié…'
+    : 'Validation du relevé architectural par BrickHouse…';
   try {
-    const response = await fetch(`${base}/api/v1/validate-survey`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed),
+    const endpoint = extension ? '/api/v1/validate-survey-extension' : '/api/v1/validate-survey';
+    const body = extension ? { base: baseSurvey, candidate: parsed } : parsed;
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     });
     const payload = await response.json();
     if (!response.ok) {
       const detail = typeof payload.detail === 'string' ? payload.detail : 'Le relevé ne respecte pas ArchitecturalSurvey v0.1.';
       throw new Error(detail);
     }
-    renderSurveyValidation(payload);
-    localStorage.setItem('brickhouse.pendingArchitecturalSurvey', JSON.stringify(payload));
+    renderSurveyValidation(payload, { extended: extension });
+    if (payload.valid_for_scene_fusion) localStorage.setItem('brickhouse.pendingArchitecturalSurvey', JSON.stringify(payload));
   } catch (error) {
     surveyStatus.textContent = `Import du relevé impossible : ${error.message}`;
   } finally {
