@@ -81,6 +81,25 @@ def test_validate_scene_rejects_opening_partly_crossing_unknown_boundary():
     assert "intersects non-visible facade span" in response.text
 
 
+def test_validate_scene_reports_blocked_projection_without_faking_geometry():
+    scene = _fixture()
+    second = json.loads(json.dumps(scene["volumes"][0]))
+    second["id"] = "volume_second"
+    second["position"] = {"x": 10.0, "y": 0.0, "z": 0.0}
+    second["width"]["value"] = 2.0
+    second["depth"]["value"] = 3.0
+    second["height"]["value"] = 2.0
+    second["floors"] = 1
+    scene["volumes"].append(second)
+
+    response = client.post("/api/v1/validate-scene", json=scene)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["projection"]["building"] is None
+    assert payload["m0_compatibility"] is None
+    assert any(issue["code"] == "m0_single_volume_only" for issue in payload["projection"]["issues"])
+
+
 def test_projected_scene_can_flow_into_current_build_pipeline():
     validated = client.post("/api/v1/validate-scene", json=_fixture())
     assert validated.status_code == 200
