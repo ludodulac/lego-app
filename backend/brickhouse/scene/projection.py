@@ -6,14 +6,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from brickhouse.building import (
-    BuildingModel,
-    Metadata,
-    Opening,
-    Roof,
-    Volume,
-    VolumeShape,
-)
+from brickhouse.building import BuildingModel, Metadata, Opening, Roof, Volume, VolumeShape
 
 from .models import ArchitecturalScene
 
@@ -101,6 +94,17 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             )
         )
 
+    for volume in scene.volumes:
+        if volume.floors > 3:
+            issues.append(
+                ProjectionIssue(
+                    code="building_model_floor_limit",
+                    severity=ProjectionSeverity.BLOCKER,
+                    object_id=volume.id,
+                    message="BuildingModel 0.1 supports at most three floors; projection will not silently clamp the scene value.",
+                )
+            )
+
     if any(issue.severity is ProjectionSeverity.BLOCKER for issue in issues):
         return ProjectionResult(building=None, issues=issues)
 
@@ -112,7 +116,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             width=volume.width.value,
             depth=volume.depth.value,
             height=volume.height.value,
-            floors=min(volume.floors, 3),
+            floors=volume.floors,
             source=volume.source,
         )
         for volume in scene.volumes
