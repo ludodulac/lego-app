@@ -95,6 +95,30 @@ def test_survey_preserves_canonical_photo_mapping():
     assert survey.photos[1].facade.value == "right"
 
 
+def test_survey_carries_exact_user_front_width():
+    payload = _survey_payload()
+    payload["known_measurements"] = [{
+        "kind": "front_width",
+        "value": 10.0,
+        "units": "m",
+        "source": {"kind": "user_provided", "confidence": 0.99},
+    }]
+    survey = ArchitecturalSurvey.model_validate(payload)
+    assert survey.known_measurements[0].kind == "front_width"
+    assert survey.known_measurements[0].value == 10.0
+    assert survey.known_measurements[0].source.kind.value == "user_provided"
+
+
+def test_survey_rejects_duplicate_scale_anchor_kind():
+    payload = _survey_payload()
+    payload["known_measurements"] = [
+        {"kind": "front_width", "value": 10.0, "units": "m", "source": {"kind": "user_provided", "confidence": 0.99}},
+        {"kind": "front_width", "value": 9.8, "units": "m", "source": {"kind": "user_provided", "confidence": 0.99}},
+    ]
+    with pytest.raises(ValidationError, match="measurement kinds"):
+        ArchitecturalSurvey.model_validate(payload)
+
+
 def test_survey_rejects_unknown_evidence_photo():
     payload = _survey_payload()
     payload["observations"][0]["evidence"][0]["photo_index"] = 99
