@@ -51,3 +51,16 @@ def test_external_json_import_extracts_first_complete_object() -> None:
     assert "function cleanExternalJson" in photo
     assert "depth === 0" in photo
     assert "value.slice(start, index + 1)" in photo
+
+
+def test_viewer_exposes_canonical_architectural_views() -> None:
+    html = read("viewer.html")
+    viewer = read("viewer.js")
+    for control in ('view-front', 'view-rear', 'view-left', 'view-right'):
+        assert f'id="{control}"' in html
+    assert "function frameCanonicalView" in viewer
+    assert "front:new THREE.Vector3(0,.08,-1)" in viewer
+    assert "rear:new THREE.Vector3(0,.08,1)" in viewer
+    assert "left:new THREE.Vector3(-1,.08,0)" in viewer
+    assert "right:new THREE.Vector3(1,.08,0)" in viewer
+    assert "perspective:new THREE.Vector3(.9,.65,-1.05)" in viewer
