@@ -1,0 +1,176 @@
+import pytest
+from pydantic import ValidationError
+
+from brickhouse.building import Appearance, AppearanceSection, Facade, OpeningType, Position3D, RidgeDirection, RoofType, SourceInfo, SourceKind
+from brickhouse.scene import (
+    ArchitecturalScene,
+    Chimney,
+    Evidence,
+    FacadeVisibility,
+    GradeProfile,
+    Platform,
+    PropertyValue,
+    SceneOpening,
+    SceneRoof,
+    SceneVolume,
+    SupportPost,
+    Terrain,
+    VisibilitySpan,
+    VisibilityState,
+    project_scene_to_building,
+)
+
+
+def source(kind=SourceKind.INFERRED, confidence=0.7):
+    return SourceInfo(kind=kind, confidence=confidence)
+
+
+def base_scene(**overrides):
+    volume = SceneVolume(
+        id="volume_main",
+        position=Position3D(x=0, y=0, z=0),
+        width=PropertyValue(value=10.0, source=source(SourceKind.USER_PROVIDED, 0.99)),
+        depth=PropertyValue(value=10.5, source=source()),
+        height=PropertyValue(value=7.8, source=source()),
+        floors=3,
+        source=source(),
+    )
+    roof = SceneRoof(
+        id="roof_main",
+        volume_id="volume_main",
+        type=RoofType.GABLE,
+        overhang=0.25,
+        ridge_direction=RidgeDirection.DEPTH,
+        pitch_degrees=10,
+        source=source(),
+    )
+    values = dict(
+        schema_version="0.2",
+        id="building_photo_001",
+        name="Regression house",
+        volumes=[volume],
+        roofs=[roof],
+        appearance=Appearance(
+            walls=AppearanceSection(color="light_gray"),
+            roof=AppearanceSection(color="dark_gray"),
+            frames=AppearanceSection(color="white"),
+        ),
+    )
+    values.update(overrides)
+    return ArchitecturalScene(**values)
+
+
+def test_scene_rejects_opening_in_occluded_span():
+    with pytest.raises(ValidationError, match="non-visible facade span"):
+        base_scene(
+            openings=[
+                SceneOpening(
+                    id="rear_hidden",
+                    type=OpeningType.WINDOW,
+                    volume_id="volume_main",
+                    facade=Facade.REAR,
+                    offset_horizontal=1.0,
+                    offset_vertical=2.0,
+                    width=1.0,
+                    height=1.2,
+                    source=source(),
+                )
+            ],
+            visibility=[
+                FacadeVisibility(
+                    facade=Facade.REAR,
+                    spans=[VisibilitySpan(**{"from": 0.0, "to": 5.0, "state": VisibilityState.OCCLUDED, "by": "neighbor"})],
+                )
+            ],
+        )
+
+
+def test_projection_preserves_supported_geometry_and_reports_losses():
+    scene = base_scene(
+        openings=[
+            SceneOpening(
+                id="workshop_window",
+                type=OpeningType.WINDOW,
+                volume_id="volume_main",
+                facade=Facade.RIGHT,
+                offset_horizontal=6.8,
+                offset_vertical=0.4,
+                width=1.0,
+                height=0.8,
+                source=source(),
+                local_grade_clearance=0.05,
+            )
+        ],
+        terrain=Terrain(
+            profiles=[
+                GradeProfile(
+                    facade=Facade.RIGHT,
+                    start_elevation=0.0,
+                    end_elevation=1.4,
+                    source=source(),
+                    evidence=[Evidence(photo_index=2, observation="road rises along the right facade")],
+                )
+            ]
+        ),
+        chimneys=[
+            Chimney(
+                id="chimney_01",
+                position=Position3D(x=1, y=2, z=7.8),
+                width=0.7,
+                depth=0.7,
+                height=1.6,
+                source=source(),
+            )
+        ],
+        platforms=[
+            Platform(
+                id="terrace_left",
+                position=Position3D(x=-2, y=4, z=2.8),
+                width=2.0,
+                depth=4.0,
+                thickness=0.2,
+                supports=[
+                    SupportPost(
+                        id="terrace_post_01",
+                        position=Position3D(x=-1.8, y=4.2, z=0),
+                        width=0.2,
+                        depth=0.2,
+                        height=2.8,
+                        source=source(),
+                    )
+                ],
+                source=source(),
+            )
+        ],
+    )
+
+    result = project_scene_to_building(scene)
+
+    assert result.building is not None
+    assert result.building.volumes[0].width == 10.0
+    assert result.building.openings[0].id == "workshop_window"
+    assert {issue.code for issue in result.issues} == {
+        "terrain_not_supported",
+        "chimney_not_supported",
+        "platform_not_supported",
+    }
+    assert result.blocked is False
+
+
+def test_projection_blocks_multi_volume_m0_projection():
+    second = SceneVolume(
+        id="volume_second",
+        position=Position3D(x=10, y=0, z=0),
+        width=PropertyValue(value=2, source=source()),
+        depth=PropertyValue(value=3, source=source()),
+        height=PropertyValue(value=2, source=source()),
+        floors=1,
+        source=source(),
+    )
+    scene = base_scene(volumes=[base_scene().volumes[0], second])
+
+    result = project_scene_to_building(scene)
+
+    assert result.building is None
+    assert result.blocked is True
+    assert any(issue.code == "m0_single_volume_only" for issue in result.issues)
