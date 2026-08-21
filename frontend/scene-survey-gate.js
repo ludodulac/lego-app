@@ -5,6 +5,9 @@ const gateStatus = document.querySelector('#status');
 let bypassSceneSurveyGateOnce = false;
 let sceneProgressTimer = null;
 let sceneProgressTimeout = null;
+let protectSceneStatus = false;
+let lastSceneStatus = '';
+const IDLE_STATUS = 'Ajoutez vos photos puis lancez l’analyse, ou importez un JSON produit par une IA externe.';
 
 function gateApiBase() { return gateApiInput.value.trim().replace(/\/$/, ''); }
 function gateExtractJson(raw) {
@@ -41,6 +44,28 @@ function formatValidationDetail(detail) {
   }).join(' · ');
 }
 
+const statusObserver = new MutationObserver(() => {
+  if (!protectSceneStatus) return;
+  const text = gateStatus.textContent || '';
+  if (text === IDLE_STATUS && lastSceneStatus) {
+    queueMicrotask(() => {
+      if (protectSceneStatus && gateStatus.textContent === IDLE_STATUS) gateStatus.textContent = lastSceneStatus;
+    });
+    return;
+  }
+  if (text && text !== IDLE_STATUS && !text.startsWith('Vérification du moteur BrickHouse')) {
+    lastSceneStatus = text;
+  }
+});
+statusObserver.observe(gateStatus, { childList: true, characterData: true, subtree: true });
+
+gateExternalInput?.addEventListener('input', () => {
+  if (!gateExternalInput.value.trim()) {
+    protectSceneStatus = false;
+    lastSceneStatus = '';
+  }
+});
+
 function stopSceneProgress() {
   if (sceneProgressTimer) clearInterval(sceneProgressTimer);
   if (sceneProgressTimeout) clearTimeout(sceneProgressTimeout);
@@ -62,6 +87,7 @@ function startSceneProgress() {
     if (!inGate && !inFinal) { stopSceneProgress(); return; }
     const label = inFinal ? 'Validation géométrique finale' : 'Contrôle Survey → Scene';
     gateStatus.textContent = `${frames[index % frames.length]} ${label} en cours…`;
+    lastSceneStatus = gateStatus.textContent;
     index += 1;
   };
   update();
@@ -71,6 +97,7 @@ function startSceneProgress() {
     if (text.includes('en cours')) {
       stopSceneProgress();
       gateStatus.textContent = 'La validation prend anormalement longtemps (>45 s). Le serveur est peut-être en réveil ou la requête est bloquée. Vous pouvez réessayer sans construire.';
+      lastSceneStatus = gateStatus.textContent;
       gateImportButton.disabled = false;
     }
   }, 45000);
@@ -106,7 +133,9 @@ gateImportButton.addEventListener('click', async event => {
       return;
     }
     localStorage.setItem('brickhouse.lastSceneSurveyValidation', JSON.stringify(payload));
+    protectSceneStatus = true;
     gateStatus.textContent = 'Cohérence Survey → Scene validée. Validation géométrique finale…';
+    lastSceneStatus = gateStatus.textContent;
     bypassSceneSurveyGateOnce = true;
     gateImportButton.click();
   } catch (error) {
