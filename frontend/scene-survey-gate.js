@@ -30,6 +30,14 @@ function pendingSurvey() {
     return payload?.valid_for_scene_fusion ? payload.survey : null;
   } catch { return null; }
 }
+function formatValidationDetail(detail) {
+  if (typeof detail === 'string') return detail;
+  if (!Array.isArray(detail)) return 'La scène ne respecte pas le contrat ArchitecturalScene v0.2.';
+  return detail.slice(0, 8).map(item => {
+    const path = Array.isArray(item.loc) ? item.loc.filter(part => part !== 'body').join('.') : 'champ inconnu';
+    return `${path || 'racine'} : ${item.msg || item.type || 'valeur invalide'}`;
+  }).join(' · ');
+}
 
 gateImportButton.addEventListener('click', async event => {
   if (bypassSceneSurveyGateOnce) { bypassSceneSurveyGateOnce = false; return; }
@@ -52,10 +60,7 @@ gateImportButton.addEventListener('click', async event => {
       body: JSON.stringify({ survey, scene: parsed }),
     });
     const payload = await response.json();
-    if (!response.ok) {
-      const detail = typeof payload.detail === 'string' ? payload.detail : 'La scène ne respecte pas le contrat ArchitecturalScene v0.2.';
-      throw new Error(detail);
-    }
+    if (!response.ok) throw new Error(formatValidationDetail(payload.detail));
     if (!payload.valid_for_projection) {
       const errors = (payload.issues ?? []).filter(item => item.severity === 'error').map(item => item.message);
       gateStatus.textContent = `Scène refusée par le Survey : ${errors.join(' ') || 'dérive sémantique détectée.'}`;
