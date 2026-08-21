@@ -47,8 +47,8 @@ def test_validate_scene_rejects_opening_inside_rear_occlusion():
             "height": 1.2,
             "source": {"kind": "inferred", "confidence": 0.3},
             "window_style": "simple",
-            "has_sill": true,
-            "has_decorative_surround": false
+            "has_sill": True,
+            "has_decorative_surround": False,
         }
     )
 
@@ -71,8 +71,8 @@ def test_validate_scene_rejects_opening_partly_crossing_unknown_boundary():
             "height": 1.0,
             "source": {"kind": "inferred", "confidence": 0.3},
             "window_style": "simple",
-            "has_sill": true,
-            "has_decorative_surround": false
+            "has_sill": True,
+            "has_decorative_surround": False,
         }
     )
 
