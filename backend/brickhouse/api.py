@@ -15,7 +15,7 @@ from brickhouse.scene import (
     validate_scene_against_survey,
     project_scene_to_building,
 )
-from brickhouse.survey import ArchitecturalSurvey, SurveyValidationIssue, validate_survey_semantics
+from brickhouse.survey import ArchitecturalSurvey, SurveyValidationIssue, validate_survey_extension, validate_survey_semantics
 from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
@@ -42,6 +42,11 @@ class SurveyValidationResponse(BaseModel):
     survey: ArchitecturalSurvey
     issues: list[SurveyValidationIssueModel] = Field(default_factory=list)
     valid_for_scene_fusion: bool
+
+
+class SurveyExtensionValidationRequest(BaseModel):
+    base: ArchitecturalSurvey
+    candidate: ArchitecturalSurvey
 
 
 class SceneValidationResponse(BaseModel):
@@ -105,7 +110,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.13.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.14.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -127,6 +132,18 @@ def validate_architectural_survey(survey: ArchitecturalSurvey) -> SurveyValidati
     raw_issues: list[SurveyValidationIssue] = validate_survey_semantics(survey)
     issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
     return SurveyValidationResponse(survey=survey, issues=issues, valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues))
+
+
+@app.post("/api/v1/validate-survey-extension", response_model=SurveyValidationResponse)
+def validate_architectural_survey_extension(request: SurveyExtensionValidationRequest) -> SurveyValidationResponse:
+    """Validate that a Survey extension preserves all previously validated facts."""
+    raw_issues: list[SurveyValidationIssue] = validate_survey_extension(request.base, request.candidate)
+    issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
+    return SurveyValidationResponse(
+        survey=request.candidate,
+        issues=issues,
+        valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues),
+    )
 
 
 @app.post("/api/v1/validate-analysis", response_model=PhotoAnalysisResult)
