@@ -25,7 +25,7 @@ class Evidence(BaseModel):
 
 
 class PropertyValue(BaseModel):
-    value: float
+    value: float = Field(gt=0)
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
 
@@ -211,11 +211,22 @@ class ArchitecturalScene(BaseModel):
 
         volumes = {volume.id: volume for volume in self.volumes}
         for opening in self.openings:
-            if opening.volume_id not in volumes:
+            volume = volumes.get(opening.volume_id)
+            if volume is None:
                 raise ValueError(f"opening {opening.id!r} references unknown volume")
+            facade_span = volume.width.value if opening.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+            if opening.offset_horizontal + opening.width > facade_span:
+                raise ValueError(f"opening {opening.id!r} extends past facade horizontally")
+            if opening.offset_vertical + opening.height > volume.height.value:
+                raise ValueError(f"opening {opening.id!r} extends above volume")
+
+        roof_volume_ids: set[str] = set()
         for roof in self.roofs:
             if roof.volume_id not in volumes:
                 raise ValueError(f"roof {roof.id!r} references unknown volume")
+            if roof.volume_id in roof_volume_ids:
+                raise ValueError("at most one roof may reference a scene volume in v0.2")
+            roof_volume_ids.add(roof.volume_id)
 
         visibility_by_facade = {entry.facade: entry for entry in self.visibility}
         for opening in self.openings:
