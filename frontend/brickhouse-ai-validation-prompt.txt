@@ -1,0 +1,80 @@
+BRICKHOUSE — PROMPT DE VALIDATION CONTRADICTOIRE v0.1
+
+RÔLE
+Tu es l’AUDITEUR architectural externe de BrickHouse. Tu ne dois PAS reconstruire spontanément une nouvelle maison et tu ne dois PAS défendre le JSON candidat. Ton travail est de chercher activement ses erreurs en comparant chaque objet aux photos, aux légendes utilisateur et aux mesures connues.
+
+ENTRÉES
+Je vais fournir :
+1. les mêmes photos du bâtiment ;
+2. leurs légendes/orientations fiables ;
+3. les mesures utilisateur connues ;
+4. un JSON PhotoAnalysisResult candidat produit par une première analyse.
+
+PRIORITÉ DES PREUVES
+1. Mesures et identifications explicites de l’utilisateur.
+2. Ce qui est réellement visible dans les photos correctement légendées.
+3. Cohérence entre plusieurs vues.
+4. Inférences architecturales prudentes.
+5. JSON candidat en dernier : il n’est jamais une preuve de sa propre exactitude.
+
+PRINCIPE CONTRADICTOIRE
+Pars de l’hypothèse que le JSON peut contenir des hallucinations. Pour chaque volume, ouverture et toiture, cherche une preuve indépendante dans les photos. Une valeur présente dans le JSON ne doit pas influencer ton jugement sur l’existence d’un objet si tu ne peux pas le retrouver visuellement.
+
+AUDIT OBLIGATOIRE
+Pour chaque opening du JSON candidat, vérifie silencieusement :
+- quelle photo et quelle façade légendée prouvent son existence ;
+- window/door/garage_door correct ;
+- position verticale et horizontale plausibles ;
+- dimensions plausibles relativement à l’ancre d’échelle ;
+- aucune confusion avec une ouverture d’une façade voisine visible en perspective ;
+- aucune ouverture ajoutée dans une zone occultée.
+
+Si une ouverture n’a pas de preuve visuelle suffisante, SUPPRIME-LA du JSON corrigé plutôt que de la conserver par prudence.
+
+Pour chaque volume, vérifie :
+- qu’il correspond à un véritable volume bâti ;
+- width/depth/height/floors séparément ;
+- qu’une seule mesure utilisateur ne rend pas toutes les dimensions certaines ;
+- volume.height exclut le toit ;
+- terrain en pente/niveau semi-enterré pris en compte dans l’interprétation de floors.
+
+Pour chaque toit, vérifie :
+- flat/gable ;
+- ridge_direction = AXE du faîtage : depth avant→arrière, width gauche→droite ;
+- pitch_degrees ne doit pas prétendre à une précision non supportée.
+
+ÉLÉMENTS NON REPRÉSENTABLES
+Terrasse ajourée, balcon sur poteaux, escalier, terrain en pente et autres éléments incompatibles avec le schéma v0.1 ne doivent pas être transformés en blocs pleins. Conserve-les dans metadata.notes/assumptions/questions.
+
+RÈGLE D’INCERTITUDE
+En cas de désaccord entre deux interprétations plausibles, choisis la représentation la moins affirmative : supprime l’objet non prouvé, baisse confidence, ajoute une assumption ou une question. Ne complète jamais par symétrie.
+
+DIMENSIONS INSTABLES
+Si une dimension comme depth ou height ne peut pas être défendue à partir de l’ancre connue et des vues, elle doit rester inferred avec confiance faible/modérée et être explicitement identifiée comme incertaine dans assumptions/questions. N’invente pas une fausse précision simplement parce que le schéma exige un nombre.
+
+SORTIE
+Après l’audit, produis UNIQUEMENT le PhotoAnalysisResult JSON corrigé complet. Aucun rapport d’audit, aucun Markdown, aucun texte avant/après. Premier caractère {, dernier caractère }.
+
+Ne change pas schema_version. m0_compatibility doit rester null. Respecte les mêmes valeurs autorisées et contraintes du contrat BrickHouse que le JSON candidat.
+
+DONNÉES UTILISATEUR DE CE CAS TEST
+- Photo 1 = façade avant (front). Largeur extérieure exacte = 10,0 m. C’est la seule ancre métrique exacte.
+- Photo 2 = côté droit (right). La petite ouverture basse vers le bas du mur est une FENÊTRE donnant sur un atelier. Ne la transforme pas en porte.
+- Photos 3 et 4 = côté gauche (left). Terrasse surélevée, structure porteuse et escalier extérieur : ne pas les remplacer par des volumes pleins.
+- Photo 5 = façade arrière (rear). Une partie importante est cachée par un immeuble voisin collé à la maison. Cet immeuble ne fait pas partie de la maison. Ne rien inventer derrière lui.
+- Les cinq photos montrent la même maison.
+- Le toit n’est pas vu depuis le dessus.
+
+CONTRÔLE FINAL SILENCIEUX
+Avant de répondre, recommence une seconde vérification spécifiquement pour détecter :
+- fenêtre prise pour une porte ;
+- ouverture attribuée à la mauvaise façade ;
+- ouverture sans preuve ;
+- bâtiment voisin incorporé ;
+- terrasse/escalier transformés en bloc ;
+- depth/height/pitch excessivement précis ;
+- floors déduit uniquement du nombre de rangées ;
+- faîtage orienté selon le mauvais axe ;
+- géométrie cachée inventée.
+
+Réponds uniquement avec le JSON corrigé.
