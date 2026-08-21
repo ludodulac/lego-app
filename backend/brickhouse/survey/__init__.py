@@ -14,7 +14,7 @@ from .models import (
     SurfaceAppearance,
     SurveyObservation,
 )
-from .validation import SurveyValidationIssue, validate_survey_semantics
+from .validation import SurveyValidationIssue, validate_survey_extension, validate_survey_semantics
 
 __all__ = [
     "ArchitecturalSurvey",
@@ -30,5 +30,6 @@ __all__ = [
     "SurfaceAppearance",
     "SurveyObservation",
     "SurveyValidationIssue",
+    "validate_survey_extension",
     "validate_survey_semantics",
 ]
