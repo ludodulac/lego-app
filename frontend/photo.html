@@ -23,8 +23,9 @@
 
       <details class="result-card external-ai" open>
         <summary>Alternative fiable · analyser avec ChatGPT, Claude ou une autre IA</summary>
-        <p>Utilisez les mêmes photos avec le prompt BrickHouse. Pour éviter les copier-coller tronqués, privilégiez maintenant les fichiers JSON : BrickHouse peut charger un relevé ArchitecturalSurvey, une scène ArchitecturalScene ou l’ancien contrat d’analyse.</p>
-        <p><a class="prompt-link" href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt universel BrickHouse ↗</a></p>
+        <p>Commencez par un relevé ArchitecturalSurvey : l’IA observe et décrit avant de mesurer. Pour éviter les copier-coller tronqués, privilégiez les fichiers JSON à chaque étape.</p>
+        <p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">1. Ouvrir le prompt de relevé ArchitecturalSurvey ↗</a></p>
+        <p><small>Le prompt universel direct reste disponible comme ancien parcours de secours : <a href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">ouvrir ↗</a></small></p>
         <div class="field"><label for="external-analysis-file">Fichier JSON renvoyé par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Recommandé pour les gros relevés et scènes : aucun copier-coller nécessaire.</small></div>
         <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON BrickHouse retourné par ChatGPT / Claude / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Le collage reste disponible comme solution de secours.</small></div>
         <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
