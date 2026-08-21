@@ -1,5 +1,6 @@
 const surveyImportButton = document.querySelector('#import-analysis');
 const surveyExternalInput = document.querySelector('#external-analysis');
+const surveyExternalFile = document.querySelector('#external-analysis-file');
 const surveyApiInput = document.querySelector('#api-url');
 const surveyStatus = document.querySelector('#status');
 const surveyEmpty = document.querySelector('#empty-state');
@@ -15,11 +16,15 @@ const surveyEvidence = document.querySelector('#proportion-evidence');
 const surveyPreview = document.querySelector('#json-preview');
 const surveyRefine = document.querySelector('#refine');
 const surveyDownload = document.querySelector('#download-model');
+const surveyDownloadValidated = document.querySelector('#download-survey');
 const surveyReport = document.querySelector('#download-report');
 const surveyBuild = document.querySelector('#build-bricks');
+let currentValidatedSurvey = null;
 
 function surveyApiBase() { return surveyApiInput.value.trim().replace(/\/$/, ''); }
-function surveyEscape(value) { return String(value).replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char])); }
+function surveyEscape(value) { return String(value).replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
+function safeFilename(value) { return String(value || 'brickhouse-survey').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'brickhouse-survey'; }
+function downloadJson(filename, value) { const blob = new Blob([JSON.stringify(value, null, 2) + '\n'], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); }
 
 function extractJsonObject(raw) {
   let value = raw.trim();
@@ -61,6 +66,7 @@ function renderSurveyValidation(payload) {
   const warnings = issues.filter(issue => issue.severity !== 'error');
   const openingCount = survey.observations.filter(item => item.kind === 'opening').length;
   const certainCount = survey.observations.filter(item => item.certainty === 'certain').length;
+  currentValidatedSurvey = payload.valid_for_scene_fusion ? survey : null;
 
   surveyEmpty.hidden = true;
   surveyResult.hidden = false;
@@ -74,7 +80,7 @@ function renderSurveyValidation(payload) {
       : '<h3>Relevé architectural validé</h3><p>Les observations peuvent maintenant servir à la reconstruction de scène. Rien n’est encore construit en LEGO.</p>';
 
   surveyQuestions.innerHTML = payload.valid_for_scene_fusion
-    ? '<p><strong>Étape suivante : reconstruction métrique.</strong> Ouvrez le prompt Survey → Scene, donnez à ChatGPT les mêmes photos ainsi que ce relevé validé, puis recollez ici le JSON ArchitecturalScene v0.2 obtenu.</p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt Survey → Scene ↗</a></p>'
+    ? '<p><strong>Étape suivante : reconstruction métrique.</strong> Téléchargez le relevé validé, joignez ce fichier et les mêmes photos dans une nouvelle conversation IA, puis utilisez le prompt Survey → Scene. Réimportez ensuite le fichier ArchitecturalScene obtenu ici.</p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt Survey → Scene ↗</a></p>'
     : '<p>Corrigez d’abord les erreurs du relevé. La reconstruction de scène reste désactivée.</p>';
   surveyRefine.disabled = true;
   surveyAssumptions.innerHTML = [
@@ -83,20 +89,39 @@ function renderSurveyValidation(payload) {
     `${openingCount} ouverture(s) observée(s).`,
     'Les matériaux nominaux et les détails d’ouverture sont conservés séparément des imperfections.',
     'Le relevé ne choisit pas encore la profondeur ni la hauteur globale du bâtiment.',
-    'La reconstruction suivante doit respecter le Survey comme contrat sémantique et utiliser les photos principalement pour la métrique.'
+    'Le fichier Survey validé est la source de vérité sémantique pour la reconstruction suivante.'
   ].map(item => `<li>${surveyEscape(item)}</li>`).join('');
 
   surveyProportions.hidden = false;
   surveyScaleBasis.textContent = 'Repère canonique : x = gauche→droite en regardant la façade avant, y = avant→arrière, z = bas→haut.';
   surveyEvidence.innerHTML = survey.photos.map(photo => `<li>Photo ${photo.photo_index} · façade ${surveyEscape(photo.facade)} · image gauche → offset ${surveyEscape(photo.image_left_maps_to_facade_offset)}</li>`).join('');
   surveyPreview.textContent = JSON.stringify(survey, null, 2);
+  surveyDownloadValidated.hidden = !payload.valid_for_scene_fusion;
   surveyDownload.disabled = true;
   surveyReport.disabled = true;
   surveyBuild.disabled = true;
   surveyStatus.textContent = payload.valid_for_scene_fusion
-    ? 'ArchitecturalSurvey valide. Utilisez maintenant le prompt Survey → Scene avec les mêmes photos et ce relevé — ne construisez pas encore.'
+    ? 'ArchitecturalSurvey valide. Téléchargez maintenant le relevé validé pour l’étape Survey → Scene — ne construisez pas encore.'
     : 'ArchitecturalSurvey compris mais refusé pour la reconstruction. Corrigez les erreurs sémantiques affichées.';
 }
+
+surveyExternalFile?.addEventListener('change', async () => {
+  const file = surveyExternalFile.files?.[0];
+  if (!file) return;
+  try {
+    surveyExternalInput.value = await file.text();
+    surveyStatus.textContent = `Fichier ${file.name} chargé. Cliquez sur « Valider et importer cette analyse ».`;
+  } catch (error) {
+    surveyStatus.textContent = `Impossible de lire le fichier JSON : ${error.message}`;
+  } finally {
+    surveyExternalFile.value = '';
+  }
+});
+
+surveyDownloadValidated?.addEventListener('click', () => {
+  if (!currentValidatedSurvey) return;
+  downloadJson(`${safeFilename(currentValidatedSurvey.name)}-architectural-survey-v0.1.json`, currentValidatedSurvey);
+});
 
 surveyImportButton.addEventListener('click', async event => {
   const raw = extractJsonObject(surveyExternalInput.value);
