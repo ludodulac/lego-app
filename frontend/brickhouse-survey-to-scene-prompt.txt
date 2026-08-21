@@ -13,7 +13,7 @@ OBJECTIF
 Produire un ArchitecturalScene BrickHouse v0.2 métrique. Le Survey est le contrat sémantique : ne refais pas librement l’inventaire, ne réintroduis aucun élément classé unproven et ne complète jamais une façade cachée par symétrie.
 
 SORTIE
-JSON pur uniquement. Aucun Markdown, aucune phrase autour. Premier caractère { et dernier caractère }.
+Crée de préférence un fichier joint nommé `brickhouse-architectural-scene-v0.2.json` contenant uniquement le JSON ArchitecturalScene v0.2. Si ton interface ne permet pas de créer un fichier, renvoie uniquement le JSON pur dans le message. Aucun Markdown, aucune explication, aucune phrase autour. Premier caractère { et dernier caractère }.
 
 PREUVES
 Priorité :
