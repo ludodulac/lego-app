@@ -1,6 +1,6 @@
-# ArchitecturalScene v0.2 — implementation direction
+# ArchitecturalScene v0.2
 
-Status: first executable contract/projection slice implemented in BH-069.
+Status: first executable implementation for BH-069.
 
 ## Why this exists
 
@@ -10,93 +10,110 @@ Observed failures from the regression house:
 
 - local ground is not flat: the road rises along one side, so a low workshop window should be interpreted relative to local grade rather than one global z=0;
 - the left side contains a raised terrace on posts and an exterior stair, neither of which should be replaced by a solid building volume;
-- a chimney is clearly part of the building but has no representation;
+- a chimney is clearly part of the building but had no representation;
 - a glazed kitchen door/opening is tied to terrace level, which is not the same as global ground level;
 - facade ownership must stop at the actual building boundary; poles, neighbors and perspective can otherwise make an analyzer invent openings beyond the house;
-- some visible facade objects are utilities (service boxes, pipes, gutters) rather than architectural openings;
+- some visible facade objects are utilities rather than architectural openings;
 - rear geometry may be unknown because a neighboring building physically occludes it.
 
-## Compatibility principle
+## Architecture
 
-Do not break BuildingModel 0.1 or the current M0 builder. ArchitecturalScene v0.2 sits above it:
+ArchitecturalScene v0.2 sits above the stable BuildingModel 0.1:
 
-`photos -> analysis -> ArchitecturalScene v0.2 -> compatibility/projection -> BuildingModel 0.1 -> M0`
+`photos -> external Pass A -> external Pass B -> ArchitecturalScene v0.2 -> validate/project -> BuildingModel 0.1 -> M0`
 
-The projection step is explicit about information loss. Unsupported scene elements become warnings/blockers; they are never silently converted into misleading rectangular masses.
+The projection step is explicit about information loss. Unsupported scene elements become structured warnings/blockers and are never silently converted into misleading rectangular masses.
 
-## Implemented scene concepts
+## Implemented contracts
 
-The first code slice now exists under `backend/brickhouse/scene/`.
+The `brickhouse.scene` package now provides:
 
-### Evidence and per-property provenance
+- per-dimension `PropertyValue` provenance/evidence for volume width/depth/height;
+- `Evidence` references to photo index + observation;
+- `SceneVolume`, `SceneOpening`, `SceneRoof`;
+- `Terrain` with facade grade profiles;
+- opening `local_grade_clearance`;
+- `Chimney`;
+- `Platform` with `SupportPost` elements;
+- multi-run exterior `StairRun`;
+- semantic facade equipment: utility_box, pipe, gutter, downspout, vent, antenna, temporary_object;
+- facade `VisibilitySpan` records with visible/occluded/unknown state.
 
-`Evidence` stores a photo index and factual observation. `PropertyValue` lets width/depth/height carry independent `SourceInfo`, so an exact 10 m facade width can remain user-provided while depth and height remain inferred.
+Validation includes globally unique IDs, references, roof uniqueness per volume, opening containment/overlap, visibility-span containment/overlap, and rejection of any opening intersecting an occluded/unknown span.
 
-### Local ground / terrain profile
+## Terrain model
 
-`Terrain(kind="facade_grade_profiles")` contains `GradeProfile` records with facade, start/end elevation, source and evidence. This is deliberately simpler than a terrain mesh.
+The initial terrain representation deliberately uses facade-local grade profiles rather than a general mesh:
 
-### Facade-local opening elevation
+```json
+{
+  "terrain": {
+    "kind": "facade_grade_profiles",
+    "profiles": [
+      {
+        "facade":"right",
+        "start_elevation":0.0,
+        "end_elevation":1.2,
+        "source":{"kind":"observed","confidence":0.9},
+        "evidence":[{"photo_index":2,"observation":"road rises along the right facade"}]
+      }
+    ]
+  }
+}
+```
 
-`SceneOpening.local_grade_clearance` records the relation between an opening and local visible grade while keeping global architectural z coordinates.
-
-### Chimneys
-
-`Chimney` is a first-class rectangular architectural element with position, dimensions, source and evidence.
-
-### Exterior platforms / terraces and supports
-
-`Platform` represents a horizontal slab separately from `SupportPost` objects. It is not projected as a fake solid building volume.
-
-### Exterior stairs
-
-`StairRun` records start/end 3D points and width. Multiple runs can represent an L-shaped exterior stair.
-
-### Facade equipment / non-opening observations
-
-`FacadeEquipment` supports utility_box, pipe, gutter, downspout, vent, antenna and temporary_object semantic observations.
-
-### Occlusion and facade visibility
-
-`FacadeVisibility` contains `VisibilitySpan` records (`visible`, `occluded`, `unknown`). Scene validation rejects an opening whose center lies inside a declared non-visible span. This is a conservative first guard against hallucinated rear/side openings.
+This preserves the key fact that local ground varies without pretending to reconstruct a survey-grade terrain mesh.
 
 ## Projection to BuildingModel 0.1
 
-`project_scene_to_building()` now:
+`project_scene_to_building()` keeps only representable rectangular building volumes, openings and simple roofs.
 
-1. preserves the supported principal rectangular volume, openings and simple roof;
-2. emits structured warnings for terrain, chimneys, platforms and stairs that BuildingModel 0.1 cannot represent;
-3. blocks current M0 projection when the scene contains more than one building volume or more than one roof;
-4. never converts a platform/stair into a solid building volume;
-5. keeps projection-loss codes in BuildingModel metadata notes for downstream visibility.
+Current explicit warnings:
 
-This is intentionally a compatibility projection, not a claim that M0 can build the entire scene.
+- terrain grade not constructible by BuildingModel 0.1;
+- chimney omitted from current M0 projection;
+- platform/terrace omitted;
+- stair runs omitted.
 
-## Regression expectations for the current house
+Current blockers include incompatible volume/roof counts and floor counts beyond BuildingModel 0.1 limits. The projector does not silently clamp or fake scene geometry.
 
-The reference scene should encode at least:
+## API
 
-- front facade width = 10.0 m exact user anchor;
-- front low-left opening = window, not door;
-- right low opening = workshop window with near-zero local-grade clearance;
-- right-side building boundary stops before unrelated neighboring/context geometry;
-- no unsupported rear openings in occluded portions;
-- left raised terrace/platform on supports;
-- exterior stair on left;
-- terrain/road rising along right side;
-- at least one chimney on the main building;
-- gable roof with ridge axis front-to-rear and conservative pitch confidence;
-- kitchen glazed opening aligned to terrace level rather than global flat ground.
+`POST /api/v1/validate-scene` now returns:
 
-Tests under `tests/scene/` cover occluded-opening rejection, preservation of supported geometry, warnings for unsupported scene elements and blocking of multi-volume M0 projection.
+- the validated ArchitecturalScene;
+- the structured scene -> BuildingModel projection;
+- M0 compatibility for the projected BuildingModel when a projection exists.
 
-## Still to implement
+Legacy `POST /api/v1/validate-analysis` remains available during migration.
 
-- API endpoints for validating/importing ArchitecturalScene v0.2;
-- a full real-house regression fixture expressed directly as ArchitecturalScene JSON;
-- prompt output migration from PhotoAnalysisResult/BuildingModel to ArchitecturalScene once the API path is stable;
-- LEGO engine support, incrementally: chimney first, then platform/supports/stairs, then terrain-aware visualization/placement;
-- richer facade-boundary semantics beyond visibility spans when repeated cases justify them.
+## External ChatGPT workflow
+
+`frontend/brickhouse-ai-prompt.txt` now targets ArchitecturalScene v0.2 directly and requires an inventory-first scene-understanding pass.
+
+`frontend/brickhouse-ai-validation-prompt.txt` performs an independent adversarial audit of the candidate scene, including building boundaries, terrain, chimney, terrace/stairs, facade equipment and visibility spans.
+
+The photo frontend automatically detects ArchitecturalScene v0.2 imports, validates them through `/api/v1/validate-scene`, shows projection losses and still permits construction of the supported projected subset when M0 compatibility allows it.
+
+The external JSON cleaner extracts the first complete JSON object, so accidental Markdown fences or trailing provider prose no longer cause the earlier `Unexpected non-whitespace character after JSON` failure.
+
+## Regression fixture
+
+`tests/fixtures/architectural_scene_real_house_v02.json` stores derived semantic facts from the first real house without committing the source photos. It includes:
+
+- exact 10.0 m front-width anchor;
+- front low-left opening classified as window;
+- low right workshop window with near-zero local-grade clearance;
+- rising right-side road/grade;
+- right facade uncertainty near the building boundary;
+- raised left terrace on supports;
+- two-run exterior stair approximation;
+- kitchen glazed opening tied to terrace level;
+- visible chimney;
+- facade utility equipment;
+- rear occlusion by the neighboring attached building.
+
+API and scene tests verify that the fixture validates, produces explicit projection losses, flows through the current M0 build subset, and rejects openings placed wholly or partly in occluded/unknown spans.
 
 ## Non-goals for v0.2
 
@@ -105,3 +122,10 @@ Tests under `tests/scene/` cover occluded-opening rejection, preservation of sup
 - decorative brick-by-brick facade modeling;
 - exact terrain mesh;
 - automatic certainty from a single ambiguous photo.
+
+## Next implementation sequence
+
+1. Deploy/run the scene validation path and repeat the same five-photo external two-pass test against the v0.2 prompts.
+2. Compare the resulting ArchitecturalScene against the semantic regression fixture.
+3. Add LEGO geometry support incrementally: chimney first, then platform/supports/stairs, then terrain-aware visualization/placement.
+4. Only after those pieces are stable, consider migrating the integrated vision-provider endpoint from legacy PhotoAnalysisResult to ArchitecturalScene.
