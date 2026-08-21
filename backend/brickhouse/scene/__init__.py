@@ -20,6 +20,7 @@ from .models import (
     VisibilityState,
 )
 from .projection import ProjectionIssue, ProjectionResult, ProjectionSeverity, project_scene_to_building
+from .survey_validation import SceneSurveyIssue, SceneSurveySeverity, validate_scene_against_survey
 
 __all__ = [
     "ArchitecturalScene",
@@ -36,6 +37,8 @@ __all__ = [
     "PropertyValue",
     "SceneOpening",
     "SceneRoof",
+    "SceneSurveyIssue",
+    "SceneSurveySeverity",
     "SceneVolume",
     "StairRun",
     "SupportPost",
@@ -43,4 +46,5 @@ __all__ = [
     "VisibilitySpan",
     "VisibilityState",
     "project_scene_to_building",
+    "validate_scene_against_survey",
 ]
