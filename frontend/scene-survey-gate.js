@@ -5,9 +5,10 @@ const gateStatus = document.querySelector('#status');
 let bypassSceneSurveyGateOnce = false;
 let sceneProgressTimer = null;
 let sceneProgressTimeout = null;
+let sceneStatusWatchdog = null;
 let protectSceneStatus = false;
 let lastSceneStatus = '';
-const IDLE_STATUS = 'Ajoutez vos photos puis lancez l’analyse, ou importez un JSON produit par une IA externe.';
+const IDLE_STATUS_PREFIX = 'Ajoutez vos photos puis lancez l’analyse';
 
 function gateApiBase() { return gateApiInput.value.trim().replace(/\/$/, ''); }
 function gateExtractJson(raw) {
@@ -43,27 +44,41 @@ function formatValidationDetail(detail) {
     return `${path || 'racine'} : ${item.msg || item.type || 'valeur invalide'}`;
   }).join(' · ');
 }
+function isIdleStatus(text) { return String(text || '').trim().startsWith(IDLE_STATUS_PREFIX); }
+function rememberSceneStatus(text) {
+  const value = String(text || '').trim();
+  if (!value || isIdleStatus(value) || value.startsWith('Vérification du moteur BrickHouse')) return;
+  lastSceneStatus = value;
+}
+function restoreSceneStatusIfNeeded() {
+  if (!protectSceneStatus || !lastSceneStatus) return;
+  if (isIdleStatus(gateStatus.textContent)) gateStatus.textContent = lastSceneStatus;
+}
+function startSceneStatusProtection() {
+  protectSceneStatus = true;
+  if (sceneStatusWatchdog) clearInterval(sceneStatusWatchdog);
+  sceneStatusWatchdog = setInterval(restoreSceneStatusIfNeeded, 250);
+}
+function stopSceneStatusProtection() {
+  protectSceneStatus = false;
+  lastSceneStatus = '';
+  if (sceneStatusWatchdog) clearInterval(sceneStatusWatchdog);
+  sceneStatusWatchdog = null;
+}
 
 const statusObserver = new MutationObserver(() => {
   if (!protectSceneStatus) return;
   const text = gateStatus.textContent || '';
-  if (text === IDLE_STATUS && lastSceneStatus) {
-    queueMicrotask(() => {
-      if (protectSceneStatus && gateStatus.textContent === IDLE_STATUS) gateStatus.textContent = lastSceneStatus;
-    });
+  if (isIdleStatus(text)) {
+    queueMicrotask(restoreSceneStatusIfNeeded);
     return;
   }
-  if (text && text !== IDLE_STATUS && !text.startsWith('Vérification du moteur BrickHouse')) {
-    lastSceneStatus = text;
-  }
+  rememberSceneStatus(text);
 });
 statusObserver.observe(gateStatus, { childList: true, characterData: true, subtree: true });
 
 gateExternalInput?.addEventListener('input', () => {
-  if (!gateExternalInput.value.trim()) {
-    protectSceneStatus = false;
-    lastSceneStatus = '';
-  }
+  if (!gateExternalInput.value.trim()) stopSceneStatusProtection();
 });
 
 function stopSceneProgress() {
@@ -87,7 +102,7 @@ function startSceneProgress() {
     if (!inGate && !inFinal) { stopSceneProgress(); return; }
     const label = inFinal ? 'Validation géométrique finale' : 'Contrôle Survey → Scene';
     gateStatus.textContent = `${frames[index % frames.length]} ${label} en cours…`;
-    lastSceneStatus = gateStatus.textContent;
+    rememberSceneStatus(gateStatus.textContent);
     index += 1;
   };
   update();
@@ -97,7 +112,7 @@ function startSceneProgress() {
     if (text.includes('en cours')) {
       stopSceneProgress();
       gateStatus.textContent = 'La validation prend anormalement longtemps (>45 s). Le serveur est peut-être en réveil ou la requête est bloquée. Vous pouvez réessayer sans construire.';
-      lastSceneStatus = gateStatus.textContent;
+      rememberSceneStatus(gateStatus.textContent);
       gateImportButton.disabled = false;
     }
   }, 45000);
@@ -115,8 +130,10 @@ gateImportButton.addEventListener('click', async event => {
   event.stopImmediatePropagation();
   const base = gateApiBase();
   if (!base) { gateStatus.textContent = 'URL API manquante.'; return; }
+  startSceneStatusProtection();
   gateImportButton.disabled = true;
   gateStatus.textContent = 'Contrôle de cohérence entre le Survey validé et la scène reconstruite…';
+  rememberSceneStatus(gateStatus.textContent);
   startSceneProgress();
   try {
     const response = await fetch(`${base}/api/v1/validate-scene-against-survey`, {
@@ -130,17 +147,18 @@ gateImportButton.addEventListener('click', async event => {
       stopSceneProgress();
       const errors = (payload.issues ?? []).filter(item => item.severity === 'error').map(item => item.message);
       gateStatus.textContent = `Scène refusée par le Survey : ${errors.join(' ') || 'dérive sémantique détectée.'}`;
+      rememberSceneStatus(gateStatus.textContent);
       return;
     }
     localStorage.setItem('brickhouse.lastSceneSurveyValidation', JSON.stringify(payload));
-    protectSceneStatus = true;
     gateStatus.textContent = 'Cohérence Survey → Scene validée. Validation géométrique finale…';
-    lastSceneStatus = gateStatus.textContent;
+    rememberSceneStatus(gateStatus.textContent);
     bypassSceneSurveyGateOnce = true;
     gateImportButton.click();
   } catch (error) {
     stopSceneProgress();
     gateStatus.textContent = `Validation Survey → Scene impossible : ${error.message}`;
+    rememberSceneStatus(gateStatus.textContent);
   } finally {
     gateImportButton.disabled = false;
   }
