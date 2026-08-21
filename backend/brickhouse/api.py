@@ -1,6 +1,5 @@
 """HTTP API boundary for BrickHouse engine and photo-analysis services."""
 from __future__ import annotations
-
 import os
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +8,13 @@ from pydantic import BaseModel, Field
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
-from brickhouse.scene import ArchitecturalScene, ProjectionResult, project_scene_to_building
+from brickhouse.scene import (
+    ArchitecturalScene,
+    ProjectionResult,
+    SceneSurveyIssue,
+    validate_scene_against_survey,
+    project_scene_to_building,
+)
 from brickhouse.survey import ArchitecturalSurvey, SurveyValidationIssue, validate_survey_semantics
 from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
@@ -42,6 +47,26 @@ class SurveyValidationResponse(BaseModel):
 class SceneValidationResponse(BaseModel):
     scene: ArchitecturalScene
     projection: ProjectionResult
+    m0_compatibility: M0Compatibility | None = None
+
+
+class SceneSurveyValidationRequest(BaseModel):
+    survey: ArchitecturalSurvey
+    scene: ArchitecturalScene
+
+
+class SceneSurveyIssueModel(BaseModel):
+    code: str
+    severity: str
+    message: str
+    object_id: str | None = None
+
+
+class SceneSurveyValidationResponse(BaseModel):
+    scene: ArchitecturalScene
+    issues: list[SceneSurveyIssueModel] = Field(default_factory=list)
+    valid_for_projection: bool
+    projection: ProjectionResult | None = None
     m0_compatibility: M0Compatibility | None = None
 
 
@@ -80,7 +105,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.12.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.13.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -116,6 +141,19 @@ def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationRe
     projection = project_scene_to_building(scene)
     compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
     return SceneValidationResponse(scene=scene, projection=projection, m0_compatibility=compatibility)
+
+
+@app.post("/api/v1/validate-scene-against-survey", response_model=SceneSurveyValidationResponse)
+def validate_architectural_scene_against_survey(request: SceneSurveyValidationRequest) -> SceneSurveyValidationResponse:
+    """Validate a reconstructed scene against the Survey that constrained its semantics."""
+    raw_issues: list[SceneSurveyIssue] = validate_scene_against_survey(request.survey, request.scene)
+    issues = [SceneSurveyIssueModel(code=i.code, severity=i.severity.value, message=i.message, object_id=i.object_id) for i in raw_issues]
+    valid = not any(i.severity.value == "error" for i in raw_issues)
+    if not valid:
+        return SceneSurveyValidationResponse(scene=request.scene, issues=issues, valid_for_projection=False)
+    projection = project_scene_to_building(request.scene)
+    compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
+    return SceneSurveyValidationResponse(scene=request.scene, issues=issues, valid_for_projection=True, projection=projection, m0_compatibility=compatibility)
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
