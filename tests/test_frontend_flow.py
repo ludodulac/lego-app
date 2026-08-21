@@ -36,3 +36,18 @@ def test_home_exposes_live_service_state() -> None:
     assert 'id="engine-status"' in home
     assert 'id="api-status"' in home
     assert 'id="vision-status"' in home
+
+
+def test_photo_import_supports_architectural_scene_and_legacy_analysis() -> None:
+    photo = read("photo.js")
+    assert "/api/v1/validate-scene" in photo
+    assert "/api/v1/validate-analysis" in photo
+    assert "architectural-scene.json" in photo
+    assert "pendingArchitecturalScene" in photo
+
+
+def test_external_json_import_extracts_first_complete_object() -> None:
+    photo = read("photo.js")
+    assert "function cleanExternalJson" in photo
+    assert "depth === 0" in photo
+    assert "value.slice(start, index + 1)" in photo
