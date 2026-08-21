@@ -125,11 +125,16 @@ async function postJsonWithTimeout(url, body) {
 }
 function renderFinalSceneValidation(payload) {
   const scene = payload.scene;
+  const survey = pendingSurvey();
   const building = payload.projection?.building ?? null;
   const compatibility = payload.m0_compatibility ?? { buildable: false, blockers: ['Aucune projection BuildingModel constructible.'], warnings: [] };
   const projectionIssues = payload.projection?.issues ?? [];
   const blockers = [...(compatibility.blockers ?? []), ...projectionIssues.filter(item => item.severity === 'blocker').map(item => item.message)];
   const warnings = [...(compatibility.warnings ?? []), ...projectionIssues.filter(item => item.severity === 'warning').map(item => item.message)];
+  const sceneOpeningIds = new Set((scene.openings ?? []).map(item => item.id));
+  const omittedCertainOpenings = (survey?.observations ?? [])
+    .filter(item => item.kind === 'opening' && item.certainty === 'certain' && !sceneOpeningIds.has(item.id))
+    .map(item => item.id);
 
   gateEmpty.hidden = true;
   gateResult.hidden = false;
@@ -143,18 +148,25 @@ function renderFinalSceneValidation(payload) {
       : '<h3>Scène validée</h3><p>Aucune perte de projection signalée.</p>';
   gateQuestions.innerHTML = '<p>La cohérence Survey → Scene et la validation géométrique sont terminées. Ne construisez pas encore : vérifiez d’abord cette scène.</p>';
   const facts = [
-    scene.terrain?.profiles?.length ? `${scene.terrain.profiles.length} profil(s) de terrain conservé(s).` : null,
-    scene.chimneys?.length ? `${scene.chimneys.length} cheminée(s) conservée(s).` : null,
-    scene.platforms?.length ? `${scene.platforms.length} plateforme(s)/terrasse(s) conservée(s).` : null,
-    scene.stairs?.length ? `${scene.stairs.length} tronçon(s) d’escalier conservé(s).` : null,
-    scene.visibility?.length ? `${scene.visibility.length} façade(s) avec information de visibilité/occlusion.` : null,
-    ...warnings.map(item => `Projection : ${item}`),
+    scene.terrain?.profiles?.length ? `${scene.terrain.profiles.length} profil(s) de terrain conservé(s) dans ArchitecturalScene.` : null,
+    scene.chimneys?.length ? `${scene.chimneys.length} cheminée(s) conservée(s) dans ArchitecturalScene.` : null,
+    scene.platforms?.length ? `${scene.platforms.length} plateforme(s)/terrasse(s) conservée(s) dans ArchitecturalScene.` : null,
+    scene.stairs?.length ? `${scene.stairs.length} tronçon(s) d’escalier conservé(s) dans ArchitecturalScene.` : null,
+    scene.visibility?.length ? `${scene.visibility.length} façade(s) avec information de visibilité/occlusion dans ArchitecturalScene.` : null,
+    omittedCertainOpenings.length ? `Observé(s) avec certitude dans le Survey mais non matérialisé(s) dans ArchitecturalScene : ${omittedCertainOpenings.join(', ')}. Ces éléments restent des faits du relevé et ne doivent pas être considérés comme absents de la maison.` : null,
+    ...warnings.map(item => `Limite de projection M0 (la Scene reste la source riche) : ${item}`),
   ].filter(Boolean);
   gateAssumptions.innerHTML = facts.length ? facts.map(item => `<li>${gateEscape(item)}</li>`).join('') : '<li>Aucune perte de scène signalée.</li>';
   const width = scene.volumes?.[0]?.width;
   gateProportions.hidden = !width;
   gateScaleBasis.textContent = width ? `Largeur principale : ${width.value} m · ${width.source.kind} · confiance ${Math.round((width.source.confidence ?? 0) * 100)} %` : '';
-  gateEvidence.innerHTML = width?.evidence?.length ? width.evidence.map(item => `<li>Photo ${item.photo_index} — ${gateEscape(item.observation)}</li>`).join('') : '<li>Aucune preuve d’échelle explicite.</li>';
+  if (width?.evidence?.length) {
+    gateEvidence.innerHTML = width.evidence.map(item => `<li>Photo ${item.photo_index} — ${gateEscape(item.observation)}</li>`).join('');
+  } else if (width?.source?.kind === 'user_provided') {
+    gateEvidence.innerHTML = `<li>Ancre d’échelle explicite fournie par l’utilisateur : largeur de façade = ${gateEscape(width.value)} m. L’absence d’evidence photographique ne remet pas en cause cette mesure utilisateur.</li>`;
+  } else {
+    gateEvidence.innerHTML = '<li>Aucune preuve d’échelle explicite disponible pour cette dimension estimée.</li>';
+  }
   gatePreview.textContent = JSON.stringify(scene, null, 2);
   gateDownload.disabled = true;
   gateReport.disabled = true;
