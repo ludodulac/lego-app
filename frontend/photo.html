@@ -22,15 +22,16 @@
       <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
 
       <details class="result-card external-ai" open>
-        <summary>Alternative fiable · analyser avec Claude, ChatGPT ou une autre IA</summary>
-        <p>Donnez les mêmes photos à l’IA avec le prompt BrickHouse, puis collez ici le JSON qu’elle renvoie. BrickHouse reconnaît le relevé ArchitecturalSurvey, la scène ArchitecturalScene ou l’ancien contrat d’analyse et les valide avant toute construction.</p>
+        <summary>Alternative fiable · analyser avec ChatGPT, Claude ou une autre IA</summary>
+        <p>Utilisez les mêmes photos avec le prompt BrickHouse. Pour éviter les copier-coller tronqués, privilégiez maintenant les fichiers JSON : BrickHouse peut charger un relevé ArchitecturalSurvey, une scène ArchitecturalScene ou l’ancien contrat d’analyse.</p>
         <p><a class="prompt-link" href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt universel BrickHouse ↗</a></p>
-        <div class="field"><label for="external-analysis">JSON renvoyé par l’IA</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON BrickHouse retourné par Claude / ChatGPT / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Un ArchitecturalSurvey est validé comme relevé et ne peut pas être construit directement.</small></div>
+        <div class="field"><label for="external-analysis-file">Fichier JSON renvoyé par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Recommandé pour les gros relevés et scènes : aucun copier-coller nécessaire.</small></div>
+        <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON BrickHouse retourné par ChatGPT / Claude / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Le collage reste disponible comme solution de secours.</small></div>
         <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
       </details>
 
       <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
-      <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
+      <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       <p id="status" class="status">Connexion au moteur BrickHouse…</p>
     </section>
     <section class="result-panel">
