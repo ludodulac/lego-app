@@ -71,9 +71,16 @@ class PhotoView(BaseModel):
     facade: Facade
     description: str = Field(min_length=1)
     source: SourceInfo
-    # Explicit mapping prevents the renderer/analysis stack from silently
-    # mirroring facade-local horizontal coordinates.
     image_left_maps_to_facade_offset: Literal["low", "high"] = "low"
+
+
+class KnownMeasurement(BaseModel):
+    """Exact user-supplied metric anchors that must survive every AI handoff."""
+
+    kind: Literal["front_width"]
+    value: float = Field(gt=0)
+    units: Literal["m"] = "m"
+    source: SourceInfo
 
 
 class SurfaceAppearance(BaseModel):
@@ -124,6 +131,7 @@ class ArchitecturalSurvey(BaseModel):
     name: str
     canonical_frame: CanonicalFrame = Field(default_factory=CanonicalFrame)
     photos: list[PhotoView] = Field(min_length=1)
+    known_measurements: list[KnownMeasurement] = Field(default_factory=list)
     observations: list[SurveyObservation] = Field(default_factory=list)
     representation_policy: RepresentationPolicy = Field(default_factory=RepresentationPolicy)
     notes: str | None = None
@@ -135,6 +143,10 @@ class ArchitecturalSurvey(BaseModel):
             raise ValueError("photo indexes must be unique")
         if not any(photo.facade is Facade.FRONT for photo in self.photos):
             raise ValueError("survey requires at least one canonical front photo")
+
+        measurement_kinds = [measurement.kind for measurement in self.known_measurements]
+        if len(measurement_kinds) != len(set(measurement_kinds)):
+            raise ValueError("survey known measurement kinds must be unique")
 
         observation_ids = [observation.id for observation in self.observations]
         if len(observation_ids) != len(set(observation_ids)):
