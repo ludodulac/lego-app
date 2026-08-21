@@ -13,6 +13,7 @@ from .models import (
     SurfaceAppearance,
     SurveyObservation,
 )
+from .validation import SurveyValidationIssue, validate_survey_semantics
 
 __all__ = [
     "ArchitecturalSurvey",
@@ -26,4 +27,6 @@ __all__ = [
     "RepresentationPolicy",
     "SurfaceAppearance",
     "SurveyObservation",
+    "SurveyValidationIssue",
+    "validate_survey_semantics",
 ]
