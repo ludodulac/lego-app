@@ -53,7 +53,31 @@ def test_validate_scene_rejects_opening_inside_rear_occlusion():
 
     response = client.post("/api/v1/validate-scene", json=scene)
     assert response.status_code == 422
-    assert "non-visible facade span" in response.text
+    assert "intersects non-visible facade span" in response.text
+
+
+def test_validate_scene_rejects_opening_partly_crossing_unknown_boundary():
+    scene = _fixture()
+    scene["openings"].append(
+        {
+            "id": "boundary_crossing_window",
+            "type": "window",
+            "volume_id": "volume_main",
+            "facade": "right",
+            "offset_horizontal": 8.9,
+            "offset_vertical": 2.0,
+            "width": 0.8,
+            "height": 1.0,
+            "source": {"kind": "inferred", "confidence": 0.3},
+            "window_style": "simple",
+            "has_sill": true,
+            "has_decorative_surround": false
+        }
+    )
+
+    response = client.post("/api/v1/validate-scene", json=scene)
+    assert response.status_code == 422
+    assert "intersects non-visible facade span" in response.text
 
 
 def test_projected_scene_can_flow_into_current_build_pipeline():
