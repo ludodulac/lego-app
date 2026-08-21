@@ -1,0 +1,187 @@
+{
+  "schema_version": "0.1",
+  "id": "survey_real_house_photos_1_2",
+  "name": "Maison réelle — relevé photos 1 et 2",
+  "canonical_frame": {
+    "front_facade": "front",
+    "x_direction": "front_view_left_to_right",
+    "y_direction": "front_to_rear",
+    "z_direction": "bottom_to_top"
+  },
+  "photos": [
+    {
+      "photo_index": 1,
+      "facade": "front",
+      "description": "Façade avant, largeur utilisateur exacte 10,0 m.",
+      "source": {"kind": "user_provided", "confidence": 0.99},
+      "image_left_maps_to_facade_offset": "low"
+    },
+    {
+      "photo_index": 2,
+      "facade": "right",
+      "description": "Côté droit, route fortement montante de l'avant vers l'arrière.",
+      "source": {"kind": "user_provided", "confidence": 0.99},
+      "image_left_maps_to_facade_offset": "low"
+    }
+  ],
+  "observations": [
+    {
+      "id": "front_boundary",
+      "kind": "building_boundary",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "La façade avant du bâtiment cible est comprise entre les deux coins visibles et sert de référence canonique gauche-droite.",
+      "evidence": [{"photo_index": 1, "observation": "Les deux arêtes verticales de la façade avant sont visibles."}]
+    },
+    {
+      "id": "front_surface",
+      "kind": "material",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "La façade est couverte d'un enduit continu clair, mat, et non de maçonnerie apparente.",
+      "evidence": [{"photo_index": 1, "observation": "Surface enduite continue gris très clair/blanc cassé."}],
+      "appearance": {
+        "base_material": "rendered_masonry",
+        "nominal_color": "off_white_light_gray",
+        "finish": "matte",
+        "weathering": ["vertical_staining", "darker_lower_zone"],
+        "reproduce_weathering_in_lego": false
+      }
+    },
+    {
+      "id": "front_primary_windows",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Quatre fenêtres principales forment deux axes approximatifs sur deux niveaux supérieurs; elles ne sont pas toutes strictement identiques.",
+      "evidence": [{"photo_index": 1, "observation": "Quatre fenêtres principales clairement visibles en grille approximative 2 x 2."}],
+      "opening_visual": {
+        "frame_color": "dark_gray_brown",
+        "frame_material": "painted_or_dark_joinery",
+        "leaf_count": 2,
+        "mullion_count": 1,
+        "glazing": "dark_reflective",
+        "sill": "projecting",
+        "surround_material": "mineral_or_stone_like",
+        "surround_color": "beige_pink_light",
+        "notes": "Les proportions diffèrent légèrement entre les baies; ne pas cloner une seule géométrie de fenêtre sans contrôle."
+      }
+    },
+    {
+      "id": "front_low_left_window",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "L'ouverture basse gauche est une fenêtre étroite et basse, partiellement contextualisée par un parterre en bois placé devant.",
+      "evidence": [{"photo_index": 1, "observation": "Fenêtre basse gauche et parterre en bois visibles; type confirmé par l'utilisateur."}],
+      "opening_visual": {
+        "frame_color": "dark_gray_brown",
+        "glazing": "dark",
+        "surround_material": "mineral_or_stone_like",
+        "surround_color": "beige_pink_light"
+      }
+    },
+    {
+      "id": "front_glazed_access",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "L'ouverture basse droite est un accès vitré de grande hauteur avec menuiserie nettement plus claire que les fenêtres supérieures.",
+      "evidence": [{"photo_index": 1, "observation": "Grande porte vitrée claire visible jusqu'au niveau du sol."}],
+      "opening_visual": {
+        "frame_color": "white_or_light_gray",
+        "glazing": "clear_to_dark_reflective",
+        "notes": "Famille de composant distincte des fenêtres d'étage."
+      }
+    },
+    {
+      "id": "front_gable_roof",
+      "kind": "roof",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "La façade avant est un pignon sous une toiture à deux versants de pente modérée, avec rives et couverture sombres.",
+      "evidence": [{"photo_index": 1, "observation": "Deux rives inclinées convergent vers le sommet du pignon."}],
+      "attributes": {"nominal_roof_color": "dark_gray_anthracite", "pitch_quality": "moderate_not_steep"}
+    },
+    {
+      "id": "front_chimney_context",
+      "kind": "chimney",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Une souche de cheminée maçonnée et une antenne sont visibles vers la partie gauche de la toiture.",
+      "evidence": [{"photo_index": 1, "observation": "Cheminée et antenne dépassent de la silhouette de toiture."}]
+    },
+    {
+      "id": "right_surface",
+      "kind": "material",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Le mur droit est couvert du même enduit clair que la façade avant, avec davantage de traces d'humidité dans la zone basse.",
+      "evidence": [{"photo_index": 2, "observation": "Enduit clair continu avec salissures marquées près du sol."}],
+      "appearance": {
+        "base_material": "rendered_masonry",
+        "nominal_color": "off_white_light_gray",
+        "finish": "matte",
+        "weathering": ["lower_wall_moisture_staining"],
+        "reproduce_weathering_in_lego": false
+      }
+    },
+    {
+      "id": "right_rising_road",
+      "kind": "terrain",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "La route monte fortement depuis l'avant vers l'arrière le long du mur droit; le niveau du sol local varie donc fortement.",
+      "evidence": [{"photo_index": 2, "observation": "Le bord de chaussée monte visiblement le long de la façade."}]
+    },
+    {
+      "id": "right_upper_window",
+      "kind": "opening",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Une grande fenêtre haute verticale appartient clairement au mur droit du bâtiment cible.",
+      "evidence": [{"photo_index": 2, "observation": "Fenêtre haute verticale visible avant la limite physique du bâtiment."}],
+      "opening_visual": {
+        "frame_color": "light_gray_or_white",
+        "glazing": "dark_reflective",
+        "notes": "Position non centrée sur la longueur de façade; ne pas inventer une seconde baie par répétition."
+      }
+    },
+    {
+      "id": "right_workshop_window",
+      "kind": "opening",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "La petite ouverture basse arrière est une fenêtre d'atelier presque au niveau du sol local à cause de la route montante.",
+      "evidence": [{"photo_index": 2, "observation": "Petite fenêtre basse visible près de la chaussée; fonction confirmée par l'utilisateur."}],
+      "opening_visual": {
+        "glazing": "small_subdivided_or_textured",
+        "notes": "Visuellement distincte de la fenêtre haute; relation au sol local prioritaire."
+      }
+    },
+    {
+      "id": "right_equipment",
+      "kind": "equipment",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Une descente d'eau, des conduites/câbles et de petits éléments techniques sont fixés au mur droit et ne doivent pas être classés comme ouvertures.",
+      "evidence": [{"photo_index": 2, "observation": "Descente verticale au coin avant et plusieurs petits réseaux visibles sur le mur."}]
+    },
+    {
+      "id": "right_building_limit",
+      "kind": "building_boundary",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "La façade droite doit s'arrêter au vrai coin physique du bâtiment cible; les éléments au-delà du poteau/plan de limite ne doivent pas être incorporés à la maison.",
+      "evidence": [{"photo_index": 2, "observation": "Changements de plans, poteau et contexte arrière permettent de distinguer la limite du bâtiment cible."}]
+    }
+  ],
+  "representation_policy": {
+    "preserve_nominal_materials": true,
+    "preserve_opening_composition": true,
+    "preserve_architectural_details": true,
+    "reproduce_weathering": false,
+    "reproduce_temporary_objects": false
+  },
+  "notes": "Ce relevé encode uniquement les photos 1 et 2. Les imperfections sont comprises comme indices de matière, de terrain et d'usage, mais ne sont pas des exigences de rendu LEGO."
+}
