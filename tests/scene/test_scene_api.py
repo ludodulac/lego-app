@@ -24,6 +24,7 @@ def test_validate_scene_accepts_real_house_regression_fixture():
     assert payload["projection"]["building"] is not None
     assert payload["projection"]["building"]["schema_version"] == "0.1"
     assert payload["projection"]["building"]["openings"][0]["id"] == "window_front_lower_left"
+    assert payload["m0_compatibility"]["buildable"] is True
 
     codes = {issue["code"] for issue in payload["projection"]["issues"]}
     assert "terrain_not_supported" in codes
