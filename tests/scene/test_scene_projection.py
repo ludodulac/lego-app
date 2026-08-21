@@ -61,7 +61,7 @@ def base_scene(**overrides):
 
 
 def test_scene_rejects_opening_in_occluded_span():
-    with pytest.raises(ValidationError, match="non-visible facade span"):
+    with pytest.raises(ValidationError, match="intersects non-visible facade span"):
         base_scene(
             openings=[
                 SceneOpening(
