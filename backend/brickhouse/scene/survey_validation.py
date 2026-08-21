@@ -33,14 +33,32 @@ def _semantic_opening_type(value: object) -> OpeningType | None:
 
 
 def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> list[SceneSurveyIssue]:
-    """Reject semantic drift introduced during Survey -> Scene reconstruction."""
+    """Reject semantic or metric drift introduced during Survey -> Scene reconstruction."""
     issues: list[SceneSurveyIssue] = []
-    observations = {item.id: item for item in survey.observations}
     survey_openings = {
         item.id: item
         for item in survey.observations
         if item.kind is ObservationKind.OPENING
     }
+
+    front_width = next((item for item in survey.known_measurements if item.kind == "front_width"), None)
+    if front_width is not None:
+        main_volume = scene.volumes[0] if scene.volumes else None
+        if main_volume is None or abs(main_volume.width.value - front_width.value) > 1e-6:
+            actual = main_volume.width.value if main_volume is not None else None
+            issues.append(SceneSurveyIssue(
+                code="front_width_measurement_drift",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=main_volume.id if main_volume is not None else None,
+                message=f"La largeur avant mesurée dans le Survey vaut {front_width.value:g} m, mais la scène utilise {actual!r}.",
+            ))
+        elif main_volume.width.source.kind.value != "user_provided":
+            issues.append(SceneSurveyIssue(
+                code="front_width_provenance_drift",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=main_volume.id,
+                message="La largeur avant est une mesure utilisateur et doit conserver source.kind='user_provided' dans la scène.",
+            ))
 
     for opening in scene.openings:
         observation = survey_openings.get(opening.id)
