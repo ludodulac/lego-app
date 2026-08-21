@@ -18,6 +18,8 @@ from brickhouse.building import (
     WindowStyle,
 )
 
+EPSILON = 1e-9
+
 
 class Evidence(BaseModel):
     photo_index: int = Field(ge=1)
@@ -203,6 +205,12 @@ class ArchitecturalScene(BaseModel):
 
     @model_validator(mode="after")
     def validate_scene(self) -> "ArchitecturalScene":
+        self._validate_ids_and_references()
+        self._validate_opening_geometry()
+        self._validate_visibility()
+        return self
+
+    def _validate_ids_and_references(self) -> None:
         ids = [item.id for item in [*self.volumes, *self.openings, *self.roofs, *self.chimneys, *self.platforms, *self.stairs, *self.equipment]]
         for platform in self.platforms:
             ids.extend(post.id for post in platform.supports)
@@ -211,15 +219,8 @@ class ArchitecturalScene(BaseModel):
 
         volumes = {volume.id: volume for volume in self.volumes}
         for opening in self.openings:
-            volume = volumes.get(opening.volume_id)
-            if volume is None:
+            if opening.volume_id not in volumes:
                 raise ValueError(f"opening {opening.id!r} references unknown volume")
-            facade_span = volume.width.value if opening.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
-            if opening.offset_horizontal + opening.width > facade_span:
-                raise ValueError(f"opening {opening.id!r} extends past facade horizontally")
-            if opening.offset_vertical + opening.height > volume.height.value:
-                raise ValueError(f"opening {opening.id!r} extends above volume")
-
         roof_volume_ids: set[str] = set()
         for roof in self.roofs:
             if roof.volume_id not in volumes:
@@ -228,13 +229,56 @@ class ArchitecturalScene(BaseModel):
                 raise ValueError("at most one roof may reference a scene volume in v0.2")
             roof_volume_ids.add(roof.volume_id)
 
+    def _validate_opening_geometry(self) -> None:
+        volumes = {volume.id: volume for volume in self.volumes}
+        for opening in self.openings:
+            volume = volumes[opening.volume_id]
+            facade_span = volume.width.value if opening.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+            if opening.offset_horizontal + opening.width > facade_span + EPSILON:
+                raise ValueError(f"opening {opening.id!r} extends past facade horizontally")
+            if opening.offset_vertical + opening.height > volume.height.value + EPSILON:
+                raise ValueError(f"opening {opening.id!r} extends above volume")
+
+        for index, first in enumerate(self.openings):
+            for second in self.openings[index + 1 :]:
+                if first.volume_id != second.volume_id or first.facade is not second.facade:
+                    continue
+                if self._openings_overlap(first, second):
+                    raise ValueError(f"openings {first.id!r} and {second.id!r} overlap")
+
+    @staticmethod
+    def _openings_overlap(first: SceneOpening, second: SceneOpening) -> bool:
+        return (
+            first.offset_horizontal < second.offset_horizontal + second.width - EPSILON
+            and second.offset_horizontal < first.offset_horizontal + first.width - EPSILON
+            and first.offset_vertical < second.offset_vertical + second.height - EPSILON
+            and second.offset_vertical < first.offset_vertical + first.height - EPSILON
+        )
+
+    def _validate_visibility(self) -> None:
+        if len({entry.facade for entry in self.visibility}) != len(self.visibility):
+            raise ValueError("at most one visibility entry may be defined per facade")
+
         visibility_by_facade = {entry.facade: entry for entry in self.visibility}
+        for entry in self.visibility:
+            if len(self.volumes) == 1:
+                volume = self.volumes[0]
+                facade_span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+                for span in entry.spans:
+                    if span.to_offset > facade_span + EPSILON:
+                        raise ValueError(f"visibility span on {entry.facade.value} extends past facade")
+            ordered = sorted(entry.spans, key=lambda span: span.from_offset)
+            for previous, current in zip(ordered, ordered[1:]):
+                if current.from_offset < previous.to_offset - EPSILON:
+                    raise ValueError(f"visibility spans overlap on facade {entry.facade.value}")
+
         for opening in self.openings:
             entry = visibility_by_facade.get(opening.facade)
             if entry is None:
                 continue
-            center = opening.offset_horizontal + opening.width / 2
+            opening_from = opening.offset_horizontal
+            opening_to = opening.offset_horizontal + opening.width
             for span in entry.spans:
-                if span.from_offset <= center <= span.to_offset and span.state is not VisibilityState.VISIBLE:
-                    raise ValueError(f"opening {opening.id!r} is centered in non-visible facade span")
-        return self
+                intersects = opening_from < span.to_offset - EPSILON and span.from_offset < opening_to - EPSILON
+                if intersects and span.state is not VisibilityState.VISIBLE:
+                    raise ValueError(f"opening {opening.id!r} intersects non-visible facade span")
