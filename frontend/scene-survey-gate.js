@@ -54,9 +54,11 @@ function startSceneProgress() {
   let index = 0;
   const update = () => {
     const text = gateStatus.textContent || '';
-    const inGate = text.startsWith('Contrôle de cohérence entre le Survey validé et la scène reconstruite');
-    const inFinal = text.startsWith('Cohérence Survey → Scene validée. Validation géométrique finale')
-      || text.startsWith('Validation de la scène architecturale par BrickHouse');
+    const inGate = text.includes('Contrôle de cohérence entre le Survey validé et la scène reconstruite')
+      || text.includes('Contrôle Survey → Scene');
+    const inFinal = text.includes('Cohérence Survey → Scene validée. Validation géométrique finale')
+      || text.includes('Validation de la scène architecturale par BrickHouse')
+      || text.includes('Validation géométrique finale');
     if (!inGate && !inFinal) { stopSceneProgress(); return; }
     const label = inFinal ? 'Validation géométrique finale' : 'Contrôle Survey → Scene';
     gateStatus.textContent = `${frames[index % frames.length]} ${label} en cours…`;
