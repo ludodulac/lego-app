@@ -107,6 +107,15 @@ function renderSurveyValidation(payload) {
     : 'ArchitecturalSurvey compris mais refusé pour la reconstruction. Corrigez les erreurs sémantiques affichées.';
 }
 
+function restoreValidatedSurvey() {
+  try {
+    const payload = JSON.parse(localStorage.getItem('brickhouse.pendingArchitecturalSurvey') || 'null');
+    if (payload?.survey && typeof payload.valid_for_scene_fusion === 'boolean') renderSurveyValidation(payload);
+  } catch {
+    localStorage.removeItem('brickhouse.pendingArchitecturalSurvey');
+  }
+}
+
 surveyExternalFile?.addEventListener('change', async () => {
   const file = surveyExternalFile.files?.[0];
   if (!file) return;
@@ -155,3 +164,5 @@ surveyImportButton.addEventListener('click', async event => {
     surveyImportButton.disabled = false;
   }
 }, { capture: true });
+
+restoreValidatedSurvey();
