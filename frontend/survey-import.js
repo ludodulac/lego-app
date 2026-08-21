@@ -19,7 +19,7 @@ const surveyReport = document.querySelector('#download-report');
 const surveyBuild = document.querySelector('#build-bricks');
 
 function surveyApiBase() { return surveyApiInput.value.trim().replace(/\/$/, ''); }
-function surveyEscape(value) { return String(value).replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
+function surveyEscape(value) { return String(value).replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char])); }
 
 function extractJsonObject(raw) {
   let value = raw.trim();
@@ -73,14 +73,17 @@ function renderSurveyValidation(payload) {
       ? `<h3>Relevé validé avec réserves</h3><p>${warnings.map(issue => surveyEscape(issue.message)).join(' ')}</p>`
       : '<h3>Relevé architectural validé</h3><p>Les observations peuvent maintenant servir à la reconstruction de scène. Rien n’est encore construit en LEGO.</p>';
 
-  surveyQuestions.innerHTML = '<p>Étape suivante : fusionner ce relevé validé vers ArchitecturalScene. La construction reste volontairement désactivée à ce stade.</p>';
+  surveyQuestions.innerHTML = payload.valid_for_scene_fusion
+    ? '<p><strong>Étape suivante : reconstruction métrique.</strong> Ouvrez le prompt Survey → Scene, donnez à ChatGPT les mêmes photos ainsi que ce relevé validé, puis recollez ici le JSON ArchitecturalScene v0.2 obtenu.</p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt Survey → Scene ↗</a></p>'
+    : '<p>Corrigez d’abord les erreurs du relevé. La reconstruction de scène reste désactivée.</p>';
   surveyRefine.disabled = true;
   surveyAssumptions.innerHTML = [
     `${survey.photos.length} photo(s) documentée(s).`,
     `${survey.observations.length} observation(s), dont ${certainCount} certaine(s).`,
     `${openingCount} ouverture(s) observée(s).`,
     'Les matériaux nominaux et les détails d’ouverture sont conservés séparément des imperfections.',
-    'Le relevé ne choisit pas encore la profondeur ni la hauteur globale du bâtiment.'
+    'Le relevé ne choisit pas encore la profondeur ni la hauteur globale du bâtiment.',
+    'La reconstruction suivante doit respecter le Survey comme contrat sémantique et utiliser les photos principalement pour la métrique.'
   ].map(item => `<li>${surveyEscape(item)}</li>`).join('');
 
   surveyProportions.hidden = false;
@@ -91,7 +94,7 @@ function renderSurveyValidation(payload) {
   surveyReport.disabled = true;
   surveyBuild.disabled = true;
   surveyStatus.textContent = payload.valid_for_scene_fusion
-    ? 'ArchitecturalSurvey valide. Étape suivante : reconstruction de scène — ne construisez pas encore.'
+    ? 'ArchitecturalSurvey valide. Utilisez maintenant le prompt Survey → Scene avec les mêmes photos et ce relevé — ne construisez pas encore.'
     : 'ArchitecturalSurvey compris mais refusé pour la reconstruction. Corrigez les erreurs sémantiques affichées.';
 }
 
