@@ -53,6 +53,32 @@ def test_external_json_import_extracts_first_complete_object() -> None:
     assert "value.slice(start, index + 1)" in photo
 
 
+def test_external_ai_workflow_supports_json_files_and_validated_survey_download() -> None:
+    html = read("photo.html")
+    survey = read("survey-import.js")
+    assert 'id="external-analysis-file"' in html
+    assert 'accept="application/json,.json"' in html
+    assert 'id="download-survey"' in html
+    assert "await file.text()" in survey
+    assert "currentValidatedSurvey" in survey
+    assert "architectural-survey-v0.1.json" in survey
+    assert "new Blob" in survey
+
+
+def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
+    prompt = read("brickhouse-survey-to-scene-prompt.txt")
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.2" in prompt
+    assert '"volume_id":"volume_main"' in prompt
+    assert '"has_sill":true' in prompt
+    assert '"has_decorative_surround":false' in prompt
+    assert '"overhang":0.3' in prompt
+    assert '"start_elevation":0.0' in prompt
+    assert '"end_elevation":1.5' in prompt
+    assert '"spans"' in prompt
+    assert "N’utilise jamais points" in prompt
+    assert "Equipment ne contient PAS offset_horizontal" in prompt
+
+
 def test_viewer_exposes_canonical_architectural_views() -> None:
     html = read("viewer.html")
     viewer = read("viewer.js")
@@ -71,6 +97,5 @@ def test_named_architectural_views_reset_camera_up_and_look_at_target() -> None:
     assert "camera.up.copy(up)" in viewer
     assert "camera.lookAt(center)" in viewer
     assert "new THREE.Vector3(0,1,0)" in viewer
-    # Never mirror the model/canvas to repair an orientation bug: exports remain canonical.
     assert "scale.x=-1" not in viewer.replace(" ", "")
     assert "scaleX(-1)" not in viewer
