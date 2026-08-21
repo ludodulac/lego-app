@@ -3,6 +3,8 @@ const gateExternalInput = document.querySelector('#external-analysis');
 const gateApiInput = document.querySelector('#api-url');
 const gateStatus = document.querySelector('#status');
 let bypassSceneSurveyGateOnce = false;
+let sceneProgressTimer = null;
+let sceneProgressTimeout = null;
 
 function gateApiBase() { return gateApiInput.value.trim().replace(/\/$/, ''); }
 function gateExtractJson(raw) {
@@ -39,6 +41,39 @@ function formatValidationDetail(detail) {
   }).join(' · ');
 }
 
+function stopSceneProgress() {
+  if (sceneProgressTimer) clearInterval(sceneProgressTimer);
+  if (sceneProgressTimeout) clearTimeout(sceneProgressTimeout);
+  sceneProgressTimer = null;
+  sceneProgressTimeout = null;
+}
+
+function startSceneProgress() {
+  stopSceneProgress();
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let index = 0;
+  const update = () => {
+    const text = gateStatus.textContent || '';
+    const inGate = text.startsWith('Contrôle de cohérence entre le Survey validé et la scène reconstruite');
+    const inFinal = text.startsWith('Cohérence Survey → Scene validée. Validation géométrique finale')
+      || text.startsWith('Validation de la scène architecturale par BrickHouse');
+    if (!inGate && !inFinal) { stopSceneProgress(); return; }
+    const label = inFinal ? 'Validation géométrique finale' : 'Contrôle Survey → Scene';
+    gateStatus.textContent = `${frames[index % frames.length]} ${label} en cours…`;
+    index += 1;
+  };
+  update();
+  sceneProgressTimer = setInterval(update, 180);
+  sceneProgressTimeout = setTimeout(() => {
+    const text = gateStatus.textContent || '';
+    if (text.includes('en cours')) {
+      stopSceneProgress();
+      gateStatus.textContent = 'La validation prend anormalement longtemps (>45 s). Le serveur est peut-être en réveil ou la requête est bloquée. Vous pouvez réessayer sans construire.';
+      gateImportButton.disabled = false;
+    }
+  }, 45000);
+}
+
 gateImportButton.addEventListener('click', async event => {
   if (bypassSceneSurveyGateOnce) { bypassSceneSurveyGateOnce = false; return; }
   let parsed;
@@ -53,6 +88,7 @@ gateImportButton.addEventListener('click', async event => {
   if (!base) { gateStatus.textContent = 'URL API manquante.'; return; }
   gateImportButton.disabled = true;
   gateStatus.textContent = 'Contrôle de cohérence entre le Survey validé et la scène reconstruite…';
+  startSceneProgress();
   try {
     const response = await fetch(`${base}/api/v1/validate-scene-against-survey`, {
       method: 'POST',
@@ -62,6 +98,7 @@ gateImportButton.addEventListener('click', async event => {
     const payload = await response.json();
     if (!response.ok) throw new Error(formatValidationDetail(payload.detail));
     if (!payload.valid_for_projection) {
+      stopSceneProgress();
       const errors = (payload.issues ?? []).filter(item => item.severity === 'error').map(item => item.message);
       gateStatus.textContent = `Scène refusée par le Survey : ${errors.join(' ') || 'dérive sémantique détectée.'}`;
       return;
@@ -71,6 +108,7 @@ gateImportButton.addEventListener('click', async event => {
     bypassSceneSurveyGateOnce = true;
     gateImportButton.click();
   } catch (error) {
+    stopSceneProgress();
     gateStatus.textContent = `Validation Survey → Scene impossible : ${error.message}`;
   } finally {
     gateImportButton.disabled = false;
