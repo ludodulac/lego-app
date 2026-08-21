@@ -15,7 +15,10 @@
           <a class="file-button" href="./index.html">← Accueil BrickHouse</a>
           <a class="file-button" href="./configurator.html">Créer une autre maison</a>
           <label class="file-button" for="file-input">Ouvrir un export JSON</label><input id="file-input" type="file" accept="application/json,.json" />
-          <button id="reset-view" type="button">Recentrer la vue</button><button id="load-sample" type="button">Charger l’exemple</button>
+          <button id="reset-view" type="button">Vue perspective</button>
+          <div class="assembly-buttons" aria-label="Vues architecturales canoniques"><button id="view-front" type="button">Avant</button><button id="view-rear" type="button">Arrière</button></div>
+          <div class="assembly-buttons"><button id="view-left" type="button">Gauche</button><button id="view-right" type="button">Droite</button></div>
+          <button id="load-sample" type="button">Charger l’exemple</button>
           <a class="file-button" href="./instructions.html">Ouvrir la notice</a><button id="download-bom" type="button">Télécharger la liste des pièces</button>
         </section>
         <section class="status-card"><h2>Maquette</h2><dl id="model-summary"><div><dt>Projet</dt><dd>—</dd></div><div><dt>Pièces</dt><dd>—</dd></div><div><dt>Types</dt><dd>—</dd></div><div><dt>Taille</dt><dd>—</dd></div></dl></section>
@@ -23,7 +26,7 @@
         <section class="legend" aria-label="Légende"><h2>Légende</h2><p><span class="swatch wall"></span>Murs</p><p><span class="swatch roof"></span>Toiture</p><p><span class="swatch ridge"></span>Faîtage</p></section>
         <p id="message" class="message" role="status"></p>
       </aside>
-      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas><div class="viewer-hint">Glisser pour tourner · molette/pincer pour zoomer · clic droit pour déplacer</div></section>
+      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas><div class="viewer-hint">Repère canonique : avant = y faible, droite = x fort · glisser pour tourner · molette/pincer pour zoomer</div></section>
     </main>
     <script type="module" src="./viewer.js"></script>
   </body>
