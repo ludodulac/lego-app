@@ -1,0 +1,284 @@
+"""Pydantic contracts for ArchitecturalScene v0.2."""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+from brickhouse.building import (
+    Appearance,
+    Facade,
+    OpeningType,
+    Position3D,
+    RidgeDirection,
+    RoofType,
+    SourceInfo,
+    WindowStyle,
+)
+
+EPSILON = 1e-9
+
+
+class Evidence(BaseModel):
+    photo_index: int = Field(ge=1)
+    observation: str = Field(min_length=1)
+
+
+class PropertyValue(BaseModel):
+    value: float = Field(gt=0)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class SceneVolume(BaseModel):
+    id: str
+    position: Position3D
+    width: PropertyValue
+    depth: PropertyValue
+    height: PropertyValue
+    floors: int = Field(ge=1, le=10)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class SceneOpening(BaseModel):
+    id: str
+    type: OpeningType
+    volume_id: str
+    facade: Facade
+    offset_horizontal: float = Field(ge=0)
+    offset_vertical: float = Field(ge=0)
+    width: float = Field(gt=0)
+    height: float = Field(gt=0)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+    local_grade_clearance: float | None = None
+    window_style: WindowStyle | None = None
+    has_sill: bool | None = None
+    has_decorative_surround: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_window_metadata(self) -> "SceneOpening":
+        if self.type is not OpeningType.WINDOW:
+            fields = (self.window_style, self.has_sill, self.has_decorative_surround)
+            if any(value is not None for value in fields):
+                raise ValueError("window metadata may only be set for window openings")
+        return self
+
+
+class SceneRoof(BaseModel):
+    id: str
+    volume_id: str
+    type: RoofType
+    overhang: float = Field(ge=0)
+    ridge_direction: RidgeDirection | None = None
+    pitch_degrees: float | None = None
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_roof(self) -> "SceneRoof":
+        if self.type is RoofType.GABLE:
+            if self.ridge_direction is None or self.pitch_degrees is None:
+                raise ValueError("gable roof requires ridge_direction and pitch_degrees")
+            if not 0 < self.pitch_degrees < 90:
+                raise ValueError("gable roof pitch_degrees must be > 0 and < 90")
+        elif self.ridge_direction is not None or self.pitch_degrees is not None:
+            raise ValueError("flat roof must not define gable-only fields")
+        return self
+
+
+class GradeProfile(BaseModel):
+    facade: Facade
+    start_elevation: float
+    end_elevation: float
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class Terrain(BaseModel):
+    kind: Literal["facade_grade_profiles"] = "facade_grade_profiles"
+    profiles: list[GradeProfile] = Field(default_factory=list)
+
+
+class Chimney(BaseModel):
+    id: str
+    position: Position3D
+    width: float = Field(gt=0)
+    depth: float = Field(gt=0)
+    height: float = Field(gt=0)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class SupportPost(BaseModel):
+    id: str
+    position: Position3D
+    width: float = Field(gt=0)
+    depth: float = Field(gt=0)
+    height: float = Field(gt=0)
+    source: SourceInfo
+
+
+class Platform(BaseModel):
+    id: str
+    position: Position3D
+    width: float = Field(gt=0)
+    depth: float = Field(gt=0)
+    thickness: float = Field(gt=0)
+    supports: list[SupportPost] = Field(default_factory=list)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class StairRun(BaseModel):
+    id: str
+    start: Position3D
+    end: Position3D
+    width: float = Field(gt=0)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class EquipmentType(str, Enum):
+    UTILITY_BOX = "utility_box"
+    PIPE = "pipe"
+    GUTTER = "gutter"
+    DOWNSPOUT = "downspout"
+    VENT = "vent"
+    ANTENNA = "antenna"
+    TEMPORARY_OBJECT = "temporary_object"
+
+
+class FacadeEquipment(BaseModel):
+    id: str
+    type: EquipmentType
+    facade: Facade | None = None
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
+class VisibilityState(str, Enum):
+    VISIBLE = "visible"
+    OCCLUDED = "occluded"
+    UNKNOWN = "unknown"
+
+
+class VisibilitySpan(BaseModel):
+    from_offset: float = Field(ge=0, alias="from")
+    to_offset: float = Field(gt=0, alias="to")
+    state: VisibilityState
+    by: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def validate_order(self) -> "VisibilitySpan":
+        if self.to_offset <= self.from_offset:
+            raise ValueError("visibility span to must be greater than from")
+        return self
+
+
+class FacadeVisibility(BaseModel):
+    facade: Facade
+    spans: list[VisibilitySpan] = Field(default_factory=list)
+
+
+class ArchitecturalScene(BaseModel):
+    schema_version: Literal["0.2"]
+    id: str
+    name: str
+    units: Literal["m"] = "m"
+    volumes: list[SceneVolume] = Field(min_length=1)
+    openings: list[SceneOpening] = Field(default_factory=list)
+    roofs: list[SceneRoof] = Field(default_factory=list)
+    terrain: Terrain | None = None
+    chimneys: list[Chimney] = Field(default_factory=list)
+    platforms: list[Platform] = Field(default_factory=list)
+    stairs: list[StairRun] = Field(default_factory=list)
+    equipment: list[FacadeEquipment] = Field(default_factory=list)
+    visibility: list[FacadeVisibility] = Field(default_factory=list)
+    appearance: Appearance
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_scene(self) -> "ArchitecturalScene":
+        self._validate_ids_and_references()
+        self._validate_opening_geometry()
+        self._validate_visibility()
+        return self
+
+    def _validate_ids_and_references(self) -> None:
+        ids = [item.id for item in [*self.volumes, *self.openings, *self.roofs, *self.chimneys, *self.platforms, *self.stairs, *self.equipment]]
+        for platform in self.platforms:
+            ids.extend(post.id for post in platform.supports)
+        if len(ids) != len(set(ids)):
+            raise ValueError("scene object IDs must be globally unique")
+
+        volumes = {volume.id: volume for volume in self.volumes}
+        for opening in self.openings:
+            if opening.volume_id not in volumes:
+                raise ValueError(f"opening {opening.id!r} references unknown volume")
+        roof_volume_ids: set[str] = set()
+        for roof in self.roofs:
+            if roof.volume_id not in volumes:
+                raise ValueError(f"roof {roof.id!r} references unknown volume")
+            if roof.volume_id in roof_volume_ids:
+                raise ValueError("at most one roof may reference a scene volume in v0.2")
+            roof_volume_ids.add(roof.volume_id)
+
+    def _validate_opening_geometry(self) -> None:
+        volumes = {volume.id: volume for volume in self.volumes}
+        for opening in self.openings:
+            volume = volumes[opening.volume_id]
+            facade_span = volume.width.value if opening.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+            if opening.offset_horizontal + opening.width > facade_span + EPSILON:
+                raise ValueError(f"opening {opening.id!r} extends past facade horizontally")
+            if opening.offset_vertical + opening.height > volume.height.value + EPSILON:
+                raise ValueError(f"opening {opening.id!r} extends above volume")
+
+        for index, first in enumerate(self.openings):
+            for second in self.openings[index + 1 :]:
+                if first.volume_id != second.volume_id or first.facade is not second.facade:
+                    continue
+                if self._openings_overlap(first, second):
+                    raise ValueError(f"openings {first.id!r} and {second.id!r} overlap")
+
+    @staticmethod
+    def _openings_overlap(first: SceneOpening, second: SceneOpening) -> bool:
+        return (
+            first.offset_horizontal < second.offset_horizontal + second.width - EPSILON
+            and second.offset_horizontal < first.offset_horizontal + first.width - EPSILON
+            and first.offset_vertical < second.offset_vertical + second.height - EPSILON
+            and second.offset_vertical < first.offset_vertical + first.height - EPSILON
+        )
+
+    def _validate_visibility(self) -> None:
+        if len({entry.facade for entry in self.visibility}) != len(self.visibility):
+            raise ValueError("at most one visibility entry may be defined per facade")
+
+        visibility_by_facade = {entry.facade: entry for entry in self.visibility}
+        for entry in self.visibility:
+            if len(self.volumes) == 1:
+                volume = self.volumes[0]
+                facade_span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+                for span in entry.spans:
+                    if span.to_offset > facade_span + EPSILON:
+                        raise ValueError(f"visibility span on {entry.facade.value} extends past facade")
+            ordered = sorted(entry.spans, key=lambda span: span.from_offset)
+            for previous, current in zip(ordered, ordered[1:]):
+                if current.from_offset < previous.to_offset - EPSILON:
+                    raise ValueError(f"visibility spans overlap on facade {entry.facade.value}")
+
+        for opening in self.openings:
+            entry = visibility_by_facade.get(opening.facade)
+            if entry is None:
+                continue
+            opening_from = opening.offset_horizontal
+            opening_to = opening.offset_horizontal + opening.width
+            for span in entry.spans:
+                intersects = opening_from < span.to_offset - EPSILON and span.from_offset < opening_to - EPSILON
+                if intersects and span.state is not VisibilityState.VISIBLE:
+                    raise ValueError(f"opening {opening.id!r} intersects non-visible facade span")

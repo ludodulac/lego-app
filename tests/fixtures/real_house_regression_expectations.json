@@ -1,0 +1,55 @@
+{
+  "fixture_version": "0.1",
+  "description": "Derived semantic expectations from the first real five-photo BrickHouse trial. Source photos are intentionally not committed.",
+  "known_user_facts": {
+    "front_width_m": 10.0,
+    "front_low_left_opening_type": "window",
+    "right_low_opening_type": "window",
+    "right_low_opening_function": "workshop",
+    "rear_partially_occluded_by_neighbor": true
+  },
+  "scene_expectations": {
+    "terrain": {
+      "right_side_grade": "rises_along_facade",
+      "global_flat_ground_is_incorrect": true
+    },
+    "front": {
+      "low_left_opening": "window",
+      "low_right_opening": "door_or_glazed_door"
+    },
+    "right": {
+      "workshop_window_near_local_grade": true,
+      "building_boundary_must_be_established_before_opening_assignment": true,
+      "no_opening_beyond_target_building_boundary": true
+    },
+    "left": {
+      "raised_platform_or_terrace": true,
+      "platform_has_supports": true,
+      "exterior_stair": true,
+      "do_not_convert_terrace_or_stair_to_solid_building_volume": true,
+      "kitchen_glazed_opening_related_to_terrace_level": true
+    },
+    "rear": {
+      "occluded_span_must_remain_unknown": true,
+      "do_not_add_openings_without_direct_evidence": true
+    },
+    "roof": {
+      "type": "gable",
+      "ridge_axis": "depth",
+      "pitch_confidence_should_be_conservative": true
+    },
+    "features": {
+      "chimney_present": true,
+      "utilities_must_not_be_classified_as_architectural_openings": true
+    }
+  },
+  "forbidden_regressions": [
+    "front low-left opening classified as door",
+    "terrace or exterior stair represented as a solid building volume",
+    "neighboring building included in target building geometry",
+    "rear openings invented inside occluded span",
+    "right workshop window raised because local road grade was ignored",
+    "opening assigned beyond the actual right-side building boundary",
+    "visible chimney silently omitted from the architectural scene"
+  ]
+}

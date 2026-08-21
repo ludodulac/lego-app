@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
-from brickhouse.vision.compatibility import assess_m0_compatibility
+from brickhouse.scene import ArchitecturalScene, ProjectionResult, project_scene_to_building
+from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
 from brickhouse.vision.provider import VisionProviderError, analyze_with_configured_provider, vision_status
@@ -22,6 +23,12 @@ MAX_PHOTOS = 6
 class BuildRequest(BaseModel):
     building: BuildingModel
     front_width_studs: int = Field(default=DEFAULT_FRONT_WIDTH_STUDS, gt=0, le=256)
+
+
+class SceneValidationResponse(BaseModel):
+    scene: ArchitecturalScene
+    projection: ProjectionResult
+    m0_compatibility: M0Compatibility | None = None
 
 
 class Capabilities(BaseModel):
@@ -59,7 +66,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.9.0", description="Photos, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.10.0", description="Photos, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -79,6 +86,14 @@ def capabilities() -> Capabilities:
 def validate_external_analysis(result: PhotoAnalysisResult) -> PhotoAnalysisResult:
     """Validate provider-independent BrickHouse JSON and recompute M0 compatibility."""
     return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
+
+
+@app.post("/api/v1/validate-scene", response_model=SceneValidationResponse)
+def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationResponse:
+    """Validate ArchitecturalScene v0.2 and report its explicit BuildingModel 0.1 projection."""
+    projection = project_scene_to_building(scene)
+    compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
+    return SceneValidationResponse(scene=scene, projection=projection, m0_compatibility=compatibility)
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)

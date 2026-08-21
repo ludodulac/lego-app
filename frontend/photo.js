@@ -27,6 +27,7 @@ const proportionEvidenceEl = document.querySelector('#proportion-evidence');
 const jsonPreview = document.querySelector('#json-preview');
 
 let analysis = null;
+let sceneValidation = null;
 let capabilities = null;
 let analysisRunning = false;
 const DEFAULT_API_URL = 'https://brickhouse-api.onrender.com';
@@ -139,23 +140,44 @@ function cleanExternalJson(raw) {
   if (value.startsWith('```')) {
     const lines = value.split(/\r?\n/);
     if (lines[0].trim().toLowerCase() === '```json' || lines[0].trim() === '```') lines.shift();
-    if (lines.at(-1)?.trim() === '```') lines.pop();
     value = lines.join('\n').trim();
   }
-  return value;
+  const start = value.indexOf('{');
+  if (start < 0) return value;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < value.length; index += 1) {
+    const char = value[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') { inString = true; continue; }
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return value.slice(start, index + 1);
+    }
+  }
+  return value.slice(start);
 }
 
 function trialReport() {
-  if (!analysis) return null;
+  if (!analysis && !sceneValidation) return null;
   return {
-    schema_version: '0.1', kind: 'brickhouse_photo_trial_report', created_at: new Date().toISOString(),
+    schema_version: '0.2', kind: 'brickhouse_photo_trial_report', created_at: new Date().toISOString(),
     server: { api_url: apiBase(), engine_revision: capabilities?.engine_revision ?? null, photo_provider: capabilities?.photo_provider ?? 'external_import', photo_model: capabilities?.photo_model ?? null },
     input: { photos: selectedPhotos().map((file, index) => ({ index: index + 1, name: file.name, media_type: file.type, bytes: file.size })), known_front_width_m: knownWidthInput.value ? Number(knownWidthInput.value) : null, user_notes: notesInput.value.trim(), target_front_width_studs: Number(studsInput.value) || 48 },
+    architectural_scene_validation: sceneValidation,
     analysis,
   };
 }
 
 function renderAnalysis(value) {
+  sceneValidation = null;
   analysis = value;
   const questions = value.questions ?? [];
   const assumptions = value.assumptions ?? [];
@@ -183,6 +205,45 @@ function renderAnalysis(value) {
   if (!compatibility.buildable) statusEl.textContent = 'La maison a bien été comprise, mais cette architecture dépasse encore le moteur M0.';
 }
 
+function renderSceneValidation(value) {
+  sceneValidation = value;
+  const building = value.projection?.building ?? null;
+  const compatibility = value.m0_compatibility ?? { buildable: false, blockers: ['Aucune projection BuildingModel constructible.'], warnings: [] };
+  analysis = building ? { building, m0_compatibility: compatibility, questions: [], assumptions: [], needs_confirmation: true } : null;
+  emptyState.hidden = true;
+  resultEl.hidden = false;
+  resultName.textContent = value.scene.name;
+  confidenceEl.textContent = 'Scène v0.2';
+  const projectionIssues = value.projection?.issues ?? [];
+  const blockers = [...(compatibility.blockers ?? []), ...projectionIssues.filter(item => item.severity === 'blocker').map(item => item.message)];
+  const warnings = [...(compatibility.warnings ?? []), ...projectionIssues.filter(item => item.severity === 'warning').map(item => item.message)];
+  confirmationCard.hidden = !blockers.length && !warnings.length;
+  confirmationCard.innerHTML = blockers.length
+    ? `<h3>Scène valide, projection M0 bloquée</h3><p>${blockers.map(escapeHtml).join(' ')}</p>`
+    : warnings.length
+      ? `<h3>Scène riche validée — simplifications M0 visibles</h3><p>${warnings.map(escapeHtml).join(' ')}</p>`
+      : '<h3>Scène validée</h3><p>Aucune perte de projection signalée.</p>';
+  questionsEl.innerHTML = '<p>Les corrections se font dans la passe de validation contradictoire avant cet import.</p>';
+  refineButton.disabled = true;
+  const sceneFacts = [
+    value.scene.terrain?.profiles?.length ? `${value.scene.terrain.profiles.length} profil(s) de terrain conservé(s).` : null,
+    value.scene.chimneys?.length ? `${value.scene.chimneys.length} cheminée(s) conservée(s).` : null,
+    value.scene.platforms?.length ? `${value.scene.platforms.length} plateforme(s)/terrasse(s) conservée(s).` : null,
+    value.scene.stairs?.length ? `${value.scene.stairs.length} tronçon(s) d'escalier conservé(s).` : null,
+    value.scene.visibility?.length ? `${value.scene.visibility.length} façade(s) avec information de visibilité/occlusion.` : null,
+    ...warnings.map(item => `Projection : ${item}`),
+  ].filter(Boolean);
+  assumptionsEl.innerHTML = sceneFacts.length ? sceneFacts.map(item => `<li>${escapeHtml(item)}</li>`).join('') : '<li>Aucune perte de scène signalée.</li>';
+  const width = value.scene.volumes?.[0]?.width;
+  proportionsCard.hidden = !width;
+  scaleBasisEl.textContent = width ? `Largeur principale : ${width.value} m · ${width.source.kind} · confiance ${Math.round((width.source.confidence ?? 0) * 100)} %` : '';
+  proportionEvidenceEl.innerHTML = width?.evidence?.length ? width.evidence.map(item => `<li>Photo ${item.photo_index} — ${escapeHtml(item.observation)}</li>`).join('') : '<li>Aucune preuve d’échelle explicite.</li>';
+  jsonPreview.textContent = JSON.stringify(value.scene, null, 2);
+  downloadButton.disabled = false;
+  reportButton.disabled = false;
+  buildButton.disabled = !building || !compatibility.buildable;
+}
+
 async function importExternalAnalysis() {
   const base = apiBase();
   const raw = cleanExternalJson(externalAnalysisInput.value);
@@ -191,10 +252,12 @@ async function importExternalAnalysis() {
   let parsed;
   try { parsed = JSON.parse(raw); }
   catch (error) { statusEl.textContent = `JSON illisible avant validation : ${error.message}`; return; }
+  const isScene = parsed?.schema_version === '0.2' && Array.isArray(parsed?.volumes) && !parsed?.building;
+  const endpoint = isScene ? '/api/v1/validate-scene' : '/api/v1/validate-analysis';
   importButton.disabled = true;
-  statusEl.textContent = 'Validation du JSON externe par BrickHouse…';
+  statusEl.textContent = isScene ? 'Validation de la scène architecturale par BrickHouse…' : 'Validation du JSON externe par BrickHouse…';
   try {
-    const response = await fetch(`${base}/api/v1/validate-analysis`, {
+    const response = await fetch(`${base}${endpoint}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed),
     });
     const payload = await response.json();
@@ -202,10 +265,17 @@ async function importExternalAnalysis() {
       const detail = typeof payload.detail === 'string' ? payload.detail : 'Le JSON ne respecte pas le contrat BrickHouse. Demandez à l’IA de corriger sa sortie avec le prompt universel.';
       throw new Error(detail);
     }
-    renderAnalysis(payload);
-    statusEl.textContent = payload.m0_compatibility?.buildable === false
-      ? 'Analyse externe valide. BrickHouse a détecté une architecture qui dépasse encore le moteur M0.'
-      : 'Analyse externe valide. Vérifiez le résultat puis construisez la proposition.';
+    if (isScene) {
+      renderSceneValidation(payload);
+      statusEl.textContent = payload.projection?.building
+        ? 'ArchitecturalScene valide. Les éléments riches sont conservés et la projection M0 est prête à être vérifiée.'
+        : 'ArchitecturalScene valide, mais sa projection vers le moteur M0 est bloquée. Consultez les raisons affichées.';
+    } else {
+      renderAnalysis(payload);
+      statusEl.textContent = payload.m0_compatibility?.buildable === false
+        ? 'Analyse externe valide. BrickHouse a détecté une architecture qui dépasse encore le moteur M0.'
+        : 'Analyse externe valide. Vérifiez le résultat puis construisez la proposition.';
+    }
   } catch (error) {
     statusEl.textContent = `Import impossible : ${error.message}`;
   } finally {
@@ -214,7 +284,7 @@ async function importExternalAnalysis() {
 }
 
 function clarificationContext() {
-  if (!analysis) return '';
+  if (!analysis || sceneValidation) return '';
   const questions = analysis.questions ?? [];
   const answers = [...questionsEl.querySelectorAll('.question')].map((node, index) => {
     const answer = node.querySelector('.answer')?.value.trim() ?? '';
@@ -262,10 +332,17 @@ async function runAnalysis(extraContext = '') {
 analyzeButton.addEventListener('click', () => runAnalysis());
 importButton.addEventListener('click', importExternalAnalysis);
 refineButton.addEventListener('click', () => { const context = clarificationContext(); if (!context) { statusEl.textContent = 'Répondez à au moins une question avant de relancer l’analyse.'; return; } runAnalysis(context); });
-downloadButton.addEventListener('click', () => { if (analysis) downloadJson(analysis.building, `${analysis.building.id}.json`); });
-reportButton.addEventListener('click', () => { const report = trialReport(); if (report) downloadJson(report, `${analysis.building.id}-photo-trial.json`); });
+downloadButton.addEventListener('click', () => {
+  if (sceneValidation) downloadJson(sceneValidation.scene, `${sceneValidation.scene.id}-architectural-scene.json`);
+  else if (analysis) downloadJson(analysis.building, `${analysis.building.id}.json`);
+});
+reportButton.addEventListener('click', () => {
+  const report = trialReport();
+  const id = sceneValidation?.scene?.id ?? analysis?.building?.id;
+  if (report && id) downloadJson(report, `${id}-photo-trial.json`);
+});
 buildButton.addEventListener('click', async () => {
-  if (!analysis) return;
+  if (!analysis?.building) return;
   if (analysis.m0_compatibility?.buildable === false) { statusEl.textContent = 'Cette proposition n’est pas encore compatible avec le moteur M0.'; return; }
   const base = apiBase(); if (!base) { statusEl.textContent = 'URL API manquante.'; return; }
   buildButton.disabled = true; statusEl.textContent = 'BrickHouse transforme la proposition en maquette constructible…';
@@ -273,6 +350,7 @@ buildButton.addEventListener('click', async () => {
     const response = await fetch(`${base}/api/v1/build`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ building: analysis.building, front_width_studs: Number(studsInput.value) || 48 }) });
     const payload = await response.json();
     if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `Erreur moteur HTTP ${response.status}`);
+    if (sceneValidation) localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify(sceneValidation));
     localStorage.setItem('brickhouse.pendingExport', JSON.stringify(payload)); window.location.href = './viewer.html';
   } catch (error) { statusEl.textContent = `Construction impossible : ${error.message}`; buildButton.disabled = false; }
 });

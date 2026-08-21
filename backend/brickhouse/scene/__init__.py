@@ -1,0 +1,46 @@
+"""Architectural scene contracts and projection helpers."""
+
+from .models import (
+    ArchitecturalScene,
+    Chimney,
+    EquipmentType,
+    Evidence,
+    FacadeEquipment,
+    FacadeVisibility,
+    GradeProfile,
+    Platform,
+    PropertyValue,
+    SceneOpening,
+    SceneRoof,
+    SceneVolume,
+    StairRun,
+    SupportPost,
+    Terrain,
+    VisibilitySpan,
+    VisibilityState,
+)
+from .projection import ProjectionIssue, ProjectionResult, ProjectionSeverity, project_scene_to_building
+
+__all__ = [
+    "ArchitecturalScene",
+    "Chimney",
+    "EquipmentType",
+    "Evidence",
+    "FacadeEquipment",
+    "FacadeVisibility",
+    "GradeProfile",
+    "Platform",
+    "ProjectionIssue",
+    "ProjectionResult",
+    "ProjectionSeverity",
+    "PropertyValue",
+    "SceneOpening",
+    "SceneRoof",
+    "SceneVolume",
+    "StairRun",
+    "SupportPost",
+    "Terrain",
+    "VisibilitySpan",
+    "VisibilityState",
+    "project_scene_to_building",
+]
