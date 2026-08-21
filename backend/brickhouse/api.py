@@ -10,7 +10,7 @@ from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene import ArchitecturalScene, ProjectionResult, project_scene_to_building
-from brickhouse.vision.compatibility import assess_m0_compatibility
+from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
 from brickhouse.vision.provider import VisionProviderError, analyze_with_configured_provider, vision_status
@@ -28,6 +28,7 @@ class BuildRequest(BaseModel):
 class SceneValidationResponse(BaseModel):
     scene: ArchitecturalScene
     projection: ProjectionResult
+    m0_compatibility: M0Compatibility | None = None
 
 
 class Capabilities(BaseModel):
@@ -89,8 +90,10 @@ def validate_external_analysis(result: PhotoAnalysisResult) -> PhotoAnalysisResu
 
 @app.post("/api/v1/validate-scene", response_model=SceneValidationResponse)
 def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationResponse:
-    """Validate ArchitecturalScene v0.2 and report the explicit BuildingModel 0.1 projection."""
-    return SceneValidationResponse(scene=scene, projection=project_scene_to_building(scene))
+    """Validate ArchitecturalScene v0.2 and report its explicit BuildingModel 0.1 projection."""
+    projection = project_scene_to_building(scene)
+    compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
+    return SceneValidationResponse(scene=scene, projection=projection, m0_compatibility=compatibility)
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
