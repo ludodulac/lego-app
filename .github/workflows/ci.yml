@@ -34,6 +34,7 @@ jobs:
           node --check frontend/instructions.js
           node --check frontend/configurator.js
           node --check frontend/photo.js
+          node --check frontend/survey-import.js
 
       - name: Run reference M0 pipeline
         run: >-
