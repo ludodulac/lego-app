@@ -23,9 +23,9 @@
 
       <details class="result-card external-ai" open>
         <summary>Alternative fiable · analyser avec Claude, ChatGPT ou une autre IA</summary>
-        <p>Donnez les mêmes photos à l’IA avec le prompt BrickHouse, puis collez ici le JSON qu’elle renvoie. BrickHouse le validera lui-même avant toute construction.</p>
+        <p>Donnez les mêmes photos à l’IA avec le prompt BrickHouse, puis collez ici le JSON qu’elle renvoie. BrickHouse reconnaît le relevé ArchitecturalSurvey, la scène ArchitecturalScene ou l’ancien contrat d’analyse et les valide avant toute construction.</p>
         <p><a class="prompt-link" href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">Ouvrir le prompt universel BrickHouse ↗</a></p>
-        <div class="field"><label for="external-analysis">JSON renvoyé par l’IA</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici uniquement le JSON BrickHouse retourné par Claude / ChatGPT / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Les données seront validées par le serveur BrickHouse.</small></div>
+        <div class="field"><label for="external-analysis">JSON renvoyé par l’IA</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON BrickHouse retourné par Claude / ChatGPT / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Un ArchitecturalSurvey est validé comme relevé et ne peut pas être construit directement.</small></div>
         <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
       </details>
 
@@ -45,6 +45,7 @@
       </div>
     </section>
   </main>
+  <script type="module" src="./survey-import.js"></script>
   <script type="module" src="./photo.js"></script>
 </body>
 </html>
