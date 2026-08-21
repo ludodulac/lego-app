@@ -85,6 +85,35 @@ def test_scene_rejects_opening_in_occluded_span():
         )
 
 
+def test_scene_rejects_opening_extending_past_facade():
+    with pytest.raises(ValidationError, match="extends past facade horizontally"):
+        base_scene(
+            openings=[
+                SceneOpening(
+                    id="past_corner",
+                    type=OpeningType.WINDOW,
+                    volume_id="volume_main",
+                    facade=Facade.RIGHT,
+                    offset_horizontal=10.0,
+                    offset_vertical=2.0,
+                    width=1.0,
+                    height=1.0,
+                    source=source(),
+                )
+            ]
+        )
+
+
+def test_scene_rejects_overlapping_openings():
+    with pytest.raises(ValidationError, match="overlap"):
+        base_scene(
+            openings=[
+                SceneOpening(id="a", type=OpeningType.WINDOW, volume_id="volume_main", facade=Facade.FRONT, offset_horizontal=1.0, offset_vertical=2.0, width=1.5, height=1.5, source=source()),
+                SceneOpening(id="b", type=OpeningType.WINDOW, volume_id="volume_main", facade=Facade.FRONT, offset_horizontal=2.0, offset_vertical=2.5, width=1.5, height=1.5, source=source()),
+            ]
+        )
+
+
 def test_projection_preserves_supported_geometry_and_reports_losses():
     scene = base_scene(
         openings=[
