@@ -1,3 +1,5 @@
+import './scene-survey-gate.js';
+
 const surveyImportButton = document.querySelector('#import-analysis');
 const surveyExternalInput = document.querySelector('#external-analysis');
 const surveyExternalFile = document.querySelector('#external-analysis-file');
