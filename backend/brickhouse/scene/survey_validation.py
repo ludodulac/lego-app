@@ -1,0 +1,151 @@
+"""Cross-check an ArchitecturalScene against its validated ArchitecturalSurvey source."""
+from __future__ import annotations
+
+from enum import Enum
+from pydantic import BaseModel
+
+from brickhouse.building import Facade, OpeningType, RidgeDirection, RoofType
+from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
+
+from .models import ArchitecturalScene
+
+
+class SceneSurveySeverity(str, Enum):
+    WARNING = "warning"
+    ERROR = "error"
+
+
+class SceneSurveyIssue(BaseModel):
+    code: str
+    severity: SceneSurveySeverity
+    message: str
+    object_id: str | None = None
+
+
+def _semantic_opening_type(value: object) -> OpeningType | None:
+    if value == "window":
+        return OpeningType.WINDOW
+    if value in {"door", "door_or_glazed_door"}:
+        return OpeningType.DOOR
+    if value == "garage_door":
+        return OpeningType.GARAGE_DOOR
+    return None
+
+
+def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> list[SceneSurveyIssue]:
+    """Reject semantic drift introduced during Survey -> Scene reconstruction."""
+    issues: list[SceneSurveyIssue] = []
+    observations = {item.id: item for item in survey.observations}
+    survey_openings = {
+        item.id: item
+        for item in survey.observations
+        if item.kind is ObservationKind.OPENING
+    }
+
+    for opening in scene.openings:
+        observation = survey_openings.get(opening.id)
+        if observation is None:
+            issues.append(SceneSurveyIssue(
+                code="scene_opening_not_in_survey",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=opening.id,
+                message=f"L’ouverture {opening.id!r} n’existe pas dans le relevé architectural validé.",
+            ))
+            continue
+        if observation.certainty is Certainty.UNPROVEN:
+            issues.append(SceneSurveyIssue(
+                code="unproven_opening_promoted",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=opening.id,
+                message=f"L’ouverture {opening.id!r} était non prouvée dans le Survey et ne peut pas devenir une géométrie de scène.",
+            ))
+        if observation.facade is not None and opening.facade is not observation.facade:
+            issues.append(SceneSurveyIssue(
+                code="opening_facade_drift",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=opening.id,
+                message=f"L’ouverture {opening.id!r} a changé de façade entre le Survey et la scène.",
+            ))
+        expected = _semantic_opening_type(observation.attributes.get("semantic_type"))
+        if expected is not None and opening.type is not expected:
+            issues.append(SceneSurveyIssue(
+                code="opening_type_drift",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=opening.id,
+                message=f"Le type de {opening.id!r} ne respecte pas l’identité sémantique du Survey.",
+            ))
+
+    scene_opening_ids = {item.id for item in scene.openings}
+    for observation in survey_openings.values():
+        if observation.certainty is not Certainty.CERTAIN:
+            continue
+        expected = _semantic_opening_type(observation.attributes.get("semantic_type"))
+        if expected is not None and observation.id not in scene_opening_ids:
+            issues.append(SceneSurveyIssue(
+                code="certain_opening_missing",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=observation.id,
+                message=f"L’ouverture certaine {observation.id!r} du Survey a disparu de la scène.",
+            ))
+
+    photographed_facades = {photo.facade for photo in survey.photos}
+    for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
+        if facade in photographed_facades:
+            continue
+        if any(opening.facade is facade for opening in scene.openings):
+            issues.append(SceneSurveyIssue(
+                code="opening_on_undocumented_facade",
+                severity=SceneSurveySeverity.ERROR,
+                message=f"La scène ajoute une ouverture sur la façade {facade.value}, non documentée par ce Survey.",
+            ))
+
+    certain_grade_facades = {
+        item.facade
+        for item in survey.observations
+        if item.kind is ObservationKind.TERRAIN
+        and item.certainty is Certainty.CERTAIN
+        and item.facade is not None
+        and item.attributes.get("slope_direction")
+    }
+    scene_grade_facades = {profile.facade for profile in (scene.terrain.profiles if scene.terrain else [])}
+    for facade in certain_grade_facades - scene_grade_facades:
+        issues.append(SceneSurveyIssue(
+            code="certain_grade_missing",
+            severity=SceneSurveySeverity.ERROR,
+            message=f"La pente certaine du terrain sur la façade {facade.value} n’est pas conservée dans la scène.",
+        ))
+
+    front_gable = any(
+        item.kind is ObservationKind.ROOF
+        and item.certainty is Certainty.CERTAIN
+        and item.facade is Facade.FRONT
+        and item.attributes.get("front_is_gable") is True
+        for item in survey.observations
+    )
+    if front_gable:
+        gable_roofs = [roof for roof in scene.roofs if roof.type is RoofType.GABLE]
+        if not gable_roofs:
+            issues.append(SceneSurveyIssue(
+                code="front_gable_lost",
+                severity=SceneSurveySeverity.ERROR,
+                message="Le Survey établit un pignon avant, mais la scène ne contient pas de toiture à deux pans.",
+            ))
+        elif any(roof.ridge_direction is not RidgeDirection.DEPTH for roof in gable_roofs):
+            issues.append(SceneSurveyIssue(
+                code="front_gable_ridge_mismatch",
+                severity=SceneSurveySeverity.ERROR,
+                message="Un pignon avant implique ici un faîtage avant→arrière (ridge_direction=depth).",
+            ))
+
+    certain_chimneys = [
+        item for item in survey.observations
+        if item.kind is ObservationKind.CHIMNEY and item.certainty is Certainty.CERTAIN
+    ]
+    if certain_chimneys and not scene.chimneys:
+        issues.append(SceneSurveyIssue(
+            code="certain_chimney_missing",
+            severity=SceneSurveySeverity.ERROR,
+            message="Une cheminée certaine du Survey a disparu de la scène.",
+        ))
+
+    return issues
