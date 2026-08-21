@@ -59,8 +59,18 @@ def test_viewer_exposes_canonical_architectural_views() -> None:
     for control in ('view-front', 'view-rear', 'view-left', 'view-right'):
         assert f'id="{control}"' in html
     assert "function frameCanonicalView" in viewer
-    assert "front:new THREE.Vector3(0,.08,-1)" in viewer
-    assert "rear:new THREE.Vector3(0,.08,1)" in viewer
-    assert "left:new THREE.Vector3(-1,.08,0)" in viewer
-    assert "right:new THREE.Vector3(1,.08,0)" in viewer
+    assert "front:new THREE.Vector3(0,0,-1)" in viewer
+    assert "rear:new THREE.Vector3(0,0,1)" in viewer
+    assert "left:new THREE.Vector3(-1,0,0)" in viewer
+    assert "right:new THREE.Vector3(1,0,0)" in viewer
     assert "perspective:new THREE.Vector3(.9,.65,-1.05)" in viewer
+
+
+def test_named_architectural_views_reset_camera_up_and_look_at_target() -> None:
+    viewer = read("viewer.js")
+    assert "camera.up.copy(up)" in viewer
+    assert "camera.lookAt(center)" in viewer
+    assert "new THREE.Vector3(0,1,0)" in viewer
+    # Never mirror the model/canvas to repair an orientation bug: exports remain canonical.
+    assert "scale.x=-1" not in viewer.replace(" ", "")
+    assert "scaleX(-1)" not in viewer
