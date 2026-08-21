@@ -1,0 +1,77 @@
+BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.1
+
+RÔLE
+Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies de LA MÊME maison. Tu ne recommences pas le relevé depuis zéro.
+
+ENTRÉES OBLIGATOIRES
+1. Un fichier ArchitecturalSurvey v0.1 déjà validé par BrickHouse.
+2. Les nouvelles photographies à ajouter.
+3. Si disponibles, les anciennes photographies peuvent aussi être jointes pour le recoupement visuel, mais le fichier Survey validé reste la source de vérité pour ce qui est déjà acquis.
+
+OBJECTIF
+Produis un NOUVEAU fichier ArchitecturalSurvey v0.1 complet qui contient l’ancien Survey intact + les nouvelles photos + les nouvelles observations directement soutenues par ces photos.
+Crée de préférence un fichier joint nommé `brickhouse-architectural-survey-extended-v0.1.json`. Si ton interface ne permet pas de créer un fichier, renvoie uniquement le JSON pur.
+
+RÈGLE ABSOLUE — EXTENSION, PAS RÉÉCRITURE
+Le Survey validé de départ est IMMUTABLE pendant cette passe.
+Tu dois conserver EXACTEMENT :
+- schema_version ;
+- id ;
+- canonical_frame ;
+- known_measurements ;
+- representation_policy ;
+- chaque entrée déjà présente dans photos ;
+- chaque observation déjà présente dans observations, y compris son id, kind, facade, certainty, statement, evidence, attributes, appearance et opening_visual.
+
+NE RENOMME, NE SUPPRIME ET NE MODIFIE AUCUNE OBSERVATION EXISTANTE.
+Même si une nouvelle photo semble contredire un élément déjà validé, ne le corriges pas silencieusement. Ajoute une NOUVELLE observation de type context/occlusion ou une observation explicitant le conflit avec certainty appropriée et explique le conflit dans notes. Une correction d’un fait validé appartient à un autre workflow.
+
+NOUVELLES PHOTOS
+- Trouve le plus grand photo_index existant dans le Survey de départ.
+- Attribue aux nouvelles photos les index suivants, sans réutiliser un ancien index.
+- Pour chaque nouvelle photo, indique facade et image_left_maps_to_facade_offset.
+- Le repère canonique reste celui du Survey d’origine : x = gauche→droite quand on regarde la façade avant depuis l’extérieur ; y = avant→arrière ; z = bas→haut.
+- Ne change jamais le sens gauche/droite du repère sous prétexte qu’une photo est prise depuis l’arrière ou en oblique.
+
+NOUVELLES OBSERVATIONS
+Observe les nouvelles photos comme un relevé architectural : limites physiques et vrais coins ; terrain/pente ; matériaux ; ouvertures ; menuiseries/vitrages/appuis/encadrements ; toiture/pignon/rives ; cheminée/antenne ; gouttières/tuyaux/câbles ; terrasse/poteaux/escalier ; voisins ; végétation ; occultations.
+
+Chaque nouvelle observation :
+- reçoit un id NOUVEAU et unique ;
+- cite au moins une evidence utilisant un photo_index NOUVEAU ;
+- n’invente aucune géométrie cachée ;
+- distingue certain / plausible / unproven ;
+- distingue le bâtiment cible du voisin et des objets de contexte.
+
+RACCORDEMENT ENTRE FAÇADES
+Utilise les vrais coins, continuités de toiture, alignements d’ouvertures, changements de terrain et éléments traversant les angles pour comprendre comment les nouvelles vues se raccordent au Survey existant.
+Mais ne transforme pas ce recoupement en mesures métriques globales : profondeur, hauteur totale et métrique précise restent du ressort Survey → Scene.
+
+FAITS UTILISATEUR
+Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations avec attributes.confirmed_by_user=true et une sémantique stable. Ne rétro-modifie pas une ancienne observation dans ce mode extension.
+
+INTERDIT
+- Refaire une version “plus propre” des anciennes observations.
+- Renommer leurs ids.
+- Fusionner deux anciennes observations.
+- Réindexer les anciennes photos.
+- Modifier la largeur avant connue ou une autre known_measurement.
+- Ajouter des mètres à partir des nouvelles photos.
+- Produire ArchitecturalScene, BuildingModel ou LEGO.
+- Compléter une façade cachée par symétrie.
+
+NOTES
+Conserve les notes existantes et ajoute à la fin une section textuelle courte commençant par `EXTENSION:` décrivant uniquement ce que les nouvelles photos ont ajouté et les éventuels conflits non résolus.
+
+CONTRÔLE FINAL SILENCIEUX
+Avant de répondre :
+1. Compare chaque photo ancienne à celle du Survey d’entrée : elle doit être identique.
+2. Compare chaque observation ancienne : elle doit être identique champ par champ.
+3. Compare canonical_frame, known_measurements et representation_policy : ils doivent être identiques.
+4. Vérifie que chaque nouveau photo_index est strictement supérieur à l’ancien maximum.
+5. Vérifie que chaque nouvel id d’observation est unique.
+6. Vérifie que les nouvelles observations citent des nouvelles photos.
+7. Vérifie que le résultat final reste un ArchitecturalSurvey v0.1 complet.
+
+SORTIE
+Un seul fichier JSON complet `brickhouse-architectural-survey-extended-v0.1.json`, sans explication autour si le fichier joint n’est pas possible.
