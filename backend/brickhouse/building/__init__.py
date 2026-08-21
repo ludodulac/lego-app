@@ -16,6 +16,7 @@ from .models import (
     SourceKind,
     Volume,
     VolumeShape,
+    WindowStyle,
 )
 from .validation import load_building_model
 
@@ -35,5 +36,6 @@ __all__ = [
     "SourceKind",
     "Volume",
     "VolumeShape",
+    "WindowStyle",
     "load_building_model",
 ]
