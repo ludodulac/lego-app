@@ -19,7 +19,7 @@ const surveyReport = document.querySelector('#download-report');
 const surveyBuild = document.querySelector('#build-bricks');
 
 function surveyApiBase() { return surveyApiInput.value.trim().replace(/\/$/, ''); }
-function surveyEscape(value) { return String(value).replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char])); }
+function surveyEscape(value) { return String(value).replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
 
 function extractJsonObject(raw) {
   let value = raw.trim();
