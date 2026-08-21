@@ -65,6 +65,16 @@ def test_external_ai_workflow_supports_json_files_and_validated_survey_download(
     assert "new Blob" in survey
 
 
+def test_scene_import_is_gated_against_pending_validated_survey() -> None:
+    survey_import = read("survey-import.js")
+    gate = read("scene-survey-gate.js")
+    assert "import './scene-survey-gate.js'" in survey_import
+    assert "brickhouse.pendingArchitecturalSurvey" in gate
+    assert "/api/v1/validate-scene-against-survey" in gate
+    assert "valid_for_projection" in gate
+    assert "Scène refusée par le Survey" in gate
+
+
 def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
     assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.2" in prompt
