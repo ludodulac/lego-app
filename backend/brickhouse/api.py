@@ -10,6 +10,7 @@ from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene import ArchitecturalScene, ProjectionResult, project_scene_to_building
+from brickhouse.survey import ArchitecturalSurvey
 from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
@@ -66,7 +67,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.10.0", description="Photos, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.11.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -80,6 +81,12 @@ def health() -> dict[str, str | bool | None]:
 def capabilities() -> Capabilities:
     vision = vision_status()
     return Capabilities(photo_analysis_ready=vision.ready, photo_provider=vision.provider, photo_model=vision.model, photo_analysis_reason=vision.reason, supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES), engine_revision=_engine_revision())
+
+
+@app.post("/api/v1/validate-survey", response_model=ArchitecturalSurvey)
+def validate_architectural_survey(survey: ArchitecturalSurvey) -> ArchitecturalSurvey:
+    """Validate evidence-first ArchitecturalSurvey v0.1 without reconstructing geometry."""
+    return survey
 
 
 @app.post("/api/v1/validate-analysis", response_model=PhotoAnalysisResult)
