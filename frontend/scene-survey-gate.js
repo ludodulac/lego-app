@@ -154,6 +154,7 @@ gateImportButton.addEventListener('click', async event => {
     gateStatus.textContent = 'Cohérence Survey → Scene validée. Validation géométrique finale…';
     rememberSceneStatus(gateStatus.textContent);
     bypassSceneSurveyGateOnce = true;
+    gateImportButton.disabled = false;
     gateImportButton.click();
   } catch (error) {
     stopSceneProgress();
