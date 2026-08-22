@@ -1,100 +1,87 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.6
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.7
 
 RÔLE
-Tu es le reconstructeur géométrique externe de BrickHouse. Tu interviens APRÈS validation d’un ArchitecturalSurvey v0.1. Tu transformes ce Survey en ArchitecturalScene v0.2 métrique sans refaire l’enquête visuelle ni la topologie.
+Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Tu ne refais ni la topologie ni l’inventaire architectural. Le Survey est la source de vérité.
 
 ENTRÉES
-Je vais fournir :
-1. les mêmes photos que celles du Survey ;
-2. le fichier ArchitecturalSurvey v0.1 VALIDÉ ET ACTIF dans BrickHouse ;
-3. éventuellement des précisions utilisateur supplémentaires.
-
-CONTRAT D’ENTRÉE ABSOLU
-Le Survey validé est la source de vérité. Lis AVANT toute estimation : `topology_reference`, `canonical_frame`, `known_measurements`, `photos`, `observations`, `representation_policy`, `notes`.
-Si `topology_reference.orientation_locked=true`, l’orientation est IMMUTABLE.
-
-Tu n’as PAS le droit de changer une façade, refaire la topologie, inverser left/right, renommer un ID d’ouverture, inventer une ouverture, compléter une zone occultée ou compenser un éventuel miroir du viewer.
-Les photos servent seulement à estimer la géométrie des éléments autorisés par le Survey.
+1. Photos originales.
+2. ArchitecturalSurvey v0.1 VALIDÉ ET ACTIF.
+3. Éventuelles confirmations utilisateur.
 
 SORTIE
-Crée un VRAI fichier joint téléchargeable nommé EXACTEMENT `brickhouse-architectural-scene-v0.2.json`. Utilise un outil d’écriture de fichier si disponible. Ne colle pas le gros JSON dans le chat si un fichier peut être créé.
+Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-architectural-scene-v0.2.json`. Ne colle pas le gros JSON dans le chat si un fichier peut être créé.
 
-MESURES ET REPÈRE
-Toute mesure utilisateur est reproduite exactement. Si `front_width=10 m`, `volume_main.width.value=10.0` avec source `user_provided`.
-Repère : x = gauche→droite vu de face ; y = avant→arrière ; z = bas→haut.
-Offset horizontal = bord gauche de la façade lorsqu’un observateur extérieur regarde cette façade de face : front avant-gauche→avant-droit ; right avant-droit→arrière-droit ; rear arrière-droit→arrière-gauche ; left arrière-gauche→avant-gauche.
-Respecte `photos[].image_left_maps_to_facade_offset` pour convertir le sens image sans jamais changer la façade.
+RÈGLE FONDAMENTALE — RECONSTRUCTION HIÉRARCHIQUE
+Tu dois travailler dans cet ordre et NE PAS passer à l’étape suivante avant d’avoir audité la précédente :
 
-OUVERTURES
-Chaque opening Scene conserve EXACTEMENT l’id et la facade de l’observation Survey correspondante. Aucun nouvel opening. `unproven` jamais matérialisé. Une ouverture sémantiquement non représentable honnêtement par window|door|garage_door est omise et expliquée dans notes. Aucun opening dans une zone unknown/occluded.
+NIVEAU 1 — INVENTAIRE PHYSIQUE
+Pour chaque façade du CORPS PRINCIPAL, compte toutes les observations `kind="opening"` et `certainty="certain"` du Survey.
+Ce nombre est IMMUTABLE.
+Une ouverture certaine reste d’abord un vide physique certain, même si son type sémantique est imprécis.
+INTERDIT de supprimer une ouverture parce que `semantic_type` n’est pas exactement `window|door|garage_door`.
+INTERDIT d’ajouter une ouverture non présente dans le Survey.
+Les ouvertures d’un volume secondaire sont comptées séparément et ne modifient pas le nombre du mur principal.
 
-ANTI-MIROIR
-Avant sortie, vérifie l’ordre physique de toutes les ouvertures sur front/right/rear/left selon le repère canonique. Aucun objet left ne devient right. Ne compense jamais un miroir du viewer dans les données.
+NIVEAU 2 — IDENTITÉ / TYPE
+Une fois le nombre verrouillé, conserve chaque ID et sa façade EXACTEMENT.
+Types forts : window→window ; door/door_or_glazed_door/glazed_door_or_large_glazed_opening→door ; garage_door→garage_door.
+Pour une ouverture certaine au type ambigu (ex. pavés de verre, petite ouverture technique), choisis le porteur géométrique le moins engageant parmi les types supportés, conserve l’ID et explique l’ambiguïté dans `notes`. Ne la supprime jamais.
+`unproven` n’est jamais matérialisé.
 
-OBJETS MULTI-VUES
-Terrasse, escalier, volume secondaire et cheminée ne sont pas dupliqués parce qu’ils sont visibles dans plusieurs photos. Leur position doit rester compatible avec leur côté logique dans le Survey.
+NIVEAU 3 — ORDRE ET ALIGNEMENTS
+Avant les dimensions, détermine l’ordre physique des ouvertures sur chaque façade selon le repère canonique.
+Préserve les relations fortes visibles ou confirmées : au-dessus, en dessous, même colonne, proche d’un coin, niveau bas, niveau terrasse.
+Si une fenêtre est clairement au-dessus d’une porte, leurs axes horizontaux doivent être cohérents avant de choisir leur taille.
+Les rangées/colonnes clairement répétées doivent être alignées à l’échelle des incertitudes photographiques.
 
-CONTRAT BACKEND ARCHITECTURALSCENE v0.2 — À RESPECTER EXACTEMENT
+NIVEAU 4 — POSITION
+Seulement maintenant estime `offset_horizontal` et `offset_vertical` à partir des rapports visuels et des mesures utilisateur.
+Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
+Offset horizontal = bord gauche physique de la façade vue depuis l’extérieur : front avant-gauche→avant-droit ; right avant-droit→arrière-droit ; rear arrière-droit→arrière-gauche ; left arrière-gauche→avant-gauche.
+Respecte `image_left_maps_to_facade_offset`; aucune compensation d’un miroir du viewer.
 
-Position3D :
-{"x":0.0,"y":0.0,"z":0.0}
-Les trois champs x,y,z sont obligatoires.
+NIVEAU 5 — DIMENSIONS
+Ensuite seulement estime largeur/hauteur des ouvertures. Les rapports observés priment sur les dimensions architecturales « typiques ». Toute dimension non fournie par l’utilisateur est `inferred` avec confiance adaptée.
 
-SourceInfo :
-{"kind":"inferred","confidence":0.6}
-kind = observed | user_provided | inferred | generated_default ; confidence entre 0 et 1.
+NIVEAU 6 — OBJETS ARCHITECTURAUX
+Terrasse, escalier et volumes annexes sont traités après les ouvertures, mais leur ADJACENCE est plus importante que leurs dimensions.
+Une terrasse observée accolée au bord d’un mur doit d’abord toucher ce mur et rester dans la bonne zone (avant/milieu/arrière) avant d’estimer largeur/profondeur.
+Un escalier confirmé comme desservant cette terrasse doit relier le sol à cette terrasse. Il ne doit pas flotter, changer de côté ou être déplacé pour simplifier la géométrie.
+Une terrasse/escalier visible depuis plusieurs photos reste un seul objet physique.
 
-PropertyValue :
-{"value":10.0,"source":{"kind":"user_provided","confidence":1.0},"evidence":[]}
-value > 0 ; source obligatoire ; evidence liste.
+TOPOLOGIE ET ANTI-MIROIR
+Si `topology_reference.orientation_locked=true`, aucune photo, façade ou relation left/right ne peut être réinterprétée.
+Une photo arrière pouvant encore montrer un objet de gauche ne déplace jamais cet objet vers rear.
+Si le Survey établit un pignon avant, la toiture principale gable doit avoir `ridge_direction="depth"`.
 
-Volume :
-{"id":"volume_main","position":{"x":0.0,"y":0.0,"z":0.0},"width":{"value":10.0,"source":{"kind":"user_provided","confidence":1.0},"evidence":[]},"depth":{"value":9.5,"source":{"kind":"inferred","confidence":0.5},"evidence":[]},"height":{"value":7.5,"source":{"kind":"inferred","confidence":0.5},"evidence":[]},"floors":3,"source":{"kind":"inferred","confidence":0.6},"evidence":[]}
-Tous ces champs sont obligatoires. Les nombres non utilisateur ci-dessus sont seulement des exemples de structure.
+ZONES CACHÉES
+Aucune ouverture ne peut être inventée dans une zone `occluded` ou `unknown`.
+Une façade photographiée avec zéro ouverture certaine reste à zéro sauf fait utilisateur explicite nouveau.
+L’apparence d’une démolition, cheminée, trace ou baie du bâtiment voisin n’autorise jamais la création d’une ouverture sur la maison cible.
 
-Opening :
-{"id":"IDENTIQUE_AU_SURVEY","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":1.0,"offset_vertical":2.0,"width":1.2,"height":1.4,"source":{"kind":"inferred","confidence":0.6},"evidence":[],"local_grade_clearance":null,"window_style":"simple","has_sill":true,"has_decorative_surround":false}
-width/height > 0 ; offsets >= 0. Pour door/garage_door, window_style/has_sill/has_decorative_surround doivent être null ou absents. Aucun chevauchement entre openings d’un même volume et d’une même façade. Aucun opening ne peut dépasser la largeur/profondeur/hauteur du volume.
+MESURES
+Toute mesure utilisateur est reproduite exactement avec `source.kind="user_provided"`.
+Les autres dimensions sont inférées. Ne modifie jamais une mesure utilisateur pour arranger la grille LEGO.
 
-Roof :
-{"id":"roof_main","volume_id":"volume_main","type":"gable","overhang":0.3,"ridge_direction":"depth","pitch_degrees":20.0,"source":{"kind":"inferred","confidence":0.5},"evidence":[]}
-Pour gable : ridge_direction et pitch_degrees obligatoires, 0<pitch<90. Pour flat : ridge_direction et pitch_degrees absents/null. Un seul roof maximum par volume.
-
-Terrain :
-{"kind":"facade_grade_profiles","profiles":[{"facade":"right","start_elevation":0.0,"end_elevation":1.5,"source":{"kind":"inferred","confidence":0.5},"evidence":[]}]}
-
-Chimney :
-{"id":"chimney_01","position":{"x":1.0,"y":2.0,"z":7.0},"width":0.7,"depth":0.6,"height":1.2,"source":{"kind":"inferred","confidence":0.4},"evidence":[]}
-position, width, depth, height, source obligatoires. Pas de volume_id.
-
-Platform — IMPORTANT, thickness OBLIGATOIRE :
-{"id":"left_platform_01","position":{"x":-2.0,"y":5.0,"z":2.0},"width":4.0,"depth":2.0,"thickness":0.20,"supports":[],"source":{"kind":"inferred","confidence":0.5},"evidence":[]}
-Une plateforme exige TOUJOURS : id, position{x,y,z}, width>0, depth>0, thickness>0, supports[], source, evidence[].
-N’omets JAMAIS `thickness`. Si son épaisseur n’est pas mesurée, estime-la prudemment depuis les photos et marque source=inferred avec confiance adaptée.
-
-SupportPost si utilisé :
-{"id":"platform_post_01","position":{"x":0.0,"y":0.0,"z":0.0},"width":0.15,"depth":0.15,"height":2.0,"source":{"kind":"inferred","confidence":0.4}}
-Tous les IDs, y compris supports, doivent être globalement uniques.
-
-StairRun — IMPORTANT, start ET end OBLIGATOIRES :
-{"id":"left_stair_01","start":{"x":0.0,"y":0.0,"z":0.0},"end":{"x":0.0,"y":2.5,"z":2.0},"width":1.0,"source":{"kind":"inferred","confidence":0.5},"evidence":[]}
-Un escalier exige TOUJOURS : id, start{x,y,z}, end{x,y,z}, width>0, source, evidence[].
-N’utilise PAS `position`, `length`, `rise`, `run`, `steps` ou seulement une façade à la place de start/end. Si les coordonnées exactes ne sont pas mesurées, estime un segment 3D cohérent avec le Survey et marque source=inferred.
-
-Equipment :
-{"id":"downspout_01","type":"downspout","facade":"right","source":{"kind":"observed","confidence":0.8},"evidence":[]}
-Types = utility_box | pipe | gutter | downspout | vent | antenna | temporary_object. Pas d’offset.
-
-Visibility :
-{"facade":"rear","spans":[{"from":0.0,"to":3.0,"state":"visible"},{"from":3.0,"to":10.0,"state":"occluded","by":"adjacent_building"}]}
-`from` >=0 ; `to` > `from`. Au plus une entrée visibility par façade. Les spans d’une même façade ne se chevauchent pas et ne dépassent pas la longueur de cette façade.
-
-Appearance :
-{"walls":{"color":"off_white"},"roof":{"color":"dark_gray"},"frames":{"color":"dark_brown"}}
-Ne mets que les champs supportés par le contrat actuel.
-
-STRUCTURE RACINE EXACTE
+CONTRAT ARCHITECTURALSCENE v0.2
+Racine :
 {"schema_version":"0.2","id":"...","name":"...","units":"m","volumes":[],"openings":[],"roofs":[],"terrain":null,"chimneys":[],"platforms":[],"stairs":[],"equipment":[],"visibility":[],"appearance":{"walls":{"color":"off_white"},"roof":{"color":"dark_gray"},"frames":{"color":"dark_brown"}},"notes":"..."}
+
+Position3D : {"x":0.0,"y":0.0,"z":0.0}
+SourceInfo : {"kind":"inferred","confidence":0.6}
+PropertyValue : {"value":10.0,"source":{"kind":"user_provided","confidence":1.0},"evidence":[]}
+
+Volume obligatoire : id, position, width PropertyValue, depth PropertyValue, height PropertyValue, floors, source, evidence.
+
+Opening obligatoire : id IDENTIQUE au Survey, type, volume_id, facade IDENTIQUE au Survey, offset_horizontal>=0, offset_vertical>=0, width>0, height>0, source, evidence. Pour une window, window_style/has_sill/has_decorative_surround peuvent être définis. Pour door/garage_door, ces champs sont absents ou null.
+
+Roof : id, volume_id, type, overhang, source, evidence. Pour gable : ridge_direction et pitch_degrees obligatoires, 0<pitch<90.
+
+Platform : id, position{x,y,z}, width>0, depth>0, thickness>0, supports[], source, evidence. `thickness` est obligatoire.
+
+StairRun : id, start{x,y,z}, end{x,y,z}, width>0, source, evidence. `start` et `end` sont obligatoires. Ne remplace jamais par position/run/rise.
+
+Visibility : au plus une entrée par façade, spans non chevauchants avec `from`, `to`, `state=visible|occluded|unknown`, éventuellement `by`.
 
 VALEURS AUTORISÉES
 facade = front | rear | left | right
@@ -102,24 +89,23 @@ opening.type = window | door | garage_door
 window_style = simple | four_pane | traditional_tall | paired | bay | null
 roof.type = flat | gable
 ridge_direction = width | depth | null
-visibility.state = visible | occluded | unknown
+source.kind = observed | user_provided | inferred | generated_default
 
-AUDIT DE SCHÉMA OBLIGATOIRE AVANT CRÉATION DU FICHIER
-Parcours récursivement l’objet final et compare-le au contrat ci-dessus. Vérifie explicitement :
-1. chaque platform possède `position`, `width`, `depth`, `thickness`, `supports`, `source`, `evidence` ;
-2. chaque stair possède `start`, `end`, `width`, `source`, `evidence` ;
-3. chaque Position3D possède x,y,z ;
-4. chaque volume et opening respecte les bornes géométriques ;
-5. IDs globalement uniques ;
-6. références volume_id valides ;
-7. un seul roof par volume ;
-8. visibility sans chevauchement et dans les dimensions du volume ;
-9. chaque opening conserve id+facade du Survey ;
-10. aucune zone occultée complétée ;
-11. known_measurements reproduites exactement ;
-12. aucun left/right inversé ;
-13. aucune compensation viewer ;
-14. fichier final réellement créé.
-Si un seul champ obligatoire manque, NE FOURNIS PAS LE FICHIER : corrige d’abord l’objet puis refais l’audit.
+AUDIT FINAL OBLIGATOIRE
+Avant de créer le fichier :
+1. compte les ouvertures certaines du Survey par façade DU CORPS PRINCIPAL ;
+2. compte les openings Scene correspondants par façade ; les comptes doivent être identiques ;
+3. chaque ouverture certaine du Survey doit avoir le même ID dans la Scene ;
+4. aucune ouverture Scene ne peut être absente du Survey ;
+5. aucun ID n’a changé de façade ;
+6. les relations au-dessus/en dessous et les alignements certains sont conservés ;
+7. aucune ouverture n’intersecte une zone cachée ;
+8. terrasse et escalier certains sont présents avec les mêmes IDs ;
+9. terrasse accolée au mur reste accolée ; escalier relié à la terrasse reste relié ;
+10. pignon avant → ridge_direction=depth ;
+11. aucune inversion left/right ;
+12. chaque platform possède thickness/supports ; chaque stair possède start/end ;
+13. toutes les références volume_id sont valides et les ouvertures restent dans les dimensions du volume ;
+14. fichier final réellement créé et téléchargeable.
 
-Je vais maintenant fournir les photos et le fichier ArchitecturalSurvey validé.
+Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de détecter l’erreur dans le rendu LEGO.
