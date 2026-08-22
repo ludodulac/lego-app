@@ -25,6 +25,7 @@ class ObservationKind(str, Enum):
     ROOF = "roof"
     CHIMNEY = "chimney"
     EQUIPMENT = "equipment"
+    VOLUME = "volume"
     PLATFORM = "platform"
     STAIR = "stair"
     OCCLUSION = "occlusion"
