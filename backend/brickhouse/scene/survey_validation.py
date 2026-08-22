@@ -101,8 +101,6 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
             ))
 
     # Hierarchy gate #1: a certain opening is first and foremost a physical void.
-    # It may have an ambiguous semantic label, but it must not disappear from the
-    # Scene merely because BuildingModel has a smaller type vocabulary.
     scene_opening_ids = {item.id for item in scene.openings}
     for observation in survey_openings.values():
         if observation.certainty is not Certainty.CERTAIN:
@@ -115,22 +113,31 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
                 message=f"L’ouverture certaine {observation.id!r} du Survey a disparu de la scène. Le nombre d’ouvertures doit être verrouillé avant leur type, position et dimensions.",
             ))
 
-    # Hierarchy gate #2: expose facade-level count drift explicitly. This makes
-    # failures understandable and prevents downstream reconstruction from hiding
-    # several missing openings behind individual warnings.
+    # Hierarchy gate #2: count only openings hosted by the main building envelope.
+    # Survey openings explicitly hosted by a secondary object (annex/volume) are
+    # validated individually above but do not pollute the facade count of the main
+    # house. Scene-side counting mirrors that rule by keeping only the first/main
+    # volume.
+    main_volume_id = scene.volumes[0].id if scene.volumes else None
     survey_counts = Counter(
         observation.facade
         for observation in survey_openings.values()
-        if observation.certainty is Certainty.CERTAIN and observation.facade is not None
+        if observation.certainty is Certainty.CERTAIN
+        and observation.facade is not None
+        and not observation.attributes.get("host_object")
     )
-    scene_counts = Counter(opening.facade for opening in scene.openings)
+    scene_counts = Counter(
+        opening.facade
+        for opening in scene.openings
+        if main_volume_id is not None and opening.volume_id == main_volume_id
+    )
     for facade, expected_count in survey_counts.items():
         actual_count = scene_counts.get(facade, 0)
         if actual_count != expected_count:
             issues.append(SceneSurveyIssue(
                 code="facade_opening_count_drift",
                 severity=SceneSurveySeverity.ERROR,
-                message=f"La façade {facade.value} doit conserver {expected_count} ouverture(s) certaine(s) du Survey, mais la scène en contient {actual_count}.",
+                message=f"La façade principale {facade.value} doit conserver {expected_count} ouverture(s) certaine(s) du Survey, mais la scène en contient {actual_count}.",
             ))
 
     photographed_facades = {photo.facade for photo in survey.photos}
