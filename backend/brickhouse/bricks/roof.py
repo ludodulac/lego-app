@@ -216,15 +216,22 @@ def generate_spatial_gable_roof(geometry: BuildingGeometry, shell: BuildingBrick
     width = next(record.grid.width_studs for record in shell.walls if record.facade.value == "front")
     depth = next(record.grid.width_studs for record in shell.walls if record.facade.value == "right")
     span, line_length = (width, depth) if direction is RidgeDirection.DEPTH else (depth, width)
-    if span % 2:
-        raise ValueError("M0 support-aware gable roof currently requires an even slope span")
-    course_count = _course_count(span, family)
+
+    # A two-stud ridge cannot be centered on an odd shell span while touching
+    # both symmetric slope families. Instead of rejecting an otherwise valid
+    # building (or distorting the wall grid), extend the roof footprint by one
+    # stud on the positive eave. The first positive slope course still overlaps
+    # the actual wall edge, so support validation remains meaningful; the extra
+    # stud is simply a small roof overhang at LEGO-grid resolution.
+    roof_span = span if span % 2 == 0 else span + 1
+
+    course_count = _course_count(roof_span, family)
     if course_count < 1:
         raise ValueError("roof span is too small for selected supported slope family and ridge")
     placements: list[GlobalRoofPlacement] = []
     for side in ("negative", "positive"):
         for distance in range(course_count):
-            axis = distance*family.course_advance_studs if side == "negative" else span-family.footprint_depth_studs-distance*family.course_advance_studs
+            axis = distance*family.course_advance_studs if side == "negative" else roof_span-family.footprint_depth_studs-distance*family.course_advance_studs
             z_plates = top + distance*family.rise_plates
             for part_id, offset, _ in _tile_line(line_length, "slope", family):
                 placements.append(GlobalRoofPlacement(
@@ -235,7 +242,7 @@ def generate_spatial_gable_roof(geometry: BuildingGeometry, shell: BuildingBrick
                     z_plates=z_plates,
                     rotation_quarter_turns=0 if direction is RidgeDirection.DEPTH else 1,
                 ))
-    ridge_axis = span//2 - 1
+    ridge_axis = roof_span//2 - 1
     ridge_z = top + course_count*family.rise_plates
     for part_id, offset, _ in _tile_line(line_length, "ridge"):
         placements.append(GlobalRoofPlacement(
