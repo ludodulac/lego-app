@@ -117,6 +117,29 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
                 message=f"La scène ajoute une ouverture sur la façade {facade.value}, non documentée par ce Survey.",
             ))
 
+    # A photographed facade can still be partly or wholly hidden. The scene model
+    # itself already rejects openings in non-visible spans; repeat the invariant at
+    # the Survey gate so future schema changes cannot silently weaken it.
+    visibility_by_facade = {item.facade: item for item in scene.visibility}
+    for opening in scene.openings:
+        visibility = visibility_by_facade.get(opening.facade)
+        if visibility is None:
+            continue
+        opening_start = opening.offset_horizontal
+        opening_end = opening.offset_horizontal + opening.width
+        for span in visibility.spans:
+            if span.state.value == "visible":
+                continue
+            overlap = opening_start < span.to_offset and opening_end > span.from_offset
+            if overlap:
+                issues.append(SceneSurveyIssue(
+                    code="opening_in_hidden_span",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=opening.id,
+                    message=f"L’ouverture {opening.id!r} intersecte une zone {span.state.value} de la façade {opening.facade.value}; une zone cachée ne peut pas être complétée par supposition.",
+                ))
+                break
+
     certain_grade_facades = {
         item.facade
         for item in survey.observations

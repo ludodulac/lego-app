@@ -56,3 +56,27 @@ def test_unproven_opening_cannot_be_promoted() -> None:
 def test_user_confirmed_window_type_cannot_drift() -> None:
     codes = {issue.code for issue in validate_scene_against_survey(survey(), scene(workshop_type="door"))}
     assert "opening_type_drift" in codes
+
+
+def test_scene_schema_rejects_opening_inside_unknown_span() -> None:
+    payload = scene().model_dump(mode="json", by_alias=True)
+    payload["visibility"][1]["spans"] = [
+        {"from": 0.0, "to": 4.5, "state": "visible"},
+        {"from": 4.5, "to": 9.0, "state": "unknown"},
+    ]
+    try:
+        ArchitecturalScene.model_validate(payload)
+    except ValueError as error:
+        assert "intersects non-visible facade span" in str(error)
+    else:
+        raise AssertionError("an opening in an unknown span must be rejected")
+
+
+def test_prompt_defines_exterior_view_offsets_and_no_roof_material_guessing() -> None:
+    from pathlib import Path
+    prompt = (Path(__file__).resolve().parents[2] / "frontend" / "brickhouse-survey-to-scene-prompt.txt").read_text(encoding="utf-8")
+    assert "offset 0 = coin arrière-droit" in prompt
+    assert "image_left_maps_to_facade_offset" in prompt
+    assert "Ne miroir jamais la maison" in prompt
+    assert "Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée" in prompt
+    assert "N’infère jamais \"tuile\"" in prompt
