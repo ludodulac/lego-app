@@ -38,7 +38,9 @@ NIVEAU 4 — POSITION
 Seulement maintenant estime `offset_horizontal` et `offset_vertical` à partir des rapports visuels et des mesures utilisateur.
 Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
 Offset horizontal = bord gauche physique de la façade vue depuis l’extérieur : front avant-gauche→avant-droit ; right avant-droit→arrière-droit ; rear arrière-droit→arrière-gauche ; left arrière-gauche→avant-gauche.
+Pour la façade rear : offset 0 = coin arrière-droit.
 Respecte `image_left_maps_to_facade_offset`; aucune compensation d’un miroir du viewer.
+Ne miroir jamais la maison pour faciliter le rendu ou le viewer.
 
 NIVEAU 5 — DIMENSIONS
 Ensuite seulement estime largeur/hauteur des ouvertures. Les rapports observés priment sur les dimensions architecturales « typiques ». Toute dimension non fournie par l’utilisateur est `inferred` avec confiance adaptée.
@@ -55,9 +57,14 @@ Une photo arrière pouvant encore montrer un objet de gauche ne déplace jamais 
 Si le Survey établit un pignon avant, la toiture principale gable doit avoir `ridge_direction="depth"`.
 
 ZONES CACHÉES
+Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée.
 Aucune ouverture ne peut être inventée dans une zone `occluded` ou `unknown`.
 Une façade photographiée avec zéro ouverture certaine reste à zéro sauf fait utilisateur explicite nouveau.
 L’apparence d’une démolition, cheminée, trace ou baie du bâtiment voisin n’autorise jamais la création d’une ouverture sur la maison cible.
+
+TOITURE / MATÉRIAU
+La géométrie de toiture et son matériau sont deux questions séparées. Ne transforme jamais une couverture non visible en fait observé.
+N’infère jamais "tuile" uniquement à partir d’une toiture inclinée, d’une région ou d’un style architectural.
 
 MESURES
 Toute mesure utilisateur est reproduite exactement avec `source.kind="user_provided"`.
