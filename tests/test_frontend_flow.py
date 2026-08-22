@@ -65,6 +65,18 @@ def test_external_ai_workflow_supports_json_files_and_validated_survey_download(
     assert "new Blob" in survey
 
 
+def test_validated_survey_can_be_explicitly_replaced_after_user_correction() -> None:
+    html = read("photo.html")
+    survey = read("survey-import.js")
+    assert 'id="replace-survey"' in html
+    assert "replaceMode = true" in survey
+    assert "replacing = replaceMode && Boolean(baseSurvey)" in survey
+    assert "replaced: replacing" in survey
+    assert "ArchitecturalSurvey corrigé valide et actif" in survey
+    assert "localStorage.removeItem('brickhouse.pendingArchitecturalScene')" in survey
+    assert "localStorage.removeItem('brickhouse.pendingExport')" in survey
+
+
 def test_scene_import_is_gated_against_pending_validated_survey() -> None:
     survey_import = read("survey-import.js")
     gate = read("scene-survey-gate.js")
