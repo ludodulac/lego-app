@@ -23,11 +23,12 @@
 
       <details class="result-card external-ai" open>
         <summary>Alternative fiable · analyser avec ChatGPT, Claude ou une autre IA</summary>
-        <p>Commencez par un relevé ArchitecturalSurvey : l’IA observe et décrit avant de mesurer. Pour éviter les copier-coller tronqués, privilégiez les fichiers JSON à chaque étape.</p>
-        <p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">1. Ouvrir le prompt de relevé ArchitecturalSurvey ↗</a></p>
-        <p><small>Le prompt universel direct reste disponible comme ancien parcours de secours : <a href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">ouvrir ↗</a></small></p>
-        <div class="field"><label for="external-analysis-file">Fichier JSON renvoyé par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Recommandé pour les gros relevés et scènes : aucun copier-coller nécessaire.</small></div>
-        <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON BrickHouse retourné par ChatGPT / Claude / autre IA…"></textarea><small>Les blocs ```json … ``` sont acceptés. Le collage reste disponible comme solution de secours.</small></div>
+        <p>Le parcours externe sépare maintenant deux problèmes : d’abord comprendre quels plans physiques sont vus dans chaque photo, puis seulement inventorier les éléments architecturaux. Utilisez le même jeu de photos aux deux étapes et privilégiez les fichiers JSON.</p>
+        <p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">1. Cartographier les vues et les façades ↗</a></p>
+        <p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">2. Produire le relevé ArchitecturalSurvey avec la carte topologique ↗</a></p>
+        <p><small>Ne passez à l’étape 2 que si `brickhouse-topology-map-v0.1.json` est résolu. Le prompt universel direct reste disponible comme ancien parcours de secours : <a href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">ouvrir ↗</a></small></p>
+        <div class="field"><label for="external-analysis-file">Fichier JSON renvoyé par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Importez ici uniquement le Survey final validable, pas la carte topologique intermédiaire.</small></div>
+        <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON ArchitecturalSurvey final…"></textarea><small>Les blocs ```json … ``` sont acceptés. La carte topologique sert d’entrée à l’IA avant ce Survey et n’est pas importée ici.</small></div>
         <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
       </details>
 
