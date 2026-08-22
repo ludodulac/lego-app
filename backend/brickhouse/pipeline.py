@@ -1,4 +1,4 @@
-"""End-to-end M0 pipeline from BuildingModel to viewer export JSON."""
+"""End-to-end M0 pipeline from BuildingModel or ArchitecturalScene to viewer export JSON."""
 from __future__ import annotations
 import argparse
 from pathlib import Path
@@ -12,9 +12,12 @@ from brickhouse.bricks.export import BrickExportBundle, create_export_bundle, ex
 from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.roof import generate_spatial_gable_roof
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
+from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 from brickhouse.geometry import generate_building_geometry
+from brickhouse.scene.models import ArchitecturalScene
+from brickhouse.scene.projection import project_scene_to_building
 DEFAULT_FRONT_WIDTH_STUDS=48
 
 def _volume_geometry(geometry,volume_id:str):
@@ -61,6 +64,20 @@ def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT
     brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
     return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
+
+def run_m0_pipeline_scene(scene:ArchitecturalScene,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
+    """Build a validated Scene while preserving platforms and stairs in the LEGO model."""
+    projection=project_scene_to_building(scene)
+    if projection.building is None or projection.blocked:
+        blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker")
+        raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
+    base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs)
+    enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs)
+    if enriched is base.brick_model:
+        return base
+    bom=generate_bom(enriched)
+    assembly_plan=generate_assembly_plan(enriched)
+    return create_export_bundle(enriched,bom,assembly_plan,appearance=projection.building.appearance)
 
 def run_m0_pipeline(input_path:str|Path,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
     building=load_building_model(input_path); return run_m0_pipeline_model(building,front_width_studs=front_width_studs)
