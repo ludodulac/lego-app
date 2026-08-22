@@ -1,6 +1,7 @@
 const gateImportButton = document.querySelector('#import-analysis');
 const gateExternalInput = document.querySelector('#external-analysis');
 const gateApiInput = document.querySelector('#api-url');
+const gateStuds = document.querySelector('#studs');
 const gateStatus = document.querySelector('#status');
 const gateEmpty = document.querySelector('#empty-state');
 const gateResult = document.querySelector('#result');
@@ -22,6 +23,7 @@ let sceneProgressTimeout = null;
 let sceneStatusWatchdog = null;
 let protectSceneStatus = false;
 let lastSceneStatus = '';
+let currentSceneBuildPayload = null;
 const IDLE_STATUS_PREFIX = 'Ajoutez vos photos puis lancez l’analyse';
 const VALIDATION_TIMEOUT_MS = 45000;
 
@@ -131,11 +133,13 @@ function renderFinalSceneValidation(payload) {
   const projectionIssues = payload.projection?.issues ?? [];
   const blockers = [...(compatibility.blockers ?? []), ...projectionIssues.filter(item => item.severity === 'blocker').map(item => item.message)];
   const warnings = [...(compatibility.warnings ?? []), ...projectionIssues.filter(item => item.severity === 'warning').map(item => item.message)];
+  const buildable = Boolean(building && compatibility.buildable && !blockers.length);
   const sceneOpeningIds = new Set((scene.openings ?? []).map(item => item.id));
   const omittedCertainOpenings = (survey?.observations ?? [])
     .filter(item => item.kind === 'opening' && item.certainty === 'certain' && !sceneOpeningIds.has(item.id))
     .map(item => item.id);
 
+  currentSceneBuildPayload = buildable ? payload : null;
   gateEmpty.hidden = true;
   gateResult.hidden = false;
   gateResultName.textContent = scene.name;
@@ -146,7 +150,9 @@ function renderFinalSceneValidation(payload) {
     : warnings.length
       ? `<h3>Scène riche validée — simplifications M0 visibles</h3><p>${warnings.map(gateEscape).join(' ')}</p>`
       : '<h3>Scène validée</h3><p>Aucune perte de projection signalée.</p>';
-  gateQuestions.innerHTML = '<p>La cohérence Survey → Scene et la validation géométrique sont terminées. Ne construisez pas encore : vérifiez d’abord cette scène.</p>';
+  gateQuestions.innerHTML = buildable
+    ? '<p><strong>Étape suivante :</strong> cliquez sur « Construire cette proposition » pour générer la maquette et ouvrir le viewer.</p>'
+    : '<p>La cohérence Survey → Scene et la validation géométrique sont terminées. Corrigez les blocages affichés avant la construction.</p>';
   const facts = [
     scene.terrain?.profiles?.length ? `${scene.terrain.profiles.length} profil(s) de terrain conservé(s) dans ArchitecturalScene.` : null,
     scene.chimneys?.length ? `${scene.chimneys.length} cheminée(s) conservée(s) dans ArchitecturalScene.` : null,
@@ -170,13 +176,49 @@ function renderFinalSceneValidation(payload) {
   gatePreview.textContent = JSON.stringify(scene, null, 2);
   gateDownload.disabled = true;
   gateReport.disabled = true;
-  gateBuild.disabled = true;
+  gateBuild.disabled = !buildable;
   localStorage.setItem('brickhouse.pendingSceneValidation', JSON.stringify(payload));
-  gateStatus.textContent = building
-    ? 'ArchitecturalScene valide. Cohérence Survey → Scene et validation géométrique terminées. Vérifiez le résultat avant toute construction.'
-    : 'ArchitecturalScene valide, mais la projection vers le moteur M0 est bloquée. Consultez les raisons affichées.';
+  gateStatus.textContent = buildable
+    ? 'ArchitecturalScene valide et constructible. Étape suivante : cliquez sur « Construire cette proposition ».'
+    : building
+      ? 'ArchitecturalScene valide, mais le moteur M0 signale encore un blocage de construction. Consultez les raisons affichées.'
+      : 'ArchitecturalScene valide, mais la projection vers le moteur M0 est bloquée. Consultez les raisons affichées.';
   rememberSceneStatus(gateStatus.textContent);
 }
+
+gateBuild.addEventListener('click', async event => {
+  const payload = currentSceneBuildPayload;
+  const building = payload?.projection?.building ?? null;
+  if (!building) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const base = gateApiBase();
+  if (!base) { gateStatus.textContent = 'URL API manquante.'; return; }
+  gateBuild.disabled = true;
+  gateStatus.textContent = 'BrickHouse génère maintenant la maquette constructible…';
+  rememberSceneStatus(gateStatus.textContent);
+  try {
+    const response = await postJsonWithTimeout(`${base}/api/v1/build`, {
+      building,
+      front_width_studs: Number(gateStuds?.value) || 48,
+    });
+    const exportPayload = await response.json();
+    if (!response.ok) {
+      const detail = typeof exportPayload.detail === 'string' ? exportPayload.detail : `Erreur moteur HTTP ${response.status}`;
+      throw new Error(detail);
+    }
+    localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify(payload));
+    localStorage.setItem('brickhouse.pendingExport', JSON.stringify(exportPayload));
+    window.location.href = './viewer.html';
+  } catch (error) {
+    const timeout = error.name === 'AbortError';
+    gateStatus.textContent = timeout
+      ? 'Construction interrompue après 45 s : le moteur n’a pas répondu. Réessayez.'
+      : `Construction impossible : ${error.message}`;
+    rememberSceneStatus(gateStatus.textContent);
+    gateBuild.disabled = false;
+  }
+}, { capture: true });
 
 gateImportButton.addEventListener('click', async event => {
   let parsed;
@@ -190,6 +232,7 @@ gateImportButton.addEventListener('click', async event => {
   const base = gateApiBase();
   if (!base) { gateStatus.textContent = 'URL API manquante.'; return; }
   startSceneStatusProtection();
+  currentSceneBuildPayload = null;
   gateImportButton.disabled = true;
   gateBuild.disabled = true;
 
