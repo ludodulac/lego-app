@@ -20,7 +20,6 @@
       <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. La façade avant mesure 9,8 m. Les deux fenêtres de droite ont la même largeur."></textarea></div>
       <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel mais très utile pour l’échelle" /></div>
       <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
-
       <details class="result-card external-ai" open>
         <summary>Alternative fiable · analyser avec ChatGPT, Claude ou une autre IA</summary>
         <p>Le parcours externe sépare maintenant deux problèmes : d’abord comprendre quels plans physiques sont vus dans chaque photo, puis seulement inventorier les éléments architecturaux. Utilisez le même jeu de photos aux deux étapes et privilégiez les fichiers JSON.</p>
@@ -31,7 +30,6 @@
         <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON ArchitecturalSurvey final…"></textarea><small>Les blocs ```json … ``` sont acceptés. La carte topologique sert d’entrée à l’IA avant ce Survey et n’est pas importée ici.</small></div>
         <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
       </details>
-
       <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
       <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="replace-survey" type="button">Remplacer par un Survey corrigé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       <p id="status" class="status">Connexion au moteur BrickHouse…</p>
@@ -50,5 +48,6 @@
   </main>
   <script type="module" src="./survey-import.js"></script>
   <script type="module" src="./photo.js"></script>
+  <script type="module" src="./scene-build.js"></script>
 </body>
 </html>
