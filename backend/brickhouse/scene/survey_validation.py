@@ -166,4 +166,30 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
             message="Une cheminée certaine du Survey a disparu de la scène.",
         ))
 
+    scene_ids_by_kind = {
+        ObservationKind.VOLUME: {item.id for item in scene.volumes},
+        ObservationKind.PLATFORM: {item.id for item in scene.platforms},
+        ObservationKind.STAIR: {item.id for item in scene.stairs},
+    }
+    missing_codes = {
+        ObservationKind.VOLUME: "certain_volume_missing",
+        ObservationKind.PLATFORM: "certain_platform_missing",
+        ObservationKind.STAIR: "certain_stair_missing",
+    }
+    labels = {
+        ObservationKind.VOLUME: "volume architectural",
+        ObservationKind.PLATFORM: "plateforme/terrasse",
+        ObservationKind.STAIR: "escalier",
+    }
+    for observation in survey.observations:
+        if observation.certainty is not Certainty.CERTAIN or observation.kind not in scene_ids_by_kind:
+            continue
+        if observation.id not in scene_ids_by_kind[observation.kind]:
+            issues.append(SceneSurveyIssue(
+                code=missing_codes[observation.kind],
+                severity=SceneSurveySeverity.ERROR,
+                object_id=observation.id,
+                message=f"Le {labels[observation.kind]} certain {observation.id!r} du Survey a disparu de la scène ou a changé d’id.",
+            ))
+
     return issues

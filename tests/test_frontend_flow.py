@@ -77,7 +77,7 @@ def test_scene_import_is_gated_against_pending_validated_survey() -> None:
 
 def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.2" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.3" in prompt
     assert '"volume_id":"volume_main"' in prompt
     assert '"has_sill":true' in prompt
     assert '"has_decorative_surround":false' in prompt

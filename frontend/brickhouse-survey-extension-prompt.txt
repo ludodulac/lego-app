@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.1
+BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.2
 
 RÔLE
 Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies de LA MÊME maison. Tu ne recommences pas le relevé depuis zéro.
@@ -14,64 +14,55 @@ Crée de préférence un fichier joint nommé `brickhouse-architectural-survey-e
 
 RÈGLE ABSOLUE — EXTENSION, PAS RÉÉCRITURE
 Le Survey validé de départ est IMMUTABLE pendant cette passe.
-Tu dois conserver EXACTEMENT :
-- schema_version ;
-- id ;
-- canonical_frame ;
-- known_measurements ;
-- representation_policy ;
-- chaque entrée déjà présente dans photos ;
-- chaque observation déjà présente dans observations, y compris son id, kind, facade, certainty, statement, evidence, attributes, appearance et opening_visual.
-
+Tu dois conserver EXACTEMENT schema_version, id, canonical_frame, known_measurements, representation_policy, chaque ancienne photo et chaque ancienne observation.
 NE RENOMME, NE SUPPRIME ET NE MODIFIE AUCUNE OBSERVATION EXISTANTE.
-Même si une nouvelle photo semble contredire un élément déjà validé, ne le corriges pas silencieusement. Ajoute une NOUVELLE observation de type context/occlusion ou une observation explicitant le conflit avec certainty appropriée et explique le conflit dans notes. Une correction d’un fait validé appartient à un autre workflow.
 
 NOUVELLES PHOTOS
-- Trouve le plus grand photo_index existant dans le Survey de départ.
-- Attribue aux nouvelles photos les index suivants, sans réutiliser un ancien index.
+- Utilise des photo_index strictement supérieurs au maximum existant.
 - Pour chaque nouvelle photo, indique facade et image_left_maps_to_facade_offset.
-- Le repère canonique reste celui du Survey d’origine : x = gauche→droite quand on regarde la façade avant depuis l’extérieur ; y = avant→arrière ; z = bas→haut.
-- Ne change jamais le sens gauche/droite du repère sous prétexte qu’une photo est prise depuis l’arrière ou en oblique.
+- Conserve strictement le repère canonique : x gauche→droite vu depuis front, y avant→arrière, z bas→haut.
 
 NOUVELLES OBSERVATIONS
-Observe les nouvelles photos comme un relevé architectural : limites physiques et vrais coins ; terrain/pente ; matériaux ; ouvertures ; menuiseries/vitrages/appuis/encadrements ; toiture/pignon/rives ; cheminée/antenne ; gouttières/tuyaux/câbles ; terrasse/poteaux/escalier ; voisins ; végétation ; occultations.
+Observe limites, terrain, matériaux, ouvertures, toiture, cheminée, équipements, terrasse/plateforme, escalier, volumes secondaires accolés, contexte et occultations.
+Chaque nouvelle observation reçoit un id nouveau, cite une nouvelle photo, n’invente aucune géométrie cachée et distingue certain/plausible/unproven.
 
-Chaque nouvelle observation :
-- reçoit un id NOUVEAU et unique ;
-- cite au moins une evidence utilisant un photo_index NOUVEAU ;
-- n’invente aucune géométrie cachée ;
-- distingue certain / plausible / unproven ;
-- distingue le bâtiment cible du voisin et des objets de contexte.
+CONTRAT SÉMANTIQUE DES ÉLÉMENTS ARCHITECTURAUX
+Valeurs observation.kind disponibles : building_boundary | terrain | material | weathering | opening | roof | chimney | equipment | volume | platform | stair | occlusion | context.
+- Une terrasse/plateforme appartenant au bâtiment utilise kind="platform".
+- Un escalier extérieur appartenant au bâtiment utilise kind="stair".
+- Un volume architectural secondaire accolé utilise kind="volume".
+- Pour ces trois catégories, renseigne attributes.architectural_kind avec exactement "platform", "stair" ou "volume" et attributes.target_building_ownership="proven" lorsque l’appartenance est établie.
+- context est réservé aux objets qui ne font pas partie du bâtiment cible ou dont l’appartenance n’est pas prouvée.
+- INTERDIT : reclasser un élément architectural en context uniquement pour satisfaire le schéma.
+- Si un élément architectural observé ne peut pas être représenté honnêtement par le contrat disponible, conserve sa nature dans notes et signale explicitement la limitation au lieu de lui attribuer une fausse catégorie.
 
 RACCORDEMENT ENTRE FAÇADES
-Utilise les vrais coins, continuités de toiture, alignements d’ouvertures, changements de terrain et éléments traversant les angles pour comprendre comment les nouvelles vues se raccordent au Survey existant.
-Mais ne transforme pas ce recoupement en mesures métriques globales : profondeur, hauteur totale et métrique précise restent du ressort Survey → Scene.
+Utilise coins, continuités de toiture, alignements, terrain et éléments traversant les angles pour raccorder les vues, sans inventer de métrique globale.
 
 FAITS UTILISATEUR
-Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations avec attributes.confirmed_by_user=true et une sémantique stable. Ne rétro-modifie pas une ancienne observation dans ce mode extension.
+Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations avec attributes.confirmed_by_user=true et une sémantique stable. Ne rétro-modifie pas une ancienne observation.
 
 INTERDIT
 - Refaire une version “plus propre” des anciennes observations.
-- Renommer leurs ids.
-- Fusionner deux anciennes observations.
-- Réindexer les anciennes photos.
-- Modifier la largeur avant connue ou une autre known_measurement.
-- Ajouter des mètres à partir des nouvelles photos.
+- Renommer leurs ids, les fusionner ou réindexer les anciennes photos.
+- Modifier une known_measurement, notamment la largeur avant connue.
+- Ajouter des mètres depuis les nouvelles photos.
 - Produire ArchitecturalScene, BuildingModel ou LEGO.
 - Compléter une façade cachée par symétrie.
+- Transformer platform, stair ou volume en context pour contourner le contrat.
 
 NOTES
-Conserve les notes existantes et ajoute à la fin une section textuelle courte commençant par `EXTENSION:` décrivant uniquement ce que les nouvelles photos ont ajouté et les éventuels conflits non résolus.
+Conserve les notes existantes et ajoute à la fin une section courte commençant par `EXTENSION:` décrivant uniquement les nouveaux faits et conflits non résolus.
 
 CONTRÔLE FINAL SILENCIEUX
-Avant de répondre :
-1. Compare chaque photo ancienne à celle du Survey d’entrée : elle doit être identique.
-2. Compare chaque observation ancienne : elle doit être identique champ par champ.
-3. Compare canonical_frame, known_measurements et representation_policy : ils doivent être identiques.
-4. Vérifie que chaque nouveau photo_index est strictement supérieur à l’ancien maximum.
-5. Vérifie que chaque nouvel id d’observation est unique.
-6. Vérifie que les nouvelles observations citent des nouvelles photos.
-7. Vérifie que le résultat final reste un ArchitecturalSurvey v0.1 complet.
+1. Anciennes photos identiques.
+2. Anciennes observations identiques champ par champ.
+3. canonical_frame, known_measurements et representation_policy identiques.
+4. Nouveaux photo_index strictement supérieurs à l’ancien maximum.
+5. Nouveaux ids uniques.
+6. Nouvelles observations soutenues par nouvelles photos.
+7. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
+8. Résultat final = ArchitecturalSurvey v0.1 complet.
 
 SORTIE
 Un seul fichier JSON complet `brickhouse-architectural-survey-extended-v0.1.json`, sans explication autour si le fichier joint n’est pas possible.

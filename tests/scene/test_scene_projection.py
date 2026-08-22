@@ -180,6 +180,7 @@ def test_projection_preserves_supported_geometry_and_reports_losses():
     assert result.building.openings[0].id == "workshop_window"
     assert {issue.code for issue in result.issues} == {
         "terrain_not_supported",
+        "local_grade_clearance_not_supported",
         "chimney_not_supported",
         "platform_not_supported",
     }
