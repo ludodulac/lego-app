@@ -88,7 +88,7 @@ def test_validated_scene_gate_can_build_and_open_viewer() -> None:
 
 def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.3" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.4" in prompt
     assert '"volume_id":"volume_main"' in prompt
     assert '"has_sill":true' in prompt
     assert '"has_decorative_surround":false' in prompt
@@ -98,6 +98,8 @@ def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
     assert '"spans"' in prompt
     assert "N’utilise jamais points" in prompt
     assert "Equipment ne contient PAS offset_horizontal" in prompt
+    assert "image_left_maps_to_facade_offset" in prompt
+    assert "N’infère jamais \"tuile\"" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
