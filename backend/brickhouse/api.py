@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
-from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
+from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model, run_m0_pipeline_scene
 from brickhouse.scene import (
     ArchitecturalScene,
     ProjectionResult,
@@ -28,6 +28,11 @@ MAX_PHOTOS = 6
 
 class BuildRequest(BaseModel):
     building: BuildingModel
+    front_width_studs: int = Field(default=DEFAULT_FRONT_WIDTH_STUDS, gt=0, le=256)
+
+
+class SceneBuildRequest(BaseModel):
+    scene: ArchitecturalScene
     front_width_studs: int = Field(default=DEFAULT_FRONT_WIDTH_STUDS, gt=0, le=256)
 
 
@@ -110,7 +115,7 @@ def _vision_error_detail(code: str) -> str:
     return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.14.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
+app = FastAPI(title="BrickHouse Engine API", version="0.15.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
 app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
 
@@ -128,7 +133,6 @@ def capabilities() -> Capabilities:
 
 @app.post("/api/v1/validate-survey", response_model=SurveyValidationResponse)
 def validate_architectural_survey(survey: ArchitecturalSurvey) -> SurveyValidationResponse:
-    """Validate evidence-first ArchitecturalSurvey v0.1 before scene fusion."""
     raw_issues: list[SurveyValidationIssue] = validate_survey_semantics(survey)
     issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
     return SurveyValidationResponse(survey=survey, issues=issues, valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues))
@@ -136,25 +140,18 @@ def validate_architectural_survey(survey: ArchitecturalSurvey) -> SurveyValidati
 
 @app.post("/api/v1/validate-survey-extension", response_model=SurveyValidationResponse)
 def validate_architectural_survey_extension(request: SurveyExtensionValidationRequest) -> SurveyValidationResponse:
-    """Validate that a Survey extension preserves all previously validated facts."""
     raw_issues: list[SurveyValidationIssue] = validate_survey_extension(request.base, request.candidate)
     issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
-    return SurveyValidationResponse(
-        survey=request.candidate,
-        issues=issues,
-        valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues),
-    )
+    return SurveyValidationResponse(survey=request.candidate, issues=issues, valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues))
 
 
 @app.post("/api/v1/validate-analysis", response_model=PhotoAnalysisResult)
 def validate_external_analysis(result: PhotoAnalysisResult) -> PhotoAnalysisResult:
-    """Validate provider-independent BrickHouse JSON and recompute M0 compatibility."""
     return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
 
 
 @app.post("/api/v1/validate-scene", response_model=SceneValidationResponse)
 def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationResponse:
-    """Validate ArchitecturalScene v0.2 and report its explicit BuildingModel 0.1 projection."""
     projection = project_scene_to_building(scene)
     compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
     return SceneValidationResponse(scene=scene, projection=projection, m0_compatibility=compatibility)
@@ -162,7 +159,6 @@ def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationRe
 
 @app.post("/api/v1/validate-scene-against-survey", response_model=SceneSurveyValidationResponse)
 def validate_architectural_scene_against_survey(request: SceneSurveyValidationRequest) -> SceneSurveyValidationResponse:
-    """Validate a reconstructed scene against the Survey that constrained its semantics."""
     raw_issues: list[SceneSurveyIssue] = validate_scene_against_survey(request.survey, request.scene)
     issues = [SceneSurveyIssueModel(code=i.code, severity=i.severity.value, message=i.message, object_id=i.object_id) for i in raw_issues]
     valid = not any(i.severity.value == "error" for i in raw_issues)
@@ -180,6 +176,24 @@ def build(request: BuildRequest) -> BrickExportBundle:
         raise HTTPException(status_code=422, detail=" ".join(compatibility.blockers))
     try:
         bundle = run_m0_pipeline_model(request.building, front_width_studs=request.front_width_studs)
+        bundle.metadata.engine_revision = _engine_revision()
+        return bundle
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/api/v1/build-scene", response_model=BrickExportBundle)
+def build_scene(request: SceneBuildRequest) -> BrickExportBundle:
+    """Build the rich Scene so terraces/stairs survive instead of being projection losses."""
+    projection = project_scene_to_building(request.scene)
+    if projection.building is None:
+        blockers = [issue.message for issue in projection.issues if issue.severity.value == "blocker"]
+        raise HTTPException(status_code=422, detail=" ".join(blockers) or "La scène ne peut pas être projetée vers le moteur M0.")
+    compatibility = assess_m0_compatibility(projection.building)
+    if not compatibility.buildable:
+        raise HTTPException(status_code=422, detail=" ".join(compatibility.blockers))
+    try:
+        bundle = run_m0_pipeline_scene(request.scene, front_width_studs=request.front_width_studs)
         bundle.metadata.engine_revision = _engine_revision()
         return bundle
     except ValueError as exc:
