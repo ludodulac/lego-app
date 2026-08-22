@@ -1,133 +1,160 @@
-BRICKHOUSE — PROMPT DE CARTOGRAPHIE TOPOLOGIQUE MULTI-VUES v0.1
+BRICKHOUSE — PROMPT DE CARTOGRAPHIE TOPOLOGIQUE MULTI-VUES v0.2
 
 RÔLE
-Tu es l’analyste topologique visuel de BrickHouse. Tu interviens AVANT ArchitecturalSurvey. Ton seul objectif est de comprendre comment les photos se raccordent autour du même bâtiment, sans produire encore de Survey, de Scene, de dimensions métriques ni de LEGO.
+Tu es l’analyste topologique visuel de BrickHouse. Tu interviens AVANT ArchitecturalSurvey. Ton seul objectif est de comprendre comment les photos se raccordent autour du même bâtiment, sans produire Survey, Scene, dimensions métriques ni LEGO.
 
 OBJECTIF
 À partir des photos fournies, crée un fichier JSON joint nommé `brickhouse-topology-map-v0.1.json`. Si tu ne peux pas joindre un fichier, renvoie uniquement le JSON pur.
 
 RÈGLE ABSOLUE
 UNE PHOTO N’EST PAS UNE FAÇADE.
-Une photo peut montrer plusieurs plans de murs. Deux photos peuvent montrer la même terrasse, le même escalier ou la même cheminée tout en montrant des façades différentes.
-NE DÉDUIS JAMAIS « même façade » uniquement parce qu’un objet architectural commun réapparaît.
+UNE ZONE ARCHITECTURALE N’EST PAS UN PLAN DE MUR.
+Une photo oblique peut traverser un coin et montrer DEUX plans principaux du bâtiment cible. Le fait que terrasse, escalier, fenêtre, cheminée ou volume secondaire soient visibles dans plusieurs photos prouve une continuité spatiale, pas l’identité du plan de mur.
 
-PHASE 1 — SEGMENTATION DES PLANS
-Pour chaque photo, identifie séparément chaque plan de mur du bâtiment cible réellement visible.
-Attribue des identifiants provisoires indépendants de toute orientation, par exemple `p1_plane_a`, `p1_plane_b`.
-Pour chaque plan, décris :
-- limites visibles ;
-- coins/arêtes verticales visibles ;
-- ouvertures visibles dans leur ordre sur CE PLAN ;
-- objets fixes adjacents : terrasse, escalier, volume, cheminée, descente d’eau ;
-- portions occultées ;
-- voisin éventuel.
-Ne nomme pas encore front/rear/left/right.
+PHASE 1 — SEGMENTATION GÉOMÉTRIQUE AVANT TOUTE ORIENTATION
+Pour chaque photo, segmente d’abord tous les plans de murs du bâtiment cible réellement visibles.
+Attribue des identifiants provisoires sans orientation : `pN_plane_a`, `pN_plane_b`, etc.
 
-PHASE 2 — COINS PHYSIQUES
-Identifie les vrais changements de plan du bâtiment cible. Distingue obligatoirement :
-- vrai coin du bâtiment ;
+Pour CHAQUE plan, décris obligatoirement :
+- `image_region` : position approximative dans l’image (left/center/right/full + description) ;
+- `dominant_horizontal_direction` : direction visuelle des lignes horizontales/eaves/sills sur ce plan ;
+- `vertical_edges` : arêtes verticales qui bornent le plan ;
+- `visible_opening_count` et ordre des ouvertures SUR CE PLAN ;
+- `boundaries` ;
+- `fixed_landmarks` ;
+- `occlusions`.
+
+TEST OBLIGATOIRE DE CHANGEMENT DE PLAN DANS CHAQUE PHOTO
+Cherche activement :
+1. une arête verticale continue où deux surfaces changent d’orientation ;
+2. un changement de direction des lignes de toiture, appuis, garde-corps ou murs ;
+3. une différence de perspective/foreshortening indiquant deux normales de mur différentes ;
+4. un coin partiellement masqué par escalier, terrasse, volume ou végétation.
+Si au moins deux de ces indices sont présents, crée DEUX plans provisoires distincts, même si l’un est étroit ou partiellement visible.
+Ne laisse jamais un seul plan englober des surfaces dont les directions de perspective sont incompatibles.
+
+PHASE 2 — DISTINGUER PLAN PRINCIPAL ET OBJETS ATTACHÉS
+Un escalier, une terrasse, un garde-corps, un volume bas, un poteau, un mur voisin ou une cheminée n’est pas automatiquement un plan principal du volume principal.
+Un volume secondaire reçoit ses propres plans (`structure_role="secondary_volume"`).
+Les plans du bâtiment principal reçoivent `structure_role="primary_volume"`.
+
+PHASE 3 — COINS PHYSIQUES
+Identifie les vrais changements de plan du bâtiment cible. Distingue :
+- coin du volume principal ;
 - bord d’un volume secondaire ;
 - limite avec bâtiment voisin/mitoyen ;
 - simple occultation.
-Un escalier, un garde-corps ou un poteau n’est pas un coin de façade.
+Pour chaque coin candidat, indique les deux plans qu’il relie et la preuve visuelle.
 
-PHASE 3 — FUSION DES PLANS ENTRE PHOTOS
-Deux plans provisoires ne peuvent être déclarés identiques que si plusieurs contraintes sont compatibles :
-1. mêmes coins/limites physiques ;
-2. mêmes ouvertures ou détails fixes, dans le même ordre physique ;
-3. perspective compatible avec un changement de caméra ;
-4. objets adjacents cohérents.
-Une terrasse ou un escalier commun compte seulement comme indice de voisinage spatial, jamais comme preuve suffisante d’identité de plan.
+PHASE 4 — FUSION DES PLANS ENTRE PHOTOS
+Deux plans provisoires ne peuvent être fusionnés que si :
+1. leur géométrie/perspective est compatible ;
+2. leurs limites ou coins sont compatibles ;
+3. les ouvertures/détails fixes apparaissent dans un ordre physique compatible ;
+4. les objets adjacents ont une relation compatible.
 
-PHASE 4 — HYPOTHÈSES TOPOLOGIQUES CONCURRENTES
-Construis au moins deux hypothèses d’orientation si les vues arrière/latérales ne sont pas immédiatement certaines.
-Pour chaque hypothèse, indique :
-- attribution des plans à front/right/rear/left ;
-- coins physiques nécessaires ;
-- éléments qui la soutiennent ;
-- contradictions ou éléments inexpliqués.
-Choisis l’hypothèse gagnante uniquement si elle explique mieux l’ensemble sans contradiction.
-Si aucune ne domine clairement, marque la topologie comme `ambiguous` au lieu d’inventer.
+RÈGLE DE NON-FUSION
+Si deux photos partagent le même escalier/terrasse mais que le mur derrière eux présente une direction de perspective différente ou se situe de l’autre côté d’un coin, ces plans sont DISTINCTS.
+Une ouverture supposée identique ne peut prouver l’identité d’un plan que si sa position par rapport aux coins du plan est également compatible.
 
-PHASE 5 — FERMETURE AUTOUR DU BÂTIMENT
-Vérifie la boucle physique : front → right → rear → left → front.
-Pour chaque coin `front_right`, `right_rear`, `rear_left`, `left_front`, indique `observed`, `inferred_from_constraints` ou `unknown`.
-L’absence de vue directe d’un coin n’autorise pas à fusionner arbitrairement deux façades.
+PHASE 5 — TEST DE PHOTO DE TRANSITION
+Pour chaque photo susceptible d’être prise près d’un coin, demande silencieusement :
+- est-ce une vue de transition entre deux façades ?
+- voit-on encore un morceau de la façade précédente tout en regardant principalement la suivante ?
+- quel plan occupe la plus grande surface utile et porte les ouvertures principales ?
+Le champ `primary_physical_plane` doit désigner le plan principal de la photo ; `secondary_physical_planes` doit lister les autres plans visibles du volume principal.
+Ne classe jamais toute une photo sur une façade uniquement parce que les mêmes objets extérieurs y réapparaissent.
 
-PHASE 6 — ANTI-MIROIR
-La façade avant définit le repère canonique : quand on la regarde depuis l’extérieur, gauche reste gauche et droite reste droite.
-Pour chaque façade attribuée, indique explicitement si la gauche de l’image correspond au début ou à la fin du parcours physique du plan.
-Ne compense jamais un éventuel miroir du viewer.
+PHASE 6 — HYPOTHÈSES TOPOLOGIQUES CONCURRENTES
+Construis au moins deux hypothèses si l’orientation n’est pas certaine.
+Pour chaque hypothèse : attribution des plans à front/right/rear/left, coins nécessaires, support, contradictions, score.
+Teste explicitement une hypothèse où une photo ambiguë est une PHOTO DE TRANSITION vers la façade suivante plutôt qu’une répétition de la façade précédente.
+Si aucune hypothèse ne domine, `status="ambiguous"`.
 
-SORTIE — FORMAT EXACT
+PHASE 7 — FERMETURE AUTOUR DU BÂTIMENT
+Vérifie front → right → rear → left → front.
+Pour `front_right`, `right_rear`, `rear_left`, `left_front`, indique `observed`, `inferred_from_constraints` ou `unknown`.
+Une façade peut être principalement observée dans une seule photo oblique même si la façade précédente reste visible dans cette photo.
+
+PHASE 8 — ANTI-MIROIR
+La façade avant fixe la gauche/droite canonique. Pour chaque façade, déduis `image_left_maps_to_facade_offset` depuis le parcours physique des coins, jamais depuis une convention automatique.
+
+SORTIE — FORMAT
 {
   "schema_version":"topology-0.1",
-  "status":"resolved",
-  "front_reference":{"photo_index":1,"reason":"..."},
+  "status":"resolved|ambiguous",
+  "front_reference":{"photo_index":0,"reason":"..."},
   "photo_planes":[
     {
-      "photo_index":1,
+      "photo_index":0,
       "planes":[
         {
-          "local_id":"p1_plane_a",
+          "local_id":"pX_plane_a",
           "target_building":true,
+          "structure_role":"primary_volume|secondary_volume|neighbor",
+          "image_region":"...",
+          "dominant_horizontal_direction":"...",
+          "vertical_edges":["..."],
           "visible_opening_count":0,
           "opening_order":[],
-          "boundaries":["..."],
-          "fixed_landmarks":["..."],
-          "occlusions":["..."]
+          "boundaries":[],
+          "fixed_landmarks":[],
+          "occlusions":[]
         }
       ]
     }
   ],
   "plane_matches":[
     {
-      "physical_plane_id":"plane_01",
-      "members":["p1_plane_a","p4_plane_b"],
-      "confidence":0.8,
-      "proof":["même coin physique ...","même ouverture ..."],
+      "physical_plane_id":"plane_X",
+      "members":["..."],
+      "confidence":0.0,
+      "proof":[],
       "counterevidence":[]
     }
   ],
+  "photo_plane_roles":{
+    "PHOTO_INDEX":{"primary_physical_plane":"plane_X","secondary_physical_planes":["plane_Y"],"reason":"..."}
+  },
   "corner_graph":{
-    "front_right":{"status":"observed","evidence":["photo 1 ...","photo 2 ..."]},
-    "right_rear":{"status":"unknown","evidence":[]},
-    "rear_left":{"status":"unknown","evidence":[]},
-    "left_front":{"status":"unknown","evidence":[]}
+    "front_right":{"status":"unknown","connects":[],"evidence":[]},
+    "right_rear":{"status":"unknown","connects":[],"evidence":[]},
+    "rear_left":{"status":"unknown","connects":[],"evidence":[]},
+    "left_front":{"status":"unknown","connects":[],"evidence":[]}
   },
   "candidate_topologies":[
     {
       "id":"hypothesis_a",
-      "facades":{"front":"plane_01","right":"plane_02","rear":"plane_03","left":"plane_04"},
-      "photo_primary_facades":{"1":"front","2":"right","3":"left","4":"left","5":"rear"},
-      "support":["..."],
+      "facades":{"front":"plane_A","right":"plane_B","rear":"plane_C","left":"plane_D"},
+      "photo_primary_facades":{},
+      "support":[],
       "contradictions":[],
       "score":0.0
     }
   ],
-  "selected_topology":"hypothesis_a",
+  "selected_topology":"hypothesis_a|null",
   "facade_map":{
-    "front":{"physical_plane_id":"plane_01","photos":[1],"image_left_maps_to_facade_offset_by_photo":{"1":"low"}},
-    "right":{"physical_plane_id":"plane_02","photos":[2],"image_left_maps_to_facade_offset_by_photo":{"2":"low"}},
-    "rear":{"physical_plane_id":"plane_03","photos":[],"image_left_maps_to_facade_offset_by_photo":{}},
-    "left":{"physical_plane_id":"plane_04","photos":[],"image_left_maps_to_facade_offset_by_photo":{}}
+    "front":{"physical_plane_id":"...","photos":[],"image_left_maps_to_facade_offset_by_photo":{}},
+    "right":{"physical_plane_id":"...","photos":[],"image_left_maps_to_facade_offset_by_photo":{}},
+    "rear":{"physical_plane_id":"...","photos":[],"image_left_maps_to_facade_offset_by_photo":{}},
+    "left":{"physical_plane_id":"...","photos":[],"image_left_maps_to_facade_offset_by_photo":{}}
   },
   "unresolved_questions":[],
   "notes":"..."
 }
 
-IMPORTANT SUR L’EXEMPLE DE STRUCTURE
-Les numéros de photos et l’attribution illustrée dans `candidate_topologies` sont uniquement des exemples de FORMAT, pas des réponses à copier. Déduis tout depuis les images réelles.
+IMPORTANT
+Les identifiants et valeurs ci-dessus sont uniquement des placeholders de structure. Il n’y a AUCUNE attribution de photo ou de façade à copier depuis cet exemple.
 
-CONTRÔLE FINAL
-Avant de répondre :
-- chaque photo a été segmentée en plans avant orientation ;
-- aucun objet-pivot n’a suffi seul à fusionner deux plans ;
-- chaque fusion de plans a une preuve géométrique ;
-- au moins une hypothèse concurrente a été testée lorsque nécessaire ;
-- les coins et la fermeture du bâtiment ont été audités ;
-- aucune ouverture n’a été inventée ;
-- aucun matériau n’a été inféré ;
-- aucune métrique n’a été choisie ;
-- aucune Scene/LEGO n’a été produite ;
+CONTRÔLE FINAL — ÉCHEC = RECOMMENCER
+- chaque photo a été segmentée géométriquement avant orientation ;
+- toute photo oblique a été testée comme possible photo de transition ;
+- aucun plan n’englobe deux directions de perspective incompatibles ;
+- les plans de volumes secondaires sont séparés des façades du volume principal ;
+- aucun objet-pivot n’a suffi seul à fusionner des plans ;
+- chaque fusion a une preuve de géométrie + limites + ordre des détails ;
+- une hypothèse concurrente de transition a été testée pour toute photo ambiguë ;
+- boucle des quatre façades auditée ;
+- aucune ouverture inventée ;
+- aucun matériau, métrique, Scene ou LEGO produit ;
 - JSON pur uniquement.
