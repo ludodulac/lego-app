@@ -67,20 +67,29 @@ def _validate_single_rectangular_shell(geometry: BuildingGeometry) -> dict[Facad
 
 def generate_building_brick_shell(
     geometry: BuildingGeometry,
-    front_width_studs: int,
+    front_width_studs: int | None = None,
+    *,
+    studs_per_meter: float | None = None,
 ) -> BuildingBrickShell:
-    """Generate four wall layouts using one scale derived from the front wall."""
-    if front_width_studs <= 0:
-        raise ValueError("front_width_studs must be positive")
-
+    """Generate four wall layouts at a caller-supplied or front-derived shared scale."""
     by_facade = _validate_single_rectangular_shell(geometry)
     front_width_m, _ = _wall_metric_size(by_facade[Facade.FRONT])
-    studs_per_meter = front_width_studs / front_width_m
+
+    if studs_per_meter is None:
+        if front_width_studs is None or front_width_studs <= 0:
+            raise ValueError("front_width_studs must be positive when studs_per_meter is not supplied")
+        selected_scale = front_width_studs / front_width_m
+        reference_width_studs = front_width_studs
+    else:
+        if studs_per_meter <= 0:
+            raise ValueError("studs_per_meter must be positive")
+        selected_scale = studs_per_meter
+        reference_width_studs = max(1, round(front_width_m * selected_scale))
 
     wall_records: list[BuildingWallLayout] = []
     for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
         wall = by_facade[facade]
-        grid = discretize_wall_geometry_at_scale(wall, studs_per_meter)
+        grid = discretize_wall_geometry_at_scale(wall, selected_scale)
         layout = generate_wall_layout_with_openings(
             width_studs=grid.width_studs,
             height_bricks=grid.height_bricks,
@@ -102,7 +111,7 @@ def generate_building_brick_shell(
     return BuildingBrickShell(
         building_id=geometry.building_id,
         volume_id=geometry.walls[0].volume_id,
-        reference_width_studs=front_width_studs,
-        studs_per_meter=studs_per_meter,
+        reference_width_studs=reference_width_studs,
+        studs_per_meter=selected_scale,
         walls=wall_records,
     )
