@@ -12,16 +12,16 @@ def assess_m0_compatibility(building: BuildingModel) -> M0Compatibility:
     warnings: list[str] = []
     if len(building.volumes)>1:
         warnings.append("Les volumes rectangulaires multiples sont construits sur une grille commune ; les jonctions entre volumes ne sont pas encore optimisées comme une seule maçonnerie continue.")
-    flat_roofs=[roof for roof in building.roofs if roof.type is RoofType.FLAT]
+    flat_roofs=[roof for roof in building.roofs if roof.type == RoofType.FLAT]
     if flat_roofs:
         warnings.append("Les volumes à toiture plate sont construits avec leurs murs, mais leur couverture horizontale LEGO dédiée n'est pas encore générée.")
-    if any(opening.type is OpeningType.GARAGE_DOOR for opening in building.openings):
+    if any(opening.type == OpeningType.GARAGE_DOOR for opening in building.openings):
         warnings.append("Les portes de garage sont rasterisées comme de grandes ouvertures ; leur habillage dédié n'est pas encore modélisé.")
-    windows=[opening for opening in building.openings if opening.type is OpeningType.WINDOW]
+    windows=[opening for opening in building.openings if opening.type == OpeningType.WINDOW]
     if windows:
         warnings.append("Le vitrage LEGO réel n’est inséré que lorsqu’une baie rasterisée correspond à une famille de fenêtre LEGO validée ; sinon M0 conserve actuellement un détail de façade sans vitrage complet.")
-    if any(opening.window_style is WindowStyle.BAY for opening in windows):
+    if any(opening.window_style == WindowStyle.BAY for opening in windows):
         warnings.append("Les bow-windows sont encore représentés par un détail de façade conservateur, sans avancée volumétrique complète.")
-    if any(opening.window_style is WindowStyle.FOUR_PANE for opening in windows):
+    if any(opening.window_style == WindowStyle.FOUR_PANE for opening in windows):
         warnings.append("Les fenêtres four_pane n’ont pas encore de famille de vitrage LEGO validée dédiée dans M0.")
     return M0Compatibility(buildable=not blockers,blockers=blockers,warnings=warnings)
