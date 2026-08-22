@@ -32,7 +32,7 @@ def _single_volume_bundle(building:BuildingModel,geometry,front_width_studs:int)
     spatial_roof=generate_spatial_gable_roof(geometry,shell) if roof is not None and roof.type is RoofType.GABLE else None
     brick_model=generate_brick_model(spatial_shell,spatial_roof,facade_details,window_parts)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
-    return create_export_bundle(brick_model,bom,assembly_plan)
+    return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
 
 def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
     """Run M0 on one or more rectangular volumes using one shared global scale."""
@@ -60,7 +60,7 @@ def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT
         max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
     brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
-    return create_export_bundle(brick_model,bom,assembly_plan)
+    return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
 
 def run_m0_pipeline(input_path:str|Path,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
     building=load_building_model(input_path); return run_m0_pipeline_model(building,front_width_studs=front_width_studs)
