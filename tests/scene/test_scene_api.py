@@ -8,10 +8,15 @@ from brickhouse.api import app
 
 client = TestClient(app)
 FIXTURE = Path("tests/fixtures/architectural_scene_real_house_v02.json")
+MULTI_FIXTURE = Path("tests/fixtures/architectural_scene_multivolume_house_v02.json")
 
 
 def _fixture() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def _multi_fixture() -> dict:
+    return json.loads(MULTI_FIXTURE.read_text(encoding="utf-8"))
 
 
 def test_validate_scene_accepts_real_house_regression_fixture():
@@ -82,3 +87,20 @@ def test_projected_scene_can_flow_into_current_build_pipeline():
     built = client.post("/api/v1/build", json={"building": projection["building"], "front_width_studs": 48})
     assert built.status_code == 200
     assert built.json()["bom"]["total_parts"] > 0
+
+
+def test_multivolume_house_scene_flows_from_validation_to_composite_build():
+    validated = client.post("/api/v1/validate-scene", json=_multi_fixture())
+    assert validated.status_code == 200
+    payload = validated.json()
+    assert payload["projection"]["building"] is not None
+    assert len(payload["projection"]["building"]["volumes"]) == 2
+    assert payload["m0_compatibility"]["buildable"] is True
+    assert any("toiture plate" in warning for warning in payload["m0_compatibility"]["warnings"])
+    built = client.post("/api/v1/build", json={"building": payload["projection"]["building"], "front_width_studs": 48})
+    assert built.status_code == 200, built.text
+    export = built.json()
+    assert export["volume_id"] == "composite"
+    assert export["bom"]["total_parts"] > 0
+    assert any(part["placement_id"].startswith("volume_main:") for part in export["brick_model"]["parts"])
+    assert any(part["placement_id"].startswith("left_low_attached_volume_01:") for part in export["brick_model"]["parts"])
