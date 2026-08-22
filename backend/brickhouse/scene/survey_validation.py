@@ -1,6 +1,7 @@
 """Cross-check an ArchitecturalScene against its validated ArchitecturalSurvey source."""
 from __future__ import annotations
 
+from collections import Counter
 from enum import Enum
 from pydantic import BaseModel
 
@@ -23,9 +24,15 @@ class SceneSurveyIssue(BaseModel):
 
 
 def _semantic_opening_type(value: object) -> OpeningType | None:
+    """Return only strong semantic mappings.
+
+    Ambiguous but certain openings (glass blocks, indeterminate openings, etc.) are
+    still required geometrically by the validator below; they are deliberately
+    not forced into a window/door label here.
+    """
     if value == "window":
         return OpeningType.WINDOW
-    if value in {"door", "door_or_glazed_door"}:
+    if value in {"door", "door_or_glazed_door", "glazed_door_or_large_glazed_opening"}:
         return OpeningType.DOOR
     if value == "garage_door":
         return OpeningType.GARAGE_DOOR
@@ -93,17 +100,37 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
                 message=f"Le type de {opening.id!r} ne respecte pas l’identité sémantique du Survey.",
             ))
 
+    # Hierarchy gate #1: a certain opening is first and foremost a physical void.
+    # It may have an ambiguous semantic label, but it must not disappear from the
+    # Scene merely because BuildingModel has a smaller type vocabulary.
     scene_opening_ids = {item.id for item in scene.openings}
     for observation in survey_openings.values():
         if observation.certainty is not Certainty.CERTAIN:
             continue
-        expected = _semantic_opening_type(observation.attributes.get("semantic_type"))
-        if expected is not None and observation.id not in scene_opening_ids:
+        if observation.id not in scene_opening_ids:
             issues.append(SceneSurveyIssue(
                 code="certain_opening_missing",
                 severity=SceneSurveySeverity.ERROR,
                 object_id=observation.id,
-                message=f"L’ouverture certaine {observation.id!r} du Survey a disparu de la scène.",
+                message=f"L’ouverture certaine {observation.id!r} du Survey a disparu de la scène. Le nombre d’ouvertures doit être verrouillé avant leur type, position et dimensions.",
+            ))
+
+    # Hierarchy gate #2: expose facade-level count drift explicitly. This makes
+    # failures understandable and prevents downstream reconstruction from hiding
+    # several missing openings behind individual warnings.
+    survey_counts = Counter(
+        observation.facade
+        for observation in survey_openings.values()
+        if observation.certainty is Certainty.CERTAIN and observation.facade is not None
+    )
+    scene_counts = Counter(opening.facade for opening in scene.openings)
+    for facade, expected_count in survey_counts.items():
+        actual_count = scene_counts.get(facade, 0)
+        if actual_count != expected_count:
+            issues.append(SceneSurveyIssue(
+                code="facade_opening_count_drift",
+                severity=SceneSurveySeverity.ERROR,
+                message=f"La façade {facade.value} doit conserver {expected_count} ouverture(s) certaine(s) du Survey, mais la scène en contient {actual_count}.",
             ))
 
     photographed_facades = {photo.facade for photo in survey.photos}
@@ -117,9 +144,6 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
                 message=f"La scène ajoute une ouverture sur la façade {facade.value}, non documentée par ce Survey.",
             ))
 
-    # A photographed facade can still be partly or wholly hidden. The scene model
-    # itself already rejects openings in non-visible spans; repeat the invariant at
-    # the Survey gate so future schema changes cannot silently weaken it.
     visibility_by_facade = {item.facade: item for item in scene.visibility}
     for opening in scene.openings:
         visibility = visibility_by_facade.get(opening.facade)
