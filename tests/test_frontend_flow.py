@@ -75,6 +75,17 @@ def test_scene_import_is_gated_against_pending_validated_survey() -> None:
     assert "Scène refusée par le Survey" in gate
 
 
+def test_validated_scene_gate_can_build_and_open_viewer() -> None:
+    gate = read("scene-survey-gate.js")
+    assert "currentSceneBuildPayload" in gate
+    assert "gateBuild.disabled = !buildable" in gate
+    assert "/api/v1/build" in gate
+    assert "brickhouse.pendingArchitecturalScene" in gate
+    assert "brickhouse.pendingExport" in gate
+    assert "window.location.href = './viewer.html'" in gate
+    assert "Étape suivante : cliquez sur « Construire cette proposition »" in gate
+
+
 def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
     assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.3" in prompt
