@@ -32,6 +32,15 @@ def _semantic_opening_type(value: object) -> OpeningType | None:
     return None
 
 
+def _opening_visibility_bounds(opening, volume) -> tuple[float, float]:
+    """Return opening bounds in the scene visibility coordinate for its facade.
+
+    Scene opening offsets always start at the facade's exterior-view left edge.
+    Visibility spans use the same convention, so no mirroring is allowed here.
+    """
+    return opening.offset_horizontal, opening.offset_horizontal + opening.width
+
+
 def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> list[SceneSurveyIssue]:
     """Reject semantic or metric drift introduced during Survey -> Scene reconstruction."""
     issues: list[SceneSurveyIssue] = []
@@ -116,6 +125,31 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
                 severity=SceneSurveySeverity.ERROR,
                 message=f"La scène ajoute une ouverture sur la façade {facade.value}, non documentée par ce Survey.",
             ))
+
+    # A photographed facade can still be partly or wholly hidden by a neighbouring
+    # building, vegetation, or another obstruction. The previous gate checked only
+    # whether a facade had a photo, which allowed an AI to invent openings inside
+    # unknown/occluded spans. Visibility is authoritative for geometry placement.
+    visibility_by_facade = {item.facade: item for item in scene.visibility}
+    volumes_by_id = {item.id: item for item in scene.volumes}
+    for opening in scene.openings:
+        visibility = visibility_by_facade.get(opening.facade)
+        volume = volumes_by_id.get(opening.volume_id)
+        if visibility is None or volume is None:
+            continue
+        opening_start, opening_end = _opening_visibility_bounds(opening, volume)
+        for span in visibility.spans:
+            if span.state.value == "visible":
+                continue
+            overlap = opening_start < span.to and opening_end > span.from_
+            if overlap:
+                issues.append(SceneSurveyIssue(
+                    code="opening_in_hidden_span",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=opening.id,
+                    message=f"L’ouverture {opening.id!r} intersecte une zone {span.state.value} de la façade {opening.facade.value}; une zone cachée ne peut pas être complétée par supposition.",
+                ))
+                break
 
     certain_grade_facades = {
         item.facade
