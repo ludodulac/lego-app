@@ -15,12 +15,36 @@ class SurveyValidationIssue:
     severity: str = "error"
 
 
+_ARCHITECTURAL_KIND_BY_TAG = {
+    "volume": ObservationKind.VOLUME,
+    "platform": ObservationKind.PLATFORM,
+    "stair": ObservationKind.STAIR,
+}
+
+
 def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidationIssue]:
     """Return semantic issues that Pydantic shape validation alone cannot catch."""
     issues: list[SurveyValidationIssue] = []
 
     for observation in survey.observations:
         attributes = observation.attributes
+        target_ownership = attributes.get("target_building_ownership")
+        architectural_kind = attributes.get("architectural_kind")
+
+        if observation.kind is ObservationKind.CONTEXT and target_ownership == "proven":
+            issues.append(SurveyValidationIssue(
+                code="target_building_element_downgraded_to_context",
+                observation_id=observation.id,
+                message="Un élément dont l’appartenance au bâtiment cible est prouvée ne peut pas être classé context. Utilisez son kind architectural natif ou signalez une limitation de contrat.",
+            ))
+
+        expected_kind = _ARCHITECTURAL_KIND_BY_TAG.get(architectural_kind)
+        if expected_kind is not None and observation.kind is not expected_kind:
+            issues.append(SurveyValidationIssue(
+                code="architectural_kind_mismatch",
+                observation_id=observation.id,
+                message=f"L’observation déclare attributes.architectural_kind={architectural_kind!r} mais kind={observation.kind.value!r}. Elle doit utiliser kind={expected_kind.value!r}.",
+            ))
 
         if observation.kind is ObservationKind.OPENING:
             confirmed = bool(attributes.get("confirmed_by_user", False))
@@ -32,7 +56,6 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
                     message="User-confirmed opening requires a stable semantic_role; visual ambiguity may not erase its identity.",
                 ))
 
-            target_ownership = attributes.get("target_building_ownership")
             if observation.certainty in {Certainty.CERTAIN, Certainty.PLAUSIBLE}:
                 if target_ownership == "unproven":
                     issues.append(SurveyValidationIssue(
@@ -95,6 +118,7 @@ def validate_survey_extension(
         ))
 
     candidate_photos = {photo.photo_index: photo for photo in candidate.photos}
+    base_photo_indexes = {photo.photo_index for photo in base.photos}
     for photo in base.photos:
         if photo.photo_index not in candidate_photos:
             issues.append(SurveyValidationIssue(
@@ -111,7 +135,7 @@ def validate_survey_extension(
 
     base_max_photo = max(photo.photo_index for photo in base.photos)
     for photo in candidate.photos:
-        if photo.photo_index not in {item.photo_index for item in base.photos} and photo.photo_index <= base_max_photo:
+        if photo.photo_index not in base_photo_indexes and photo.photo_index <= base_max_photo:
             issues.append(SurveyValidationIssue(
                 code="survey_extension_photo_index_reused",
                 observation_id=None,
