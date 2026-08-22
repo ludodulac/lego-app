@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, model_validator
 
+from brickhouse.building.models import Appearance
+
 from .assembly import AssemblyPlan
 from .bom import BillOfMaterials
 from .brick_model import BrickModel
@@ -23,6 +25,7 @@ class BrickExportBundle(BaseModel):
     building_id: str
     volume_id: str
     metadata: BrickExportMetadata = BrickExportMetadata()
+    appearance: Appearance | None = None
     brick_model: BrickModel
     bom: BillOfMaterials
     assembly_plan: AssemblyPlan | None = None
@@ -53,11 +56,13 @@ def create_export_bundle(
     model: BrickModel,
     bom: BillOfMaterials,
     assembly_plan: AssemblyPlan | None = None,
+    appearance: Appearance | None = None,
 ) -> BrickExportBundle:
     """Create the viewer/export bundle from one BrickModel, BOM and optional assembly plan."""
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
+        appearance=appearance,
         brick_model=model,
         bom=bom,
         assembly_plan=assembly_plan,
