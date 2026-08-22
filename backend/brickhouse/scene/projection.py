@@ -33,7 +33,7 @@ class ProjectionResult(BaseModel):
 
 
 def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
-    """Project representable scene data into BuildingModel 0.1 with explicit information loss."""
+    """Project every BuildingModel-representable scene object without silent simplification."""
 
     issues: list[ProjectionIssue] = []
 
@@ -58,12 +58,10 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
     for stair in scene.stairs:
         issues.append(ProjectionIssue(code="stair_not_supported", severity=ProjectionSeverity.WARNING, object_id=stair.id, message="Exterior stairs are not representable in BuildingModel 0.1 and will be omitted."))
 
-    if len(scene.volumes) != 1:
-        issues.append(ProjectionIssue(code="m0_single_volume_only", severity=ProjectionSeverity.BLOCKER, message="Current M0 projection requires exactly one principal building volume."))
-
-    if len(scene.roofs) > 1:
-        issues.append(ProjectionIssue(code="m0_single_roof_only", severity=ProjectionSeverity.BLOCKER, message="Current M0 projection supports at most one roof."))
-
+    # BuildingModel v0.1 already supports multiple rectangular volumes and one roof
+    # per volume. Do not reject valid scene structure here merely because the
+    # downstream brick engine is still catching up; M0 compatibility owns that
+    # separate decision.
     for volume in scene.volumes:
         if volume.floors > 3:
             issues.append(ProjectionIssue(code="building_model_floor_limit", severity=ProjectionSeverity.BLOCKER, object_id=volume.id, message="BuildingModel 0.1 supports at most three floors; projection will not silently clamp the scene value."))
