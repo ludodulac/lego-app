@@ -21,15 +21,25 @@ def _volume_geometry(geometry,volume_id:str):
     return geometry.model_copy(update={"walls":[w for w in geometry.walls if w.volume_id==volume_id],"roof_planes":[p for p in geometry.roof_planes if p.volume_id==volume_id]})
 
 def _translate_model(model:BrickModel,*,prefix:str,x:int,y:int,z:int):
-    parts=[]
-    for part in model.parts:
-        parts.append(part.model_copy(update={"placement_id":f"{prefix}:{part.placement_id}","x_studs":part.x_studs+x,"y_studs":part.y_studs+y,"z_plates":part.z_plates+z}))
-    return parts
+    return [part.model_copy(update={"placement_id":f"{prefix}:{part.placement_id}","x_studs":part.x_studs+x,"y_studs":part.y_studs+y,"z_plates":part.z_plates+z}) for part in model.parts]
+
+def _single_volume_bundle(building:BuildingModel,geometry,front_width_studs:int)->BrickExportBundle:
+    shell=generate_building_brick_shell(geometry,front_width_studs)
+    spatial_shell=generate_spatial_brick_shell(shell)
+    window_parts,fitted_window_ids=generate_window_assemblies(building,shell)
+    facade_details=generate_window_surrounds(building,shell,skip_opening_ids=fitted_window_ids)
+    roof=building.roofs[0] if building.roofs else None
+    spatial_roof=generate_spatial_gable_roof(geometry,shell) if roof is not None and roof.type is RoofType.GABLE else None
+    brick_model=generate_brick_model(spatial_shell,spatial_roof,facade_details,window_parts)
+    bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
+    return create_export_bundle(brick_model,bom,assembly_plan)
 
 def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
     """Run M0 on one or more rectangular volumes using one shared global scale."""
     if front_width_studs<=0: raise ValueError("front_width_studs must be positive")
     geometry=generate_building_geometry(building)
+    if len(building.volumes)==1:
+        return _single_volume_bundle(building,geometry,front_width_studs)
     primary=building.volumes[0]
     studs_per_meter=front_width_studs/primary.width
     plates_per_meter=studs_per_meter*COURSES_PER_STUD_RATIO*3
@@ -46,10 +56,9 @@ def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT
         spatial_roof=generate_spatial_gable_roof(subgeometry,shell) if roof is not None and roof.type is RoofType.GABLE else None
         local_model=generate_brick_model(spatial_shell,spatial_roof,facade_details,window_parts)
         x=round((volume.position.x-min_x)*studs_per_meter); y=round((volume.position.y-min_y)*studs_per_meter); z=round((volume.position.z-min_z)*plates_per_meter)
-        translated=_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z); all_parts.extend(translated)
+        all_parts.extend(_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z))
         max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
-    volume_id=primary.id if len(building.volumes)==1 else "composite"
-    brick_model=BrickModel(building_id=building.id,volume_id=volume_id,width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
+    brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
     return create_export_bundle(brick_model,bom,assembly_plan)
 
