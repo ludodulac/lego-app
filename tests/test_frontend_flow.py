@@ -124,3 +124,12 @@ def test_named_architectural_views_preserve_canonical_handedness() -> None:
     assert "scale.x=-1" not in viewer.replace(" ", "")
     assert "scaleX(-1)" not in viewer
     assert "world (x,z,-y)" in viewer
+
+
+def test_viewer_uses_exported_architectural_appearance() -> None:
+    viewer = read("viewer.js")
+    assert "function applyAppearance" in viewer
+    assert "a.roof?.color" in viewer
+    assert "setPaletteColor('roof_tile',roof)" in viewer
+    assert "applyAppearance(b);clearModel()" in viewer
+    assert "dark_gray" in viewer
