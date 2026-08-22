@@ -17,10 +17,13 @@ def test_validate_survey_accepts_real_house_two_photo_fixture():
     response = client.post("/api/v1/validate-survey", json=payload)
     assert response.status_code == 200
     body = response.json()
-    assert body["schema_version"] == "0.1"
-    assert body["canonical_frame"]["x_direction"] == "front_view_left_to_right"
-    assert body["representation_policy"]["reproduce_weathering"] is False
-    observation_ids = {item["id"] for item in body["observations"]}
+    assert body["valid_for_scene_fusion"] is True
+    assert body["issues"] == []
+    survey = body["survey"]
+    assert survey["schema_version"] == "0.1"
+    assert survey["canonical_frame"]["x_direction"] == "front_view_left_to_right"
+    assert survey["representation_policy"]["reproduce_weathering"] is False
+    observation_ids = {item["id"] for item in survey["observations"]}
     assert "right_rising_road" in observation_ids
     assert "right_building_limit" in observation_ids
 
