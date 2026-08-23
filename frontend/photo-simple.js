@@ -11,6 +11,35 @@ const studsInput = document.querySelector('#studs');
 const slots = [...document.querySelectorAll('.guided-photo-slot')];
 const MAX_TOTAL_PHOTOS = 12;
 const MAX_EXTRA_PHOTOS = 6;
+const EXTERNAL_AI_LAUNCH_MESSAGE = `Ceci est un paquet BrickHouse prêt à être exécuté. Ouvre l’archive ZIP jointe et lis d’abord le fichier 00-LIRE-ET-ANALYSER.txt. Exécute ensuite intégralement ses instructions sur toutes les photos du paquet comme un ensemble multi-vues du même bâtiment. Ne me demande pas quel type d’analyse je souhaite et ne propose pas d’autres diagnostics : l’objectif, le protocole et le format de sortie sont déjà définis par BrickHouse. Utilise les trois prompts du dossier instructions dans l’ordre indiqué et crée à la fin le fichier téléchargeable brickhouse-external-result.json demandé par le paquet.`;
+
+function ensureLaunchInstruction() {
+  let block = document.querySelector('#ai-launch-instruction-block');
+  if (block) return block;
+  block = document.createElement('div');
+  block.id = 'ai-launch-instruction-block';
+  block.className = 'field fallback-paste';
+  block.hidden = true;
+  block.innerHTML = `
+    <label for="ai-launch-instruction">Message à envoyer avec le ZIP</label>
+    <textarea id="ai-launch-instruction" rows="5" readonly spellcheck="false"></textarea>
+    <button id="copy-ai-launch-instruction" type="button">Copier cette consigne</button>
+    <small>Joignez le ZIP à une nouvelle conversation IA et envoyez exactement cette consigne. N’ajoutez aucune explication sur le bâtiment.</small>`;
+  packageStatus?.insertAdjacentElement('afterend', block);
+  const textarea = block.querySelector('#ai-launch-instruction');
+  textarea.value = EXTERNAL_AI_LAUNCH_MESSAGE;
+  block.querySelector('#copy-ai-launch-instruction')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(EXTERNAL_AI_LAUNCH_MESSAGE);
+      packageStatus.textContent = 'Consigne BrickHouse copiée. Collez-la dans le même message que le ZIP.';
+    } catch {
+      textarea.focus();
+      textarea.select();
+      packageStatus.textContent = 'Copie automatique indisponible : copiez la consigne affichée ci-dessous.';
+    }
+  });
+  return block;
+}
 
 function selectedSlotRecords() {
   return slots.map((slot, index) => {
@@ -166,7 +195,7 @@ function requestText(records) {
   const width = Number(knownWidthInput?.value);
   const general = notesInput?.value.trim() || 'Aucune précision générale.';
   const photoLines = records.map((item, idx) => `${idx + 1}. ${item.label} (${item.role === 'targeted_extra' ? 'vue supplémentaire ciblée' : 'vue de base'}) — fichier ${item.file.name}${item.note ? ` — note utilisateur : ${item.note}` : ''}`).join('\n');
-  return `BRICKHOUSE — DEMANDE D'ANALYSE EXTERNE\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- exploiter les vues supplémentaires pour lever des occultations ou vérifier la géométrie, pas pour multiplier artificiellement les objets ;\n- pour une terrasse, un escalier ou un palier, segmenter uniquement les primitives réellement soutenues par les photos : une zone cachée reste inconnue et ne doit pas être complétée pour fermer une chaîne de circulation ;\n- dans ArchitecturalScene, chaque Platform et StairRun représentant une observation active du Survey doit réutiliser exactement l'id stable de cette observation ; ne créer aucune primitive extérieure absente du Survey ;\n- une observation Survey plausible ne devient pas une géométrie métrique très confiante : conserver une confiance prudente jusqu'à preuve supplémentaire ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués à la maison cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement : topologie → ArchitecturalSurvey v0.1 → ArchitecturalScene v0.2.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier.\n`;
+  return `BRICKHOUSE — INSTRUCTION PRINCIPALE — À EXÉCUTER IMMÉDIATEMENT\n\nCeci n’est PAS une pièce jointe documentaire facultative. Ce fichier définit la tâche demandée par l’utilisateur. Ne demandez pas quel type d’analyse il souhaite et ne proposez pas de diagnostic alternatif. Exécutez directement le protocole BrickHouse ci-dessous.\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- exploiter les vues supplémentaires pour lever des occultations ou vérifier la géométrie, pas pour multiplier artificiellement les objets ;\n- pour une terrasse, un escalier ou un palier, segmenter uniquement les primitives réellement soutenues par les photos : une zone cachée reste inconnue et ne doit pas être complétée pour fermer une chaîne de circulation ;\n- dans ArchitecturalScene, chaque Platform et StairRun représentant une observation active du Survey doit réutiliser exactement l'id stable de cette observation ; ne créer aucune primitive extérieure absente du Survey ;\n- une observation Survey plausible ne devient pas une géométrie métrique très confiante : conserver une confiance prudente jusqu'à preuve supplémentaire ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués au bâtiment cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement et dans cet ordre : instructions/01-topologie.txt → instructions/02-survey.txt → instructions/03-survey-vers-scene.txt.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier. Si le protocole révèle une ambiguïté réelle, conservez-la dans les niveaux de certitude demandés au lieu de demander à l’utilisateur de choisir une architecture plausible.\n`;
 }
 
 packageButton?.addEventListener('click', async () => {
@@ -189,9 +218,10 @@ packageButton?.addEventListener('click', async () => {
     ]);
     const encoder = new TextEncoder();
     const manifest = {
-      schema_version: 'handoff-0.2',
+      schema_version: 'handoff-0.3',
       kind: 'brickhouse_external_ai_handoff',
       created_at: new Date().toISOString(),
+      launch_instruction: EXTERNAL_AI_LAUNCH_MESSAGE,
       known_front_width_m: Number(knownWidthInput?.value) > 0 ? Number(knownWidthInput.value) : null,
       target_front_width_studs: Number(studsInput?.value) || 48,
       general_notes: notesInput?.value.trim() || '',
@@ -212,6 +242,7 @@ packageButton?.addEventListener('click', async () => {
     };
     const entries = [
       { name: '00-LIRE-ET-ANALYSER.txt', bytes: encoder.encode(requestText(records)) },
+      { name: '00-CONSIGNE-A-COLLER-DANS-LE-CHAT.txt', bytes: encoder.encode(EXTERNAL_AI_LAUNCH_MESSAGE + '\n') },
       { name: 'manifest.json', bytes: encoder.encode(JSON.stringify(manifest, null, 2) + '\n') },
       { name: 'instructions/01-topologie.txt', bytes: encoder.encode(topologyPrompt) },
       { name: 'instructions/02-survey.txt', bytes: encoder.encode(surveyPrompt) },
@@ -232,7 +263,15 @@ packageButton?.addEventListener('click', async () => {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    packageStatus.textContent = `${records.length} photo(s) regroupée(s). Envoyez brickhouse-photos-a-analyser.zip à l’IA puis remettez ici son fichier brickhouse-external-result.json.`;
+
+    const launchBlock = ensureLaunchInstruction();
+    launchBlock.hidden = false;
+    try {
+      await navigator.clipboard.writeText(EXTERNAL_AI_LAUNCH_MESSAGE);
+      packageStatus.textContent = `${records.length} photo(s) regroupée(s). La consigne de lancement a été copiée : joignez le ZIP à une nouvelle conversation IA et collez cette consigne dans le même message.`;
+    } catch {
+      packageStatus.textContent = `${records.length} photo(s) regroupée(s). Joignez le ZIP à une nouvelle conversation IA puis copiez la consigne affichée ci-dessous dans le même message.`;
+    }
   } catch (error) {
     packageStatus.textContent = `Impossible de préparer le paquet : ${error.message}`;
   } finally {
