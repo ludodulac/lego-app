@@ -289,7 +289,8 @@ Correction effectuée juste avant cette passation dans `frontend/photo-simple.js
 - chaque photo reste une observation distincte dans le manifest avec `slot_view_index` ;
 - plusieurs vues peuvent partager le même libellé sans que ce libellé force l'interprétation ;
 - le paquet refuse plus de 12 photos au lieu de tronquer silencieusement les dernières ;
-- tests dédiés ajoutés dans `tests/test_guided_multi_photo_slots.py`.
+- tests dédiés ajoutés dans `tests/test_guided_multi_photo_slots.py` ;
+- le test frontend historique a été aligné sur le nouveau libellé « 6 zones de base ».
 
 Tests frontend du handoff présents notamment dans `tests/test_external_ai_handoff_launch.py`.
 
@@ -298,7 +299,8 @@ Commits immédiatement précédant cette mise à jour :
 - `4202ba73` — tests du handoff ;
 - `49ea4042` — interface multi-photos par zone ;
 - `9021bb0f` — conservation de toutes les vues dans le paquet IA ;
-- `da03a75f` — tests de régression multi-photos.
+- `da03a75f` — tests de régression multi-photos ;
+- `db2ab7fc` — alignement du test frontend historique.
 
 Le statut CI distant doit toujours être vérifié avant de le déclarer vert.
 
@@ -336,7 +338,7 @@ Parmi les commits mentionnés dans les conversations récentes :
 - `20bac3f6`, `342e95c8`, `0aa47808` raisonnement adaptatif et incertitude ;
 - `aa6b4d3e`, `f350b6b1`, `d66d083a`, `0766c201`, `0c30fb19`, `bce83a5e` fidélité/incertitude dans export et viewer ;
 - `7c05f8a6`, `4202ba73` handoff externe ;
-- `49ea4042`, `9021bb0f`, `da03a75f` multi-photos par zone guidée.
+- `49ea4042`, `9021bb0f`, `da03a75f`, `db2ab7fc` multi-photos par zone guidée.
 
 ## 21. Méthode de travail attendue
 
