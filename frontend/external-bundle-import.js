@@ -20,11 +20,29 @@ function extractJson(raw) {
   return start >= 0 && end > start ? value.slice(start, end + 1) : value;
 }
 
-function isBundle(value) {
+function isBundleRoot(value) {
   return value?.schema_version === 'external-bundle-0.1'
-    && value?.kind === 'brickhouse_external_result'
+    && value?.kind === 'brickhouse_external_result';
+}
+
+function isBundle(value) {
+  return isBundleRoot(value)
     && value?.survey?.schema_version === '0.1'
     && value?.scene?.schema_version === '0.2';
+}
+
+function bundleContractIssue(value) {
+  if (!isBundleRoot(value)) return null;
+  if (!value?.survey || !value?.scene) {
+    return 'Le résultat BrickHouse doit contenir à la fois survey et scene.';
+  }
+  if (value.survey.schema_version !== '0.1') {
+    return `Version Survey incompatible : attendu « 0.1 », reçu « ${value.survey.schema_version ?? 'absent'} ». Régénérez le résultat avec la commande BrickHouse la plus récente.`;
+  }
+  if (value.scene.schema_version !== '0.2') {
+    return `Version Scene incompatible : attendu « 0.2 », reçu « ${value.scene.schema_version ?? 'absent'} ». Régénérez le résultat avec la commande BrickHouse la plus récente.`;
+  }
+  return null;
 }
 
 function formatDetail(detail) {
@@ -40,6 +58,14 @@ button?.addEventListener('click', async event => {
   if (handingOffScene) return;
   let parsed;
   try { parsed = JSON.parse(extractJson(input?.value)); } catch { return; }
+
+  const contractIssue = bundleContractIssue(parsed);
+  if (contractIssue) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    status.textContent = `Import du résultat IA impossible : ${contractIssue}`;
+    return;
+  }
   if (!isBundle(parsed)) return;
 
   event.preventDefault();
