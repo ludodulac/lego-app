@@ -8,10 +8,10 @@ from math import dist
 
 from pydantic import BaseModel
 
-from brickhouse.building import Facade, OpeningType, RidgeDirection, RoofType
+from brickhouse.building import Facade, OpeningType, RidgeDirection
 from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind, RelationKind
 
-from .models import ArchitecturalScene, CONNECTIVITY_TOLERANCE_M, EdgeTreatment
+from .models import ArchitecturalScene, CONNECTIVITY_TOLERANCE_M, EdgeTreatment, SceneRoofType
 
 
 class SceneSurveySeverity(str, Enum):
@@ -452,7 +452,7 @@ def validate_scene_against_survey(
 
     gable_facades = _certain_gable_facades(survey)
     if gable_facades:
-        roofs = [roof for roof in scene.roofs if roof.type is RoofType.GABLE]
+        roofs = [roof for roof in scene.roofs if roof.type is SceneRoofType.GABLE]
         if not roofs:
             issues.append(
                 SceneSurveyIssue(
