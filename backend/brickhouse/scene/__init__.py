@@ -3,6 +3,7 @@
 from .models import (
     ArchitecturalScene,
     Chimney,
+    EdgeAccessSpan,
     EdgeTreatment,
     EquipmentType,
     Evidence,
@@ -11,6 +12,7 @@ from .models import (
     FacadeVisibility,
     GradeProfile,
     Platform,
+    PlatformEdge,
     PlatformEdges,
     PropertyValue,
     SceneOpening,
@@ -26,8 +28,8 @@ from .projection import ProjectionIssue, ProjectionResult, ProjectionSeverity, p
 from .survey_validation import SceneSurveyIssue, SceneSurveySeverity, validate_scene_against_survey
 
 __all__ = [
-    "ArchitecturalScene", "Chimney", "EdgeTreatment", "EquipmentType", "Evidence",
-    "ExteriorMaterial", "FacadeEquipment", "FacadeVisibility", "GradeProfile", "Platform",
+    "ArchitecturalScene", "Chimney", "EdgeAccessSpan", "EdgeTreatment", "EquipmentType", "Evidence",
+    "ExteriorMaterial", "FacadeEquipment", "FacadeVisibility", "GradeProfile", "Platform", "PlatformEdge",
     "PlatformEdges", "ProjectionIssue", "ProjectionResult", "ProjectionSeverity", "PropertyValue",
     "SceneOpening", "SceneRoof", "SceneSurveyIssue", "SceneSurveySeverity", "SceneVolume",
     "StairRun", "SupportPost", "Terrain", "VisibilitySpan", "VisibilityState",
