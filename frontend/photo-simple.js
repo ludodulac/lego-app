@@ -42,25 +42,26 @@ function ensureLaunchInstruction() {
 }
 
 function selectedSlotRecords() {
-  return slots.map((slot, index) => {
+  return slots.flatMap((slot) => {
     const input = slot.querySelector('.guided-photo-input');
     const note = slot.querySelector('.guided-photo-note');
-    const file = input?.files?.[0] ?? null;
-    return {
+    const files = [...(input?.files ?? [])];
+    return files.map((file, fileIndex) => ({
       slot: slot.dataset.slot,
       label: slot.dataset.label,
-      index: index + 1,
+      slot_view_index: fileIndex + 1,
       file,
       note: note?.value.trim() ?? '',
       role: 'guided_base',
-    };
-  }).filter(item => item.file);
+    }));
+  });
 }
 
 function selectedExtraRecords() {
   return [...(extraPhotosInput?.files ?? [])].slice(0, MAX_EXTRA_PHOTOS).map((file, index) => ({
     slot: `extra_${index + 1}`,
     label: `Vue supplémentaire ${index + 1}`,
+    slot_view_index: 1,
     file,
     note: '',
     role: 'targeted_extra',
@@ -82,9 +83,16 @@ function syncTechnicalPhotoInput() {
 function updateSlot(slot) {
   const input = slot.querySelector('.guided-photo-input');
   const name = slot.querySelector('.guided-photo-name');
-  const file = input?.files?.[0] ?? null;
-  slot.classList.toggle('has-photo', Boolean(file));
-  if (name) name.textContent = file ? file.name : 'Aucune photo';
+  const files = [...(input?.files ?? [])];
+  slot.classList.toggle('has-photo', files.length > 0);
+  if (!name) return;
+  if (!files.length) {
+    name.textContent = 'Aucune photo';
+  } else if (files.length === 1) {
+    name.textContent = files[0].name;
+  } else {
+    name.textContent = `${files.length} photos sélectionnées`;
+  }
 }
 
 function updateExtraSummary() {
@@ -101,6 +109,10 @@ for (const slot of slots) {
   const input = slot.querySelector('.guided-photo-input');
   input?.addEventListener('change', () => {
     updateSlot(slot);
+    const total = selectedSlotRecords().length + selectedExtraRecords().length;
+    if (total > MAX_TOTAL_PHOTOS) {
+      packageStatus.textContent = `BrickHouse utilise au maximum ${MAX_TOTAL_PHOTOS} photos au total. Retirez quelques vues redondantes.`;
+    }
     syncTechnicalPhotoInput();
   });
 }
@@ -194,20 +206,21 @@ async function fetchText(path) {
 function requestText(records) {
   const width = Number(knownWidthInput?.value);
   const general = notesInput?.value.trim() || 'Aucune précision générale.';
-  const photoLines = records.map((item, idx) => `${idx + 1}. ${item.label} (${item.role === 'targeted_extra' ? 'vue supplémentaire ciblée' : 'vue de base'}) — fichier ${item.file.name}${item.note ? ` — note utilisateur : ${item.note}` : ''}`).join('\n');
-  return `BRICKHOUSE — INSTRUCTION PRINCIPALE — À EXÉCUTER IMMÉDIATEMENT\n\nCeci n’est PAS une pièce jointe documentaire facultative. Ce fichier définit la tâche demandée par l’utilisateur. Ne demandez pas quel type d’analyse il souhaite et ne proposez pas de diagnostic alternatif. Exécutez directement le protocole BrickHouse ci-dessous.\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- exploiter les vues supplémentaires pour lever des occultations ou vérifier la géométrie, pas pour multiplier artificiellement les objets ;\n- pour une terrasse, un escalier ou un palier, segmenter uniquement les primitives réellement soutenues par les photos : une zone cachée reste inconnue et ne doit pas être complétée pour fermer une chaîne de circulation ;\n- dans ArchitecturalScene, chaque Platform et StairRun représentant une observation active du Survey doit réutiliser exactement l'id stable de cette observation ; ne créer aucune primitive extérieure absente du Survey ;\n- une observation Survey plausible ne devient pas une géométrie métrique très confiante : conserver une confiance prudente jusqu'à preuve supplémentaire ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués au bâtiment cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement et dans cet ordre : instructions/01-topologie.txt → instructions/02-survey.txt → instructions/03-survey-vers-scene.txt.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier. Si le protocole révèle une ambiguïté réelle, conservez-la dans les niveaux de certitude demandés au lieu de demander à l’utilisateur de choisir une architecture plausible.\n`;
+  const photoLines = records.map((item, idx) => `${idx + 1}. ${item.label}${item.role === 'guided_base' && item.slot_view_index > 1 ? ` — vue ${item.slot_view_index} de cette zone` : ''} (${item.role === 'targeted_extra' ? 'vue supplémentaire ciblée' : 'vue de base'}) — fichier ${item.file.name}${item.note ? ` — note utilisateur : ${item.note}` : ''}`).join('\n');
+  return `BRICKHOUSE — INSTRUCTION PRINCIPALE — À EXÉCUTER IMMÉDIATEMENT\n\nCeci n’est PAS une pièce jointe documentaire facultative. Ce fichier définit la tâche demandée par l’utilisateur. Ne demandez pas quel type d’analyse il souhaite et ne proposez pas de diagnostic alternatif. Exécutez directement le protocole BrickHouse ci-dessous.\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins. Plusieurs photos peuvent volontairement partager le même libellé de zone : elles restent des observations distinctes à recouper, et le libellé ne doit jamais forcer une interprétation contraire à l’image.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- exploiter les vues supplémentaires pour lever des occultations ou vérifier la géométrie, pas pour multiplier artificiellement les objets ;\n- pour une terrasse, un escalier ou un palier, segmenter uniquement les primitives réellement soutenues par les photos : une zone cachée reste inconnue et ne doit pas être complétée pour fermer une chaîne de circulation ;\n- dans ArchitecturalScene, chaque Platform et StairRun représentant une observation active du Survey doit réutiliser exactement l'id stable de cette observation ; ne créer aucune primitive extérieure absente du Survey ;\n- une observation Survey plausible ne devient pas une géométrie métrique très confiante : conserver une confiance prudente jusqu'à preuve supplémentaire ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués au bâtiment cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement et dans cet ordre : instructions/01-topologie.txt → instructions/02-survey.txt → instructions/03-survey-vers-scene.txt.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier. Si le protocole révèle une ambiguïté réelle, conservez-la dans les niveaux de certitude demandés au lieu de demander à l’utilisateur de choisir une architecture plausible.\n`;
 }
 
 packageButton?.addEventListener('click', async () => {
-  const records = selectedPhotoRecords();
-  if (!records.length) {
+  const allRecords = [...selectedSlotRecords(), ...selectedExtraRecords()];
+  if (!allRecords.length) {
     packageStatus.textContent = 'Ajoutez au moins une photo avant de préparer le paquet.';
     return;
   }
-  if (records.length > MAX_TOTAL_PHOTOS) {
-    packageStatus.textContent = `Gardez au maximum ${MAX_TOTAL_PHOTOS} photos.`;
+  if (allRecords.length > MAX_TOTAL_PHOTOS) {
+    packageStatus.textContent = `BrickHouse accepte au maximum ${MAX_TOTAL_PHOTOS} photos au total. Vous en avez sélectionné ${allRecords.length} : retirez quelques vues redondantes avant de générer le paquet.`;
     return;
   }
+  const records = allRecords;
   packageButton.disabled = true;
   packageStatus.textContent = 'Préparation du paquet BrickHouse…';
   try {
@@ -227,6 +240,7 @@ packageButton?.addEventListener('click', async () => {
       general_notes: notesInput?.value.trim() || '',
       capture_strategy: {
         guided_base_views: records.filter(item => item.role === 'guided_base').length,
+        guided_base_zones: new Set(records.filter(item => item.role === 'guided_base').map(item => item.slot)).size,
         targeted_extra_views: records.filter(item => item.role === 'targeted_extra').length,
         principle: 'few_high_value_views_plus_targeted_extras',
       },
@@ -234,6 +248,7 @@ packageButton?.addEventListener('click', async () => {
         photo_index: index + 1,
         slot: item.slot,
         label: item.label,
+        slot_view_index: item.slot_view_index,
         capture_role: item.role,
         filename: `photos/${String(index + 1).padStart(2, '0')}-${item.file.name}`,
         media_type: item.file.type,
