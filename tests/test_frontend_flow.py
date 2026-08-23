@@ -125,13 +125,25 @@ def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
     assert "quantité de photos jamais confondue avec certitude architecturale" in survey
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v23_contract() -> None:
+def test_survey_extension_prompt_supports_append_only_refinement() -> None:
+    prompt = read("brickhouse-survey-extension-prompt.txt")
+    assert "ARCHITECTURALSURVEY v0.5" in prompt
+    assert "refines_observation_id" in prompt
+    assert "unproven → plausible → certain" in prompt
+    assert "jamais `certain`" in prompt
+    assert "workflow de correction explicite" in prompt
+
+
+def test_survey_to_scene_prompt_matches_current_generic_v24_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.3" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.4" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
     assert "Ne redresse jamais silencieusement" in prompt
     assert "Une seule photo" in prompt
+    assert "RAFFINEMENTS APPEND-ONLY DU SURVEY" in prompt
+    assert "refines_observation_id" in prompt
+    assert "observation raffinée reste une provenance historique" in prompt
     assert "VOLUMES ET PORTÉE DES INFORMATIONS" in prompt
     assert "visibility[]` peut porter `volume_id`" in prompt
     assert "Platform` peut porter `host_volume_id`" in prompt
