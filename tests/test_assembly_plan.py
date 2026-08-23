@@ -52,3 +52,17 @@ def test_frame_and_pane_become_a_window_subassembly():
     assert step.focus=="closeup"
     assert step.phase=="Fenêtres"
     assert step.placement_ids==["frame-1","pane-1"]
+
+
+def test_scene_terrain_and_exterior_structures_get_distinct_build_phases():
+    parts=[
+        BrickModelPart(placement_id="scene-terrain:right:000001",part_id="BRICK_1X1",category="terrain",component="facade_detail",x_studs=0,y_studs=0,z_plates=0,rotation_quarter_turns=0,facade="right"),
+        BrickModelPart(placement_id="wall-000001",part_id="BRICK_1X1",category="brick",component="wall",x_studs=1,y_studs=0,z_plates=3,rotation_quarter_turns=0,facade="front"),
+        BrickModelPart(placement_id="scene-stair:run:tread:00001",part_id="BRICK_1X1",category="brick",component="facade_detail",x_studs=2,y_studs=0,z_plates=3,rotation_quarter_turns=0,facade="left"),
+        BrickModelPart(placement_id="scene-platform:deck:board:00001",part_id="BRICK_1X4",category="timber",component="facade_detail",x_studs=3,y_studs=0,z_plates=6,rotation_quarter_turns=1,facade="left"),
+    ]
+    model=BrickModel(building_id="scene",volume_id="v1",width_studs=8,depth_studs=6,height_plates=12,parts=parts)
+    plan=generate_assembly_plan(model)
+    assert [step.phase for step in plan.steps]==["Terrain","Structure","Structures extérieures","Structures extérieures"]
+    assert plan.total_bags==3
+    assert plan.steps[0].title.startswith("Terrain")
