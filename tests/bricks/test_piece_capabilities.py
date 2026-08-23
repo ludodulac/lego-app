@@ -32,7 +32,10 @@ def test_fractional_piece_dimensions_are_preserved_from_source_data():
 def test_current_engine_promotes_only_explicitly_supported_families():
     registry = create_current_engine_capability_registry(MASTER)
     assert registry.get("BRICK_1X8").auto_placeable is True
+    assert registry.get("BRICK_SLOPED_18_4X2").auto_placeable is True
     assert registry.get("BRICK_SLOPED_45_2X4").auto_placeable is True
+    # Catalogue presence alone still does not approve an unmodeled family.
+    assert registry.get("BRICK_SLOPED_30_1X2X2_3").auto_placeable is False
     assert registry.get("BRICK_SLOPED_65_2X2X2").auto_placeable is False
 
 
