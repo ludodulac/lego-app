@@ -53,6 +53,11 @@ class AssemblyPlan(BaseModel):
 
 
 def _phase_for_part(part) -> str:
+    """Return a construction phase without changing BrickModel's stable component schema."""
+    if part.category == "terrain":
+        return "Terrain"
+    if part.placement_id.startswith(("scene-platform:", "scene-stair:")) or part.category == "timber":
+        return "Structures extérieures"
     if part.component == "wall":
         return "Structure"
     if part.component == "roof":
@@ -86,16 +91,44 @@ def _window_subassemblies(model: BrickModel) -> tuple[list[list[str]], set[str]]
     return result, used
 
 
+_PHASE_ORDER = {
+    "Terrain": 1,
+    "Structure": 2,
+    "Structures extérieures": 3,
+    "Fenêtres": 4,
+    "Façades": 5,
+    "Toiture": 6,
+}
+
+
 def _bag_for_phase(phase: str) -> int:
-    return {"Structure": 1, "Fenêtres": 2, "Façades": 3, "Toiture": 4}[phase]
+    return _PHASE_ORDER[phase]
+
+
+def _append_grouped_steps(pending: list[dict], parts: list, *, phase: str, title: str, focus: str = "closeup") -> None:
+    groups: dict[int, list[str]] = defaultdict(list)
+    for part in parts:
+        groups[part.z_plates].append(part.placement_id)
+    for z in sorted(groups):
+        for chunk in _chunks(sorted(groups[z])):
+            pending.append(dict(component="facade_detail", z=z, title=f"{title} — niveau {z} plates", ids=chunk, phase=phase, kind="placement", focus=focus))
 
 
 def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
-    """Generate short steps, mini-build windows and virtual preparation bags."""
+    """Generate short steps, mini-build windows and semantic construction phases."""
     parts_by_id = {part.placement_id: part for part in model.parts}
     pending: list[dict] = []
 
-    # 1. Structure: bottom-up, split dense wall levels into manageable actions.
+    # Site first when a Scene provides a terrain surface.
+    _append_grouped_steps(
+        pending,
+        [part for part in model.parts if _phase_for_part(part) == "Terrain"],
+        phase="Terrain",
+        title="Terrain",
+        focus="normal",
+    )
+
+    # Main structural shell: bottom-up, split dense wall levels into manageable actions.
     wall_groups: dict[int, list[str]] = defaultdict(list)
     for part in model.parts:
         if part.component == "wall":
@@ -108,7 +141,15 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
                 title += f" · partie {idx}/{len(chunks)}"
             pending.append(dict(component="wall", z=z, title=title, ids=chunk, phase="Structure", kind="placement", focus="normal"))
 
-    # 2. Windows: build frame + pane as a mini-assembly before placing it.
+    # Scene-aware stairs, landings, decks and similar attached structures.
+    _append_grouped_steps(
+        pending,
+        [part for part in model.parts if _phase_for_part(part) == "Structures extérieures"],
+        phase="Structures extérieures",
+        title="Structures extérieures",
+    )
+
+    # Windows: build frame + pane as a mini-assembly before placing it.
     assemblies, used_window_ids = _window_subassemblies(model)
     for index, ids in enumerate(assemblies, start=1):
         z = min(parts_by_id[pid].z_plates for pid in ids)
@@ -124,16 +165,16 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
             for chunk in _chunks(sorted(groups[z])):
                 pending.append(dict(component="facade_detail", z=z, title=f"{label} — niveau {z} plates", ids=chunk, phase="Fenêtres", kind="placement", focus="closeup"))
 
-    # 3. Other facade details.
+    # Other facade details, excluding site/exterior parts already scheduled above.
     detail_groups: dict[int, list[str]] = defaultdict(list)
     for part in model.parts:
-        if part.component == "facade_detail" and part.category not in {"window_frame", "window_pane"}:
+        if part.component == "facade_detail" and _phase_for_part(part) == "Façades":
             detail_groups[part.z_plates].append(part.placement_id)
     for z in sorted(detail_groups):
         for chunk in _chunks(sorted(detail_groups[z])):
             pending.append(dict(component="facade_detail", z=z, title=f"Détails de façade — niveau {z} plates", ids=chunk, phase="Façades", kind="placement", focus="closeup"))
 
-    # 4. Roof last, bottom-up.
+    # Roof last, bottom-up.
     roof_groups: dict[int, list[str]] = defaultdict(list)
     for part in model.parts:
         if part.component == "roof":
