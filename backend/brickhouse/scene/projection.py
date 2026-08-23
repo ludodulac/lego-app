@@ -6,9 +6,9 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
-from brickhouse.building import BuildingModel, Metadata, Opening, Roof, Volume, VolumeShape
+from brickhouse.building import BuildingModel, Metadata, Opening, Roof, RoofType, Volume, VolumeShape
 
-from .models import ArchitecturalScene
+from .models import ArchitecturalScene, SceneRoofType
 
 
 class ProjectionSeverity(str, Enum):
@@ -58,6 +58,17 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
     for stair in scene.stairs:
         issues.append(ProjectionIssue(code="stair_not_supported", severity=ProjectionSeverity.WARNING, object_id=stair.id, message="Exterior stairs are not representable in BuildingModel 0.1 and will be omitted."))
 
+    for roof in scene.roofs:
+        if roof.type not in {SceneRoofType.FLAT, SceneRoofType.GABLE}:
+            issues.append(
+                ProjectionIssue(
+                    code="roof_type_not_supported",
+                    severity=ProjectionSeverity.WARNING,
+                    object_id=roof.id,
+                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
+                )
+            )
+
     # BuildingModel v0.1 already supports multiple rectangular volumes and one roof
     # per volume. Do not reject valid scene structure here merely because the
     # downstream brick engine is still catching up; M0 compatibility owns that
@@ -73,7 +84,19 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
 
     openings = [Opening(id=opening.id, type=opening.type, volume_id=opening.volume_id, facade=opening.facade, offset_horizontal=opening.offset_horizontal, offset_vertical=opening.offset_vertical, width=opening.width, height=opening.height, source=opening.source, window_style=opening.window_style, has_sill=opening.has_sill, has_decorative_surround=opening.has_decorative_surround) for opening in scene.openings]
 
-    roofs = [Roof(id=roof.id, volume_id=roof.volume_id, type=roof.type, overhang=roof.overhang, ridge_direction=roof.ridge_direction, pitch_degrees=roof.pitch_degrees, source=roof.source) for roof in scene.roofs]
+    roofs = [
+        Roof(
+            id=roof.id,
+            volume_id=roof.volume_id,
+            type=RoofType(roof.type.value),
+            overhang=roof.overhang,
+            ridge_direction=roof.ridge_direction,
+            pitch_degrees=roof.pitch_degrees,
+            source=roof.source,
+        )
+        for roof in scene.roofs
+        if roof.type in {SceneRoofType.FLAT, SceneRoofType.GABLE}
+    ]
 
     notes = scene.notes
     if issues:
@@ -81,8 +104,6 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
         notes = f"{notes + ' ' if notes else ''}Projection losses: {loss}."
 
     # ArchitecturalScene is intentionally generic. Do not inject a house-specific
-    # classification merely because the current visual regression fixture is a
-    # house. BuildingModel v0.1 requires a free-form type, so use the neutral
-    # value until the Scene contract carries an observed/inferred building type.
+    # classification merely because a visual regression fixture is a house.
     building = BuildingModel(schema_version="0.1", id=scene.id, name=scene.name, building_type="building", units="m", volumes=volumes, openings=openings, roofs=roofs, appearance=scene.appearance, metadata=Metadata(created_from="photo_analysis", notes=notes))
     return ProjectionResult(building=building, issues=issues)
