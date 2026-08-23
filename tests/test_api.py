@@ -68,6 +68,7 @@ def test_capabilities_explain_provider_selection(monkeypatch):
     assert payload["photo_model"] is None
     assert payload["photo_analysis_reason"] == "provider_not_selected"
     assert payload["engine_revision"] == "rev-1"
+    assert payload["max_photos"] == 12
 
     monkeypatch.setenv("BRICKHOUSE_VISION_PROVIDER", "gemini")
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
@@ -190,7 +191,14 @@ def test_photo_analysis_rejects_unsupported_file_type(monkeypatch):
     assert response.status_code == 415
 
 
+def test_photo_analysis_accepts_richer_multi_view_set(monkeypatch):
+    _enable_openai(monkeypatch)
+    monkeypatch.setattr(api_module, "analyze_with_configured_provider", lambda *args, **kwargs: _analysis_result())
+    files = [("photos", (f"p{i}.jpg", b"photo", "image/jpeg")) for i in range(12)]
+    assert client.post("/api/v1/analyze-photos", files=files).status_code == 200
+
+
 def test_photo_analysis_rejects_too_many_photos(monkeypatch):
     _enable_openai(monkeypatch)
-    files = [("photos", (f"p{i}.jpg", b"photo", "image/jpeg")) for i in range(7)]
+    files = [("photos", (f"p{i}.jpg", b"photo", "image/jpeg")) for i in range(13)]
     assert client.post("/api/v1/analyze-photos", files=files).status_code == 422
