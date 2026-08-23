@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.8
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.9
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Tu ne refais ni la topologie ni l’inventaire architectural. Le Survey est la source de vérité.
@@ -39,12 +39,17 @@ Avant toute mesure, fais une passe de SEGMENTATION STRUCTURELLE multi-vues. Cher
 Méthode obligatoire pour terrasse/escalier :
 A. INVENTAIRE DES BLOCS : identifie chaque primitive rectiligne visible indépendamment : volée d’escalier, palier, dalle béton, plateforme bois, garde-corps/muret, poteau/support.
 B. CORRESPONDANCE MULTI-VUES : prouve qu’un bloc vu sur plusieurs photos est le même à l’aide des coins, ouvertures, végétation, garde-corps, poteaux et jonctions.
-C. GRAPHE DE CONNEXION : établis dans quel ordre les blocs se touchent. Exemple générique : sol → volée 1 → palier → volée 2 → dalle de transition → terrasse.
+C. GRAPHE DE CONNEXION : établis dans quel ordre les blocs se touchent UNIQUEMENT lorsque cette relation est observée ou imposée par plusieurs indices concordants. Exemple générique possible : sol → volée 1 → palier → volée 2 → dalle de transition → terrasse.
 D. ORIENTATION : détermine séparément le vecteur horizontal de CHAQUE volée. Si l’escalier tourne, utilise plusieurs objets `stairs[]`, un par volée, reliés par un `platforms[]` servant de palier. N’écrase jamais un escalier tournant en un seul segment diagonal ou droit.
 E. EMPREINTE : pour chaque plateforme, vérifie d’abord quels bords touchent la maison et jusqu’à quel coin elle s’étend. L’adjacence au mur et aux coins est prioritaire sur les dimensions estimées.
 F. MATÉRIAU : un changement clair béton/maçonnerie → bois signifie deux blocs physiques distincts, même s’ils sont au même niveau. Dans le schéma v0.2 actuel, encode cette distinction par des objets séparés et explique le matériau dans `evidence` et `notes`; ne fusionne pas les deux parties.
 G. GARDE-CORPS / MURETS : un muret plein en béton bordant un escalier n’est pas une terrasse et n’est pas un simple garde-corps transparent. Il contraint la largeur et le côté de la volée. Même si le moteur LEGO ne sait pas encore le représenter fidèlement, conserve cette contrainte dans `evidence`/`notes` et ne déplace pas la volée.
 H. OCCLUSION : une partie cachée peut être inférée uniquement si les deux extrémités visibles et les connexions imposent une continuité simple. Sinon marque l’incertitude au lieu d’inventer une forme.
+
+RÈGLE D’ACCÈS — NE PAS SURINTERPRÉTER LES PORTES
+Une porte ou porte-fenêtre en hauteur ne prouve PAS à elle seule l’existence d’une terrasse, d’un balcon, d’un palier ou d’un escalier. Les bâtiments réels peuvent avoir une porte donnant dans le vide, un balcon supprimé, un accès futur, une porte de chargement ou une ouverture devenue inaccessible.
+N’invente JAMAIS une structure d’accès uniquement pour « expliquer » une porte.
+Inversement, si le Survey ou les photos établissent explicitement qu’une porte dessert une terrasse/palier/escalier précis, alors cette relation devient une contrainte géométrique à conserver.
 
 EXEMPLE DE DÉCOMPOSITION À PRODUIRE QUAND LES PHOTOS LE JUSTIFIENT
 `stairs`: stair_run_01 (sol→palier), stair_run_02 (palier→niveau terrasse)
@@ -53,6 +58,7 @@ Ce n’est qu’un exemple de STRUCTURE, jamais une géométrie à recopier sans
 
 CONTRAINTE PORTE / PORTE-FENÊTRE
 La géométrie d’un escalier ou d’une terrasse ne peut pas masquer artificiellement une ouverture certaine du Survey. Si une porte ou porte-fenêtre certaine se retrouve « dans » un escalier estimé, considère d’abord que la géométrie de l’escalier est fausse et reconstruis les blocs. Ne supprime ni ne déplace l’ouverture certaine pour faire rentrer l’escalier.
+Cette règle n’implique PAS qu’une porte doive obligatoirement avoir une terrasse ou un escalier devant elle.
 
 TOPOLOGIE ET ANTI-MIROIR
 Si `topology_reference.orientation_locked=true`, aucune photo, façade ou relation left/right ne peut être réinterprétée. Une photo arrière pouvant montrer un objet de gauche ne déplace jamais cet objet vers rear. Si le Survey établit un pignon avant, la toiture principale gable doit avoir `ridge_direction="depth"`.
@@ -96,12 +102,13 @@ AUDIT FINAL OBLIGATOIRE
 5. terrasse/escalier : liste des primitives établie avant métrique ;
 6. chaque changement de direction d’escalier correspond à un StairRun distinct ;
 7. chaque changement de matériau/structure de plateforme correspond à un Platform distinct ;
-8. graphe sol→volée(s)→palier(s)→terrasse continu, sans flottement ;
-9. aucun bloc extérieur n’empiète sur une ouverture certaine ;
-10. les bords de terrasse observés accolés au mur le restent ;
-11. pignon avant → ridge_direction=depth ; aucune inversion left/right ;
-12. chaque platform possède thickness/supports ; chaque stair possède start/end ;
-13. références volume_id valides et géométrie dans les limites ;
-14. fichier final créé et téléchargeable.
+8. les connexions entre blocs extérieurs sont continues lorsqu’elles sont réellement observées/établies ;
+9. aucune structure d’accès n’est inventée uniquement parce qu’une porte est en hauteur ;
+10. aucun bloc extérieur n’empiète sur une ouverture certaine ;
+11. les bords de terrasse observés accolés au mur le restent ;
+12. pignon avant → ridge_direction=depth ; aucune inversion left/right ;
+13. chaque platform possède thickness/supports ; chaque stair possède start/end ;
+14. références volume_id valides et géométrie dans les limites ;
+15. fichier final créé et téléchargeable.
 
 Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de détecter l’erreur dans le rendu LEGO.
