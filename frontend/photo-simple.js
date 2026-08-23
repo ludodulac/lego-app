@@ -11,9 +11,28 @@ const studsInput = document.querySelector('#studs');
 const slots = [...document.querySelectorAll('.guided-photo-slot')];
 const MAX_TOTAL_PHOTOS = 12;
 const MAX_EXTRA_PHOTOS = 6;
-const HANDOFF_SCHEMA_VERSION = 'handoff-0.5';
+const HANDOFF_SCHEMA_VERSION = 'handoff-0.6';
 const INSTRUCTION_FILENAME = '00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt';
-const EXTERNAL_AI_LAUNCH_MESSAGE = `Exécute maintenant BrickHouse en mode mono-tour. Le fichier 00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt joint est la commande utilisateur complète et prioritaire. Analyse toutes les photos jointes comme les vues d’un même bâtiment, exécute entièrement Topologie → Survey → Scene, puis crée immédiatement le fichier téléchargeable brickhouse-external-result.json. Ne réponds pas par une analyse intermédiaire, ne propose aucune option, ne demande aucune confirmation et ne demande pas ce que je souhaite. Si une information est incertaine, encode cette incertitude dans le JSON au lieu de m’interroger. N’utilise aucun ancien brickhouse-external-result.json éventuellement présent ailleurs : reconstruis uniquement depuis les photos et ce fichier de commande. Ta réponse finale doit uniquement annoncer ou joindre brickhouse-external-result.json.`;
+const EXTERNAL_AI_LAUNCH_MESSAGE = `Exécute maintenant BrickHouse en mode mono-tour. Le fichier 00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt joint est la commande utilisateur complète et prioritaire. Analyse toutes les photos jointes comme les vues d’un même bâtiment, respecte le niveau d’autorité des orientations indiqué dans le fichier, exécute entièrement Topologie → Survey → Scene, puis crée immédiatement le fichier téléchargeable brickhouse-external-result.json. Ne réponds pas par une analyse intermédiaire, ne propose aucune option, ne demande aucune confirmation et ne demande pas ce que je souhaite. Si une information est incertaine, encode cette incertitude dans le JSON au lieu de m’interroger. N’utilise aucun ancien brickhouse-external-result.json éventuellement présent ailleurs : reconstruis uniquement depuis les photos et ce fichier de commande. Ta réponse finale doit uniquement annoncer ou joindre brickhouse-external-result.json.`;
+
+function ensureOrientationControl() {
+  let control = document.querySelector('#orientation-confirmation-field');
+  if (control) return control;
+  control = document.createElement('div');
+  control.id = 'orientation-confirmation-field';
+  control.className = 'field orientation-confirmation-field';
+  control.innerHTML = `
+    <label class="orientation-confirmation-label">
+      <input id="confirm-guided-orientations" type="checkbox" />
+      <span><strong>Je connais l’orientation de ces vues</strong><br><small>Cochez seulement si vous avez volontairement classé les vues selon Avant / Gauche / Arrière / Droite. Sinon, laissez décoché : les cases resteront de simples repères que l’IA pourra réinterpréter.</small></span>
+    </label>`;
+  grid?.insertAdjacentElement('afterend', control);
+  return control;
+}
+
+function orientationsAreUserConfirmed() {
+  return Boolean(document.querySelector('#confirm-guided-orientations')?.checked);
+}
 
 function ensureLaunchInstruction() {
   let block = document.querySelector('#ai-launch-instruction-block');
@@ -103,6 +122,8 @@ function updateExtraSummary() {
   extraSummary.textContent = `${count} vue(s) supplémentaire(s) sélectionnée(s). Elles seront analysées avec les vues de base, pas comme des bâtiments séparés.`;
 }
 
+ensureOrientationControl();
+
 for (const slot of slots) {
   slot.querySelector('.guided-photo-input')?.addEventListener('change', () => {
     updateSlot(slot);
@@ -125,6 +146,7 @@ async function fetchText(path) {
 }
 
 function manifestFor(records) {
+  const confirmed = orientationsAreUserConfirmed();
   return {
     schema_version: HANDOFF_SCHEMA_VERSION,
     kind: 'brickhouse_external_ai_handoff',
@@ -132,6 +154,11 @@ function manifestFor(records) {
     instruction_file: INSTRUCTION_FILENAME,
     forbidden_context_files: ['brickhouse-external-result.json'],
     launch_instruction: EXTERNAL_AI_LAUNCH_MESSAGE,
+    orientation_semantics: {
+      slot_labels_are_user_confirmed: confirmed,
+      unconfirmed_policy: 'weak_capture_hints_recheck_from_images',
+      confirmed_policy: 'exact_front_left_rear_right_slots_are_strong_user_constraints',
+    },
     known_front_width_m: Number(knownWidthInput?.value) > 0 ? Number(knownWidthInput.value) : null,
     target_front_width_studs: Number(studsInput?.value) || 48,
     general_notes: notesInput?.value.trim() || '',
@@ -147,6 +174,7 @@ function manifestFor(records) {
       label: item.label,
       slot_view_index: item.slot_view_index,
       capture_role: item.role,
+      orientation_authority: item.role === 'guided_base' && confirmed ? 'user_confirmed' : 'capture_hint',
       original_filename: item.file.name,
       media_type: item.file.type,
       user_note: item.note,
@@ -157,8 +185,12 @@ function manifestFor(records) {
 function requestText(records) {
   const width = Number(knownWidthInput?.value);
   const general = notesInput?.value.trim() || 'Aucune précision générale.';
+  const confirmed = orientationsAreUserConfirmed();
+  const orientationRule = confirmed
+    ? 'ORIENTATION CONFIRMÉE PAR L’UTILISATEUR : le classement des vues de base a été fait volontairement. Pour les cases exactes Façade avant / Côté gauche / Arrière / Côté droit, conserve ces orientations comme contraintes utilisateur fortes. Une perspective oblique peut montrer un second pan, mais ne réoriente pas silencieusement la vue principale. Les cases 3/4 confirment seulement la région/côté indiqué.'
+    : 'ORIENTATION NON CONFIRMÉE : les libellés des cases sont seulement des repères de capture. Vérifie-les par l’analyse multi-vues et réinterprète-les si les preuves visuelles le justifient.';
   const photoLines = records.map((item, idx) => `${idx + 1}. ${item.file.name} — repère utilisateur : ${item.label}${item.role === 'guided_base' && item.slot_view_index > 1 ? ` (vue ${item.slot_view_index} de cette zone)` : ''}${item.note ? ` — note : ${item.note}` : ''}`).join('\n');
-  return `BRICKHOUSE — COMMANDE MONO-TOUR — À EXÉCUTER EN ENTIER\n\nCe fichier est la commande utilisateur complète. Tu dois produire le résultat final dans ce même tour. Aucun dialogue intermédiaire n’est autorisé.\n\nINTERDIT AVANT LA SORTIE JSON\n- ne demande pas confirmation de l’orientation ;\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas rénovation, plan LEGO, analyse architecturale, élévations ou autres options ;\n- ne réponds pas par un résumé de ce que tu as compris ;\n- ne t’arrête pas après la topologie ou le Survey ;\n- ne demande aucune information supplémentaire si elle peut être représentée comme inconnue/incertaine ;\n- ignore tout ancien brickhouse-external-result.json : ce type de fichier est une SORTIE, jamais une entrée de ce run ;\n- reconstruis exclusivement depuis les photos jointes, les faits utilisateur ci-dessous et les prompts inclus dans CE fichier.\n\nAnalyse toutes les photos jointes comme un ensemble multi-vues du même bâtiment. Les libellés sont des repères de prise de vue : vérifie leur cohérence par les images. S’ils sont ambigus, conserve l’ambiguïté dans les niveaux de certitude ; ne transforme pas cette ambiguïté en question utilisateur.\n\nVUES JOINTES\n${photoLines}\n\nINFORMATIONS UTILISATEUR\n- Informations générales : ${general}\n- Largeur avant connue : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- Taille cible : ${Number(studsInput?.value) || 48} tenons de façade\n\nRÈGLES NON NÉGOCIABLES\n- Ne jamais inventer une ouverture ou une structure dans une zone cachée.\n- Verrouiller topologie et correspondances multi-vues avant la métrique.\n- Une géométrie plausible ne devient pas certaine parce qu’elle ferme une circulation.\n- Une porte en hauteur peut donner dans le vide : ne pas inventer balcon, palier, terrasse ou escalier.\n- Les primitives extérieures de Scene doivent être soutenues par le Survey et réutiliser exactement l'id stable correspondant.\n- Ne jamais inverser gauche/droite.\n- Ne jamais attribuer au bâtiment cible un élément d’un bâtiment voisin.\n- Toute mesure utilisateur reste prioritaire avec source.kind=user_provided.\n- Le bâtiment peut être non rectangulaire, multi-volume ou atypique : ne pas imposer la maison benchmark comme modèle général.\n\nEXÉCUTION OBLIGATOIRE\n1. Exécute la topologie multi-vues.\n2. Sans t’arrêter ni demander confirmation, construis le Survey.\n3. Sans t’arrêter, reconstruis la Scene uniquement depuis ce Survey.\n4. Effectue les audits finaux demandés par les prompts.\n5. Crée immédiatement le fichier brickhouse-external-result.json.\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-external-result.json avec cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "...": "ArchitecturalSurvey v0.1 complet" },\n  "scene": { "...": "ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey" }\n}\n\nLa réponse de chat finale doit être minimale : elle peut seulement indiquer que brickhouse-external-result.json a été créé/attaché. Tout le contenu substantiel doit être dans ce fichier.\n`;
+  return `BRICKHOUSE — COMMANDE MONO-TOUR — À EXÉCUTER EN ENTIER\n\nCe fichier est la commande utilisateur complète. Tu dois produire le résultat final dans ce même tour. Aucun dialogue intermédiaire n’est autorisé.\n\nINTERDIT AVANT LA SORTIE JSON\n- ne demande pas confirmation de l’orientation ;\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas rénovation, plan LEGO, analyse architecturale, élévations ou autres options ;\n- ne réponds pas par un résumé de ce que tu as compris ;\n- ne t’arrête pas après la topologie ou le Survey ;\n- ne demande aucune information supplémentaire si elle peut être représentée comme inconnue/incertaine ;\n- ignore tout ancien brickhouse-external-result.json : ce type de fichier est une SORTIE, jamais une entrée de ce run ;\n- reconstruis exclusivement depuis les photos jointes, les faits utilisateur ci-dessous et les prompts inclus dans CE fichier.\n\n${orientationRule}\n\nAnalyse toutes les photos jointes comme un ensemble multi-vues du même bâtiment. L’autorité des libellés est définie ci-dessus et dans orientation_semantics du manifeste.\n\nVUES JOINTES\n${photoLines}\n\nINFORMATIONS UTILISATEUR\n- Informations générales : ${general}\n- Largeur avant connue : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- Taille cible : ${Number(studsInput?.value) || 48} tenons de façade\n\nRÈGLES NON NÉGOCIABLES\n- Ne jamais inventer une ouverture ou une structure dans une zone cachée.\n- Verrouiller topologie et correspondances multi-vues avant la métrique.\n- Une géométrie plausible ne devient pas certaine parce qu’elle ferme une circulation.\n- Une porte en hauteur peut donner dans le vide : ne pas inventer balcon, palier, terrasse ou escalier.\n- Les primitives extérieures de Scene doivent être soutenues par le Survey et réutiliser exactement l'id stable correspondant.\n- Ne jamais inverser gauche/droite.\n- Ne jamais attribuer au bâtiment cible un élément d’un bâtiment voisin.\n- Toute mesure utilisateur reste prioritaire avec source.kind=user_provided.\n- Le bâtiment peut être non rectangulaire, multi-volume ou atypique : ne pas imposer la maison benchmark comme modèle général.\n\nEXÉCUTION OBLIGATOIRE\n1. Exécute la topologie multi-vues.\n2. Sans t’arrêter ni demander confirmation, construis le Survey.\n3. Sans t’arrêter, reconstruis la Scene uniquement depuis ce Survey.\n4. Effectue les audits finaux demandés par les prompts.\n5. Crée immédiatement le fichier brickhouse-external-result.json.\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-external-result.json avec cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "...": "ArchitecturalSurvey v0.1 complet" },\n  "scene": { "...": "ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey" }\n}\n\nLa réponse de chat finale doit être minimale : elle peut seulement indiquer que brickhouse-external-result.json a été créé/attaché. Tout le contenu substantiel doit être dans ce fichier.\n`;
 }
 
 function combinedInstruction(records, topologyPrompt, surveyPrompt, scenePrompt) {
