@@ -17,7 +17,7 @@ def test_scene_prompt_separates_observed_existence_from_metric_confidence() -> N
 
 def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     source = SCENE_PROMPT.read_text(encoding="utf-8")
-    assert "SURVEY → SCENE v2.7" in source
+    assert "SURVEY → SCENE v2.8" in source
     assert 'schema_version` DOIT valoir exactement `"0.2"' in source
     assert "Position3D est TOUJOURS un objet" in source
     assert "PropertyValue" in source
@@ -26,17 +26,22 @@ def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     assert 'type:"other"' in source
     assert "facade_grade_profiles" in source
     assert "building_boundary" in source
+    assert 'type":"window|door|garage_door' in source
+    assert "walls/roof/frames" in source
 
 
 def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
     source = SURVEY_PROMPT.read_text(encoding="utf-8")
-    assert "RELEVÉ ARCHITECTURAL v2.1" in source
+    assert "RELEVÉ ARCHITECTURAL v2.2" in source
     assert 'schema_version` DOIT valoir exactement `"0.1"' in source
     assert '"kind":"front_width"' in source
     assert "subject_id" in source
     assert "object_id" in source
     assert "same_physical_object" in source
     assert "certitude de l’observation de toiture" in source
+    assert "attributes.semantic_type" in source
+    assert "SupportPost" in SCENE_PROMPT.read_text(encoding="utf-8")
+    assert "n’est PAS une deuxième observation `kind=\"platform\"`" in source
 
 
 def test_topology_prompt_obeys_single_turn_and_treats_slot_labels_as_hints() -> None:
