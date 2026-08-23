@@ -114,6 +114,23 @@ class Chimney(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
 
 
+class ExteriorMaterial(str, Enum):
+    TIMBER = "timber"
+    CONCRETE = "concrete"
+    MASONRY = "masonry"
+    STONE = "stone"
+    METAL = "metal"
+    COMPOSITE = "composite"
+    UNKNOWN = "unknown"
+
+
+class EdgeTreatment(str, Enum):
+    NONE = "none"
+    OPEN_RAILING = "open_railing"
+    SOLID_PARAPET = "solid_parapet"
+    UNKNOWN = "unknown"
+
+
 class SupportPost(BaseModel):
     id: str
     position: Position3D
@@ -130,6 +147,8 @@ class Platform(BaseModel):
     depth: float = Field(gt=0)
     thickness: float = Field(gt=0)
     supports: list[SupportPost] = Field(default_factory=list)
+    material: ExteriorMaterial | None = None
+    edge_treatment: EdgeTreatment | None = None
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
 
@@ -139,6 +158,9 @@ class StairRun(BaseModel):
     start: Position3D
     end: Position3D
     width: float = Field(gt=0)
+    material: ExteriorMaterial | None = None
+    left_edge: EdgeTreatment | None = None
+    right_edge: EdgeTreatment | None = None
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
 
