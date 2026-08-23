@@ -1,13 +1,16 @@
 """Add rich ArchitecturalScene exterior elements to an already-built BrickModel.
 
-This is intentionally a small M0 bridge: platforms and straight stair runs are
-represented with canonical 1x1 bricks so their location and massing survive into
-the viewer/BOM/assembly pipeline. Fidelity can improve later without losing the
-architectural constraints carried by the Scene.
+M0 bridge for exterior architecture. Platforms and stair runs are reconstructed
+from the validated Scene instead of being flattened away by BuildingModel 0.1.
+The current Scene schema does not yet expose a dedicated material field, so this
+module reads conservative material hints from object ids/evidence/notes. Geometry
+remains subordinate to Scene coordinates: hints may change representation, never
+position, orientation or adjacency.
 """
 from __future__ import annotations
 
 from math import ceil
+import unicodedata
 
 from brickhouse.building.models import Facade
 from brickhouse.scene.models import ArchitecturalScene, Platform, StairRun
@@ -58,24 +61,57 @@ def _nearest_facade(scene: ArchitecturalScene, x: float, y: float) -> Facade:
     return min(distances, key=lambda item: item[0])[1]
 
 
+def _normalized_text(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").lower()
+    return " ".join(text.split())
+
+
+def _object_text(obj, scene: ArchitecturalScene) -> str:
+    evidence = " ".join(item.observation for item in getattr(obj, "evidence", []))
+    return _normalized_text(f"{obj.id} {evidence} {scene.notes or ''}")
+
+
+def _is_timber(obj, scene: ArchitecturalScene) -> bool:
+    text = _object_text(obj, scene)
+    return any(token in text for token in ("bois", "timber", "wood", "lattes", "garde-corps bois"))
+
+
+def _is_masonry(obj, scene: ArchitecturalScene) -> bool:
+    text = _object_text(obj, scene)
+    return any(token in text for token in ("beton", "concrete", "maconne", "masonry", "pierre", "muret", "enduit"))
+
+
 def _brick(
     placement_id: str,
     x: int,
     y: int,
     z: int,
     facade: Facade,
+    *,
+    part_id: str = "BRICK_1X1",
+    category: str = "brick",
 ) -> BrickModelPart:
     return BrickModelPart(
         placement_id=placement_id,
-        part_id="BRICK_1X1",
-        category="brick",
+        part_id=part_id,
+        category=category,
         component="facade_detail",
-        x_studs=x,
-        y_studs=y,
-        z_plates=z,
+        x_studs=max(0, x),
+        y_studs=max(0, y),
+        z_plates=max(0, z),
         rotation_quarter_turns=0,
         facade=facade,
     )
+
+
+def _add_vertical_column(parts: list[BrickModelPart], *, prefix: str, x: int, y: int, z_from: int, z_to: int, facade: Facade, index_start: int) -> int:
+    index = index_start
+    z = max(0, z_from)
+    while z <= z_to:
+        parts.append(_brick(f"{prefix}:{index:05d}", x, y, z, facade))
+        index += 1
+        z += 3
+    return index
 
 
 def _platform_parts(
@@ -93,27 +129,57 @@ def _platform_parts(
     z0 = max(0, _round_half_up((platform.position.z - origin_z) * plates_per_meter))
     width = max(1, _round_half_up(platform.width * studs_per_meter))
     depth = max(1, _round_half_up(platform.depth * studs_per_meter))
-    courses = max(1, ceil(platform.thickness * plates_per_meter / 3.0))
     facade = _nearest_facade(scene, platform.position.x + platform.width / 2, platform.position.y + platform.depth / 2)
+    timber = _is_timber(platform, scene)
+    masonry = _is_masonry(platform, scene) and not timber
 
     parts: list[BrickModelPart] = []
     index = 1
+
+    # Timber terraces are decks, not solid cuboids. Keep only a thin structural
+    # deck at the Scene elevation. Masonry landings retain their full thickness.
+    courses = 1 if timber else max(1, ceil(platform.thickness * plates_per_meter / 3.0))
     for course in range(courses):
         z = z0 + course * 3
         for dx in range(width):
             for dy in range(depth):
-                parts.append(_brick(f"scene-platform:{platform.id}:{index:05d}", x0 + dx, y0 + dy, z, facade))
+                parts.append(_brick(f"scene-platform:{platform.id}:deck:{index:05d}", x0 + dx, y0 + dy, z, facade))
                 index += 1
 
-    # If the Scene does not yet contain explicit post geometry, add four simple
-    # support posts as a conservative structural default. They are deliberately
-    # subordinate to the deck and can later be replaced by richer timber parts.
-    post_cells = {(x0, y0), (x0 + width - 1, y0), (x0, y0 + depth - 1), (x0 + width - 1, y0 + depth - 1)}
-    for post_index, (x, y) in enumerate(sorted(post_cells), start=1):
+    # Prefer explicit supports. If the Scene has not yet measured them, a timber
+    # deck gets a sparse support grid rather than the previous four arbitrary
+    # corner posts. Masonry landings do not receive invented timber posts.
+    support_cells: set[tuple[int, int]] = set()
+    if platform.supports:
+        for support in platform.supports:
+            support_cells.add((
+                _round_half_up((support.position.x - origin_x) * studs_per_meter),
+                _round_half_up((support.position.y - origin_y) * studs_per_meter),
+            ))
+    elif timber:
+        xs = {x0, x0 + width - 1}
+        if width >= 8:
+            xs.add(x0 + width // 2)
+        ys = {y0, y0 + depth - 1}
+        if depth >= 10:
+            ys.add(y0 + depth // 2)
+        support_cells = {(x, y) for x in xs for y in ys}
+
+    for post_index, (x, y) in enumerate(sorted(support_cells), start=1):
         z = 0
         while z < z0:
-            parts.append(_brick(f"scene-platform:{platform.id}:post{post_index}:{z:04d}", x, y, z, facade))
+            parts.append(_brick(f"scene-platform:{platform.id}:support{post_index}:{z:04d}", x, y, z, facade))
             z += 3
+
+    # If the evidence explicitly describes a solid masonry parapet/muret, retain
+    # a low perimeter wall. Do not invent it for timber decks.
+    if masonry and any(token in _object_text(platform, scene) for token in ("muret", "parapet", "garde-corps plein")):
+        rail_top = z0 + 6
+        perimeter = {(x0 + dx, y0) for dx in range(width)} | {(x0 + dx, y0 + depth - 1) for dx in range(width)}
+        perimeter |= {(x0, y0 + dy) for dy in range(depth)} | {(x0 + width - 1, y0 + dy) for dy in range(depth)}
+        for x, y in sorted(perimeter):
+            index = _add_vertical_column(parts, prefix=f"scene-platform:{platform.id}:parapet", x=x, y=y, z_from=z0 + 3, z_to=rail_top, facade=facade, index_start=index)
+
     return parts
 
 
@@ -138,6 +204,7 @@ def _stair_parts(
     width = max(1, _round_half_up(stair.width * studs_per_meter))
     facade = _nearest_facade(scene, (stair.start.x + stair.end.x) / 2, (stair.start.y + stair.end.y) / 2)
     along_x = abs(dx) >= abs(dy)
+    masonry = _is_masonry(stair, scene)
 
     parts: list[BrickModelPart] = []
     seen: set[tuple[int, int, int]] = set()
@@ -146,18 +213,44 @@ def _stair_parts(
         t = step / steps
         x = _round_half_up(sx + dx * t)
         y = _round_half_up(sy + dy * t)
-        # LEGO vertical geometry lives on brick courses; this keeps each tread
-        # visibly supported rather than producing fractional floating plates.
         z = max(0, 3 * _round_half_up((sz + (ez - sz) * t) / 3.0))
+
+        tread_cells: list[tuple[int, int]] = []
         for offset in range(width):
             px = x if along_x else x + offset
             py = y + offset if along_x else y
+            tread_cells.append((px, py))
             key = (px, py, z)
             if key in seen:
                 continue
             seen.add(key)
-            parts.append(_brick(f"scene-stair:{stair.id}:{index:05d}", px, py, z, facade))
+            parts.append(_brick(f"scene-stair:{stair.id}:tread:{index:05d}", px, py, z, facade))
             index += 1
+
+        if masonry:
+            # A rendered concrete/stone stair is a supported mass, not floating
+            # treads. Fill below each tread and extend the two side cells above
+            # the tread to create the observed solid ramp/muret silhouette.
+            for px, py in tread_cells:
+                fill_z = 0
+                while fill_z < z:
+                    key = (px, py, fill_z)
+                    if key not in seen:
+                        seen.add(key)
+                        parts.append(_brick(f"scene-stair:{stair.id}:body:{index:05d}", px, py, fill_z, facade))
+                        index += 1
+                    fill_z += 3
+            if tread_cells:
+                side_cells = {tread_cells[0], tread_cells[-1]}
+                for px, py in side_cells:
+                    for wall_z in (z + 3, z + 6):
+                        key = (px, py, wall_z)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        parts.append(_brick(f"scene-stair:{stair.id}:sidewall:{index:05d}", px, py, wall_z, facade))
+                        index += 1
+
     return parts
 
 
@@ -167,7 +260,7 @@ def augment_brick_model_with_scene_architecture(
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Return a BrickModel that also contains Scene platforms and stairs."""
+    """Return a BrickModel that also contains all Scene platforms and stair runs."""
     if not scene.platforms and not scene.stairs:
         return model
     if front_width_studs <= 0:
