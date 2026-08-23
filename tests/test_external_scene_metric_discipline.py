@@ -17,7 +17,7 @@ def test_scene_prompt_separates_observed_existence_from_metric_confidence() -> N
 
 def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     source = SCENE_PROMPT.read_text(encoding="utf-8")
-    assert "SURVEY → SCENE v2.8" in source
+    assert "SURVEY → SCENE v2.9" in source
     assert 'schema_version` DOIT valoir exactement `"0.2"' in source
     assert "Position3D est TOUJOURS un objet" in source
     assert "PropertyValue" in source
@@ -27,7 +27,16 @@ def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     assert "facade_grade_profiles" in source
     assert "building_boundary" in source
     assert 'type":"window|door|garage_door' in source
-    assert "walls/roof/frames" in source
+
+
+def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
+    source = SCENE_PROMPT.read_text(encoding="utf-8")
+    assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in source
+    assert "start.x == end.x` OU `start.y == end.y" in source
+    assert "tolérance 0,12 m" in source
+    assert "chaque Platform touche un volume ou une StairRun" in source
+    assert "aucune connexion cachée inventée pour satisfaire le validateur" in source
+    assert "primitive omise de Scene" in source
 
 
 def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
