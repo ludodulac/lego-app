@@ -50,14 +50,8 @@ def _edge_access_interval(edge,offset):
     for span in edge.access_spans:
         if span.from_offset-CONNECTIVITY_TOLERANCE_M<=offset<=span.to_offset+CONNECTIVITY_TOLERANCE_M:return span.from_offset,span.to_offset
     return None
-
 def _stair_cross_interval(stair,edge_name,endpoint,platform):
-    """Return stair footprint interval along the platform edge at the connection."""
-    half=stair.width/2
-    x0,y0=platform.position.x,platform.position.y
-    # Stair direction determines the cross-axis. A y-running stair occupies width along x;
-    # an x-running stair occupies width along y.
-    dx=abs(stair.end.x-stair.start.x);dy=abs(stair.end.y-stair.start.y)
+    half=stair.width/2;x0,y0=platform.position.x,platform.position.y;dx=abs(stair.end.x-stair.start.x);dy=abs(stair.end.y-stair.start.y)
     if edge_name in {"y_min","y_max"}:
         center=endpoint.x-x0
         if dy>=dx:return center-half,center+half
@@ -65,16 +59,12 @@ def _stair_cross_interval(stair,edge_name,endpoint,platform):
     center=endpoint.y-y0
     if dx>=dy:return center-half,center+half
     return center-CONNECTIVITY_TOLERANCE_M,center+CONNECTIVITY_TOLERANCE_M
-
 def _interval_contains(container,required):
     if container is None:return False
     return required[0]>=container[0]-CONNECTIVITY_TOLERANCE_M and required[1]<=container[1]+CONNECTIVITY_TOLERANCE_M
-
 def _stair_platform_access_holds(stair,platform):
-    """Require the whole stair approach to fit through any protected platform edge."""
     if platform.edges is None:return True
-    x0,x1=platform.position.x,platform.position.x+platform.width;y0,y1=platform.position.y,platform.position.y+platform.depth
-    checked=False
+    x0,x1=platform.position.x,platform.position.x+platform.width;y0,y1=platform.position.y,platform.position.y+platform.depth;checked=False
     for p in (stair.start,stair.end):
         if not _point_on_platform((p.x,p.y,p.z),platform):continue
         edges=[]
@@ -85,9 +75,7 @@ def _stair_platform_access_holds(stair,platform):
         if not edges:return True
         checked=True
         for name,edge,offset in edges:
-            access=_edge_access_interval(edge,offset)
-            required=_stair_cross_interval(stair,name,p,platform)
-            if _interval_contains(access,required):return True
+            if _interval_contains(_edge_access_interval(edge,offset),_stair_cross_interval(stair,name,p,platform)):return True
     return not checked
 
 def _certain_connection_holds(scene,subject_id,object_id):
@@ -101,6 +89,17 @@ def _certain_connection_holds(scene,subject_id,object_id):
     if subject_id in platforms and object_id in openings:
         t=_opening_threshold(scene,object_id);return t is not None and _point_on_platform(t,platforms[subject_id])
     return None
+
+def _local_grade_elevation(scene,opening):
+    if scene.terrain is None:return None
+    profile=next((p for p in scene.terrain.profiles if p.facade is opening.facade),None)
+    if profile is None:return None
+    volume=next((v for v in scene.volumes if v.id==opening.volume_id),None)
+    if volume is None:return None
+    span=volume.width.value if opening.facade in {Facade.FRONT,Facade.REAR} else volume.depth.value
+    if span<=0:return None
+    center=min(max((opening.offset_horizontal+opening.width/2)/span,0.0),1.0)
+    return profile.start_elevation+(profile.end_elevation-profile.start_elevation)*center
 
 def validate_scene_against_survey(survey:ArchitecturalSurvey,scene:ArchitecturalScene)->list[SceneSurveyIssue]:
     issues=[];survey_openings={i.id:i for i in survey.observations if i.kind is ObservationKind.OPENING}
@@ -116,6 +115,15 @@ def validate_scene_against_survey(survey:ArchitecturalSurvey,scene:Architectural
         if obs.facade is not None and o.facade is not obs.facade:issues.append(SceneSurveyIssue(code="opening_facade_drift",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"L’ouverture {o.id!r} a changé de façade."))
         expected=_semantic_opening_type(obs.attributes.get("semantic_type"))
         if expected is not None and o.type is not expected:issues.append(SceneSurveyIssue(code="opening_type_drift",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"Le type de {o.id!r} ne respecte pas le Survey."))
+        if o.local_grade_clearance is not None:
+            grade=_local_grade_elevation(scene,o)
+            volume=next((v for v in scene.volumes if v.id==o.volume_id),None)
+            if grade is None or volume is None:
+                issues.append(SceneSurveyIssue(code="local_grade_clearance_uncheckable",severity=SceneSurveySeverity.WARNING,object_id=o.id,message=f"L’ouverture {o.id!r} définit une garde au sol locale, mais aucun profil de terrain correspondant ne permet de la vérifier."))
+            else:
+                actual=volume.position.z+o.offset_vertical-grade
+                if abs(actual-o.local_grade_clearance)>0.20:
+                    issues.append(SceneSurveyIssue(code="local_grade_clearance_mismatch",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"L’ouverture {o.id!r} annonce une garde au sol locale de {o.local_grade_clearance:g} m, mais sa géométrie et la pente donnent environ {actual:.2f} m."))
     scene_ids={i.id for i in scene.openings}
     for obs in survey_openings.values():
         if obs.certainty is Certainty.CERTAIN and obs.id not in scene_ids:issues.append(SceneSurveyIssue(code="certain_opening_missing",severity=SceneSurveySeverity.ERROR,object_id=obs.id,message=f"L’ouverture certaine {obs.id!r} a disparu de la Scene."))
