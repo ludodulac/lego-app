@@ -4,7 +4,13 @@ from brickhouse.survey import ArchitecturalSurvey
 SOURCE = {"kind": "inferred", "confidence": 0.6}
 
 
-def _survey(*, include_platform=True, platform_certainty="plausible") -> ArchitecturalSurvey:
+def _survey(
+    *,
+    include_platform=True,
+    platform_certainty="plausible",
+    include_grade=False,
+    grade_certainty="certain",
+) -> ArchitecturalSurvey:
     observations = []
     if include_platform:
         observations.append({
@@ -14,6 +20,16 @@ def _survey(*, include_platform=True, platform_certainty="plausible") -> Archite
             "certainty": platform_certainty,
             "statement": "Raised exterior deck visible on the right side.",
             "evidence": [{"photo_index": 2, "observation": "Deck edge visible."}],
+        })
+    if include_grade:
+        observations.append({
+            "id": "right-grade",
+            "kind": "terrain",
+            "facade": "right",
+            "certainty": grade_certainty,
+            "statement": "Ground level rises along the right facade.",
+            "evidence": [{"photo_index": 2, "observation": "Street/ground edge visibly rises along the wall."}],
+            "attributes": {"slope_direction": "low_to_high"},
         })
     return ArchitecturalSurvey.model_validate({
         "schema_version": "0.1",
@@ -27,8 +43,15 @@ def _survey(*, include_platform=True, platform_certainty="plausible") -> Archite
     })
 
 
-def _scene(*, confidence=0.6, source_kind="inferred") -> ArchitecturalScene:
-    return ArchitecturalScene.model_validate({
+def _scene(
+    *,
+    confidence=0.6,
+    source_kind="inferred",
+    include_grade=False,
+    grade_confidence=0.6,
+    grade_source_kind="inferred",
+) -> ArchitecturalScene:
+    data = {
         "schema_version": "0.2",
         "id": "structure-guard-scene",
         "name": "Structure guard scene",
@@ -44,7 +67,19 @@ def _scene(*, confidence=0.6, source_kind="inferred") -> ArchitecturalScene:
             "source": {"kind": source_kind, "confidence": confidence},
         }],
         "appearance": {"walls": {"color": "off_white"}, "roof": {"color": "dark_gray"}, "frames": {"color": "white"}},
-    })
+    }
+    if include_grade:
+        data["terrain"] = {
+            "kind": "facade_grade_profiles",
+            "profiles": [{
+                "facade": "right",
+                "start_elevation": 0.0,
+                "end_elevation": 0.8,
+                "outward_extent": 1.2,
+                "source": {"kind": grade_source_kind, "confidence": grade_confidence},
+            }],
+        }
+    return ArchitecturalScene.model_validate(data)
 
 
 def test_scene_cannot_invent_platform_absent_from_validated_survey() -> None:
@@ -77,3 +112,45 @@ def test_plausible_platform_with_conservative_confidence_remains_allowed() -> No
     assert "scene_platform_not_in_survey" not in codes
     assert "unproven_platform_promoted" not in codes
     assert "plausible_platform_overconfidence" not in codes
+
+
+def test_scene_cannot_invent_grade_profile_absent_from_survey() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(include_grade=False),
+        _scene(include_grade=True),
+    )}
+    assert "scene_grade_not_in_survey" in codes
+
+
+def test_unproven_grade_cannot_be_promoted_to_metric_terrain() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(include_grade=True, grade_certainty="unproven"),
+        _scene(include_grade=True),
+    )}
+    assert "unproven_grade_promoted" in codes
+
+
+def test_plausible_grade_must_keep_conservative_metric_confidence() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(include_grade=True, grade_certainty="plausible"),
+        _scene(include_grade=True, grade_confidence=0.9),
+    )}
+    assert "plausible_grade_overconfidence" in codes
+
+
+def test_grade_profile_geometry_cannot_be_generated_default() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(include_grade=True, grade_certainty="certain"),
+        _scene(include_grade=True, grade_confidence=0.4, grade_source_kind="generated_default"),
+    )}
+    assert "grade_generated_default_geometry" in codes
+
+
+def test_plausible_grade_with_conservative_confidence_remains_allowed() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(include_grade=True, grade_certainty="plausible"),
+        _scene(include_grade=True, grade_confidence=0.6),
+    )}
+    assert "scene_grade_not_in_survey" not in codes
+    assert "unproven_grade_promoted" not in codes
+    assert "plausible_grade_overconfidence" not in codes
