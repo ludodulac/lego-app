@@ -38,6 +38,21 @@ def test_grade_profile_survives_as_wide_stepped_terrain_surface() -> None:
     assert len({part.x_studs for part in terrain})>=7
 
 
+def test_grade_below_building_datum_shifts_building_instead_of_flattening_terrain() -> None:
+    payload=_scene().model_dump(mode="json")
+    payload["terrain"]["profiles"][0]["start_elevation"]=-1.5
+    payload["terrain"]["profiles"][0]["end_elevation"]=0.0
+    scene=ArchitecturalScene.model_validate(payload)
+    model=augment_brick_model_with_scene_architecture(_base_model(),scene,front_width_studs=48)
+    terrain=[part for part in model.parts if part.placement_id.startswith("scene-terrain:right:")]
+    wall=next(part for part in model.parts if part.placement_id=="wall-seed")
+    assert min(part.z_plates for part in terrain)==0
+    assert max(part.z_plates for part in terrain)>0
+    # The architectural building datum is above the lower terrain and therefore
+    # must move upward in the non-negative LEGO coordinate system.
+    assert wall.z_plates>0
+
+
 def test_glass_blocks_and_glazed_door_become_transparent_scene_parts() -> None:
     model=augment_brick_model_with_scene_glazing(_base_model(),_scene(),front_width_studs=48)
     glass=[part for part in model.parts if part.placement_id.startswith("scene-glazing:right_glass_blocks:")]
