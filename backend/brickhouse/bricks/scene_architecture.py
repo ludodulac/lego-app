@@ -9,16 +9,19 @@ from .scaling import COURSES_PER_STUD_RATIO
 EPSILON=1e-6; RAILING_HEIGHT_PLATES=6; RAILING_POST_SPACING_STUDS=3
 
 def _round_half_up(v:float)->int:return int(v+0.5)
+def _terrain_extent(profile)->float:return profile.outward_extent if profile.outward_extent is not None else .4
 def _scene_bounds(scene):
     xs=[v.position.x for v in scene.volumes];ys=[v.position.y for v in scene.volumes];zs=[v.position.z for v in scene.volumes]
     for p in scene.platforms:xs.append(p.position.x);ys.append(p.position.y);zs.append(0.)
     for s in scene.stairs:xs.extend([s.start.x,s.end.x]);ys.extend([s.start.y,s.end.y]);zs.extend([s.start.z,s.end.z])
     if scene.terrain and scene.terrain.profiles:
-        m=scene.volumes[0];fs={p.facade for p in scene.terrain.profiles}
-        if Facade.LEFT in fs:xs.append(m.position.x-.5)
-        if Facade.RIGHT in fs:xs.append(m.position.x+m.width.value+.5)
-        if Facade.FRONT in fs:ys.append(m.position.y-.5)
-        if Facade.REAR in fs:ys.append(m.position.y+m.depth.value+.5)
+        m=scene.volumes[0]
+        for profile in scene.terrain.profiles:
+            extent=_terrain_extent(profile)
+            if profile.facade is Facade.LEFT:xs.append(m.position.x-extent)
+            elif profile.facade is Facade.RIGHT:xs.append(m.position.x+m.width.value+extent)
+            elif profile.facade is Facade.FRONT:ys.append(m.position.y-extent)
+            else:ys.append(m.position.y+m.depth.value+extent)
     return min(xs),min(ys),min(zs)
 def _volume_bounds(scene):return min(v.position.x for v in scene.volumes),min(v.position.y for v in scene.volumes),min(v.position.z for v in scene.volumes)
 def _nearest_facade(scene,x,y):
@@ -88,23 +91,19 @@ def _deck_direction(platform):
     if platform.deck_board_direction in {DeckBoardDirection.X,DeckBoardDirection.Y}:return platform.deck_board_direction
     return DeckBoardDirection.X if platform.width>=platform.depth else DeckBoardDirection.Y
 def _timber_deck(parts,seen,platform,x0,y0,z0,width,depth,facade,index):
-    direction=_deck_direction(platform)
+    direction=_deck_direction(platform);catalog=((8,"BRICK_1X8"),(6,"BRICK_1X6"),(4,"BRICK_1X4"),(3,"BRICK_1X3"),(2,"BRICK_1X2"),(1,"BRICK_1X1"))
     if direction is DeckBoardDirection.X:
-        catalog=((8,"BRICK_1X8"),(6,"BRICK_1X6"),(4,"BRICK_1X4"),(3,"BRICK_1X3"),(2,"BRICK_1X2"),(1,"BRICK_1X1"))
         for dy in range(depth):
             cursor=0
             while cursor<width:
-                span,pid=next((n,p) for n,p in catalog if n<=width-cursor)
-                part=_brick(f"scene-platform:{platform.id}:board:{index:05d}",x0+cursor,y0+dy,z0,facade,part_id=pid,rotation=1 if span>1 else 0)
+                span,pid=next((n,p) for n,p in catalog if n<=width-cursor);part=_brick(f"scene-platform:{platform.id}:board:{index:05d}",x0+cursor,y0+dy,z0,facade,part_id=pid,rotation=1 if span>1 else 0)
                 if _append_unique(parts,seen,part):index+=1
                 cursor+=span
     else:
-        catalog=((8,"BRICK_1X8"),(6,"BRICK_1X6"),(4,"BRICK_1X4"),(3,"BRICK_1X3"),(2,"BRICK_1X2"),(1,"BRICK_1X1"))
         for dx in range(width):
             cursor=0
             while cursor<depth:
-                span,pid=next((n,p) for n,p in catalog if n<=depth-cursor)
-                part=_brick(f"scene-platform:{platform.id}:board:{index:05d}",x0+dx,y0+cursor,z0,facade,part_id=pid,rotation=0)
+                span,pid=next((n,p) for n,p in catalog if n<=depth-cursor);part=_brick(f"scene-platform:{platform.id}:board:{index:05d}",x0+dx,y0+cursor,z0,facade,part_id=pid,rotation=0)
                 if _append_unique(parts,seen,part):index+=1
                 cursor+=span
     return index
@@ -118,8 +117,7 @@ def _platform_parts(platform,scene,*,origin_x,origin_y,origin_z,studs_per_meter,
                     if _append_unique(parts,seen,_brick(f"scene-platform:{platform.id}:deck:{index:05d}",x0+dx,y0+dy,z0+course*3,facade)):index+=1
     for pi,support in enumerate(platform.supports,start=1):
         x=_round_half_up((support.position.x-origin_x)*studs_per_meter);y=_round_half_up((support.position.y-origin_y)*studs_per_meter);z=0
-        while z<z0:
-            _append_unique(parts,seen,_brick(f"scene-platform:{platform.id}:support{pi}:{z:04d}",x,y,z,facade));z+=3
+        while z<z0:_append_unique(parts,seen,_brick(f"scene-platform:{platform.id}:support{pi}:{z:04d}",x,y,z,facade));z+=3
     legacy=_legacy_platform_treatment(platform,scene)
     for name in ("x_min","x_max","y_min","y_max"):
         edge=getattr(platform.edges,name) if platform.edges is not None else None;t=edge.treatment if edge is not None else legacy;cells=_platform_edge_cells(name,x0,y0,width,depth);access=_edge_access_indexes(edge,studs_per_meter,len(cells)) if edge is not None else set();index=_add_platform_edge(parts,seen,platform=platform,edge_name=name,treatment=t,access_indexes=access,cells=cells,z0=z0,facade=facade,index=index)
@@ -147,9 +145,9 @@ def _stair_parts(stair,scene,*,origin_x,origin_y,origin_z,studs_per_meter,plates
     return parts
 def _terrain_parts(scene,*,origin_x,origin_y,origin_z,studs_per_meter,plates_per_meter):
     if not scene.terrain or not scene.terrain.profiles:return []
-    m=scene.volumes[0];x0=_round_half_up((m.position.x-origin_x)*studs_per_meter);y0=_round_half_up((m.position.y-origin_y)*studs_per_meter);width=max(1,_round_half_up(m.width.value*studs_per_meter));depth=max(1,_round_half_up(m.depth.value*studs_per_meter));band=max(1,_round_half_up(.4*studs_per_meter));parts=[];index=1
+    m=scene.volumes[0];x0=_round_half_up((m.position.x-origin_x)*studs_per_meter);y0=_round_half_up((m.position.y-origin_y)*studs_per_meter);width=max(1,_round_half_up(m.width.value*studs_per_meter));depth=max(1,_round_half_up(m.depth.value*studs_per_meter));parts=[];index=1
     for profile in scene.terrain.profiles:
-        length=width if profile.facade in {Facade.FRONT,Facade.REAR} else depth;start=max(0,_round_half_up((profile.start_elevation-origin_z)*plates_per_meter));end=max(0,_round_half_up((profile.end_elevation-origin_z)*plates_per_meter))
+        band=max(1,_round_half_up(_terrain_extent(profile)*studs_per_meter));length=width if profile.facade in {Facade.FRONT,Facade.REAR} else depth;start=max(0,_round_half_up((profile.start_elevation-origin_z)*plates_per_meter));end=max(0,_round_half_up((profile.end_elevation-origin_z)*plates_per_meter))
         for along in range(length):
             t=along/max(length-1,1);grade=max(0,3*_round_half_up((start+(end-start)*t)/3.))
             for across in range(band):
@@ -157,7 +155,7 @@ def _terrain_parts(scene,*,origin_x,origin_y,origin_z,studs_per_meter,plates_per
                 elif profile.facade is Facade.LEFT:px,py=x0-1-across,y0+depth-1-along
                 elif profile.facade is Facade.FRONT:px,py=x0+along,y0-1-across
                 else:px,py=x0+width-1-along,y0+depth+across
-                parts.append(_brick(f"scene-terrain:{profile.facade.value}:{index:06d}",px,py,grade,profile.facade,category="facade_detail"));index+=1
+                parts.append(_brick(f"scene-terrain:{profile.facade.value}:{index:06d}",px,py,grade,profile.facade,category="terrain"));index+=1
     return parts
 def augment_brick_model_with_scene_architecture(model,scene,*,front_width_studs):
     has_grade=bool(scene.terrain and scene.terrain.profiles)
