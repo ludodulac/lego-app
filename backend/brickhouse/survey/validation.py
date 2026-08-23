@@ -85,9 +85,9 @@ def validate_survey_extension(
     """Ensure an incremental Survey only adds knowledge and never rewrites validated facts.
 
     The extension contract is intentionally strict: every pre-existing photo,
-    measurement, observation, frame definition and representation policy must
-    survive byte-for-byte at the model level. New photos and observations may
-    be appended. Corrections to already validated facts belong to a separate,
+    measurement, observation, relation, frame definition and representation policy
+    must survive byte-for-byte at the model level. New photos, observations and
+    relations may be appended. Corrections to validated facts belong to the
     explicit correction workflow rather than an extension pass.
     """
     issues: list[SurveyValidationIssue] = []
@@ -158,6 +158,22 @@ def validate_survey_extension(
                 message=f"L’observation validée '{observation.id}' a été modifiée. Une extension doit conserver exactement les observations existantes et seulement en ajouter de nouvelles.",
             ))
 
+    candidate_relations = {relation.id: relation for relation in candidate.relations}
+    for relation in base.relations:
+        current = candidate_relations.get(relation.id)
+        if current is None:
+            issues.append(SurveyValidationIssue(
+                code="survey_extension_relation_removed",
+                observation_id=None,
+                message=f"La relation validée '{relation.id}' a disparu du Survey étendu.",
+            ))
+        elif current != relation:
+            issues.append(SurveyValidationIssue(
+                code="survey_extension_relation_changed",
+                observation_id=None,
+                message=f"La relation validée '{relation.id}' a été modifiée. Une extension doit la conserver exactement et seulement ajouter de nouvelles relations.",
+            ))
+
     if len(candidate.photos) <= len(base.photos):
         issues.append(SurveyValidationIssue(
             code="survey_extension_no_new_photo",
@@ -170,6 +186,12 @@ def validate_survey_extension(
             code="survey_extension_observation_count_decreased",
             observation_id=None,
             message="Le nombre d’observations ne peut pas diminuer pendant une extension.",
+        ))
+    if len(candidate.relations) < len(base.relations):
+        issues.append(SurveyValidationIssue(
+            code="survey_extension_relation_count_decreased",
+            observation_id=None,
+            message="Le nombre de relations validées ne peut pas diminuer pendant une extension.",
         ))
 
     issues.extend(validate_survey_semantics(candidate))
