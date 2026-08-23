@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.7
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.8
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventorie ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -30,8 +30,15 @@ PHASE 3 — OUVERTURES
 Déduplique uniquement avec preuves multi-vues compatibles. Compte les ouvertures certaines par façade. Ne fusionne jamais deux plans différents. N’invente rien derrière une occultation.
 
 PHASE 4 — STRUCTURES EXTÉRIEURES BLOC PAR BLOC
-Lorsqu’elles existent, décompose les structures extérieures en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau peut impliquer une nouvelle primitive. Un escalier tournant n’est pas une seule volée en perspective. Ne crée aucune primitive simplement parce qu’elle serait architecturalement habituelle.
-Quand plusieurs angles montrent la même structure, utilise-les pour établir sa chaîne physique complète : ce qui est au sol, ce qui monte, ce qui sert de palier, ce qui change de direction, ce qui supporte quoi et ce qui rejoint le bâtiment. Ne remplace pas cette chaîne par une seule plateforme générique.
+Lorsqu’elles existent, décompose les structures extérieures en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau PEUT impliquer une nouvelle primitive, mais seulement si cette primitive est réellement soutenue par une observation.
+Un escalier tournant observé n’est pas une seule volée en perspective. À l’inverse, une volée qui disparaît derrière un mur ne prouve PAS qu’elle tourne, qu’un palier existe, ni qu’une seconde volée rejoint une terrasse.
+Ne crée aucune primitive simplement parce qu’elle serait architecturalement habituelle ou parce qu’elle permettrait de relier proprement deux éléments visibles.
+
+Quand plusieurs angles montrent la même structure, fusionne leurs preuves pour établir uniquement les portions et relations effectivement soutenues. Si la séquence visible est par exemple `sol → volée visible → zone occultée → terrasse visible`, conserve explicitement la zone occultée comme inconnue tant qu’aucune vue ne montre le raccord. Ne remplace jamais ce manque par `palier + deuxième volée` sans preuve.
+
+IDENTITÉ STABLE DES PRIMITIVES
+Chaque primitive architecturale observée reçoit un id stable et unique. Le même palier ou la même volée revus sur plusieurs photos gardent le même id. Deux observations ne deviennent deux primitives que si les preuves montrent réellement deux objets physiques distincts.
+Ces ids doivent pouvoir être réutilisés plus tard par Survey→Scene. N’utilise pas des ids photo-dépendants qui changent selon la vue.
 
 TOITURE — PREUVES DE FORME
 Décris la toiture à partir des vues, sans supposer qu’un côté particulier porte le pignon. Si une façade donnée est CERTAINEMENT un mur pignon, enregistre une observation `kind="roof"` sur cette façade avec `attributes.facade_is_gable=true`. Ce champ est générique et peut concerner front, rear, left ou right. N’utilise plus de champ spécifique à une seule façade comme `front_is_gable` dans les nouveaux Surveys. Si le pignon ou l’axe du faîtage n’est pas certain, ne le transforme pas en fait.
@@ -53,6 +60,7 @@ Pour chaque `kind="stair"`, `attributes.left_edge` et `attributes.right_edge` = 
 
 RELATIONS EXPLICITES
 Construis `relations[]` uniquement avec preuves : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. Une relation certaine doit citer une preuve photo ou une confirmation utilisateur. `connects_to` ne doit jamais être ajouté par convention.
+La proximité apparente de deux objets séparés par une occultation ne suffit pas à créer `connects_to`. Dans ce cas, conserve l’absence de relation ou une hypothèse non certaine si le contrat la justifie, sans fabriquer le segment caché.
 
 ACCÈS ESCALIER → PLATEFORME
 Si les photos montrent clairement qu’une volée rejoint une plateforme :
@@ -62,7 +70,7 @@ Si les photos montrent clairement qu’une volée rejoint une plateforme :
 La Scene utilisera ensuite ces faits pour estimer les mètres et créer un access_span. Le Survey ne fait pas cette conversion.
 
 PLATEFORMES COMPOSITES
-Si une même structure observable comporte plusieurs parties de matériaux ou de niveaux différents, crée plusieurs observations platform, même si elles sont contiguës. Ne fusionne pas des matériaux distincts par simplification.
+Si une même structure observable comporte plusieurs parties de matériaux ou de niveaux différents, crée plusieurs observations platform, même si elles sont contiguës. Ne fusionne pas des matériaux distincts par simplification. Mais n’invente pas une plateforme intermédiaire uniquement pour expliquer un changement supposé de niveau caché.
 
 CORRESPONDANCE MULTI-VUES
 Pour dire que deux occurrences sont le même objet, croise au moins deux indices : ouverture voisine, angle, garde-corps, poteau, élément fixe, jonction au mur, niveau continu, toiture ou autre relation spatiale stable.
@@ -85,7 +93,8 @@ AUDIT FINAL
 - nombre d’ouvertures certaines stable ;
 - quantité de photos jamais confondue avec certitude architecturale ;
 - structures extérieures segmentées avant toute métrique lorsqu’elles existent ;
-- chaîne physique des structures complexes reconstruite à partir des relations visibles ;
+- aucune portion cachée d’une circulation complétée pour obtenir une chaîne architecturale plausible ;
+- chaque primitive extérieure possède une identité stable multi-vues ;
 - toiture décrite depuis les preuves et pignon affecté à la vraie façade uniquement ;
 - matériaux et bords observés séparément ;
 - accès partiels décrits qualitativement sans mètres ;
