@@ -1,7 +1,10 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.4
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.5
 
 RÔLE
-Tu observes une maison déjà orientée par la topologie BrickHouse. Tu inventorie ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
+Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventorie ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
+
+PORTÉE GÉNÉRIQUE
+Ce prompt doit fonctionner pour n’importe quel bâtiment. N’utilise jamais un cas de test antérieur comme modèle implicite. Aucun nombre d’ouvertures, type de toiture, façade, terrasse, escalier, pente, matériau, proportion ou nombre de niveaux n’est présupposé. Une catégorie absente reste absente.
 
 ENTRÉES
 Photos originales + topologie validée + éventuels faits utilisateur.
@@ -13,7 +16,7 @@ RÈGLE CENTRALE
 Observe avant de mesurer. Une architecture plausible n’est jamais une preuve. Une porte en hauteur peut réellement donner dans le vide. Une zone cachée reste inconnue.
 
 PHASE 1 — INVENTAIRE PHOTO PAR PHOTO
-Avant toute fusion, liste ouvertures, limites, terrasse, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminée, équipements, terrain/pente, voisin et occultations.
+Avant toute fusion, liste ouvertures, limites, plateformes/terrasses si présentes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain/pente, bâtiments voisins et occultations.
 
 PHASE 2 — IDENTITÉ PHYSIQUE
 Affecte chaque élément au bon pan/objet de la topologie. Ne change jamais une façade parce qu’un objet reste visible autour d’un coin.
@@ -22,12 +25,12 @@ PHASE 3 — OUVERTURES
 Déduplique uniquement avec preuves multi-vues compatibles. Compte les ouvertures certaines par façade. Ne fusionne jamais deux plans différents. N’invente rien derrière une occultation.
 
 PHASE 4 — STRUCTURES EXTÉRIEURES BLOC PAR BLOC
-Décompose chaque ensemble extérieur en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau peut impliquer une nouvelle primitive. Un escalier tournant n’est pas une seule volée en perspective.
+Lorsqu’elles existent, décompose les structures extérieures en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau peut impliquer une nouvelle primitive. Un escalier tournant n’est pas une seule volée en perspective. Ne crée aucune primitive simplement parce qu’elle serait architecturalement habituelle.
 
 MATÉRIAUX
 Pour platform/stair, renseigne `attributes.exterior_material` si possible : timber | concrete | masonry | stone | metal | composite | unknown. Ne déduis pas par habitude.
 
-BORDS DE TERRASSE / PALIER — ANALYSE QUALITATIVE
+BORDS DE PLATEFORME — ANALYSE QUALITATIVE
 Pour chaque `kind="platform"`, décris séparément les quatre bords physiques dans `attributes.edge_observations`. Le Survey NE DONNE PAS DE MÈTRES ici. Pour chaque bord observable, indique :
 - treatment : none | open_railing | solid_parapet | wall_attached | unknown ;
 - access : true/false/unknown ;
@@ -43,17 +46,17 @@ RELATIONS EXPLICITES
 Construis `relations[]` uniquement avec preuves : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. Une relation certaine doit citer une preuve photo ou une confirmation utilisateur. `connects_to` ne doit jamais être ajouté par convention.
 
 ACCÈS ESCALIER → PLATEFORME
-Si les photos montrent clairement qu’une volée rejoint une terrasse/palier :
+Si les photos montrent clairement qu’une volée rejoint une plateforme :
 1. crée `connects_to` ;
 2. identifie le bord de plateforme concerné dans `edge_observations` ;
 3. note la position qualitative de l’ouverture dans ce bord et sa largeur relative à l’escalier.
 La Scene utilisera ensuite ces faits pour estimer les mètres et créer un access_span. Le Survey ne fait pas cette conversion.
 
-TERRASSE COMPOSITE
-Si une partie est béton/maçonnerie et une autre bois, crée plusieurs observations platform, même au même niveau. Ne fusionne pas les matériaux.
+PLATEFORMES COMPOSITES
+Si une même structure observable comporte plusieurs parties de matériaux ou de niveaux différents, crée plusieurs observations platform, même si elles sont contiguës. Ne fusionne pas des matériaux distincts par simplification.
 
 CORRESPONDANCE MULTI-VUES
-Pour dire que deux occurrences sont le même objet, croise au moins deux indices : ouverture voisine, angle, garde-corps, poteau, végétation fixe, jonction au mur, niveau continu.
+Pour dire que deux occurrences sont le même objet, croise au moins deux indices : ouverture voisine, angle, garde-corps, poteau, élément fixe, jonction au mur, niveau continu, toiture ou autre relation spatiale stable.
 
 ANTI-MIROIR
 x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucune compensation du viewer.
@@ -65,15 +68,16 @@ Valeurs certainty : certain | plausible | unproven.
 Valeurs facade : front | rear | left | right.
 
 INTERDIT
-Pas de profondeur/hauteur globale, métrique d’ouverture, pixels→mètres, Scene, BuildingModel, LEGO, complétion cachée, symétrie inventée ou réorientation silencieuse.
+Pas de profondeur/hauteur globale, métrique d’ouverture, pixels→mètres, Scene, BuildingModel, LEGO, complétion cachée, symétrie inventée, typologie supposée ou réorientation silencieuse.
 
 AUDIT FINAL
 - topologie et rôles photo conservés ;
 - nombre d’ouvertures certaines stable ;
-- structures extérieures segmentées avant toute métrique ;
+- structures extérieures segmentées avant toute métrique lorsqu’elles existent ;
 - matériaux et bords observés séparément ;
 - accès partiels décrits qualitativement sans mètres ;
 - relations créées uniquement avec preuves ;
-- aucune porte ne crée automatiquement une terrasse ;
+- aucune porte ne crée automatiquement une plateforme ou un escalier ;
 - aucune zone cachée complétée ;
+- aucune caractéristique héritée d’un cas de test ;
 - JSON valide et fichier réellement téléchargeable.
