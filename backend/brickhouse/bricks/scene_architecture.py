@@ -72,11 +72,41 @@ def _volume_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
     return min(v.position.x for v in scene.volumes), min(v.position.y for v in scene.volumes), min(v.position.z for v in scene.volumes)
 
 
-def _nearest_facade(scene: ArchitecturalScene, x: float, y: float) -> Facade:
-    main = scene.volumes[0]
-    left, right = main.position.x, main.position.x + main.width.value
-    front, rear = main.position.y, main.position.y + main.depth.value
-    return min([(abs(x-left),Facade.LEFT),(abs(x-right),Facade.RIGHT),(abs(y-front),Facade.FRONT),(abs(y-rear),Facade.REAR)],key=lambda item:item[0])[1]
+def _host_volume(scene: ArchitecturalScene, volume_id: str | None):
+    if volume_id is None:
+        return scene.volumes[0]
+    return next(volume for volume in scene.volumes if volume.id == volume_id)
+
+
+def _nearest_facade_for_volume(volume, x: float, y: float) -> Facade:
+    left, right = volume.position.x, volume.position.x + volume.width.value
+    front, rear = volume.position.y, volume.position.y + volume.depth.value
+    return min(
+        [
+            (abs(x-left), Facade.LEFT),
+            (abs(x-right), Facade.RIGHT),
+            (abs(y-front), Facade.FRONT),
+            (abs(y-rear), Facade.REAR),
+        ],
+        key=lambda item: item[0],
+    )[1]
+
+
+def _nearest_facade(scene: ArchitecturalScene, x: float, y: float, *, volume_id: str | None = None) -> Facade:
+    """Return facade metadata without assuming every object belongs to volume zero."""
+    if volume_id is not None:
+        return _nearest_facade_for_volume(_host_volume(scene, volume_id), x, y)
+    candidates = []
+    for volume in scene.volumes:
+        facade = _nearest_facade_for_volume(volume, x, y)
+        left, right = volume.position.x, volume.position.x + volume.width.value
+        front, rear = volume.position.y, volume.position.y + volume.depth.value
+        distance = {
+            Facade.LEFT: abs(x-left), Facade.RIGHT: abs(x-right),
+            Facade.FRONT: abs(y-front), Facade.REAR: abs(y-rear),
+        }[facade]
+        candidates.append((distance, facade))
+    return min(candidates, key=lambda item: item[0])[1]
 
 
 def _normalized_text(value: str) -> str:
@@ -117,18 +147,19 @@ def _stair_edge_treatments(stair: StairRun, scene: ArchitecturalScene) -> tuple[
 
 
 def _validate_exterior_primitives(scene: ArchitecturalScene) -> None:
-    main=scene.volumes[0]; left=main.position.x; right=left+main.width.value; front=main.position.y; rear=front+main.depth.value
     for platform in scene.platforms:
+        host = _host_volume(scene, platform.host_volume_id)
+        left=host.position.x; right=left+host.width.value; front=host.position.y; rear=front+host.depth.value
         x0=platform.position.x; x1=x0+platform.width; y0=platform.position.y; y1=y0+platform.depth; sides=[]
         if x1<=left+EPSILON:sides.append(Facade.LEFT)
         if x0>=right-EPSILON:sides.append(Facade.RIGHT)
         if y1<=front+EPSILON:sides.append(Facade.FRONT)
         if y0>=rear-EPSILON:sides.append(Facade.REAR)
-        if not sides: raise ValueError(f"platform {platform.id!r} intersects the main building footprint; split attached exterior structures into primitives outside one facade")
-        if len(sides)>1: raise ValueError(f"platform {platform.id!r} wraps a building corner; split it into one Platform per rectilinear facade segment")
+        if not sides: raise ValueError(f"platform {platform.id!r} intersects host volume {host.id!r}; split attached exterior structures into primitives outside one facade")
+        if len(sides)>1: raise ValueError(f"platform {platform.id!r} wraps a corner of host volume {host.id!r}; split it into one Platform per rectilinear facade segment")
         side=sides[0]
-        if side in {Facade.LEFT,Facade.RIGHT} and (y0<front-EPSILON or y1>rear+EPSILON): raise ValueError(f"platform {platform.id!r} extends past a side-facade corner; split the geometry")
-        if side in {Facade.FRONT,Facade.REAR} and (x0<left-EPSILON or x1>right+EPSILON): raise ValueError(f"platform {platform.id!r} extends past a front/rear corner; split the geometry")
+        if side in {Facade.LEFT,Facade.RIGHT} and (y0<front-EPSILON or y1>rear+EPSILON): raise ValueError(f"platform {platform.id!r} extends past a side-facade corner of host volume {host.id!r}; split the geometry")
+        if side in {Facade.FRONT,Facade.REAR} and (x0<left-EPSILON or x1>right+EPSILON): raise ValueError(f"platform {platform.id!r} extends past a front/rear corner of host volume {host.id!r}; split the geometry")
     for stair in scene.stairs:
         if abs(stair.end.x-stair.start.x)>EPSILON and abs(stair.end.y-stair.start.y)>EPSILON:
             raise ValueError(f"stair {stair.id!r} changes two horizontal axes in one run; split turning stairs into axis-aligned StairRun objects joined by a landing")
@@ -217,11 +248,8 @@ def _add_supports(parts,seen,*,platform,facade,origin_x,origin_y,origin_z,studs_
 
 def _platform_parts(platform:Platform,scene:ArchitecturalScene,*,origin_x,origin_y,origin_z,studs_per_meter,plates_per_meter)->list[BrickModelPart]:
     x0=_round_half_up((platform.position.x-origin_x)*studs_per_meter); y0=_round_half_up((platform.position.y-origin_y)*studs_per_meter)
-    # Platforms and StairRun endpoints share one course quantizer. This prevents a
-    # metrically connected landing at e.g. 13.8 raw plates from becoming z=14
-    # while the stair endpoint becomes z=15.
     z0=_course_z(platform.position.z,origin_z,plates_per_meter)
-    width=max(1,_round_half_up(platform.width*studs_per_meter)); depth=max(1,_round_half_up(platform.depth*studs_per_meter)); facade=_nearest_facade(scene,platform.position.x+platform.width/2,platform.position.y+platform.depth/2)
+    width=max(1,_round_half_up(platform.width*studs_per_meter)); depth=max(1,_round_half_up(platform.depth*studs_per_meter)); facade=_nearest_facade(scene,platform.position.x+platform.width/2,platform.position.y+platform.depth/2,volume_id=platform.host_volume_id or scene.volumes[0].id)
     parts=[];index=1;seen=set()
     if _is_timber(platform,scene):index=_timber_deck(parts,seen,platform,x0,y0,z0,width,depth,facade,index)
     else:
