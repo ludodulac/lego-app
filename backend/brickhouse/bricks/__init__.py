@@ -24,6 +24,7 @@ from brickhouse.bricks.piece_capabilities import (
     create_current_engine_capability_registry,
     load_piece_master,
     promote_capabilities,
+    validate_model_part_capabilities,
 )
 from brickhouse.bricks.placement import (
     BrickPlacement,
@@ -97,4 +98,5 @@ __all__ = [
     "generate_wall_layout_with_openings",
     "load_piece_master",
     "promote_capabilities",
+    "validate_model_part_capabilities",
 ]
