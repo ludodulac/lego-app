@@ -10,7 +10,7 @@ import httpx
 from pydantic import ValidationError
 
 from .models import PhotoAnalysisResult
-from .openai_provider import PhotoInput, SYSTEM_PROMPT
+from .openai_provider import MAX_VISION_PHOTOS, PhotoInput, SYSTEM_PROMPT
 
 MAX_GEMINI_INLINE_RAW_BYTES = 14 * 1024 * 1024
 
@@ -21,12 +21,16 @@ class GeminiHTTPError(RuntimeError):
         self.status_code = status_code
 
 
-def _prompt(user_notes: str, known_front_width_m: float | None) -> str:
+def _prompt(user_notes: str, known_front_width_m: float | None, photo_count: int) -> str:
     return (
-        "Analyze these photos as different views of the same property. "
+        "Analyze these photos as overlapping views of the same physical property. "
+        f"There are {photo_count} supplied views. Do not use photo count itself as certainty: identify repeated physical objects, wall planes and corner crossings before estimating geometry. "
         f"User notes: {user_notes.strip() or 'none provided'}. "
         f"Known front width in meters: {known_front_width_m if known_front_width_m is not None else 'unknown'}. "
-        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions and assumptions. "
+        "Lock the observed opening inventory per physical wall before metric placement. "
+        "Use extra/detail views to refine only the relations they actually reveal. Hidden stair, landing or terrace connections must remain uncertain rather than being completed by architectural habit. "
+        "Recover normalized proportions before metric dimensions and cross-check them across compatible views. "
+        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
         "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
     )
 
@@ -83,8 +87,8 @@ def analyze_building_photos_gemini(
     photos: list[PhotoInput], *, user_notes: str = "", known_front_width_m: float | None = None,
     client: httpx.Client | None = None, model: str | None = None, api_key: str | None = None,
 ) -> PhotoAnalysisResult:
-    if not 1 <= len(photos) <= 6:
-        raise ValueError("photo analysis requires between 1 and 6 images")
+    if not 1 <= len(photos) <= MAX_VISION_PHOTOS:
+        raise ValueError(f"photo analysis requires between 1 and {MAX_VISION_PHOTOS} images")
     if known_front_width_m is not None and known_front_width_m <= 0:
         raise ValueError("known_front_width_m must be positive")
     supported = {"image/jpeg", "image/png", "image/webp"}
@@ -102,7 +106,7 @@ def analyze_building_photos_gemini(
         raise ValueError("Gemini API key is not configured")
 
     parts = [{"inline_data": {"mime_type": p.media_type, "data": base64.b64encode(p.content).decode("ascii")}} for p in photos]
-    parts.append({"text": _prompt(user_notes, known_front_width_m)})
+    parts.append({"text": _prompt(user_notes, known_front_width_m, len(photos))})
     schema = PhotoAnalysisResult.model_json_schema()
     generation = {"responseMimeType": "application/json", "responseJsonSchema": schema}
     body = {"system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]}, "contents": [{"role": "user", "parts": parts}], "generationConfig": generation}
