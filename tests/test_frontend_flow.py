@@ -125,9 +125,9 @@ def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
     assert "quantité de photos jamais confondue avec certitude architecturale" in survey
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v22_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v23_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.2" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.3" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
     assert "Ne redresse jamais silencieusement" in prompt
@@ -135,7 +135,10 @@ def test_survey_to_scene_prompt_matches_current_generic_v22_contract() -> None:
     assert "VOLUMES ET PORTÉE DES INFORMATIONS" in prompt
     assert "visibility[]` peut porter `volume_id`" in prompt
     assert "Platform` peut porter `host_volume_id`" in prompt
-    assert "Une entrée legacy sans `volume_id`" in prompt
+    assert "SÉMANTIQUE EXACTE DES COORDONNÉES EXTÉRIEURES" in prompt
+    assert "AXE CENTRAL" in prompt
+    assert "INCERTITUDE DES STRUCTURES EXTÉRIEURES" in prompt
+    assert "relation `plausible` ou `unproven`" in prompt
     assert "SceneRoof.type` autorise" in prompt
     assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
 
