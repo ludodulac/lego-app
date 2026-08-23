@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.4
+BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.5
 
 RÔLE
 Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies du MÊME bâtiment cible. Tu ne recommences pas le relevé depuis zéro.
@@ -20,20 +20,37 @@ Le Survey validé de départ est IMMUTABLE pendant cette passe.
 Tu dois conserver EXACTEMENT schema_version, id, canonical_frame, known_measurements, representation_policy, chaque ancienne photo, chaque ancienne observation ET chaque ancienne relation.
 NE RENOMME, NE SUPPRIME ET NE MODIFIE AUCUNE OBSERVATION OU RELATION EXISTANTE.
 
+Cette immutabilité ne signifie pas qu’une hypothèse faible doit rester éternellement active. Une nouvelle photo peut RAFFINER une ancienne observation `plausible` ou `unproven` en ajoutant une NOUVELLE observation append-only. Dans ce cas, la nouvelle observation porte `attributes.refines_observation_id` avec l’id exact de l’observation plus ancienne. L’ancienne reste présente comme historique/provenance ; elle n’est pas réécrite.
+
+INTERDIT de raffiner par ce mécanisme une observation déjà `certain` ou explicitement confirmée par l’utilisateur. Si un fait certain s’avère faux, il faut passer par le workflow de correction explicite, pas par une extension silencieuse.
+
 NOUVELLES PHOTOS
 - Utilise des photo_index strictement supérieurs au maximum existant.
 - Pour chaque nouvelle photo, indique facade et image_left_maps_to_facade_offset.
 - Conserve strictement le repère canonique : x gauche→droite vu depuis front, y avant→arrière, z bas→haut.
+- Une vue supplémentaire doit être utilisée pour la relation qu’elle révèle réellement. Elle ne rend pas automatiquement plus certaines les zones qu’elle ne montre pas.
 
 NOUVELLES OBSERVATIONS
 Observe limites, terrain, matériaux, ouvertures, toiture, cheminées, équipements, plateformes, escaliers, volumes secondaires accolés, contexte et occultations. Les catégories non visibles restent absentes.
 Chaque nouvelle observation reçoit un id nouveau, cite une nouvelle photo, n’invente aucune géométrie cachée et distingue certain/plausible/unproven.
+
+RAFFINEMENT D’UNE HYPOTHÈSE EXISTANTE
+Utilise `attributes.refines_observation_id` uniquement lorsque la nouvelle vue apporte une preuve indépendante sur LE MÊME sujet physique/hypothèse : par exemple une extrémité d’escalier auparavant cachée, un raccord de terrasse, une appartenance à un volume, une orientation de toiture ou une identité d’objet jusque-là incertaine.
+Règles :
+- l’observation raffinée doit exister ;
+- elle doit être `plausible` ou `unproven`, jamais `certain` ;
+- la nouvelle observation doit conserver le même `kind` ;
+- elle doit citer au moins une nouvelle photo absente des preuves de l’ancienne observation ;
+- une chaîne est possible (`unproven → plausible → certain`) mais jamais une boucle ;
+- ne crée pas deux objets physiques dans la reconstruction finale simplement parce que l’historique contient deux observations d’une même hypothèse raffinée.
 
 NOUVELLES RELATIONS
 Après les nouvelles observations, ajoute seulement les relations réellement révélées par les nouvelles vues. Valeurs autorisées : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object.
 Une nouvelle relation peut relier deux nouvelles observations ou une nouvelle observation à une observation existante. Elle reçoit un id nouveau et cite la photo qui prouve la relation.
 Une relation `certain` exige une preuve visuelle claire ou une confirmation utilisateur. Ne transforme jamais une nécessité architecturale supposée en relation : une porte en hauteur n’implique pas une plateforme, un balcon, une terrasse ou un escalier.
 Les relations déjà présentes dans le Survey de départ sont immuables pendant l’extension.
+
+Quand une nouvelle vue résout précisément une ancienne hypothèse de connexion, préfère une nouvelle observation raffinée + la nouvelle relation prouvée plutôt que de « durcir » silencieusement l’ancienne relation plausible. Les anciennes relations restent l’historique ; Survey→Scene devra privilégier la preuve la plus récente et la plus forte sans les interpréter comme plusieurs objets simultanés.
 
 CONTRAT SÉMANTIQUE DES ÉLÉMENTS ARCHITECTURAUX
 Valeurs observation.kind disponibles : building_boundary | terrain | material | weathering | opening | roof | chimney | equipment | volume | platform | stair | occlusion | context.
@@ -48,7 +65,7 @@ RACCORDEMENT ENTRE FAÇADES
 Utilise coins, continuités de toiture, alignements, terrain et éléments traversant les angles pour raccorder les vues, sans inventer de métrique globale. Enregistre une relation explicite seulement lorsqu’elle est effectivement prouvée.
 
 FAITS UTILISATEUR
-Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations/relations avec une sémantique stable. Ne rétro-modifie pas un ancien objet.
+Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations/relations avec une sémantique stable. Ne rétro-modifie pas un ancien objet. Si ce fait contredit un fait ancien certain, signale le conflit et utilise le workflow de correction explicite au lieu d’un raffinement.
 
 INTERDIT
 - Refaire une version “plus propre” des anciennes observations ou relations.
@@ -59,9 +76,10 @@ INTERDIT
 - Compléter une façade cachée par symétrie.
 - Transformer platform, stair ou volume en context pour contourner le contrat.
 - Ajouter un type de toiture, une ouverture, une structure extérieure ou une pente parce qu’un ancien cas de test en possédait une.
+- Raffiner une observation certaine pour éviter d’assumer une vraie correction.
 
 NOTES
-Conserve les notes existantes et ajoute à la fin une section courte commençant par `EXTENSION:` décrivant uniquement les nouveaux faits et conflits non résolus.
+Conserve les notes existantes et ajoute à la fin une section courte commençant par `EXTENSION:` décrivant uniquement les nouveaux faits, raffinements et conflits non résolus.
 
 CONTRÔLE FINAL SILENCIEUX
 1. Anciennes photos identiques.
@@ -71,10 +89,11 @@ CONTRÔLE FINAL SILENCIEUX
 5. Nouveaux photo_index strictement supérieurs à l’ancien maximum.
 6. Nouveaux ids d’observations et relations uniques.
 7. Nouvelles observations/relations soutenues par nouvelles photos.
-8. Aucune relation architecturale inventée par convention.
-9. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
-10. Aucun fait hérité d’un cas de test antérieur.
-11. Résultat final = ArchitecturalSurvey v0.1 complet.
+8. Chaque `refines_observation_id` cible une observation existante non certaine, de même kind, avec nouvelle preuve indépendante.
+9. Aucune relation architecturale inventée par convention.
+10. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
+11. Aucun fait hérité d’un cas de test antérieur.
+12. Résultat final = ArchitecturalSurvey v0.1 complet.
 
 SORTIE
 Un seul fichier JSON complet `brickhouse-architectural-survey-extended-v0.1.json`, sans explication autour si le fichier joint n’est pas possible.
