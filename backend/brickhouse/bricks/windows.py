@@ -1,15 +1,13 @@
 """Validated real LEGO window assemblies for BrickHouse.
 
 BrickHouse prefers explicit frame+pane assemblies over masonry drawn inside a
-window opening. Larger rectangular windows may be tiled with several validated
-assemblies when (and only when) the rasterized opening can be covered exactly.
-This keeps the opening transparent and constructible instead of inserting wall
-bricks as fake mullions.
+window opening. Window composition is architectural evidence: a larger opening
+must not be tiled with several frames merely because that makes it constructible.
+Only a Scene style that explicitly implies subdivisions may create them.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -69,51 +67,8 @@ def choose_window_assembly(width_studs: int, height_bricks: int) -> WindowAssemb
     )
 
 
-@lru_cache(maxsize=None)
-def _height_partition(total: int, preferred: tuple[int, ...]) -> tuple[int, ...] | None:
-    if total == 0:
-        return ()
-    if total < 0:
-        return None
-    for size in preferred:
-        tail = _height_partition(total - size, preferred)
-        if tail is not None:
-            return (size, *tail)
-    return None
-
-
-def _row_layout(width_studs: int, height_bricks: int, *, paired: bool) -> tuple[tuple[WindowAssemblyDefinition, int], ...] | None:
-    candidates = sorted(
-        (assembly for assembly in VALIDATED_WINDOW_ASSEMBLIES if assembly.height_bricks == height_bricks),
-        key=lambda assembly: assembly.width_studs,
-        reverse=True,
-    )
-    if paired:
-        candidates = [assembly for assembly in candidates if assembly.width_studs == 2]
-    if not candidates:
-        return None
-
-    @lru_cache(maxsize=None)
-    def solve(remaining: int) -> tuple[WindowAssemblyDefinition, ...] | None:
-        if remaining == 0:
-            return ()
-        if remaining < 0:
-            return None
-        for assembly in candidates:
-            tail = solve(remaining - assembly.width_studs)
-            if tail is not None:
-                return (assembly, *tail)
-        return None
-
-    assemblies = solve(width_studs)
-    if assemblies is None:
-        return None
-    cursor = 0
-    result = []
-    for assembly in assemblies:
-        result.append((assembly, cursor))
-        cursor += assembly.width_studs
-    return tuple(result)
+def _assembly(width: int, height: int) -> WindowAssemblyDefinition | None:
+    return choose_window_assembly(width, height)
 
 
 def choose_window_layout(
@@ -121,35 +76,54 @@ def choose_window_layout(
     width_studs: int,
     height_bricks: int,
 ) -> tuple[tuple[WindowAssemblyDefinition, int, int], ...]:
-    """Cover a rasterized opening exactly with validated LEGO frame/pane pairs.
+    """Fit validated LEGO frames without inventing architectural joinery.
 
-    No stretching and no partial cover is allowed. If the exact rectangle cannot
-    be tiled by the validated catalogue, return an empty layout and let the
-    facade-detail fallback handle only the perimeter.
+    SIMPLE means one visually continuous frame: only one exact assembly is
+    allowed. TRADITIONAL_TALL is likewise kept as one narrow/tall frame. PAIRED
+    explicitly authorizes one central vertical join. FOUR_PANE explicitly
+    authorizes one vertical and one horizontal division. BAY is not representable
+    by the current planar catalogue and therefore remains a clean wall opening.
+
+    If the observed composition cannot be represented exactly, return no frame
+    parts. The wall void remains faithful and facade-details may still render an
+    observed sill/surround outside it.
     """
-    if style in {WindowStyle.FOUR_PANE, WindowStyle.BAY}:
+    if style is WindowStyle.BAY:
         return ()
+
+    if style is WindowStyle.SIMPLE:
+        assembly = _assembly(width_studs, height_bricks)
+        return ((assembly, 0, 0),) if assembly is not None else ()
 
     if style is WindowStyle.TRADITIONAL_TALL:
-        heights = _height_partition(height_bricks, (3,))
-    else:
-        # Prefer 3-brick modules, then 2-brick modules. This minimizes horizontal
-        # joins while still covering taller residential windows exactly.
-        heights = _height_partition(height_bricks, (3, 2))
-    if heights is None:
-        return ()
+        # The current validated tall family is 2 studs wide. Do not use a broad
+        # frame or stack frames vertically to imitate a tall window.
+        assembly = _assembly(2, height_bricks) if width_studs == 2 else None
+        return ((assembly, 0, 0),) if assembly is not None else ()
 
-    paired = style is WindowStyle.PAIRED
-    result: list[tuple[WindowAssemblyDefinition, int, int]] = []
-    z_offset = 0
-    for row_height in heights:
-        row = _row_layout(width_studs, row_height, paired=paired)
-        if row is None:
+    if style is WindowStyle.PAIRED:
+        if width_studs != 4 or height_bricks not in {2, 3}:
             return ()
-        for assembly, x_offset in row:
-            result.append((assembly, x_offset, z_offset))
-        z_offset += row_height
-    return tuple(result)
+        assembly = _assembly(2, height_bricks)
+        if assembly is None:
+            return ()
+        return ((assembly, 0, 0), (assembly, 2, 0))
+
+    if style is WindowStyle.FOUR_PANE:
+        if width_studs != 4 or height_bricks not in {4, 6}:
+            return ()
+        pane_height = height_bricks // 2
+        assembly = _assembly(2, pane_height)
+        if assembly is None:
+            return ()
+        return (
+            (assembly, 0, 0),
+            (assembly, 2, 0),
+            (assembly, 0, pane_height),
+            (assembly, 2, pane_height),
+        )
+
+    return ()
 
 
 def _emit_pair(
