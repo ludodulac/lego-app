@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.2
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.3
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
@@ -35,6 +35,13 @@ Pour les fenêtres, conserve `window_style`, `has_sill` et `has_decorative_surro
 REPÈRE
 x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucun miroir implicite. Le rôle « face » provient du Survey courant ; ne suppose jamais qu’une vue photographique particulière est la façade avant sans cette information.
 
+SÉMANTIQUE EXACTE DES COORDONNÉES EXTÉRIEURES
+Ne traite jamais les coordonnées des primitives comme des centres implicites.
+- `Platform.position` = coin minimal de son emprise : `(x_min, y_min, z_surface)`. `width` s’étend vers +x, `depth` vers +y. `z` est le niveau de circulation supérieur de la plateforme ; son `thickness` se développe vers le bas dans le rendu LEGO.
+- `StairRun.start` et `StairRun.end` = points de l’AXE CENTRAL de la volée, aux niveaux de circulation de départ et d’arrivée. `width` s’étend symétriquement de part et d’autre de cet axe, perpendiculairement au sens start→end.
+- Une `StairRun` rectiligne ne change qu’un axe horizontal : x OU y. Un changement de direction impose une nouvelle volée et, si réellement observé, un palier distinct.
+Ces conventions sont géométriques et doivent rester identiques pour tous les bâtiments.
+
 TERRAIN ET OUVERTURES BASSES
 Une pente certaine devient `terrain.profiles[]` sur la bonne façade. `start_elevation` et `end_elevation` suivent le même sens canonique que `offset_horizontal`.
 Chaque profil peut porter `outward_extent` : largeur réelle/estimée de la surface extérieure documentée, mesurée perpendiculairement à la façade (rue, trottoir, cour, bande de terrain). Renseigne-la seulement si les photos ou une donnée utilisateur permettent une estimation utile. Sinon laisse null : ne transforme pas arbitrairement une ligne de pente en route de plusieurs mètres.
@@ -44,9 +51,18 @@ S’il n’existe aucune preuve de pente significative, ne crée pas de profil d
 
 STRUCTURES EXTÉRIEURES
 Ne crée que les structures réellement observées ou soutenues par les relations du Survey. Segmente AVANT de mesurer : chaque volée, palier, dalle, deck, balcon, rampe ou changement de matériau devient une primitive distincte lorsque cette décomposition est réellement nécessaire.
-Un escalier tournant = plusieurs StairRun reliés par Platform. Une primitive ne traverse pas le bâtiment et ne contourne pas silencieusement un coin.
+Un escalier tournant = plusieurs StairRun reliés par Platform, MAIS uniquement si le changement de direction est établi par le Survey. Une perspective ambiguë, un mur diagonal apparent ou une occultation ne suffit pas à inventer un retournement.
+Une primitive ne traverse pas le bâtiment et ne contourne pas silencieusement un coin.
 L’absence de terrasse, d’escalier, de plateforme ou de supports est parfaitement valide.
 Pour toute `Platform` attachée à un volume déterminé, renseigne `host_volume_id` avec cet ID. Ce rattachement est topologique : il ne doit jamais être changé pour rendre le LEGO plus facile.
+
+INCERTITUDE DES STRUCTURES EXTÉRIEURES
+La Scene doit distinguer « objet visible » et « topologie métrique certaine ».
+- Si l’existence d’un escalier est certaine mais que son raccord caché ne l’est pas, représente seulement les portions dont la géométrie est soutenue et documente le raccord inconnu dans `notes` ; n’invente pas une volée cachée pour fermer la chaîne.
+- Si un palier est seulement plausible, sa `source.confidence` doit rester basse et sa géométrie ne doit pas être utilisée pour déplacer une plateforme certaine.
+- Ne transforme jamais une relation `plausible` ou `unproven` du Survey en connexion métrique exacte simplement parce que le moteur préfère un graphe fermé.
+- Si une relation essentielle manque, laisse une limitation explicite plutôt que de créer une architecture propre mais fausse.
+Des vues supplémentaires peuvent augmenter la confiance et préciser les primitives, mais elles doivent enrichir le même objet physique et non créer une nouvelle interprétation sans réévaluer toutes les vues.
 
 MATÉRIAU
 Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé : unknown/null.
@@ -86,6 +102,6 @@ APPARENCE
 Représente les matériaux et couleurs architecturaux sous-jacents, pas les salissures accidentelles. Ignore les coulures, mousses, taches d’humidité et vieillissements localisés lorsqu’ils ne correspondent pas à une différence réelle de matériau. En revanche, conserve les encadrements, soubassements, bandeaux et changements de matériau structurés lorsqu’ils sont soutenus par les vues.
 
 AUDIT FINAL
-Comptes d’ouvertures exacts ; IDs/façades/volume_id conservés ; host_volume_id des plateformes multi-volume conservé ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; structures complexes segmentées avant métrique ; raccords entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
+Comptes d’ouvertures exacts ; IDs/façades/volume_id conservés ; host_volume_id des plateformes multi-volume conservé ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; aucune relation plausible transformée en raccord métrique exact ; coordonnées Platform et StairRun interprétées selon leur sémantique canonique ; structures complexes segmentées avant métrique ; raccords certains entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
 
 Si un audit échoue, corrige avant de fournir le fichier.
