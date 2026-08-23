@@ -47,7 +47,7 @@ def base_scene(**overrides):
     values = dict(
         schema_version="0.2",
         id="building_photo_001",
-        name="Regression house",
+        name="Regression building",
         volumes=[volume],
         roofs=[roof],
         appearance=Appearance(
@@ -94,6 +94,12 @@ def test_projection_preserves_supported_geometry_and_reports_losses():
     assert result.building.openings[0].id == "workshop_window"
     assert {issue.code for issue in result.issues} == {"terrain_not_supported", "local_grade_clearance_not_supported", "chimney_not_supported", "platform_not_supported"}
     assert result.blocked is False
+
+
+def test_projection_uses_neutral_building_type_instead_of_house_fixture_bias():
+    result = project_scene_to_building(base_scene())
+    assert result.building is not None
+    assert result.building.building_type == "building"
 
 
 def test_projection_preserves_multiple_volumes():
