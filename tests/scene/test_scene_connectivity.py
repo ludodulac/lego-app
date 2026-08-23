@@ -7,7 +7,7 @@ from brickhouse.scene import ArchitecturalScene
 SOURCE = {"kind": "inferred", "confidence": 0.7}
 
 
-def _scene(*, platform=None, stairs=None):
+def _scene(*, platform=None, stairs=None, openings=None):
     return {
         "schema_version": "0.2",
         "id": "connectivity",
@@ -22,18 +22,33 @@ def _scene(*, platform=None, stairs=None):
             "floors": 2,
             "source": SOURCE,
         }],
+        "openings": openings or [],
         "platforms": [platform] if platform else [],
         "stairs": stairs or [],
         "appearance": {"walls": {"color": "off_white"}, "roof": {"color": "dark_gray"}, "frames": {"color": "dark_brown"}},
     }
 
 
-def _platform(x=10, y=2, z=1):
-    return {"id": "deck", "position": {"x": x, "y": y, "z": z}, "width": 2, "depth": 3, "thickness": 0.2, "source": SOURCE}
+def _platform(x=10, y=2, z=1, id="deck"):
+    return {"id": id, "position": {"x": x, "y": y, "z": z}, "width": 2, "depth": 3, "thickness": 0.2, "source": SOURCE}
 
 
 def _stair(start, end, id="stair"):
     return {"id": id, "start": start, "end": end, "width": 1, "source": SOURCE}
+
+
+def _door(facade="right", offset=3, z=1, id="door"):
+    return {
+        "id": id,
+        "type": "door",
+        "volume_id": "main",
+        "facade": facade,
+        "offset_horizontal": offset,
+        "offset_vertical": z,
+        "width": 1,
+        "height": 2,
+        "source": SOURCE,
+    }
 
 
 def test_accepts_ground_to_platform_stair_when_platform_touches_building():
@@ -69,3 +84,21 @@ def test_accepts_two_stair_runs_joined_by_platform():
         ],
     )
     assert len(ArchitecturalScene.model_validate(scene).stairs) == 2
+
+
+def test_accepts_elevated_right_door_when_deck_is_at_same_facade_position():
+    scene = _scene(platform=_platform(x=10, y=2, z=1), openings=[_door(facade="right", offset=3, z=1)])
+    assert ArchitecturalScene.model_validate(scene).openings[0].id == "door"
+
+
+def test_rejects_elevated_door_when_deck_is_on_wrong_part_of_same_facade():
+    scene = _scene(platform=_platform(x=10, y=5, z=1), openings=[_door(facade="right", offset=1, z=1)])
+    with pytest.raises(ValidationError, match="has no platform or stair access at its facade position"):
+        ArchitecturalScene.model_validate(scene)
+
+
+def test_left_facade_uses_rear_to_front_canonical_offset_for_access():
+    # left offset=1.0 on an 8 m deep volume maps close to y=6.5 (rear -> front).
+    deck = {"id": "left_deck", "position": {"x": -2, "y": 5.5, "z": 1}, "width": 2, "depth": 2, "thickness": 0.2, "source": SOURCE}
+    scene = _scene(platform=deck, openings=[_door(facade="left", offset=1, z=1)])
+    assert ArchitecturalScene.model_validate(scene).openings[0].facade.value == "left"
