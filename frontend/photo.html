@@ -3,49 +3,109 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BrickHouse — Analyser des photos</title>
+  <title>BrickHouse — Ma maison en LEGO</title>
   <link rel="stylesheet" href="./photo.css" />
 </head>
 <body>
-  <header class="topbar"><a href="./index.html">← Accueil</a><strong>BrickHouse</strong><a href="./configurator.html">Décrire ma maison →</a></header>
+  <header class="topbar"><a href="./index.html">← Accueil</a><strong>BrickHouse</strong><span>Photos → IA → maquette</span></header>
   <main class="layout">
     <section class="panel">
-      <p class="eyebrow">Étape 1 · Comprendre à partir des photos</p>
-      <h1>Photographier la maison</h1>
-      <p class="intro">Ajoutez plusieurs vues de la même maison. BrickHouse croise les vues pour corriger la perspective et retrouver les proportions réelles avant de convertir les distances en mètres.</p>
-      <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>BrickHouse vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
-      <details class="result-card" open><summary>Comment prendre des photos utiles</summary><p>Pour un premier essai, privilégiez 4 vues : façade, arrière, côté gauche et côté droit. Prenez assez de recul pour voir les deux bords du mur, le sol, les ouvertures et le toit. Une vue presque de face aide à placer précisément les fenêtres ; une vue en biais aide à comprendre la profondeur et les angles. Évitez si possible les panoramas, zooms extrêmes et cadrages coupant les coins du bâtiment.</p><p>Si vous connaissez une seule mesure réelle — idéalement la largeur de la façade — indiquez-la : BrickHouse conservera d’abord les rapports entre murs, fenêtres et toit, puis utilisera cette mesure comme ancre d’échelle.</p></details>
-      <div class="field"><label for="photos">Photos</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 6 photos maximum · 12 Mo maximum par photo</small></div>
-      <div id="photo-list" class="photo-list"></div>
-      <div class="field"><label for="notes">Ce que vous voulez préciser</label><textarea id="notes" rows="5" placeholder="Ex. La terrasse continue à gauche. La façade avant mesure 9,8 m. Les deux fenêtres de droite ont la même largeur."></textarea></div>
-      <div class="field"><label for="known-width">Largeur réelle de la façade (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Optionnel mais très utile pour l’échelle" /></div>
-      <div class="field"><label for="studs">Taille de la maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
-      <details class="result-card external-ai" open>
-        <summary>Alternative fiable · analyser avec ChatGPT, Claude ou une autre IA</summary>
-        <p>Le parcours externe sépare maintenant deux problèmes : d’abord comprendre quels plans physiques sont vus dans chaque photo, puis seulement inventorier les éléments architecturaux. Utilisez le même jeu de photos aux deux étapes et privilégiez les fichiers JSON.</p>
-        <p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">1. Cartographier les vues et les façades ↗</a></p>
-        <p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">2. Produire le relevé ArchitecturalSurvey avec la carte topologique ↗</a></p>
-        <p><small>Ne passez à l’étape 2 que si `brickhouse-topology-map-v0.1.json` est résolu. Le prompt universel direct reste disponible comme ancien parcours de secours : <a href="./brickhouse-ai-prompt.txt" target="_blank" rel="noopener">ouvrir ↗</a></small></p>
-        <div class="field"><label for="external-analysis-file">Fichier JSON renvoyé par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Importez ici uniquement le Survey final validable, pas la carte topologique intermédiaire.</small></div>
-        <div class="field"><label for="external-analysis">Ou collez le JSON</label><textarea id="external-analysis" rows="10" spellcheck="false" placeholder="Collez ici le JSON ArchitecturalSurvey final…"></textarea><small>Les blocs ```json … ``` sont acceptés. La carte topologique sert d’entrée à l’IA avant ce Survey et n’est pas importée ici.</small></div>
-        <button id="import-analysis" class="primary" type="button">Valider et importer cette analyse</button>
+      <p class="eyebrow">Étape 1 · Photographier</p>
+      <h1>Montrez votre maison</h1>
+      <p class="intro">Placez les photos dans les cases qui correspondent le mieux à votre prise de vue. Les cases servent de repères ; l’IA devra quand même recouper les objets visibles entre plusieurs photos avant de reconstruire la maison.</p>
+
+      <section class="simple-card">
+        <div class="simple-heading"><div><h2>1. Ajouter les vues</h2><p>Une photo nette par case. Les vues en biais sont très utiles pour comprendre les angles, escaliers et terrasses.</p></div><span class="step-badge">6 max.</span></div>
+        <div id="guided-photo-grid" class="guided-photo-grid">
+          <label class="guided-photo-slot" data-slot="front" data-label="Façade avant">
+            <strong>Façade avant</strong><span>Vue la plus de face possible</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+          <label class="guided-photo-slot" data-slot="front_left" data-label="3/4 avant gauche">
+            <strong>3/4 avant gauche</strong><span>Montre l’angle avant + côté gauche</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+          <label class="guided-photo-slot" data-slot="left" data-label="Côté gauche">
+            <strong>Côté gauche</strong><span>Mur gauche, terrasse, escalier…</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+          <label class="guided-photo-slot" data-slot="rear" data-label="Arrière / 3/4 arrière">
+            <strong>Arrière / 3/4 arrière</strong><span>Même partielle ou masquée</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+          <label class="guided-photo-slot" data-slot="right" data-label="Côté droit">
+            <strong>Côté droit</strong><span>Mur droit et niveau du terrain</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+          <label class="guided-photo-slot" data-slot="front_right" data-label="3/4 avant droit">
+            <strong>3/4 avant droit</strong><span>Montre l’angle avant + côté droit</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <small class="guided-photo-name">Aucune photo</small>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+          </label>
+        </div>
+        <p class="microcopy">Si vous n’avez pas toutes les vues, laissez simplement les cases manquantes vides. L’IA devra signaler les zones réellement inconnues au lieu de les inventer.</p>
+      </section>
+
+      <section class="simple-card">
+        <div class="simple-heading"><div><h2>2. Ajouter ce que vous savez</h2><p>Ces informations sont facultatives, mais une mesure réelle améliore fortement l’échelle.</p></div></div>
+        <div class="field"><label for="known-width">Largeur réelle de la façade avant (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Ex. 9,8" /></div>
+        <div class="field"><label for="notes">Informations générales</label><textarea id="notes" rows="4" placeholder="Ex. La terrasse est en bois. La rue monte fortement côté droit. La partie arrière est masquée par le bâtiment voisin."></textarea></div>
+        <div class="field compact-field"><label for="studs">Taille de la future maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
+      </section>
+
+      <section class="simple-card ai-handoff-card">
+        <div class="simple-heading"><div><p class="eyebrow">Sans connexion API</p><h2>3. Faire analyser avec une IA</h2><p>BrickHouse regroupe vos photos, leurs repères, vos notes et ses instructions dans un seul paquet.</p></div></div>
+        <button id="download-ai-package" class="primary big-action" type="button">Télécharger le paquet à envoyer à l’IA</button>
+        <p id="ai-package-status" class="helper-status">Vous pourrez envoyer ce fichier à ChatGPT, Claude ou une autre IA capable d’analyser des images et des fichiers.</p>
+        <div class="handoff-arrow">↓</div>
+        <div class="field"><label for="external-analysis-file">Remettre ici le fichier résultat donné par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>BrickHouse reconnaît un Survey, une Scene, ou le nouveau fichier résultat complet BrickHouse.</small></div>
+        <div class="field fallback-paste"><label for="external-analysis">Ou coller le résultat JSON</label><textarea id="external-analysis" rows="6" spellcheck="false" placeholder="Solution de secours si l’IA ne fournit pas de fichier à télécharger…"></textarea></div>
+        <button id="import-analysis" class="primary big-action" type="button">Importer le résultat dans BrickHouse</button>
+      </section>
+
+      <section class="simple-card future-card" aria-disabled="true">
+        <div class="simple-heading"><div><p class="eyebrow">Prochaine étape du produit</p><h2>Analyse directe dans BrickHouse</h2><p>Cette zone est déjà prévue pour le jour où l’application appellera directement le fournisseur d’IA : les mêmes photos et informations seront envoyées sans téléchargement intermédiaire.</p></div><span class="future-pill">Bientôt</span></div>
+        <button type="button" disabled>Analyser automatiquement mes photos</button>
+      </section>
+
+      <details class="advanced-panel">
+        <summary>Options avancées et outils de test</summary>
+        <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>BrickHouse vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
+        <details class="result-card"><summary>Conseils détaillés pour les photos</summary><p>Prenez assez de recul pour voir les bords du mur, le sol, les ouvertures et le toit. Une vue presque de face aide à placer les fenêtres ; une vue en biais aide à comprendre la profondeur et les angles. Évitez si possible les panoramas et cadrages coupant les coins du bâtiment.</p></details>
+        <div class="field legacy-photo-field"><label for="photos">Sélection photo technique</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 6 photos maximum · 12 Mo maximum par photo</small></div>
+        <div id="photo-list" class="photo-list"></div>
+        <details class="result-card external-ai"><summary>Prompts BrickHouse séparés</summary><p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">Cartographie topologique ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">ArchitecturalSurvey ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Survey → Scene ↗</a></p></details>
+        <div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div>
+        <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos via l’API actuelle</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="replace-survey" type="button">Remplacer par un Survey corrigé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       </details>
-      <details><summary>Réglages techniques</summary><div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div></details>
-      <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="replace-survey" type="button">Remplacer par un Survey corrigé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       <p id="status" class="status">Connexion au moteur BrickHouse…</p>
     </section>
+
     <section class="result-panel">
-      <div class="empty" id="empty-state"><strong>Aucune analyse pour le moment.</strong><span>Le résultat séparera ce qui est compris de ce qui reste incertain.</span></div>
+      <div class="empty" id="empty-state"><strong>Votre analyse apparaîtra ici.</strong><span>BrickHouse vérifiera automatiquement ce qui est certain, incertain ou manquant avant la construction.</span></div>
       <div id="result" hidden>
-        <div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>Confiance</span><strong id="confidence">—</strong></div></div>
-        <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez aux points que vous connaissez. Vous pouvez aussi conserver les estimations actuelles.</p></section>
+        <div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>État</span><strong id="confidence">—</strong></div></div>
+        <section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez seulement aux points que vous connaissez.</p></section>
         <section class="result-card" id="proportions-card" hidden><h3>Proportions et échelle</h3><p id="scale-basis"></p><ul id="proportion-evidence"></ul></section>
-        <section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Vos réponses seront réinjectées avec les mêmes photos.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section>
-        <section class="result-card"><h3>Hypothèses utilisées</h3><ul id="assumptions"></ul></section>
+        <section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>BrickHouse n’affichera que les informations réellement utiles.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section>
+        <section class="result-card"><h3>Contrôles automatiques</h3><ul id="assumptions"></ul></section>
         <details class="result-card"><summary>Voir les données techniques</summary><pre id="json-preview"></pre></details>
       </div>
     </section>
   </main>
+  <script type="module" src="./photo-simple.js"></script>
+  <script type="module" src="./external-bundle-import.js"></script>
   <script type="module" src="./survey-import.js"></script>
   <script type="module" src="./photo.js"></script>
   <script type="module" src="./scene-build.js"></script>
