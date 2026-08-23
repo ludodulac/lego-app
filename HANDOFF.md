@@ -69,11 +69,12 @@ Le produit doit être puissant avec quelques bonnes photos, sans prétendre qu'u
 Principe actuel : **quelques vues générales à fort recouvrement + vues supplémentaires ciblées si elles apportent un vrai gain d'information**.
 
 L'interface a été étendue vers :
-- 6 cases de vues de base guidées ;
+- 6 zones de vues de base guidées ;
+- plusieurs photos possibles dans une même zone lorsqu'elles représentent le même côté/angle sous des positions différentes ;
 - jusqu'à 6 vues supplémentaires ciblées ;
 - maximum total 12 photos.
 
-Les vues supplémentaires doivent raffiner les mêmes objets, pas créer artificiellement de nouveaux objets.
+Les libellés des zones sont des repères utilisateur, pas une vérité architecturale. Le handoff externe indique explicitement qu'un libellé ne doit jamais forcer une interprétation contraire à l'image. Les vues supplémentaires et les vues multiples d'une même zone doivent raffiner les mêmes objets, pas créer artificiellement de nouveaux objets.
 
 Le benchmark principal actuel doit rester les **5 photos originales**. Des photos supplémentaires de la maison ont été fournies ensuite et servent de vérité de contrôle : elles ne doivent pas être utilisées pour rendre artificiellement le benchmark 5 photos parfait. Elles servent à déterminer ce qui était déductible, ce qui devait rester incertain et ce qui aurait justifié une demande de vue ciblée.
 
@@ -251,7 +252,7 @@ Ces fichiers ne sont PAS garantis présents dans GitHub. Ne jamais prétendre le
 ## 17. Interface utilisateur actuelle
 
 Le parcours normal de `frontend/photo.html` est désormais beaucoup plus simple :
-- cases guidées de photos ;
+- 6 zones guidées de photos, chacune acceptant plusieurs images ;
 - vues supplémentaires facultatives ;
 - mesure/notes facultatives ;
 - génération d'un paquet pour IA externe ;
@@ -283,31 +284,39 @@ Correction effectuée juste avant cette passation dans `frontend/photo-simple.js
 - tentative de copie automatique de cette consigne dans le presse-papiers ;
 - statut après génération expliquant d'envoyer ZIP + message de lancement dans le même message.
 
-`frontend/photo.html` a été modifié pour contenir `#ai-launch-instruction` et `#ai-launch-text`.
+Évolution suivante sur `main` :
+- les 6 zones guidées acceptent maintenant plusieurs fichiers ;
+- chaque photo reste une observation distincte dans le manifest avec `slot_view_index` ;
+- plusieurs vues peuvent partager le même libellé sans que ce libellé force l'interprétation ;
+- le paquet refuse plus de 12 photos au lieu de tronquer silencieusement les dernières ;
+- tests dédiés ajoutés dans `tests/test_guided_multi_photo_slots.py`.
 
-Tests frontend ajoutés/renforcés dans `tests/test_frontend_flow.py` pour verrouiller le handoff 0.3 et la présence de la consigne.
+Tests frontend du handoff présents notamment dans `tests/test_external_ai_handoff_launch.py`.
 
-Commits immédiatement précédant cette passation :
+Commits immédiatement précédant cette mise à jour :
 - `7c05f8a6` — handoff externe plus explicite ;
-- `4202ba73` — tests du handoff.
+- `4202ba73` — tests du handoff ;
+- `49ea4042` — interface multi-photos par zone ;
+- `9021bb0f` — conservation de toutes les vues dans le paquet IA ;
+- `da03a75f` — tests de régression multi-photos.
 
-Au moment de la passation, aucun statut CI n'était remonté via le connecteur pour le dernier commit. Ne pas prétendre que toute la suite distante est verte sans la vérifier.
+Le statut CI distant doit toujours être vérifié avant de le déclarer vert.
 
 ## 19. Prochain test utilisateur EXACT
 
 Après déploiement des derniers commits :
 1. recharger complètement BrickHouse ;
 2. utiliser uniquement les 5 photos originales ;
-3. générer un NOUVEAU paquet avec « Télécharger le paquet à envoyer à l'IA » ;
-4. BrickHouse doit afficher « Message à envoyer avec le ZIP » ;
-5. ouvrir une conversation IA vierge ;
-6. joindre le nouveau ZIP ET envoyer dans le même message la consigne affichée par BrickHouse ;
-7. ne rien ajouter sur l'architecture de la maison ;
-8. si l'IA demande encore « que souhaitez-vous ? », récupérer sa réponse exacte : le handoff est encore insuffisant ;
-9. si elle produit `brickhouse-external-result.json`, récupérer ce fichier sans le corriger manuellement et l'importer dans BrickHouse ;
-10. ensuite analyser les éventuels refus Survey→Scene ou le rendu global.
-
-Ne pas demander ce test avant d'avoir inspecté l'état actuel de `main` et, si possible, le déploiement/CI.
+3. les classer dans les zones les plus proches sans chercher à faire correspondre artificiellement chaque photo à un libellé ; plusieurs photos peuvent être mises dans une même zone ;
+4. pour le benchmark actuel : photo 1 en façade avant, photo 2 côté droit, photos 3 et 4 ensemble côté gauche, photo 5 en arrière / 3/4 arrière ;
+5. générer un NOUVEAU paquet avec « Télécharger le paquet à envoyer à l'IA » ;
+6. BrickHouse doit afficher « Message à envoyer avec le ZIP » ;
+7. ouvrir une conversation IA vierge ;
+8. joindre le nouveau ZIP ET envoyer dans le même message la consigne affichée par BrickHouse ;
+9. ne rien ajouter sur l'architecture de la maison ;
+10. si l'IA demande encore « que souhaitez-vous ? », récupérer sa réponse exacte : le handoff est encore insuffisant ;
+11. si elle produit `brickhouse-external-result.json`, récupérer ce fichier sans le corriger manuellement et l'importer dans BrickHouse ;
+12. ensuite analyser les éventuels refus Survey→Scene ou le rendu global.
 
 ## 20. Commits structurants récents à connaître
 
@@ -326,7 +335,8 @@ Parmi les commits mentionnés dans les conversations récentes :
 - `d2da2a9f`, `82997645`, `0244e6c7` vues supplémentaires guidées ;
 - `20bac3f6`, `342e95c8`, `0aa47808` raisonnement adaptatif et incertitude ;
 - `aa6b4d3e`, `f350b6b1`, `d66d083a`, `0766c201`, `0c30fb19`, `bce83a5e` fidélité/incertitude dans export et viewer ;
-- `7c05f8a6`, `4202ba73` dernier handoff externe.
+- `7c05f8a6`, `4202ba73` handoff externe ;
+- `49ea4042`, `9021bb0f`, `da03a75f` multi-photos par zone guidée.
 
 ## 21. Méthode de travail attendue
 
@@ -342,7 +352,7 @@ Parmi les commits mentionnés dans les conversations récentes :
 
 ## 22. Priorité de reprise
 
-Priorité immédiate : **valider le nouveau handoff IA externe sur les 5 photos benchmark**, puis exploiter le résultat réel pour continuer le moteur.
+Priorité immédiate : **valider le nouveau handoff IA externe sur les 5 photos benchmark**, maintenant avec plusieurs photos possibles dans une même zone guidée, puis exploiter le résultat réel pour continuer le moteur.
 
 Avant de solliciter l'utilisateur :
 - inspecter les derniers fichiers `photo-simple.js`, `photo.html`, tests ;
