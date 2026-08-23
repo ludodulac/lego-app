@@ -1,9 +1,9 @@
 """Capability registry separating known LEGO parts from engine-approved placement.
 
 The processed piece dataset is intentionally richer than the deterministic M0
-engine.  A part being present in that dataset must never make it eligible for
-automatic placement by itself.  This module gives downstream optimizers an
-explicit staged contract.
+engine. A part being present in that dataset must never make it eligible for
+automatic placement by itself. This module gives downstream optimizers an
+explicit staged contract and can audit a generated BrickModel before export.
 """
 from __future__ import annotations
 
@@ -11,19 +11,16 @@ import csv
 from enum import IntEnum
 from fractions import Fraction
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
+if TYPE_CHECKING:
+    from .brick_model import BrickModel
+
 
 class PieceCapabilityStage(IntEnum):
-    """Highest capability that BrickHouse has validated for one part.
-
-    Stages are monotonic: later stages imply the earlier engineering work has
-    been completed, but source_dataset_known is tracked separately because the
-    current engine also contains a few canonical aliases/design IDs that are
-    not rows in the processed master CSV.
-    """
+    """Highest capability that BrickHouse has validated for one part."""
 
     KNOWN = 1
     CANONICAL = 2
@@ -174,3 +171,23 @@ def create_current_engine_capability_registry(
         notes="Validated only as a matched frame/pane window assembly.",
     )
     return registry
+
+
+def validate_model_part_capabilities(
+    model: "BrickModel",
+    registry: PieceCapabilityRegistry,
+) -> None:
+    """Reject any automatically generated part that is not placement-approved.
+
+    This is deliberately strict: source catalogue presence is not sufficient.
+    Future freeform optimizers must explicitly promote a piece family after its
+    orientation and connection semantics are validated.
+    """
+
+    approved = registry.approved_ids()
+    unsupported = sorted({part.part_id for part in model.parts if part.part_id not in approved})
+    if unsupported:
+        raise ValueError(
+            "BrickModel contains parts that are not approved for deterministic placement: "
+            + ", ".join(unsupported)
+        )
