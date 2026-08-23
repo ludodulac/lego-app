@@ -13,6 +13,7 @@ from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.roof import generate_spatial_gable_roof
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
+from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 from brickhouse.geometry import generate_building_geometry
@@ -66,13 +67,14 @@ def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT
     return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
 
 def run_m0_pipeline_scene(scene:ArchitecturalScene,*,front_width_studs:int=DEFAULT_FRONT_WIDTH_STUDS)->BrickExportBundle:
-    """Build a validated Scene while preserving platforms and stairs in the LEGO model."""
+    """Build the rich Scene, preserving site, exterior structures and glazing."""
     projection=project_scene_to_building(scene)
     if projection.building is None or projection.blocked:
         blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker")
         raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
     base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs)
     enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs)
+    enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs)
     if enriched is base.brick_model:
         return base
     bom=generate_bom(enriched)
