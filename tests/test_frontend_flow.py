@@ -87,31 +87,28 @@ def test_scene_import_is_gated_against_pending_validated_survey() -> None:
     assert "Scène refusée par le Survey" in gate
 
 
-def test_validated_scene_gate_can_build_and_open_viewer() -> None:
+def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
     gate = read("scene-survey-gate.js")
     assert "currentSceneBuildPayload" in gate
     assert "gateBuild.disabled = !buildable" in gate
-    assert "/api/v1/build" in gate
+    assert "const scene = payload?.scene ?? null" in gate
+    assert "`${base}/api/v1/build-scene`" in gate
+    assert "scene," in gate
     assert "brickhouse.pendingArchitecturalScene" in gate
     assert "brickhouse.pendingExport" in gate
     assert "window.location.href = './viewer.html'" in gate
     assert "Étape suivante : cliquez sur « Construire cette proposition »" in gate
 
 
-def test_survey_to_scene_prompt_matches_real_v02_field_names() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v20_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v0.4" in prompt
-    assert '"volume_id":"volume_main"' in prompt
-    assert '"has_sill":true' in prompt
-    assert '"has_decorative_surround":false' in prompt
-    assert '"overhang":0.3' in prompt
-    assert '"start_elevation":0.0' in prompt
-    assert '"end_elevation":1.5' in prompt
-    assert '"spans"' in prompt
-    assert "N’utilise jamais points" in prompt
-    assert "Equipment ne contient PAS offset_horizontal" in prompt
-    assert "image_left_maps_to_facade_offset" in prompt
-    assert "N’infère jamais \"tuile\"" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.0" in prompt
+    assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
+    assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
+    assert "Ne redresse jamais silencieusement" in prompt
+    assert "Une seule photo" in prompt
+    assert "SceneRoof.type autorise" in prompt
+    assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
