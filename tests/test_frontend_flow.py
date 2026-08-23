@@ -57,7 +57,7 @@ def test_guided_capture_supports_base_views_plus_targeted_extras() -> None:
     html = read("photo.html")
     simple = read("photo-simple.js")
     assert 'id="guided-extra-photos"' in html
-    assert "6 vues de base" in html
+    assert "6 zones de base" in html
     assert "Jusqu’à 6 vues supplémentaires" in html
     assert "MAX_TOTAL_PHOTOS = 12" in simple
     assert "MAX_EXTRA_PHOTOS = 6" in simple
@@ -190,7 +190,7 @@ def test_viewer_exposes_final_fidelity_issues() -> None:
     assert 'id="fidelity-list"' in html
     assert "function updateFidelity" in viewer
     assert "b.fidelity_issues" in viewer
-    assert "low_confidence_exterior_geometry" not in viewer  # UI stays generic to issue codes.
+    assert "low_confidence_exterior_geometry" not in viewer
     assert "#fidelity-card" in styles
 
 
