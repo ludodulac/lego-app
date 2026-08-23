@@ -19,6 +19,7 @@ from brickhouse.building import (
 )
 
 EPSILON = 1e-9
+CONNECTIVITY_TOLERANCE_M = 0.12
 
 
 class Evidence(BaseModel):
@@ -208,6 +209,7 @@ class ArchitecturalScene(BaseModel):
         self._validate_ids_and_references()
         self._validate_opening_geometry()
         self._validate_visibility()
+        self._validate_external_connectivity()
         return self
 
     def _validate_ids_and_references(self) -> None:
@@ -282,3 +284,48 @@ class ArchitecturalScene(BaseModel):
                 intersects = opening_from < span.to_offset - EPSILON and span.from_offset < opening_to - EPSILON
                 if intersects and span.state is not VisibilityState.VISIBLE:
                     raise ValueError(f"opening {opening.id!r} intersects non-visible facade span")
+
+    @staticmethod
+    def _point_on_platform(point: Position3D, platform: Platform) -> bool:
+        return (
+            platform.position.x - CONNECTIVITY_TOLERANCE_M <= point.x <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
+            and platform.position.y - CONNECTIVITY_TOLERANCE_M <= point.y <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
+            and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
+        )
+
+    @staticmethod
+    def _point_on_volume_boundary(point: Position3D, volume: SceneVolume) -> bool:
+        x0, x1 = volume.position.x, volume.position.x + volume.width.value
+        y0, y1 = volume.position.y, volume.position.y + volume.depth.value
+        z0, z1 = volume.position.z, volume.position.z + volume.height.value
+        inside_xy = x0 - CONNECTIVITY_TOLERANCE_M <= point.x <= x1 + CONNECTIVITY_TOLERANCE_M and y0 - CONNECTIVITY_TOLERANCE_M <= point.y <= y1 + CONNECTIVITY_TOLERANCE_M
+        on_edge = min(abs(point.x - x0), abs(point.x - x1), abs(point.y - y0), abs(point.y - y1)) <= CONNECTIVITY_TOLERANCE_M
+        return inside_xy and on_edge and z0 - CONNECTIVITY_TOLERANCE_M <= point.z <= z1 + CONNECTIVITY_TOLERANCE_M
+
+    @staticmethod
+    def _platform_touches_volume(platform: Platform, volume: SceneVolume) -> bool:
+        px0, px1 = platform.position.x, platform.position.x + platform.width
+        py0, py1 = platform.position.y, platform.position.y + platform.depth
+        vx0, vx1 = volume.position.x, volume.position.x + volume.width.value
+        vy0, vy1 = volume.position.y, volume.position.y + volume.depth.value
+        x_overlap = min(px1, vx1) >= max(px0, vx0) - CONNECTIVITY_TOLERANCE_M
+        y_overlap = min(py1, vy1) >= max(py0, vy0) - CONNECTIVITY_TOLERANCE_M
+        x_touch = min(abs(px0 - vx1), abs(px1 - vx0)) <= CONNECTIVITY_TOLERANCE_M and y_overlap
+        y_touch = min(abs(py0 - vy1), abs(py1 - vy0)) <= CONNECTIVITY_TOLERANCE_M and x_overlap
+        return x_touch or y_touch
+
+    def _validate_external_connectivity(self) -> None:
+        if not self.platforms and not self.stairs:
+            return
+        for platform in self.platforms:
+            touches_building = any(self._platform_touches_volume(platform, volume) for volume in self.volumes)
+            touches_stair = any(self._point_on_platform(stair.start, platform) or self._point_on_platform(stair.end, platform) for stair in self.stairs)
+            if not touches_building and not touches_stair:
+                raise ValueError(f"platform {platform.id!r} is disconnected from both building and stairs")
+        for stair in self.stairs:
+            for endpoint_name, endpoint in (("start", stair.start), ("end", stair.end)):
+                connects = any(self._point_on_platform(endpoint, platform) for platform in self.platforms) or any(self._point_on_volume_boundary(endpoint, volume) for volume in self.volumes)
+                if endpoint.z <= CONNECTIVITY_TOLERANCE_M:
+                    connects = True
+                if not connects:
+                    raise ValueError(f"stair {stair.id!r} {endpoint_name} does not connect to ground, a platform, or the building")
