@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from math import dist
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -21,7 +20,6 @@ from brickhouse.building import (
 
 EPSILON = 1e-9
 CONNECTIVITY_TOLERANCE_M = 0.12
-ACCESS_TOLERANCE_M = 0.35
 
 
 class Evidence(BaseModel):
@@ -212,7 +210,6 @@ class ArchitecturalScene(BaseModel):
         self._validate_opening_geometry()
         self._validate_visibility()
         self._validate_external_connectivity()
-        self._validate_elevated_door_access()
         return self
 
     def _validate_ids_and_references(self) -> None:
@@ -289,11 +286,11 @@ class ArchitecturalScene(BaseModel):
                     raise ValueError(f"opening {opening.id!r} intersects non-visible facade span")
 
     @staticmethod
-    def _point_on_platform(point: Position3D, platform: Platform, tolerance: float = CONNECTIVITY_TOLERANCE_M) -> bool:
+    def _point_on_platform(point: Position3D, platform: Platform) -> bool:
         return (
-            platform.position.x - tolerance <= point.x <= platform.position.x + platform.width + tolerance
-            and platform.position.y - tolerance <= point.y <= platform.position.y + platform.depth + tolerance
-            and abs(point.z - platform.position.z) <= tolerance
+            platform.position.x - CONNECTIVITY_TOLERANCE_M <= point.x <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
+            and platform.position.y - CONNECTIVITY_TOLERANCE_M <= point.y <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
+            and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
         )
 
     @staticmethod
@@ -332,33 +329,3 @@ class ArchitecturalScene(BaseModel):
                     connects = True
                 if not connects:
                     raise ValueError(f"stair {stair.id!r} {endpoint_name} does not connect to ground, a platform, or the building")
-
-    @staticmethod
-    def _opening_access_point(opening: SceneOpening, volume: SceneVolume) -> Position3D:
-        offset = opening.offset_horizontal + opening.width / 2
-        x0, y0, z0 = volume.position.x, volume.position.y, volume.position.z
-        width, depth = volume.width.value, volume.depth.value
-        if opening.facade is Facade.FRONT:
-            x, y = x0 + offset, y0
-        elif opening.facade is Facade.RIGHT:
-            x, y = x0 + width, y0 + offset
-        elif opening.facade is Facade.REAR:
-            x, y = x0 + width - offset, y0 + depth
-        else:  # canonical left offset runs rear -> front
-            x, y = x0, y0 + depth - offset
-        return Position3D(x=x, y=y, z=z0 + opening.offset_vertical)
-
-    @staticmethod
-    def _points_near(first: Position3D, second: Position3D, tolerance: float = ACCESS_TOLERANCE_M) -> bool:
-        return dist((first.x, first.y, first.z), (second.x, second.y, second.z)) <= tolerance
-
-    def _validate_elevated_door_access(self) -> None:
-        volumes = {volume.id: volume for volume in self.volumes}
-        for opening in self.openings:
-            if opening.type is not OpeningType.DOOR or opening.offset_vertical <= ACCESS_TOLERANCE_M:
-                continue
-            access_point = self._opening_access_point(opening, volumes[opening.volume_id])
-            on_platform = any(self._point_on_platform(access_point, platform, ACCESS_TOLERANCE_M) for platform in self.platforms)
-            at_stair = any(self._points_near(access_point, endpoint) for stair in self.stairs for endpoint in (stair.start, stair.end))
-            if not on_platform and not at_stair:
-                raise ValueError(f"elevated door {opening.id!r} has no platform or stair access at its facade position")
