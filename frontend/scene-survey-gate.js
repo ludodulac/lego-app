@@ -188,18 +188,18 @@ function renderFinalSceneValidation(payload) {
 
 gateBuild.addEventListener('click', async event => {
   const payload = currentSceneBuildPayload;
-  const building = payload?.projection?.building ?? null;
-  if (!building) return;
+  const scene = payload?.scene ?? null;
+  if (!scene) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   const base = gateApiBase();
   if (!base) { gateStatus.textContent = 'URL API manquante.'; return; }
   gateBuild.disabled = true;
-  gateStatus.textContent = 'BrickHouse génère maintenant la maquette constructible…';
+  gateStatus.textContent = 'BrickHouse génère maintenant la maquette constructible à partir de la Scene complète…';
   rememberSceneStatus(gateStatus.textContent);
   try {
-    const response = await postJsonWithTimeout(`${base}/api/v1/build`, {
-      building,
+    const response = await postJsonWithTimeout(`${base}/api/v1/build-scene`, {
+      scene,
       front_width_studs: Number(gateStuds?.value) || 48,
     });
     const exportPayload = await response.json();
