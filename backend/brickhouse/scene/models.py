@@ -94,13 +94,8 @@ class SceneRoof(BaseModel):
             if self.ridge_direction is not None or self.pitch_degrees is not None:
                 raise ValueError("flat roof must not define pitched-roof fields")
         elif self.type is SceneRoofType.SHED:
-            # A shed roof has no ridge. v0.2 can preserve its type and pitch, but
-            # not yet the signed downhill direction, so ridge_direction must stay empty.
             if self.ridge_direction is not None:
                 raise ValueError("shed roof must not define ridge_direction")
-        # Hip/mansard/gambrel/butterfly/other roofs may carry a dominant ridge axis
-        # and/or representative pitch when supported by evidence, but those fields
-        # remain optional because one scalar cannot fully encode their geometry.
         return self
 
 
@@ -196,6 +191,9 @@ class SupportPost(BaseModel):
 
 class Platform(BaseModel):
     id: str
+    # Multi-volume scenes must be able to say which architectural volume owns
+    # an attached terrace/balcony. Legacy null means the primary first volume.
+    host_volume_id: str | None = None
     position: Position3D
     width: float = Field(gt=0)
     depth: float = Field(gt=0)
@@ -272,8 +270,6 @@ class VisibilitySpan(BaseModel):
 
 
 class FacadeVisibility(BaseModel):
-    # Explicit scope is required for unambiguous multi-volume scenes. Legacy
-    # entries without volume_id remain scoped to the primary (first) volume.
     volume_id: str | None = None
     facade: Facade
     spans: list[VisibilitySpan] = Field(default_factory=list)
@@ -333,6 +329,9 @@ class ArchitecturalScene(BaseModel):
             if roof.volume_id in roof_ids:
                 raise ValueError("at most one roof may reference a scene volume in v0.2")
             roof_ids.add(roof.volume_id)
+        for platform in self.platforms:
+            if platform.host_volume_id is not None and platform.host_volume_id not in volumes:
+                raise ValueError(f"platform {platform.id!r} references unknown host volume {platform.host_volume_id!r}")
         for entry in self.visibility:
             if entry.volume_id is not None and entry.volume_id not in volumes:
                 raise ValueError(f"visibility on {entry.facade.value} references unknown volume {entry.volume_id!r}")
