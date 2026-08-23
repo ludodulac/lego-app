@@ -12,10 +12,10 @@
     <section class="panel">
       <p class="eyebrow">Étape 1 · Photographier</p>
       <h1>Montrez votre maison</h1>
-      <p class="intro">Placez les photos dans les cases qui correspondent le mieux à votre prise de vue. Les cases servent de repères ; l’IA devra quand même recouper les objets visibles entre plusieurs photos avant de reconstruire la maison.</p>
+      <p class="intro">Placez d’abord quelques vues générales dans les cases qui correspondent le mieux à votre prise de vue. Les cases servent de repères ; l’IA devra recouper les objets visibles entre plusieurs photos avant de reconstruire le bâtiment.</p>
 
       <section class="simple-card">
-        <div class="simple-heading"><div><h2>1. Ajouter les vues</h2><p>Une photo nette par case. Les vues en biais sont très utiles pour comprendre les angles, escaliers et terrasses.</p></div><span class="step-badge">6 max.</span></div>
+        <div class="simple-heading"><div><h2>1. Ajouter les vues</h2><p>Quelques vues bien choisies suffisent souvent. Les vues en biais avec du recouvrement sont particulièrement utiles pour comprendre les angles, escaliers, terrasses et volumes secondaires.</p></div><span class="step-badge">6 vues de base</span></div>
         <div id="guided-photo-grid" class="guided-photo-grid">
           <label class="guided-photo-slot" data-slot="front" data-label="Façade avant">
             <strong>Façade avant</strong><span>Vue la plus de face possible</span>
@@ -30,7 +30,7 @@
             <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="left" data-label="Côté gauche">
-            <strong>Côté gauche</strong><span>Mur gauche, terrasse, escalier…</span>
+            <strong>Côté gauche</strong><span>Mur gauche et structures visibles</span>
             <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
             <small class="guided-photo-name">Aucune photo</small>
             <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
@@ -54,7 +54,12 @@
             <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
           </label>
         </div>
-        <p class="microcopy">Si vous n’avez pas toutes les vues, laissez simplement les cases manquantes vides. L’IA devra signaler les zones réellement inconnues au lieu de les inventer.</p>
+        <div class="field">
+          <label for="guided-extra-photos">Angles ou détails supplémentaires (facultatif)</label>
+          <input id="guided-extra-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+          <small id="guided-extra-summary">Ajoutez-les surtout lorsqu’une zone complexe est mal visible : escalier tournant, dessous de terrasse, arrière masqué, jonction de volumes, toiture particulière… Jusqu’à 6 vues supplémentaires.</small>
+        </div>
+        <p class="microcopy">Ne cherchez pas à multiplier les photos presque identiques. Une vue supplémentaire est surtout utile si elle montre une zone cachée, un autre côté d’un même objet ou un angle assez différent pour lever une ambiguïté. Si vous n’avez pas toutes les vues, laissez les cases manquantes vides : l’IA doit signaler les zones réellement inconnues au lieu de les inventer.</p>
       </section>
 
       <section class="simple-card">
@@ -82,8 +87,8 @@
       <details class="advanced-panel">
         <summary>Options avancées et outils de test</summary>
         <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>BrickHouse vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
-        <details class="result-card"><summary>Conseils détaillés pour les photos</summary><p>Prenez assez de recul pour voir les bords du mur, le sol, les ouvertures et le toit. Une vue presque de face aide à placer les fenêtres ; une vue en biais aide à comprendre la profondeur et les angles. Évitez si possible les panoramas et cadrages coupant les coins du bâtiment.</p></details>
-        <div class="field legacy-photo-field"><label for="photos">Sélection photo technique</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 6 photos maximum · 12 Mo maximum par photo</small></div>
+        <details class="result-card"><summary>Conseils détaillés pour les photos</summary><p>Prenez assez de recul pour voir les bords du mur, le sol, les ouvertures et le toit. Une vue presque de face aide à placer les fenêtres ; une vue en biais aide à comprendre la profondeur et les angles. Pour une zone complexe, prenez une deuxième vue depuis un angle réellement différent tout en gardant quelques objets communs visibles : ce recouvrement permet à l’IA de reconnaître les mêmes éléments. Évitez si possible les panoramas et cadrages coupant les coins du bâtiment.</p></details>
+        <div class="field legacy-photo-field"><label for="photos">Sélection photo technique</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 12 photos maximum · 12 Mo maximum par photo</small></div>
         <div id="photo-list" class="photo-list"></div>
         <details class="result-card external-ai"><summary>Prompts BrickHouse séparés</summary><p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">Cartographie topologique ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">ArchitecturalSurvey ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Survey → Scene ↗</a></p></details>
         <div class="field"><label for="api-url">API BrickHouse</label><input id="api-url" type="url" /></div>
