@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.0
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.1
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Tu ne refais ni la topologie ni l’inventaire architectural. Le Survey est la source de vérité.
@@ -47,8 +47,8 @@ B. CORRESPONDANCE MULTI-VUES : prouve qu’un bloc vu sur plusieurs photos est l
 C. GRAPHE DE CONNEXION : commence par les relations `connects_to` certaines du Survey. Complète seulement les connexions imposées par plusieurs indices concordants. Ne fabrique jamais un graphe « logique » sans preuve.
 D. ORIENTATION : détermine séparément le vecteur horizontal de CHAQUE volée. Si l’escalier tourne, utilise plusieurs objets `stairs[]`, un par volée, reliés par un `platforms[]` servant de palier. N’écrase jamais un escalier tournant en un seul segment diagonal ou droit.
 E. EMPREINTE : pour chaque plateforme, vérifie d’abord quels bords touchent la maison et jusqu’à quel coin elle s’étend. L’adjacence au mur et aux coins est prioritaire sur les dimensions estimées.
-F. MATÉRIAU : un changement clair béton/maçonnerie → bois signifie deux blocs physiques distincts, même s’ils sont au même niveau. Encode cette distinction par des objets séparés et explique le matériau dans `evidence` et `notes`.
-G. GARDE-CORPS / MURETS : un muret plein en béton bordant un escalier contraint la largeur et le côté de la volée. Même si le moteur LEGO ne sait pas encore le représenter fidèlement, conserve cette contrainte dans `evidence`/`notes`.
+F. MATÉRIAU STRUCTURÉ : utilise le champ `material` de Platform/StairRun. Valeurs : timber | concrete | masonry | stone | metal | composite | unknown. Un changement clair béton/maçonnerie → bois signifie deux objets physiques distincts. Ne compte plus sur `notes` ou `evidence` pour porter le matériau principal.
+G. BORDS STRUCTURÉS : utilise `edge_treatment` pour une Platform et `left_edge` / `right_edge` pour une StairRun. Valeurs : none | open_railing | solid_parapet | unknown. Ne suppose jamais que les deux côtés d’un escalier sont identiques. Un escalier en béton n’implique pas automatiquement deux murets.
 H. OCCLUSION : une partie cachée peut être inférée uniquement si les deux extrémités visibles et les connexions imposent une continuité simple. Sinon marque l’incertitude au lieu d’inventer une forme.
 
 RÈGLE D’ACCÈS — NE PAS SURINTERPRÉTER LES PORTES
@@ -87,8 +87,8 @@ PropertyValue : {"value":10.0,"source":{"kind":"user_provided","confidence":1.0}
 Volume : id, position, width PropertyValue, depth PropertyValue, height PropertyValue, floors, source, evidence.
 Opening : id IDENTIQUE au Survey, type, volume_id, facade IDENTIQUE au Survey, offset_horizontal>=0, offset_vertical>=0, width>0, height>0, source, evidence.
 Roof : id, volume_id, type, overhang, source, evidence. Pour gable : ridge_direction et pitch_degrees obligatoires.
-Platform : id, position{x,y,z}, width>0, depth>0, thickness>0, supports[], source, evidence. Plusieurs plateformes sont autorisées et REQUISES lorsqu’il y a plusieurs blocs physiques distincts.
-StairRun : id, start{x,y,z}, end{x,y,z}, width>0, source, evidence. Plusieurs StairRun sont autorisés et REQUIS si l’escalier change de direction.
+Platform : id, position{x,y,z}, width>0, depth>0, thickness>0, supports[], material optionnel, edge_treatment optionnel, source, evidence. Plusieurs plateformes sont autorisées et REQUISES lorsqu’il y a plusieurs blocs physiques distincts.
+StairRun : id, start{x,y,z}, end{x,y,z}, width>0, material optionnel, left_edge optionnel, right_edge optionnel, source, evidence. Plusieurs StairRun sont autorisés et REQUIS si l’escalier change de direction.
 Visibility : au plus une entrée par façade, spans non chevauchants.
 
 VALEURS AUTORISÉES
@@ -97,6 +97,8 @@ opening.type = window | door | garage_door
 window_style = simple | four_pane | traditional_tall | paired | bay | null
 roof.type = flat | gable
 ridge_direction = width | depth | null
+material = timber | concrete | masonry | stone | metal | composite | unknown
+edge_treatment / left_edge / right_edge = none | open_railing | solid_parapet | unknown
 source.kind = observed | user_provided | inferred | generated_default
 
 AUDIT FINAL OBLIGATOIRE
@@ -109,11 +111,12 @@ AUDIT FINAL OBLIGATOIRE
 7. terrasse/escalier : liste des primitives établie avant métrique ;
 8. chaque changement de direction d’escalier correspond à un StairRun distinct ;
 9. chaque changement de matériau/structure de plateforme correspond à un Platform distinct ;
-10. aucun bloc extérieur n’empiète sur une ouverture certaine ;
-11. les bords de terrasse observés accolés au mur le restent ;
-12. pignon avant → ridge_direction=depth ; aucune inversion left/right ;
-13. chaque platform possède thickness/supports ; chaque stair possède start/end ;
-14. références volume_id valides et géométrie dans les limites ;
-15. fichier final créé et téléchargeable.
+10. matériau et traitements de bord renseignés uniquement quand observés/plausibles, jamais inventés par symétrie ;
+11. aucun bloc extérieur n’empiète sur une ouverture certaine ;
+12. les bords de terrasse observés accolés au mur le restent ;
+13. pignon avant → ridge_direction=depth ; aucune inversion left/right ;
+14. chaque platform possède thickness/supports ; chaque stair possède start/end ;
+15. références volume_id valides et géométrie dans les limites ;
+16. fichier final créé et téléchargeable.
 
 Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de détecter l’erreur dans le rendu LEGO.
