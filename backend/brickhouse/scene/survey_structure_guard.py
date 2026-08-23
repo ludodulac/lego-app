@@ -2,8 +2,8 @@
 
 The Survey is segmented before metric reconstruction. A Scene may estimate metric
 coordinates for supported observations, but it must not manufacture hidden
-circulation, terrain or rearrange the qualitative opening layout merely to make a
-clean model.
+circulation, terrain, rearrange opening layout, or discard certain edge semantics
+merely to make a clean model.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from itertools import combinations
 
 from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
 
-from .models import ArchitecturalScene
+from .models import ArchitecturalScene, EdgeTreatment
 from .survey_validation import (
     SceneSurveyIssue,
     SceneSurveySeverity,
@@ -19,6 +19,7 @@ from .survey_validation import (
 )
 
 MAX_PLAUSIBLE_METRIC_CONFIDENCE = 0.65
+_EDGE_NAMES = ("x_min", "x_max", "y_min", "y_max")
 
 
 def _superseded_observation_ids(survey: ArchitecturalSurvey) -> set[str]:
@@ -47,12 +48,7 @@ def _guard_opening_layout(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Keep certain qualitative left/right and low/high relationships before metrics.
-
-    Survey ranks are intentionally ordinal, not dimensional. Distinct ranks must
-    retain their order; equal ranks merely mean the Survey did not distinguish the
-    objects along that axis and do not force exact alignment.
-    """
+    """Keep certain qualitative left/right and low/high relationships before metrics."""
     issues: list[SceneSurveyIssue] = []
     superseded = _superseded_observation_ids(survey)
     scene_openings = {opening.id: opening for opening in scene.openings}
@@ -114,6 +110,94 @@ def _guard_opening_layout(
                         ),
                     )
                 )
+    return issues
+
+
+def _survey_edge_treatment(value):
+    if not isinstance(value, str) or value == "unknown":
+        return None
+    try:
+        return EdgeTreatment(value)
+    except ValueError:
+        return None
+
+
+def _edge_has_access(edge) -> bool:
+    return edge.treatment is EdgeTreatment.ACCESS_OPENING or bool(edge.access_spans)
+
+
+def _guard_exterior_edges(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> list[SceneSurveyIssue]:
+    """Preserve certain railing/parapet/wall-attachment semantics before LEGO."""
+    issues: list[SceneSurveyIssue] = []
+    superseded = _superseded_observation_ids(survey)
+    platforms = {item.id: item for item in scene.platforms}
+    stairs = {item.id: item for item in scene.stairs}
+
+    for observation in survey.observations:
+        if observation.certainty is not Certainty.CERTAIN or observation.id in superseded:
+            continue
+
+        if observation.kind is ObservationKind.PLATFORM and observation.id in platforms:
+            platform = platforms[observation.id]
+            edge_observations = observation.attributes.get("edge_observations")
+            if not isinstance(edge_observations, dict):
+                continue
+            for name in _EDGE_NAMES:
+                observed = edge_observations.get(name)
+                if not isinstance(observed, dict):
+                    continue
+                expected = _survey_edge_treatment(observed.get("treatment"))
+                access = observed.get("access")
+                actual = getattr(platform.edges, name) if platform.edges is not None else None
+                if expected is not None and (actual is None or actual.treatment is not expected):
+                    issues.append(
+                        SceneSurveyIssue(
+                            code="platform_edge_treatment_drift",
+                            severity=SceneSurveySeverity.ERROR,
+                            object_id=platform.id,
+                            message=(
+                                f"Le bord {name} de la plateforme {platform.id!r} est certain dans le Survey avec "
+                                f"treatment={expected.value!r}; la Scene doit conserver ce traitement."
+                            ),
+                        )
+                    )
+                if isinstance(access, bool):
+                    actual_access = actual is not None and _edge_has_access(actual)
+                    if actual_access != access:
+                        issues.append(
+                            SceneSurveyIssue(
+                                code="platform_edge_access_drift",
+                                severity=SceneSurveySeverity.ERROR,
+                                object_id=platform.id,
+                                message=(
+                                    f"Le bord {name} de la plateforme {platform.id!r} doit conserver "
+                                    f"access={str(access).lower()} tel qu’observé dans le Survey."
+                                ),
+                            )
+                        )
+
+        if observation.kind is ObservationKind.STAIR and observation.id in stairs:
+            stair = stairs[observation.id]
+            for attribute, scene_field in (("left_edge", "left_edge"), ("right_edge", "right_edge")):
+                expected = _survey_edge_treatment(observation.attributes.get(attribute))
+                if expected is None:
+                    continue
+                actual = getattr(stair, scene_field)
+                if actual is not expected:
+                    issues.append(
+                        SceneSurveyIssue(
+                            code="stair_edge_treatment_drift",
+                            severity=SceneSurveySeverity.ERROR,
+                            object_id=stair.id,
+                            message=(
+                                f"Le côté {attribute} de la volée {stair.id!r} est certain dans le Survey avec "
+                                f"treatment={expected.value!r}; la Scene ne peut pas le simplifier ou le symétriser."
+                            ),
+                        )
+                    )
     return issues
 
 
@@ -258,10 +342,11 @@ def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Run historical validation plus strict no-invention/order guards."""
+    """Run historical validation plus strict no-invention/order/edge guards."""
     issues = list(_validate_scene_against_survey(survey, scene))
     issues.extend(_guard_opening_layout(survey, scene))
     issues.extend(_guard_kind(survey, scene.platforms, ObservationKind.PLATFORM))
     issues.extend(_guard_kind(survey, scene.stairs, ObservationKind.STAIR))
     issues.extend(_guard_terrain(survey, scene))
+    issues.extend(_guard_exterior_edges(survey, scene))
     return issues
