@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 
 from brickhouse.vision.gemini_provider import MAX_GEMINI_INLINE_RAW_BYTES, analyze_building_photos_gemini
-from brickhouse.vision.openai_provider import PhotoInput
+from brickhouse.vision.openai_provider import MAX_VISION_PHOTOS, PhotoInput
 
 REFERENCE = Path("docs/examples/building-model-simple-house.json")
 
@@ -57,15 +57,35 @@ def test_gemini_sends_multiple_inline_images_and_json_schema():
     assert captured["key"] == "test-gemini-key"
     assert "/models/gemini-test-model:generateContent" in captured["url"]
     body = captured["body"]
-    assert "perspective" in body["system_instruction"]["parts"][0]["text"].lower()
+    system = body["system_instruction"]["parts"][0]["text"]
+    assert "perspective" in system.lower()
+    assert "Treat all photos as observations of one physical property" in system
+    assert "repeated physical objects" in system
     parts = body["contents"][0]["parts"]
     inline = [part["inline_data"] for part in parts if "inline_data" in part]
     assert len(inline) == 2
     assert inline[0]["mime_type"] == "image/jpeg"
     assert inline[1]["mime_type"] == "image/png"
+    prompt = next(part["text"] for part in parts if "text" in part)
+    assert "There are 2 supplied views" in prompt
+    assert "Lock the observed opening inventory" in prompt
+    assert "Hidden stair, landing or terrace connections" in prompt
     config = body["generationConfig"]
     assert config["responseMimeType"] == "application/json"
     assert config["responseJsonSchema"]["type"] == "object"
+
+
+def test_gemini_accepts_twelve_targeted_views_with_small_payloads():
+    captured = {}
+    def handler(request: httpx.Request):
+        captured["body"] = json.loads(request.content)
+        return _response(_provider_output())
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    photos = [PhotoInput(content=b"x", media_type="image/jpeg", filename=f"p{i}.jpg") for i in range(MAX_VISION_PHOTOS)]
+    result = analyze_building_photos_gemini(photos, client=client, model="test", api_key="key")
+    assert result.building.metadata.created_from == "photo_analysis"
+    parts = captured["body"]["contents"][0]["parts"]
+    assert len([part for part in parts if "inline_data" in part]) == MAX_VISION_PHOTOS
 
 
 def test_gemini_accepts_accidental_json_markdown_fence():
@@ -121,6 +141,16 @@ def test_gemini_fails_after_one_unsuccessful_repair():
     else:
         raise AssertionError("expected ValueError")
     assert calls == 2
+
+
+def test_gemini_rejects_more_than_adaptive_photo_limit_before_network():
+    photos = [PhotoInput(content=b"x", media_type="image/jpeg", filename=f"p{i}.jpg") for i in range(MAX_VISION_PHOTOS + 1)]
+    try:
+        analyze_building_photos_gemini(photos, api_key="test")
+    except ValueError as exc:
+        assert f"between 1 and {MAX_VISION_PHOTOS}" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_gemini_rejects_inline_payload_that_would_exceed_safe_limit():
