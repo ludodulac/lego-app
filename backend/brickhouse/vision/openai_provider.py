@@ -10,6 +10,8 @@ from openai import OpenAI
 
 from .models import PhotoAnalysisResult
 
+MAX_VISION_PHOTOS = 12
+
 
 @dataclass(frozen=True)
 class PhotoInput:
@@ -21,13 +23,23 @@ class PhotoInput:
 SYSTEM_PROMPT = """You are the architectural interpretation layer of BrickHouse.
 Your output is NOT a brick model. Produce a conservative BuildingModel v0.1 proposal from the supplied property photos and user notes.
 
+Multi-view interpretation rules — highest priority:
+- Treat all photos as observations of one physical property, never as independent facade guesses.
+- First identify repeated physical objects across views (same window, door, corner, terrace, stair, roof edge, chimney, ground feature). Use those correspondences to infer camera movement and wall identity before assigning dimensions.
+- A repeated terrace or stair visible around a corner does not prove the principal wall in both images is the same facade.
+- Preserve the exact observed opening inventory per documented physical wall before estimating positions or dimensions. Do not add openings to hidden areas.
+- Extra photos are evidence, not permission to invent detail. Multiple similar images increase support only when they provide compatible independent geometry.
+- Prefer a few high-information views with overlap over treating photo count itself as confidence. A close/detail view may refine one relation without changing unrelated geometry.
+- If an important terrace/stair/landing connection is hidden, keep the geometry conservative and lower confidence rather than completing a plausible circulation path.
+- If additional information would materially change the model, ask for the single most useful missing view or fact in a clarification question and explain what relation it would resolve.
+
 Architectural interpretation rules:
 - Describe the real building as faithfully as the current BuildingModel schema allows; do NOT force every property into the LEGO engine's current M0 limitations.
 - Use multiple rectangular volumes when a materially visible extension/garage/wing cannot honestly be represented by one rectangle.
 - Represent a roof as gable only when the photos support a two-slope gable roof. Represent a clearly flat roof as flat.
 - If the roof is materially different from both supported schema types, do not silently relabel it as gable. Omit an unsupported/uncertain roof if necessary, set needs_confirmation=true, explain the limitation in assumptions, and ask a required clarification question.
 - Detect/estimate facade doors and windows that materially affect the miniature.
-- If a side or the rear is missing, prefer the simplest coherent continuation supported by visible evidence; do not invent elaborate hidden extensions.
+- If a side or the rear is missing, preserve it as uncertain; prefer the simplest conservative envelope only where the schema requires a value. Never invent hidden openings or elaborate extensions.
 
 Perspective and proportion rules — critical:
 - Never treat raw image pixel distances as real-world distances when the facade is oblique to the camera.
@@ -69,9 +81,9 @@ def analyze_building_photos(
     client: OpenAI | None = None,
     model: str | None = None,
 ) -> PhotoAnalysisResult:
-    """Analyze 1–6 photos and return a validated architectural proposal."""
-    if not 1 <= len(photos) <= 6:
-        raise ValueError("photo analysis requires between 1 and 6 images")
+    """Analyze an adaptive multi-view set and return a validated architectural proposal."""
+    if not 1 <= len(photos) <= MAX_VISION_PHOTOS:
+        raise ValueError(f"photo analysis requires between 1 and {MAX_VISION_PHOTOS} images")
     if known_front_width_m is not None and known_front_width_m <= 0:
         raise ValueError("known_front_width_m must be positive")
     supported = {"image/jpeg", "image/png", "image/webp"}
@@ -82,11 +94,14 @@ def analyze_building_photos(
             raise ValueError(f"empty image: {photo.filename}")
 
     prompt = (
-        "Analyze these photos as different views of the same property. "
+        "Analyze these photos as overlapping views of the same physical property. "
+        f"There are {len(photos)} supplied views. Do not treat photo count itself as certainty; identify repeated physical objects and wall/corner correspondences first. "
         f"User notes: {user_notes.strip() or 'none provided'}. "
         f"Known front width in meters: {known_front_width_m if known_front_width_m is not None else 'unknown'}. "
+        "Lock the observed opening inventory per physical wall before estimating positions or dimensions. "
         "Recover normalized architectural proportions before assigning metric dimensions. "
         "Correct mentally for perspective and cross-check wall-edge/opening/roof spacing across all available views. "
+        "For exterior stairs, landings and terraces, distinguish what is directly visible from what is merely a plausible hidden connection. "
         "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
         "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
     )
