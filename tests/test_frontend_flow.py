@@ -141,9 +141,9 @@ def test_survey_extension_prompt_supports_append_only_refinement() -> None:
     assert "workflow de correction explicite" in prompt
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v24_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v25_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.4" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.5" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
     assert "Ne redresse jamais silencieusement" in prompt
@@ -151,6 +151,12 @@ def test_survey_to_scene_prompt_matches_current_generic_v24_contract() -> None:
     assert "RAFFINEMENTS APPEND-ONLY DU SURVEY" in prompt
     assert "refines_observation_id" in prompt
     assert "observation raffinée reste une provenance historique" in prompt
+    assert "IDENTITÉ SURVEY → SCENE" in prompt
+    assert "SceneOpening.id" in prompt
+    assert "Platform.id" in prompt
+    assert "StairRun.id" in prompt
+    assert "facade_horizontal_rank" in prompt
+    assert "facade_vertical_rank" in prompt
     assert "VOLUMES ET PORTÉE DES INFORMATIONS" in prompt
     assert "visibility[]` peut porter `volume_id`" in prompt
     assert "Platform` peut porter `host_volume_id`" in prompt
@@ -158,6 +164,7 @@ def test_survey_to_scene_prompt_matches_current_generic_v24_contract() -> None:
     assert "AXE CENTRAL" in prompt
     assert "INCERTITUDE DES STRUCTURES EXTÉRIEURES" in prompt
     assert "relation `plausible` ou `unproven`" in prompt
+    assert "source.kind=\"generated_default\"" in prompt
     assert "SceneRoof.type` autorise" in prompt
     assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
 
