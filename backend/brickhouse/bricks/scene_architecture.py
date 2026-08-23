@@ -2,8 +2,8 @@
 
 M0 bridge for exterior architecture. Platforms, stair runs and facade grade
 profiles are reconstructed from the validated Scene instead of being flattened
-away by BuildingModel 0.1. Material hints currently come from ids/evidence/notes;
-those hints may change representation, never Scene coordinates or adjacency.
+away by BuildingModel 0.1. New scenes carry structured material/edge metadata;
+legacy text hints remain only as a backwards-compatible fallback.
 """
 from __future__ import annotations
 
@@ -11,7 +11,13 @@ from math import ceil
 import unicodedata
 
 from brickhouse.building.models import Facade
-from brickhouse.scene.models import ArchitecturalScene, Platform, StairRun
+from brickhouse.scene.models import (
+    ArchitecturalScene,
+    EdgeTreatment,
+    ExteriorMaterial,
+    Platform,
+    StairRun,
+)
 
 from .brick_model import BrickModel, BrickModelPart
 from .scaling import COURSES_PER_STUD_RATIO
@@ -85,23 +91,40 @@ def _object_text(obj, scene: ArchitecturalScene) -> str:
 
 
 def _is_timber(obj, scene: ArchitecturalScene) -> bool:
+    if getattr(obj, "material", None) is not None:
+        return obj.material is ExteriorMaterial.TIMBER
     text = _object_text(obj, scene)
     return any(token in text for token in ("bois", "timber", "wood", "lattes", "garde-corps bois"))
 
 
 def _is_masonry(obj, scene: ArchitecturalScene) -> bool:
+    material = getattr(obj, "material", None)
+    if material is not None:
+        return material in {ExteriorMaterial.CONCRETE, ExteriorMaterial.MASONRY, ExteriorMaterial.STONE}
     text = _object_text(obj, scene)
     return any(token in text for token in ("beton", "concrete", "maconne", "masonry", "pierre", "muret", "enduit"))
 
 
-def _validate_exterior_primitives(scene: ArchitecturalScene) -> None:
-    """Reject generic exterior shapes that silently wrap or cut through a house.
+def _platform_has_solid_parapet(platform: Platform, scene: ArchitecturalScene) -> bool:
+    if platform.edge_treatment is not None:
+        return platform.edge_treatment is EdgeTreatment.SOLID_PARAPET
+    return any(token in _object_text(platform, scene) for token in ("muret", "parapet", "garde-corps plein"))
 
-    Each Platform is one rectilinear primitive attached to at most one facade. A
-    platform that turns a corner must be split into multiple Platform objects.
-    Each StairRun is one rectilinear horizontal run; a turning stair must be split
-    into multiple StairRun objects connected by a landing.
-    """
+
+def _stair_solid_edges(stair: StairRun, scene: ArchitecturalScene) -> tuple[bool, bool]:
+    if stair.left_edge is not None or stair.right_edge is not None:
+        return (
+            stair.left_edge is EdgeTreatment.SOLID_PARAPET,
+            stair.right_edge is EdgeTreatment.SOLID_PARAPET,
+        )
+    legacy_solid = _is_masonry(stair, scene) and any(
+        token in _object_text(stair, scene) for token in ("muret", "parapet", "rampe beton", "rampe en beton")
+    )
+    return legacy_solid, legacy_solid
+
+
+def _validate_exterior_primitives(scene: ArchitecturalScene) -> None:
+    """Reject generic exterior shapes that silently wrap or cut through a house."""
     main = scene.volumes[0]
     left = main.position.x
     right = left + main.width.value
@@ -212,8 +235,6 @@ def _platform_parts(
                 parts.append(_brick(f"scene-platform:{platform.id}:deck:{index:05d}", x0 + dx, y0 + dy, z, facade))
                 index += 1
 
-    # Supports are architectural facts, not structural defaults. Never invent
-    # arbitrary corner posts: only emit posts explicitly carried by the Scene.
     support_cells: set[tuple[int, int]] = set()
     for support in platform.supports:
         support_cells.add((
@@ -227,7 +248,7 @@ def _platform_parts(
             parts.append(_brick(f"scene-platform:{platform.id}:support{post_index}:{z:04d}", x, y, z, facade))
             z += 3
 
-    if masonry and any(token in _object_text(platform, scene) for token in ("muret", "parapet", "garde-corps plein")):
+    if masonry and _platform_has_solid_parapet(platform, scene):
         rail_top = z0 + 6
         perimeter = {(x0 + dx, y0) for dx in range(width)} | {(x0 + dx, y0 + depth - 1) for dx in range(width)}
         perimeter |= {(x0, y0 + dy) for dy in range(depth)} | {(x0 + width - 1, y0 + dy) for dy in range(depth)}
@@ -259,6 +280,7 @@ def _stair_parts(
     facade = _nearest_facade(scene, (stair.start.x + stair.end.x) / 2, (stair.start.y + stair.end.y) / 2)
     along_x = abs(dx) >= abs(dy)
     masonry = _is_masonry(stair, scene)
+    left_solid, right_solid = _stair_solid_edges(stair, scene)
 
     parts: list[BrickModelPart] = []
     seen: set[tuple[int, int, int]] = set()
@@ -291,15 +313,21 @@ def _stair_parts(
                         parts.append(_brick(f"scene-stair:{stair.id}:body:{index:05d}", px, py, fill_z, facade))
                         index += 1
                     fill_z += 3
-            if tread_cells:
-                for px, py in {tread_cells[0], tread_cells[-1]}:
-                    for wall_z in (z + 3, z + 6):
-                        key = (px, py, wall_z)
-                        if key in seen:
-                            continue
-                        seen.add(key)
-                        parts.append(_brick(f"scene-stair:{stair.id}:sidewall:{index:05d}", px, py, wall_z, facade))
-                        index += 1
+
+        if tread_cells:
+            edge_cells: list[tuple[int, int]] = []
+            if left_solid:
+                edge_cells.append(tread_cells[0])
+            if right_solid and (not left_solid or tread_cells[-1] != tread_cells[0]):
+                edge_cells.append(tread_cells[-1])
+            for px, py in edge_cells:
+                for wall_z in (z + 3, z + 6):
+                    key = (px, py, wall_z)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    parts.append(_brick(f"scene-stair:{stair.id}:sidewall:{index:05d}", px, py, wall_z, facade))
+                    index += 1
 
     return parts
 
