@@ -120,9 +120,12 @@ def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
     assert "4 à 6 vues générales" in topology
     assert "COMMENT DEMANDER UNE VUE SUPPLÉMENTAIRE" in topology
     assert "capture_assessment" in topology
-    assert "RELEVÉ ARCHITECTURAL v1.7" in survey
+    assert "RELEVÉ ARCHITECTURAL v1.8" in survey
     assert "DENSITÉ DE COUVERTURE" in survey
     assert "quantité de photos jamais confondue avec certitude architecturale" in survey
+    assert "une volée qui disparaît derrière un mur ne prouve PAS" in survey
+    assert "zone occultée" in survey
+    assert "IDENTITÉ STABLE DES PRIMITIVES" in survey
 
 
 def test_survey_extension_prompt_supports_append_only_refinement() -> None:
