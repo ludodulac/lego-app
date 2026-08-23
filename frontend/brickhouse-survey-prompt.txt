@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.6
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.7
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventorie ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -15,6 +15,11 @@ Crée un vrai fichier joint `brickhouse-architectural-survey-v0.1.json`.
 RÈGLE CENTRALE
 Observe avant de mesurer. Une architecture plausible n’est jamais une preuve. Une porte en hauteur peut réellement donner dans le vide. Une zone cachée reste inconnue.
 
+DENSITÉ DE COUVERTURE
+Un Survey doit rester valide qu’il provienne de peu de photos ou d’un jeu plus dense. Le nombre de photos ne change jamais les faits : il change seulement la quantité de preuves et le niveau de confiance.
+Une observation certaine vue dans deux bonnes photos ne devient pas moins certaine parce qu’elle n’apparaît pas dans d’autres vues où elle est hors champ ou occultée. Inversement, dix vues similaires ne transforment pas une zone cachée en fait certain.
+Les vues supplémentaires servent en priorité à confirmer l’identité d’un objet, ses connexions, ses changements de niveau, ses occultations et son appartenance au bon volume/pan.
+
 PHASE 1 — INVENTAIRE PHOTO PAR PHOTO
 Avant toute fusion, liste ouvertures, limites, plateformes/terrasses si présentes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain/pente, bâtiments voisins et occultations.
 
@@ -26,6 +31,7 @@ Déduplique uniquement avec preuves multi-vues compatibles. Compte les ouverture
 
 PHASE 4 — STRUCTURES EXTÉRIEURES BLOC PAR BLOC
 Lorsqu’elles existent, décompose les structures extérieures en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau peut impliquer une nouvelle primitive. Un escalier tournant n’est pas une seule volée en perspective. Ne crée aucune primitive simplement parce qu’elle serait architecturalement habituelle.
+Quand plusieurs angles montrent la même structure, utilise-les pour établir sa chaîne physique complète : ce qui est au sol, ce qui monte, ce qui sert de palier, ce qui change de direction, ce qui supporte quoi et ce qui rejoint le bâtiment. Ne remplace pas cette chaîne par une seule plateforme générique.
 
 TOITURE — PREUVES DE FORME
 Décris la toiture à partir des vues, sans supposer qu’un côté particulier porte le pignon. Si une façade donnée est CERTAINEMENT un mur pignon, enregistre une observation `kind="roof"` sur cette façade avec `attributes.facade_is_gable=true`. Ce champ est générique et peut concerner front, rear, left ou right. N’utilise plus de champ spécifique à une seule façade comme `front_is_gable` dans les nouveaux Surveys. Si le pignon ou l’axe du faîtage n’est pas certain, ne le transforme pas en fait.
@@ -60,6 +66,7 @@ Si une même structure observable comporte plusieurs parties de matériaux ou de
 
 CORRESPONDANCE MULTI-VUES
 Pour dire que deux occurrences sont le même objet, croise au moins deux indices : ouverture voisine, angle, garde-corps, poteau, élément fixe, jonction au mur, niveau continu, toiture ou autre relation spatiale stable.
+Quand une vue supplémentaire montre le dessous, l’arrière ou le côté d’un objet déjà connu, enrichis le même objet et ses relations ; ne crée pas un doublon.
 
 ANTI-MIROIR
 x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucune compensation du viewer.
@@ -76,7 +83,9 @@ Pas de profondeur/hauteur globale, métrique d’ouverture, pixels→mètres, Sc
 AUDIT FINAL
 - topologie et rôles photo conservés ;
 - nombre d’ouvertures certaines stable ;
+- quantité de photos jamais confondue avec certitude architecturale ;
 - structures extérieures segmentées avant toute métrique lorsqu’elles existent ;
+- chaîne physique des structures complexes reconstruite à partir des relations visibles ;
 - toiture décrite depuis les preuves et pignon affecté à la vraie façade uniquement ;
 - matériaux et bords observés séparément ;
 - accès partiels décrits qualitativement sans mètres ;
