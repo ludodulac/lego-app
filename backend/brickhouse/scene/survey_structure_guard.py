@@ -18,6 +18,16 @@ from .survey_validation import (
 MAX_PLAUSIBLE_METRIC_CONFIDENCE = 0.65
 
 
+def _superseded_observation_ids(survey: ArchitecturalSurvey) -> set[str]:
+    """Observation ids replaced by an append-only refinement later in the Survey."""
+    return {
+        target_id
+        for observation in survey.observations
+        if isinstance((target_id := observation.attributes.get("refines_observation_id")), str)
+        and target_id
+    }
+
+
 def _confidence_issues(label: str, code_prefix: str, object_id: str, certainty, source):
     issues: list[SceneSurveyIssue] = []
     if source.kind.value == "generated_default":
@@ -59,6 +69,7 @@ def _guard_kind(
         for observation in survey.observations
         if observation.kind is kind
     }
+    superseded = _superseded_observation_ids(survey)
     label = "plateforme" if kind is ObservationKind.PLATFORM else "volée d’escalier"
 
     for obj in scene_objects:
@@ -73,6 +84,19 @@ def _guard_kind(
                         f"La {label} {obj.id!r} n’existe pas comme observation {kind.value!r} "
                         "dans le Survey validé. La Scene ne peut pas inventer une primitive cachée "
                         "pour compléter une circulation ; segmentez-la d’abord dans le Survey si une preuve existe."
+                    ),
+                )
+            )
+            continue
+        if obj.id in superseded:
+            issues.append(
+                SceneSurveyIssue(
+                    code=f"superseded_{kind.value}_rendered",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=obj.id,
+                    message=(
+                        f"La {label} {obj.id!r} a été raffinée par une observation plus récente du Survey. "
+                        "Elle doit rester une provenance historique et ne peut pas être rendue comme un deuxième objet physique."
                     ),
                 )
             )
@@ -98,12 +122,14 @@ def _guard_terrain(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> li
     if scene.terrain is None:
         return []
     issues: list[SceneSurveyIssue] = []
+    superseded = _superseded_observation_ids(survey)
     rank = {Certainty.UNPROVEN: 0, Certainty.PLAUSIBLE: 1, Certainty.CERTAIN: 2}
     for profile in scene.terrain.profiles:
         candidates = [
             observation
             for observation in survey.observations
             if observation.kind is ObservationKind.TERRAIN
+            and observation.id not in superseded
             and observation.facade is profile.facade
             and observation.attributes.get("slope_direction")
         ]
@@ -116,7 +142,7 @@ def _guard_terrain(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> li
                     object_id=object_id,
                     message=(
                         f"La Scene crée un profil de pente sur {profile.facade.value!r}, mais le Survey validé "
-                        "ne contient aucune observation de terrain indiquant une pente sur cette façade."
+                        "ne contient aucune observation active de terrain indiquant une pente sur cette façade."
                     ),
                 )
             )
