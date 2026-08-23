@@ -25,16 +25,16 @@ def test_multi_photo_zone_metadata_stays_generic_and_does_not_override_image_evi
     simple = read("photo-simple.js")
 
     assert "Les intitulés des cases sont seulement des repères" in html
-    assert "Plusieurs photos peuvent volontairement partager le même libellé de zone" in simple
-    assert "le libellé ne doit jamais forcer une interprétation contraire à l’image" in simple
+    assert "ne force jamais une photo à correspondre à son libellé" in simple
+    assert "plusieurs photos peuvent volontairement montrer le même côté" in simple.lower()
     assert "guided_base_zones" in simple
     assert "slot_view_index: item.slot_view_index" in simple
 
 
-def test_total_photo_limit_rejects_overflow_instead_of_silently_truncating_package() -> None:
+def test_total_photo_limit_rejects_overflow_instead_of_silently_truncating_handoff() -> None:
     simple = read("photo-simple.js")
 
-    assert "const allRecords = [...selectedSlotRecords(), ...selectedExtraRecords()]" in simple
-    assert "if (allRecords.length > MAX_TOTAL_PHOTOS)" in simple
-    assert "Vous en avez sélectionné ${allRecords.length}" in simple
-    assert "const records = allRecords" in simple
+    assert "const records = [...selectedSlotRecords(), ...selectedExtraRecords()]" in simple
+    assert "if (records.length > MAX_TOTAL_PHOTOS)" in simple
+    assert "Vous en avez sélectionné ${records.length}" in simple
+    assert "downloadTextFile(INSTRUCTION_FILENAME" in simple
