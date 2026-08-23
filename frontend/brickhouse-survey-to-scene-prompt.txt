@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.7
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.8
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
@@ -29,8 +29,14 @@ Il n’existe PAS de champ `type:"rectangular_envelope"` dans le contrat SceneVo
 Un `building_boundary` Survey n’est PAS automatiquement un volume Scene. Crée un ID de volume propre et stable (`volume_main`, `volume_annex_...`) uniquement pour les volumes réellement nécessaires. Ne réutilise pas `boundary_front` comme volume principal sauf si cet ID est explicitement une observation Survey `kind="volume"` active et que le contrat de transformation le justifie.
 
 SceneOpening :
-`{ "id":"...", "type":"window|door|opening", "volume_id":"volume_main", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...], "local_grade_clearance":null }`.
+`{ "id":"...", "type":"window|door|garage_door", "volume_id":"volume_main", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...], "local_grade_clearance":null }`.
+Le contrat n’accepte QUE `window`, `door`, `garage_door`. N’utilise jamais `opening`, `door_or_low_opening`, `glass_block_or_small_low_window` ni une autre valeur libre.
 Les IDs des ouvertures actives doivent reprendre exactement les IDs Survey correspondants. `volume_id` doit référencer un ID présent dans `volumes`.
+Si le Survey fournit `attributes.semantic_type` :
+- `window` → `window` ;
+- `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening` → `door` ;
+- `garage_door` → `garage_door`.
+Si une ouverture certaine n’a PAS de `semantic_type` parce que son type reste réellement ambigu, le schéma Scene v0.2 impose néanmoins un des trois enums : choisis uniquement la catégorie la mieux soutenue par l’apparence visible, mets `source.kind="inferred"` avec confiance basse, conserve le même ID/façade, et documente explicitement dans `evidence`/`notes` qu’il s’agit d’une limitation de typage du schéma, pas d’un fait Survey. Ne transforme jamais cette décision technique en certitude architecturale.
 
 SceneRoof :
 `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
@@ -53,7 +59,9 @@ L’ID doit reprendre exactement l’ID Survey de la volée active.
 Visibility :
 `{ "volume_id":"volume_main|null", "facade":"front", "spans":[ { "from":0.0, "to":5.0, "state":"visible|occluded|unknown", "by":null } ] }`.
 
-Appearance doit être conforme au contrat BrickHouse existant ; ne remplace pas ce champ obligatoire par un autre objet de style.
+Appearance est obligatoire et suit exactement :
+`{ "walls": {"color":"..."} | null, "roof": {"color":"..."} | null, "frames": {"color":"..."} | null }`.
+N’invente pas de sous-structure différente. Si une couleur n’est pas suffisamment lisible, la section concernée peut être null.
 
 DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
 Sépare existence, topologie et métrique. Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines.
@@ -73,7 +81,7 @@ Une relation `same_physical_object` avec le même objet des deux côtés est inv
 VOLUMES ET RÉFÉRENCES
 Chaque `opening.volume_id`, `roof.volume_id`, `platform.host_volume_id` non null et `visibility.volume_id` non null doit référencer un ID réellement présent dans `volumes`.
 Un objet Survey `building_boundary` décrit une limite ; il n’est pas un raccourci automatique pour SceneVolume.
-Un objet Survey `volume` peut justifier un SceneVolume distinct si les preuves le soutiennent.
+Un objet Survey `volume` certain doit conserver exactement son ID dans `volumes`. Un volume porteur principal peut être créé sous un ID propre si le Survey ne contient pas d’observation `volume` correspondante, mais il ne doit jamais usurper un ID de boundary.
 
 OUVERTURES
 Chaque ouverture certaine active reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut réellement donner dans le vide.
@@ -97,11 +105,13 @@ Avant sortie :
 - toutes les références volume pointent vers `volumes` ;
 - aucune boundary utilisée comme volume par simple commodité ;
 - IDs Survey des openings/platforms/stairs conservés ;
+- `SceneOpening.type` uniquement window|door|garage_door ;
 - aucune zone cachée complétée ;
 - chaque métrique non utilisateur a une confiance prudente ;
 - aucune largeur connue n’a calibré silencieusement les autres dimensions ;
 - toiture dans l’enum supportée ;
 - terrain au format `facade_grade_profiles` ;
 - supports de terrasse sont des SupportPost, pas des Platform ;
+- `appearance` respecte le contrat walls/roof/frames ;
 - aucune caractéristique héritée du benchmark ;
 - JSON valide et conforme à ArchitecturalScene v0.2.
