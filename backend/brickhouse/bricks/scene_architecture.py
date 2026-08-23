@@ -67,6 +67,11 @@ def _scene_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
     if scene.terrain and scene.terrain.profiles:
         main = scene.volumes[0]
         for profile in scene.terrain.profiles:
+            # Grade elevations are world-space architectural elevations just like
+            # volume/platform/stair z values. Include both ends in the shared
+            # origin so terrain below the building datum is shifted upward rather
+            # than silently clamped to z=0 in the LEGO model.
+            zs.extend([profile.start_elevation, profile.end_elevation])
             extent = _terrain_extent(profile)
             if profile.facade is Facade.LEFT:
                 xs.append(main.position.x - extent)
