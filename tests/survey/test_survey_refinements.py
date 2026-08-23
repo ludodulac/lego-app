@@ -9,10 +9,16 @@ def _base_survey(*, certainty: str = "plausible") -> ArchitecturalSurvey:
         "photos": [
             {
                 "photo_index": 1,
+                "facade": "front",
+                "description": "Canonical front reference view",
+                "source": {"kind": "observed", "confidence": 0.9},
+            },
+            {
+                "photo_index": 2,
                 "facade": "left",
                 "description": "Oblique view of an exterior circulation zone",
                 "source": {"kind": "observed", "confidence": 0.8},
-            }
+            },
         ],
         "observations": [
             {
@@ -21,7 +27,7 @@ def _base_survey(*, certainty: str = "plausible") -> ArchitecturalSurvey:
                 "facade": "left",
                 "certainty": certainty,
                 "statement": "A stair run is visible but its upper connection is partly hidden.",
-                "evidence": [{"photo_index": 1, "observation": "Lower stair visible; upper end disappears behind a wall."}],
+                "evidence": [{"photo_index": 2, "observation": "Lower stair visible; upper end disappears behind a wall."}],
                 "attributes": {
                     "architectural_kind": "stair",
                     "target_building_ownership": "proven",
@@ -31,7 +37,7 @@ def _base_survey(*, certainty: str = "plausible") -> ArchitecturalSurvey:
     })
 
 
-def _extended(base: ArchitecturalSurvey, *, new_photo_index: int = 2) -> ArchitecturalSurvey:
+def _extended(base: ArchitecturalSurvey, *, new_photo_index: int = 3) -> ArchitecturalSurvey:
     data = base.model_dump(mode="json")
     data["photos"].append({
         "photo_index": new_photo_index,
@@ -80,7 +86,7 @@ def test_refinement_must_add_independent_photo_evidence() -> None:
         "facade": "left",
         "certainty": "certain",
         "statement": "Unsupported re-interpretation of the same image.",
-        "evidence": [{"photo_index": 1, "observation": "Same original view."}],
+        "evidence": [{"photo_index": 2, "observation": "Same original view."}],
         "attributes": {
             "architectural_kind": "stair",
             "target_building_ownership": "proven",
