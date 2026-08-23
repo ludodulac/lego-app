@@ -22,6 +22,10 @@ _ARCHITECTURAL_KIND_BY_TAG = {
 }
 
 
+def _valid_positive_rank(value) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int) and value >= 1
+
+
 def _validate_refinement_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidationIssue]:
     """Validate append-only refinements of uncertain observations.
 
@@ -151,6 +155,18 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
                         code="opening_target_ownership_unproven",
                         observation_id=observation.id,
                         message="Opening ownership by the target building is unproven; mark the observation unproven or context until new evidence exists.",
+                    ))
+
+            for field in ("facade_horizontal_rank", "facade_vertical_rank"):
+                value = attributes.get(field)
+                if value is not None and not _valid_positive_rank(value):
+                    issues.append(SurveyValidationIssue(
+                        code="invalid_opening_layout_rank",
+                        observation_id=observation.id,
+                        message=(
+                            f"{field} doit être un entier positif 1..N lorsqu’il est renseigné. "
+                            "Ces rangs sont qualitatifs et ne doivent pas contenir de mètres, pixels ou texte libre."
+                        ),
                     ))
 
         if observation.kind is ObservationKind.ROOF:
