@@ -1,4 +1,10 @@
-from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES, choose_window_assembly, choose_window_layout, _to_global
+from brickhouse.bricks.windows import (
+    VALIDATED_WINDOW_ASSEMBLIES,
+    _emit_joinery_free_glazing,
+    _to_global,
+    choose_window_assembly,
+    choose_window_layout,
+)
 from brickhouse.building.models import Facade, WindowStyle
 
 
@@ -28,8 +34,9 @@ def test_style_layout_is_faithful_instead_of_merely_dimensionally_possible():
 
 
 def test_simple_window_never_gets_fake_mullions_or_transoms_to_fill_large_void():
-    # These rectangles can be tiled dimensionally with validated frames, but a
-    # SIMPLE style does not prove any internal joinery. Keep the opening clean.
+    # Frame layout remains empty: no collection of smaller frames may masquerade
+    # as architectural joinery. The generator may later use transparent LEGO
+    # bricks as glazing-only discretization, which is a different semantic layer.
     assert choose_window_layout(WindowStyle.SIMPLE, 4, 6) == ()
     assert choose_window_layout(WindowStyle.SIMPLE, 8, 3) == ()
 
@@ -53,3 +60,22 @@ def test_window_global_mapping_runs_long_axis_along_each_facade():
     assert _to_global(Facade.REAR, 3, 4, 2, 20, 14) == (13, 13, 6, 1)
     assert _to_global(Facade.RIGHT, 3, 4, 2, 20, 14) == (19, 3, 6, 0)
     assert _to_global(Facade.LEFT, 3, 4, 2, 20, 14) == (0, 7, 6, 0)
+
+
+def test_joinery_free_fallback_is_transparent_cells_only():
+    placements = []
+    _emit_joinery_free_glazing(
+        placements,
+        facade=Facade.FRONT,
+        local_x=5,
+        z_bricks=2,
+        width_studs=6,
+        height_bricks=6,
+        front=48,
+        depth=54,
+    )
+    assert len(placements) == 36
+    assert {part.category for part in placements} == {"window_pane"}
+    assert {part.part_id for part in placements} == {"BRICK_1X1"}
+    assert {part.x_studs for part in placements} == set(range(5, 11))
+    assert {part.z_plates for part in placements} == {6, 9, 12, 15, 18, 21}
