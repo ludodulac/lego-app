@@ -1,25 +1,43 @@
 """HTTP API boundary for BrickHouse engine and photo-analysis services."""
 from __future__ import annotations
+
 import os
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
-from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model, run_m0_pipeline_scene
+from brickhouse.bricks.scene_architecture import _validate_exterior_primitives
+from brickhouse.pipeline import (
+    DEFAULT_FRONT_WIDTH_STUDS,
+    run_m0_pipeline_model,
+    run_m0_pipeline_scene,
+)
 from brickhouse.scene import (
     ArchitecturalScene,
+    ProjectionIssue,
     ProjectionResult,
+    ProjectionSeverity,
     SceneSurveyIssue,
-    validate_scene_against_survey,
     project_scene_to_building,
+    validate_scene_against_survey,
 )
-from brickhouse.survey import ArchitecturalSurvey, SurveyValidationIssue, validate_survey_extension, validate_survey_semantics
+from brickhouse.survey import (
+    ArchitecturalSurvey,
+    SurveyValidationIssue,
+    validate_survey_extension,
+    validate_survey_semantics,
+)
 from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
-from brickhouse.vision.provider import VisionProviderError, analyze_with_configured_provider, vision_status
+from brickhouse.vision.provider import (
+    VisionProviderError,
+    analyze_with_configured_provider,
+    vision_status,
+)
 
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
 SUPPORTED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -96,7 +114,12 @@ def _cors_origins() -> list[str]:
     configured = os.getenv("BRICKHOUSE_CORS_ORIGINS", "")
     if configured.strip():
         return [origin.strip() for origin in configured.split(",") if origin.strip()]
-    return ["https://ludodulac.github.io", "http://localhost:5173", "http://localhost:8000", "http://127.0.0.1:8000"]
+    return [
+        "https://ludodulac.github.io",
+        "http://localhost:5173",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
 
 
 def _engine_revision() -> str:
@@ -112,61 +135,186 @@ def _vision_error_detail(code: str) -> str:
         "gemini_upstream_unavailable": "Gemini est momentanément indisponible (erreur 5xx). Réessayez plus tard.",
         "gemini_http_error": "Gemini a renvoyé une erreur HTTP non prévue. Le code détaillé est conservé côté serveur.",
     }
-    return messages.get(code, "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.")
+    return messages.get(
+        code,
+        "Le fournisseur de vision n’a pas pu terminer l’analyse. Le diagnostic serveur ne contient aucune clé ni contenu privé.",
+    )
 
 
-app = FastAPI(title="BrickHouse Engine API", version="0.15.0", description="Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan")
-app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_credentials=False, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+def _with_scene_build_preflight(
+    scene: ArchitecturalScene,
+    projection: ProjectionResult,
+) -> ProjectionResult:
+    """Expose deterministic exterior blockers during validation, before the user clicks Build."""
+    if projection.blocked:
+        return projection
+    try:
+        _validate_exterior_primitives(scene)
+    except ValueError as exc:
+        issue = ProjectionIssue(
+            code="scene_architecture_not_buildable",
+            severity=ProjectionSeverity.BLOCKER,
+            message=str(exc),
+        )
+        return projection.model_copy(update={"issues": [*projection.issues, issue]})
+    return projection
+
+
+app = FastAPI(
+    title="BrickHouse Engine API",
+    version="0.16.0",
+    description=(
+        "Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or "
+        "BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan"
+    ),
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 @app.get("/health")
 def health() -> dict[str, str | bool | None]:
     vision = vision_status()
-    return {"status": "ok", "service": "brickhouse-engine", "vision_enabled": vision.ready, "vision_provider": vision.provider, "vision_model": vision.model, "vision_reason": vision.reason, "engine_revision": _engine_revision()}
+    return {
+        "status": "ok",
+        "service": "brickhouse-engine",
+        "vision_enabled": vision.ready,
+        "vision_provider": vision.provider,
+        "vision_model": vision.model,
+        "vision_reason": vision.reason,
+        "engine_revision": _engine_revision(),
+    }
 
 
 @app.get("/api/v1/capabilities", response_model=Capabilities)
 def capabilities() -> Capabilities:
     vision = vision_status()
-    return Capabilities(photo_analysis_ready=vision.ready, photo_provider=vision.provider, photo_model=vision.model, photo_analysis_reason=vision.reason, supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES), engine_revision=_engine_revision())
+    return Capabilities(
+        photo_analysis_ready=vision.ready,
+        photo_provider=vision.provider,
+        photo_model=vision.model,
+        photo_analysis_reason=vision.reason,
+        supported_photo_types=sorted(SUPPORTED_PHOTO_TYPES),
+        engine_revision=_engine_revision(),
+    )
 
 
 @app.post("/api/v1/validate-survey", response_model=SurveyValidationResponse)
-def validate_architectural_survey(survey: ArchitecturalSurvey) -> SurveyValidationResponse:
+def validate_architectural_survey(
+    survey: ArchitecturalSurvey,
+) -> SurveyValidationResponse:
     raw_issues: list[SurveyValidationIssue] = validate_survey_semantics(survey)
-    issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
-    return SurveyValidationResponse(survey=survey, issues=issues, valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues))
+    issues = [
+        SurveyValidationIssueModel(
+            code=issue.code,
+            observation_id=issue.observation_id,
+            message=issue.message,
+            severity=issue.severity,
+        )
+        for issue in raw_issues
+    ]
+    return SurveyValidationResponse(
+        survey=survey,
+        issues=issues,
+        valid_for_scene_fusion=not any(issue.severity == "error" for issue in raw_issues),
+    )
 
 
 @app.post("/api/v1/validate-survey-extension", response_model=SurveyValidationResponse)
-def validate_architectural_survey_extension(request: SurveyExtensionValidationRequest) -> SurveyValidationResponse:
-    raw_issues: list[SurveyValidationIssue] = validate_survey_extension(request.base, request.candidate)
-    issues = [SurveyValidationIssueModel(code=i.code, observation_id=i.observation_id, message=i.message, severity=i.severity) for i in raw_issues]
-    return SurveyValidationResponse(survey=request.candidate, issues=issues, valid_for_scene_fusion=not any(i.severity == "error" for i in raw_issues))
+def validate_architectural_survey_extension(
+    request: SurveyExtensionValidationRequest,
+) -> SurveyValidationResponse:
+    raw_issues: list[SurveyValidationIssue] = validate_survey_extension(
+        request.base,
+        request.candidate,
+    )
+    issues = [
+        SurveyValidationIssueModel(
+            code=issue.code,
+            observation_id=issue.observation_id,
+            message=issue.message,
+            severity=issue.severity,
+        )
+        for issue in raw_issues
+    ]
+    return SurveyValidationResponse(
+        survey=request.candidate,
+        issues=issues,
+        valid_for_scene_fusion=not any(issue.severity == "error" for issue in raw_issues),
+    )
 
 
 @app.post("/api/v1/validate-analysis", response_model=PhotoAnalysisResult)
 def validate_external_analysis(result: PhotoAnalysisResult) -> PhotoAnalysisResult:
-    return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
+    return result.model_copy(
+        update={"m0_compatibility": assess_m0_compatibility(result.building)}
+    )
 
 
 @app.post("/api/v1/validate-scene", response_model=SceneValidationResponse)
 def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationResponse:
-    projection = project_scene_to_building(scene)
-    compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
-    return SceneValidationResponse(scene=scene, projection=projection, m0_compatibility=compatibility)
+    projection = _with_scene_build_preflight(scene, project_scene_to_building(scene))
+    compatibility = (
+        assess_m0_compatibility(projection.building)
+        if projection.building is not None
+        else None
+    )
+    return SceneValidationResponse(
+        scene=scene,
+        projection=projection,
+        m0_compatibility=compatibility,
+    )
 
 
-@app.post("/api/v1/validate-scene-against-survey", response_model=SceneSurveyValidationResponse)
-def validate_architectural_scene_against_survey(request: SceneSurveyValidationRequest) -> SceneSurveyValidationResponse:
-    raw_issues: list[SceneSurveyIssue] = validate_scene_against_survey(request.survey, request.scene)
-    issues = [SceneSurveyIssueModel(code=i.code, severity=i.severity.value, message=i.message, object_id=i.object_id) for i in raw_issues]
-    valid = not any(i.severity.value == "error" for i in raw_issues)
+@app.post(
+    "/api/v1/validate-scene-against-survey",
+    response_model=SceneSurveyValidationResponse,
+)
+def validate_architectural_scene_against_survey(
+    request: SceneSurveyValidationRequest,
+) -> SceneSurveyValidationResponse:
+    raw_issues: list[SceneSurveyIssue] = validate_scene_against_survey(
+        request.survey,
+        request.scene,
+    )
+    issues = [
+        SceneSurveyIssueModel(
+            code=issue.code,
+            severity=issue.severity.value,
+            message=issue.message,
+            object_id=issue.object_id,
+        )
+        for issue in raw_issues
+    ]
+    valid = not any(issue.severity.value == "error" for issue in raw_issues)
     if not valid:
-        return SceneSurveyValidationResponse(scene=request.scene, issues=issues, valid_for_projection=False)
-    projection = project_scene_to_building(request.scene)
-    compatibility = assess_m0_compatibility(projection.building) if projection.building is not None else None
-    return SceneSurveyValidationResponse(scene=request.scene, issues=issues, valid_for_projection=True, projection=projection, m0_compatibility=compatibility)
+        return SceneSurveyValidationResponse(
+            scene=request.scene,
+            issues=issues,
+            valid_for_projection=False,
+        )
+
+    projection = _with_scene_build_preflight(
+        request.scene,
+        project_scene_to_building(request.scene),
+    )
+    compatibility = (
+        assess_m0_compatibility(projection.building)
+        if projection.building is not None
+        else None
+    )
+    return SceneSurveyValidationResponse(
+        scene=request.scene,
+        issues=issues,
+        valid_for_projection=not projection.blocked,
+        projection=projection,
+        m0_compatibility=compatibility,
+    )
 
 
 @app.post("/api/v1/build", response_model=BrickExportBundle)
@@ -175,7 +323,10 @@ def build(request: BuildRequest) -> BrickExportBundle:
     if not compatibility.buildable:
         raise HTTPException(status_code=422, detail=" ".join(compatibility.blockers))
     try:
-        bundle = run_m0_pipeline_model(request.building, front_width_studs=request.front_width_studs)
+        bundle = run_m0_pipeline_model(
+            request.building,
+            front_width_studs=request.front_width_studs,
+        )
         bundle.metadata.engine_revision = _engine_revision()
         return bundle
     except ValueError as exc:
@@ -184,16 +335,30 @@ def build(request: BuildRequest) -> BrickExportBundle:
 
 @app.post("/api/v1/build-scene", response_model=BrickExportBundle)
 def build_scene(request: SceneBuildRequest) -> BrickExportBundle:
-    """Build the rich Scene so terraces/stairs survive instead of being projection losses."""
-    projection = project_scene_to_building(request.scene)
-    if projection.building is None:
-        blockers = [issue.message for issue in projection.issues if issue.severity.value == "blocker"]
-        raise HTTPException(status_code=422, detail=" ".join(blockers) or "La scène ne peut pas être projetée vers le moteur M0.")
+    """Build the rich Scene so terraces/stairs/terrain survive projection."""
+    projection = _with_scene_build_preflight(
+        request.scene,
+        project_scene_to_building(request.scene),
+    )
+    if projection.building is None or projection.blocked:
+        blockers = [
+            issue.message
+            for issue in projection.issues
+            if issue.severity is ProjectionSeverity.BLOCKER
+        ]
+        raise HTTPException(
+            status_code=422,
+            detail=" ".join(blockers) or "La scène ne peut pas être projetée vers le moteur M0.",
+        )
+
     compatibility = assess_m0_compatibility(projection.building)
     if not compatibility.buildable:
         raise HTTPException(status_code=422, detail=" ".join(compatibility.blockers))
     try:
-        bundle = run_m0_pipeline_scene(request.scene, front_width_studs=request.front_width_studs)
+        bundle = run_m0_pipeline_scene(
+            request.scene,
+            front_width_studs=request.front_width_studs,
+        )
         bundle.metadata.engine_revision = _engine_revision()
         return bundle
     except ValueError as exc:
@@ -201,28 +366,61 @@ def build_scene(request: SceneBuildRequest) -> BrickExportBundle:
 
 
 @app.post("/api/v1/analyze-photos", response_model=PhotoAnalysisResult)
-async def analyze_photos(photos: list[UploadFile] = File(...), user_notes: str = Form(default=""), known_front_width_m: float | None = Form(default=None)) -> PhotoAnalysisResult:
+async def analyze_photos(
+    photos: list[UploadFile] = File(...),
+    user_notes: str = Form(default=""),
+    known_front_width_m: float | None = Form(default=None),
+) -> PhotoAnalysisResult:
     vision = vision_status()
     if not vision.ready:
-        raise HTTPException(status_code=503, detail=f"L’analyse photo IA n’est pas activée sur ce serveur ({vision.reason}). Le moteur BrickHouse reste disponible.")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"L’analyse photo IA n’est pas activée sur ce serveur ({vision.reason}). "
+                "Le moteur BrickHouse reste disponible."
+            ),
+        )
     if not 1 <= len(photos) <= MAX_PHOTOS:
-        raise HTTPException(status_code=422, detail=f"Envoyez entre 1 et {MAX_PHOTOS} photos.")
+        raise HTTPException(
+            status_code=422,
+            detail=f"Envoyez entre 1 et {MAX_PHOTOS} photos.",
+        )
     if known_front_width_m is not None and known_front_width_m <= 0:
         raise HTTPException(status_code=422, detail="known_front_width_m doit être positif.")
+
     prepared: list[PhotoInput] = []
     for upload in photos:
         media_type = upload.content_type or ""
         if media_type not in SUPPORTED_PHOTO_TYPES:
-            raise HTTPException(status_code=415, detail=f"Format non pris en charge : {media_type or upload.filename}")
+            raise HTTPException(
+                status_code=415,
+                detail=f"Format non pris en charge : {media_type or upload.filename}",
+            )
         content = await upload.read(MAX_PHOTO_BYTES + 1)
         if not content:
             raise HTTPException(status_code=422, detail=f"Photo vide : {upload.filename}")
         if len(content) > MAX_PHOTO_BYTES:
-            raise HTTPException(status_code=413, detail=f"Photo trop volumineuse : {upload.filename}")
-        prepared.append(PhotoInput(content=content, media_type=media_type, filename=upload.filename or "photo"))
+            raise HTTPException(
+                status_code=413,
+                detail=f"Photo trop volumineuse : {upload.filename}",
+            )
+        prepared.append(
+            PhotoInput(
+                content=content,
+                media_type=media_type,
+                filename=upload.filename or "photo",
+            )
+        )
+
     try:
-        result = analyze_with_configured_provider(prepared, user_notes=user_notes, known_front_width_m=known_front_width_m)
-        return result.model_copy(update={"m0_compatibility": assess_m0_compatibility(result.building)})
+        result = analyze_with_configured_provider(
+            prepared,
+            user_notes=user_notes,
+            known_front_width_m=known_front_width_m,
+        )
+        return result.model_copy(
+            update={"m0_compatibility": assess_m0_compatibility(result.building)}
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except VisionProviderError as exc:
