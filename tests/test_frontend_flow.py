@@ -100,15 +100,16 @@ def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
     assert "Étape suivante : cliquez sur « Construire cette proposition »" in gate
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v21_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v22_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.1" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.2" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
     assert "Ne redresse jamais silencieusement" in prompt
     assert "Une seule photo" in prompt
     assert "VOLUMES ET PORTÉE DES INFORMATIONS" in prompt
     assert "visibility[]` peut porter `volume_id`" in prompt
+    assert "Platform` peut porter `host_volume_id`" in prompt
     assert "Une entrée legacy sans `volume_id`" in prompt
     assert "SceneRoof.type` autorise" in prompt
     assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
