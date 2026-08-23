@@ -66,6 +66,34 @@ def _scene_with_scene_only_roof_and_recovered_terrain() -> ArchitecturalScene:
     )
 
 
+def _scene_with_low_confidence_exterior_geometry() -> ArchitecturalScene:
+    data = _scene_with_scene_only_roof_and_recovered_terrain().model_dump(mode="json")
+    data["platforms"] = [
+        {
+            "id": "uncertain-deck",
+            "host_volume_id": "main",
+            "position": {"x": 10.0, "y": 2.0, "z": 1.2},
+            "width": 1.5,
+            "depth": 2.0,
+            "thickness": 0.18,
+            "material": "timber",
+            "deck_board_direction": "y",
+            "source": {"kind": "inferred", "confidence": 0.45},
+        }
+    ]
+    data["stairs"] = [
+        {
+            "id": "uncertain-stair",
+            "start": {"x": 11.0, "y": 3.0, "z": 0.0},
+            "end": {"x": 11.0, "y": 2.0, "z": 1.2},
+            "width": 0.8,
+            "material": "concrete",
+            "source": {"kind": "inferred", "confidence": 0.60},
+        }
+    ]
+    return ArchitecturalScene.model_validate(data)
+
+
 def test_scene_export_reports_only_losses_that_remain_after_scene_augmentation() -> None:
     bundle = run_m0_pipeline_scene(
         _scene_with_scene_only_roof_and_recovered_terrain(), front_width_studs=40
@@ -78,6 +106,20 @@ def test_scene_export_reports_only_losses_that_remain_after_scene_augmentation()
     # LEGO augmentation, so it must not be advertised as a final export loss.
     assert "terrain_not_supported" not in codes
     assert any(part.category == "terrain" for part in bundle.brick_model.parts)
+
+
+def test_scene_export_surfaces_low_confidence_exterior_geometry() -> None:
+    bundle = run_m0_pipeline_scene(
+        _scene_with_low_confidence_exterior_geometry(), front_width_studs=40
+    )
+    by_object = {issue.object_id: issue for issue in bundle.fidelity_issues if issue.code == "low_confidence_exterior_geometry"}
+
+    assert by_object["uncertain-deck"].severity == "warning"
+    assert "confidence 0.45" in by_object["uncertain-deck"].message
+    assert by_object["uncertain-stair"].severity == "info"
+    assert "confidence 0.60" in by_object["uncertain-stair"].message
+    assert any(part.placement_id.startswith("scene-platform:uncertain-deck") for part in bundle.brick_model.parts)
+    assert any(part.placement_id.startswith("scene-stair:uncertain-stair") for part in bundle.brick_model.parts)
 
 
 def test_fidelity_issues_survive_export_json_round_trip() -> None:
