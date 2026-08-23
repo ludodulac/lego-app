@@ -17,6 +17,7 @@ def test_render_blueprint_targets_fastapi_and_healthcheck():
 def test_dockerfile_runs_same_api_contract():
     text = Path("Dockerfile").read_text(encoding="utf-8")
     assert "FROM python:3.12-slim" in text
+    assert "COPY data/processed ./data/processed" in text
     assert "pip install ." in text
     assert "uvicorn brickhouse.api:app" in text
     assert "${PORT}" in text
