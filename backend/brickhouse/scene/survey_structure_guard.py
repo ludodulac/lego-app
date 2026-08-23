@@ -61,6 +61,18 @@ def _guard_kind(
                 )
             )
             continue
+        if obj.source.kind.value == "generated_default":
+            issues.append(
+                SceneSurveyIssue(
+                    code=f"{kind.value}_generated_default_geometry",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=obj.id,
+                    message=(
+                        f"La géométrie de la {label} {obj.id!r} utilise `generated_default`. Une structure extérieure "
+                        "doit être métriquement inférée depuis des preuves ou fournie par l’utilisateur, jamais créée par défaut."
+                    ),
+                )
+            )
         if (
             observation.certainty is Certainty.PLAUSIBLE
             and obj.source.confidence > MAX_PLAUSIBLE_METRIC_CONFIDENCE
@@ -68,7 +80,7 @@ def _guard_kind(
             issues.append(
                 SceneSurveyIssue(
                     code=f"plausible_{kind.value}_overconfidence",
-                    severity=SceneSurveySeverity.WARNING,
+                    severity=SceneSurveySeverity.ERROR,
                     object_id=obj.id,
                     message=(
                         f"La {label} {obj.id!r} reste seulement plausible dans le Survey, mais la Scene lui "
