@@ -11,6 +11,7 @@ from brickhouse.bricks.building_layout import (
 from brickhouse.bricks.catalog import create_m0_brick_catalog
 from brickhouse.bricks.export import (
     BrickExportBundle,
+    BrickExportFidelityIssue,
     BrickExportMetadata,
     create_export_bundle,
     export_bundle_json,
@@ -51,6 +52,7 @@ __all__ = [
     "BrickCatalog",
     "BrickDefinition",
     "BrickExportBundle",
+    "BrickExportFidelityIssue",
     "BrickExportMetadata",
     "BrickModel",
     "BrickModelPart",
