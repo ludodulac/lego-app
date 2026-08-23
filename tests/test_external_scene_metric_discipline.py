@@ -53,11 +53,12 @@ def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
     assert "n’est PAS une deuxième observation `kind=\"platform\"`" in source
 
 
-def test_topology_prompt_obeys_single_turn_and_treats_slot_labels_as_hints() -> None:
+def test_topology_prompt_obeys_single_turn_and_has_conditional_orientation_authority() -> None:
     source = TOPOLOGY_PROMPT.read_text(encoding="utf-8")
-    assert "TOPOLOGIQUE v0.6" in source
+    assert "TOPOLOGIQUE v0.7" in source
     assert "execution_mode=single_turn_file_output" in source
     assert "N’ENTRE PAS en mode conversationnel" in source
-    assert "REPÈRE DE CAPTURE" in source
+    assert "slot_labels_are_user_confirmed" in source
     assert "indices faibles" in source
+    assert "contrainte utilisateur forte" in source
     assert "user_confirmed" in source
