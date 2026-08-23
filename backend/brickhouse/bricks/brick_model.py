@@ -182,7 +182,11 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
                         x_studs=x,
                         y_studs=y,
                         z_plates=wall_top + level * family.rise_plates,
-                        rotation_quarter_turns=1 if brick_span > 1 else 0,
+                        rotation_quarter_turns=(
+                            1
+                            if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR}
+                            else 0
+                        ),
                         facade=facade,
                     )
                 )
