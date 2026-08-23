@@ -53,6 +53,18 @@ def test_external_json_import_extracts_first_complete_object() -> None:
     assert "value.slice(start, index + 1)" in photo
 
 
+def test_guided_capture_supports_base_views_plus_targeted_extras() -> None:
+    html = read("photo.html")
+    simple = read("photo-simple.js")
+    assert 'id="guided-extra-photos"' in html
+    assert "6 vues de base" in html
+    assert "Jusqu’à 6 vues supplémentaires" in html
+    assert "MAX_TOTAL_PHOTOS = 12" in simple
+    assert "MAX_EXTRA_PHOTOS = 6" in simple
+    assert "targeted_extra" in simple
+    assert "few_high_value_views_plus_targeted_extras" in simple
+
+
 def test_external_ai_workflow_supports_json_files_and_validated_survey_download() -> None:
     html = read("photo.html")
     survey = read("survey-import.js")
@@ -98,6 +110,19 @@ def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
     assert "brickhouse.pendingExport" in gate
     assert "window.location.href = './viewer.html'" in gate
     assert "Étape suivante : cliquez sur « Construire cette proposition »" in gate
+
+
+def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
+    topology = read("brickhouse-topology-prompt.txt")
+    survey = read("brickhouse-survey-prompt.txt")
+    assert "TOPOLOGIQUE INTERACTIVE v0.5" in topology
+    assert "STRATÉGIE DE COUVERTURE — QUALITÉ AVANT QUANTITÉ" in topology
+    assert "4 à 6 vues générales" in topology
+    assert "COMMENT DEMANDER UNE VUE SUPPLÉMENTAIRE" in topology
+    assert "capture_assessment" in topology
+    assert "RELEVÉ ARCHITECTURAL v1.7" in survey
+    assert "DENSITÉ DE COUVERTURE" in survey
+    assert "quantité de photos jamais confondue avec certitude architecturale" in survey
 
 
 def test_survey_to_scene_prompt_matches_current_generic_v22_contract() -> None:
