@@ -17,6 +17,14 @@ from brickhouse.bricks.export import (
     export_bundle_json,
 )
 from brickhouse.bricks.models import BrickCatalog, BrickDefinition
+from brickhouse.bricks.piece_capabilities import (
+    PieceCapability,
+    PieceCapabilityRegistry,
+    PieceCapabilityStage,
+    create_current_engine_capability_registry,
+    load_piece_master,
+    promote_capabilities,
+)
 from brickhouse.bricks.placement import (
     BrickPlacement,
     WallBrickLayout,
@@ -61,6 +69,9 @@ __all__ = [
     "BuildingWallLayout",
     "GlobalBrickPlacement",
     "GlobalRoofPlacement",
+    "PieceCapability",
+    "PieceCapabilityRegistry",
+    "PieceCapabilityStage",
     "RoofPartCatalog",
     "RoofPartDefinition",
     "SpatialBrickShell",
@@ -68,6 +79,7 @@ __all__ = [
     "WallBrickLayout",
     "WallGridSpec",
     "WallOpeningGrid",
+    "create_current_engine_capability_registry",
     "create_export_bundle",
     "create_m0_brick_catalog",
     "create_m0_roof_catalog",
@@ -83,4 +95,6 @@ __all__ = [
     "generate_spatial_brick_shell",
     "generate_spatial_gable_roof",
     "generate_wall_layout_with_openings",
+    "load_piece_master",
+    "promote_capabilities",
 ]
