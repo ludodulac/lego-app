@@ -10,6 +10,7 @@ from brickhouse.bricks.brick_model import BrickModel, generate_brick_model
 from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue, create_export_bundle, export_bundle_json
 from brickhouse.bricks.facade_details import generate_window_surrounds
+from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
 from brickhouse.bricks.roof import generate_spatial_gable_roof
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
@@ -33,6 +34,10 @@ _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION={
     "stair_not_supported",
 }
 
+def _validate_generated_model(model:BrickModel)->None:
+    """Final safety gate: catalogue presence alone never authorizes a LEGO part."""
+    validate_model_part_capabilities(model,create_current_engine_capability_registry())
+
 def _volume_geometry(geometry,volume_id:str):
     return geometry.model_copy(update={"walls":[w for w in geometry.walls if w.volume_id==volume_id],"roof_planes":[p for p in geometry.roof_planes if p.volume_id==volume_id]})
 
@@ -47,6 +52,7 @@ def _single_volume_bundle(building:BuildingModel,geometry,front_width_studs:int)
     roof=building.roofs[0] if building.roofs else None
     spatial_roof=generate_spatial_gable_roof(geometry,shell) if roof is not None and roof.type is RoofType.GABLE else None
     brick_model=generate_brick_model(spatial_shell,spatial_roof,facade_details,window_parts)
+    _validate_generated_model(brick_model)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
     return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
 
@@ -75,6 +81,7 @@ def run_m0_pipeline_model(building:BuildingModel,*,front_width_studs:int=DEFAULT
         all_parts.extend(_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z))
         max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
     brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
+    _validate_generated_model(brick_model)
     bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
     return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance)
 
@@ -117,6 +124,7 @@ def run_m0_pipeline_scene(scene:ArchitecturalScene,*,front_width_studs:int=DEFAU
     enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs)
     enriched=apply_scene_part_categories(enriched,scene)
     enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs)
+    _validate_generated_model(enriched)
     if enriched is base.brick_model:
         return base.model_copy(update={"fidelity_issues":fidelity_issues})
     bom=generate_bom(enriched)
