@@ -43,9 +43,8 @@ class RoofSlopeFamily(BaseModel):
     line_parts: tuple[tuple[int, str], ...]
 
 
-# These are not merely catalogue rows: each family below has an explicit
-# footprint/advance/rise model used by support validation. New catalogue parts
-# must not be added here until those connection semantics are understood.
+# These are not merely catalogue rows: each family has an explicit
+# footprint/advance/rise model used by structural support validation.
 SUPPORTED_SLOPE_FAMILIES: tuple[RoofSlopeFamily, ...] = (
     RoofSlopeFamily(
         id="18",
@@ -331,6 +330,52 @@ def _course_count(span: int, family: RoofSlopeFamily) -> int:
     return count
 
 
+def _axis_ranges_touch(first_start: int, first_width: int, second_start: int, second_width: int) -> bool:
+    first = set(range(first_start, first_start + first_width))
+    second = set(range(second_start, second_start + second_width))
+    return bool(first.intersection(second))
+
+
+def _connected_roof_span(wall_span: int, family: RoofSlopeFamily) -> int:
+    """Find the smallest roof span whose validated slope courses meet a 2-stud ridge.
+
+    Quantization may add a small positive-eave overhang, but the actual wall edge
+    must remain under the first positive slope course. This generalizes the old
+    odd-span special case and is especially important for shallow, long slopes.
+    """
+    for extra in range(0, family.footprint_depth_studs + family.course_advance_studs + 2):
+        span = wall_span + extra
+        count = _course_count(span, family)
+        if count < 1:
+            continue
+        ridge_axis = span // 2 - 1
+        negative_inner = (count - 1) * family.course_advance_studs
+        positive_inner = (
+            span
+            - family.footprint_depth_studs
+            - (count - 1) * family.course_advance_studs
+        )
+        negative_connects = _axis_ranges_touch(
+            negative_inner,
+            family.footprint_depth_studs,
+            ridge_axis,
+            2,
+        )
+        positive_connects = _axis_ranges_touch(
+            positive_inner,
+            family.footprint_depth_studs,
+            ridge_axis,
+            2,
+        )
+        positive_eave = span - family.footprint_depth_studs
+        wall_edge_supported = positive_eave <= wall_span - 1 <= span - 1
+        if negative_connects and positive_connects and wall_edge_supported:
+            return span
+    raise ValueError(
+        f"roof family {family.id} cannot connect wall span {wall_span} to the validated ridge"
+    )
+
+
 def generate_spatial_gable_roof(
     geometry: BuildingGeometry,
     shell: BuildingBrickShell,
@@ -353,10 +398,7 @@ def generate_spatial_gable_roof(
         (width, depth) if direction is RidgeDirection.DEPTH else (depth, width)
     )
 
-    # A two-stud ridge cannot be centered on an odd shell span while touching
-    # both symmetric slope families. Extend the positive eave by one stud rather
-    # than distorting the architectural wall grid.
-    roof_span = span if span % 2 == 0 else span + 1
+    roof_span = _connected_roof_span(span, family)
     course_count = _course_count(roof_span, family)
     if course_count < 1:
         raise ValueError(
