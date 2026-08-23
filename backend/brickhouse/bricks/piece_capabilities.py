@@ -128,7 +128,18 @@ def promote_capabilities(
 
 
 def default_piece_master_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "data" / "processed" / "piece_types_master.csv"
+    """Resolve the processed catalogue in both source checkout and deployed app layouts."""
+
+    relative = Path("data") / "processed" / "piece_types_master.csv"
+    candidates = (
+        Path.cwd() / relative,
+        Path(__file__).resolve().parents[3] / relative,
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    tried = ", ".join(str(candidate) for candidate in candidates)
+    raise FileNotFoundError(f"BrickHouse piece master not found; tried: {tried}")
 
 
 def create_current_engine_capability_registry(
