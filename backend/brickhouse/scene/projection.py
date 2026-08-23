@@ -80,5 +80,9 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
         loss = "; ".join(issue.code for issue in issues)
         notes = f"{notes + ' ' if notes else ''}Projection losses: {loss}."
 
-    building = BuildingModel(schema_version="0.1", id=scene.id, name=scene.name, building_type="house", units="m", volumes=volumes, openings=openings, roofs=roofs, appearance=scene.appearance, metadata=Metadata(created_from="photo_analysis", notes=notes))
+    # ArchitecturalScene is intentionally generic. Do not inject a house-specific
+    # classification merely because the current visual regression fixture is a
+    # house. BuildingModel v0.1 requires a free-form type, so use the neutral
+    # value until the Scene contract carries an observed/inferred building type.
+    building = BuildingModel(schema_version="0.1", id=scene.id, name=scene.name, building_type="building", units="m", volumes=volumes, openings=openings, roofs=roofs, appearance=scene.appearance, metadata=Metadata(created_from="photo_analysis", notes=notes))
     return ProjectionResult(building=building, issues=issues)
