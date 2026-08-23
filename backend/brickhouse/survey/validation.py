@@ -22,6 +22,95 @@ _ARCHITECTURAL_KIND_BY_TAG = {
 }
 
 
+def _validate_refinement_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidationIssue]:
+    """Validate append-only refinements of uncertain observations.
+
+    New photos must be able to resolve a previous plausible/unproven hypothesis
+    without erasing its provenance. The old observation therefore stays in the
+    Survey and a new observation may point to it through
+    attributes.refines_observation_id. Certain or user-confirmed facts are never
+    refinable through this mechanism; corrections to those require the explicit
+    correction workflow.
+    """
+    issues: list[SurveyValidationIssue] = []
+    observations = {item.id: item for item in survey.observations}
+
+    for observation in survey.observations:
+        target_id = observation.attributes.get("refines_observation_id")
+        if target_id is None:
+            continue
+        if not isinstance(target_id, str) or not target_id.strip():
+            issues.append(SurveyValidationIssue(
+                code="invalid_refinement_target",
+                observation_id=observation.id,
+                message="attributes.refines_observation_id doit contenir l’id non vide d’une observation antérieure.",
+            ))
+            continue
+        if target_id == observation.id:
+            issues.append(SurveyValidationIssue(
+                code="self_refinement",
+                observation_id=observation.id,
+                message="Une observation ne peut pas se raffiner elle-même.",
+            ))
+            continue
+        target = observations.get(target_id)
+        if target is None:
+            issues.append(SurveyValidationIssue(
+                code="refinement_target_missing",
+                observation_id=observation.id,
+                message=f"L’observation raffinée {target_id!r} n’existe pas dans ce Survey.",
+            ))
+            continue
+        if target.kind is not observation.kind:
+            issues.append(SurveyValidationIssue(
+                code="refinement_kind_changed",
+                observation_id=observation.id,
+                message=(
+                    f"Une observation de type {observation.kind.value!r} ne peut pas raffiner "
+                    f"une observation de type {target.kind.value!r}."
+                ),
+            ))
+        if target.certainty is Certainty.CERTAIN or bool(target.attributes.get("confirmed_by_user", False)):
+            issues.append(SurveyValidationIssue(
+                code="certain_observation_cannot_be_refined",
+                observation_id=observation.id,
+                message=(
+                    f"L’observation {target_id!r} est déjà certaine ou confirmée par l’utilisateur. "
+                    "Une extension photo ne peut pas la réécrire ; utilisez le workflow de correction explicite en cas d’erreur."
+                ),
+            ))
+        previous_photos = {item.photo_index for item in target.evidence}
+        if not any(item.photo_index not in previous_photos for item in observation.evidence):
+            issues.append(SurveyValidationIssue(
+                code="refinement_without_new_evidence",
+                observation_id=observation.id,
+                message=(
+                    f"Le raffinement de {target_id!r} doit citer au moins une preuve photo qui n’était pas déjà "
+                    "dans l’observation raffinée."
+                ),
+            ))
+
+    # Refinement chains are allowed (unproven -> plausible -> certain), but cycles are not.
+    for observation in survey.observations:
+        seen = {observation.id}
+        current = observation
+        while True:
+            target_id = current.attributes.get("refines_observation_id")
+            if not isinstance(target_id, str) or target_id not in observations:
+                break
+            if target_id in seen:
+                issues.append(SurveyValidationIssue(
+                    code="refinement_cycle",
+                    observation_id=observation.id,
+                    message="La chaîne de raffinement contient une boucle ; elle doit rester chronologique et append-only.",
+                ))
+                break
+            seen.add(target_id)
+            current = observations[target_id]
+
+    return issues
+
+
 def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidationIssue]:
     """Return semantic issues that Pydantic shape validation alone cannot catch."""
     issues: list[SurveyValidationIssue] = []
@@ -75,6 +164,7 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
                         message="A gable-end front facade cannot simultaneously have a horizontal eave across that facade; use rake/gable-edge terminology.",
                     ))
 
+    issues.extend(_validate_refinement_semantics(survey))
     return issues
 
 
@@ -87,8 +177,10 @@ def validate_survey_extension(
     The extension contract is intentionally strict: every pre-existing photo,
     measurement, observation, relation, frame definition and representation policy
     must survive byte-for-byte at the model level. New photos, observations and
-    relations may be appended. Corrections to validated facts belong to the
-    explicit correction workflow rather than an extension pass.
+    relations may be appended. Uncertain hypotheses can be refined only through a
+    new append-only observation carrying attributes.refines_observation_id.
+    Corrections to certain validated facts belong to the explicit correction
+    workflow rather than an extension pass.
     """
     issues: list[SurveyValidationIssue] = []
 
