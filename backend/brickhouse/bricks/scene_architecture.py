@@ -44,8 +44,25 @@ def _scene_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
         ys.append(platform.position.y)
         zs.append(0.0)
     for stair in scene.stairs:
-        xs.extend([stair.start.x, stair.end.x])
-        ys.extend([stair.start.y, stair.end.y])
+        dx = abs(stair.end.x - stair.start.x)
+        dy = abs(stair.end.y - stair.start.y)
+        half = stair.width / 2
+        if dx >= dy:
+            xs.extend([stair.start.x, stair.end.x])
+            ys.extend([
+                stair.start.y - half,
+                stair.start.y + half,
+                stair.end.y - half,
+                stair.end.y + half,
+            ])
+        else:
+            ys.extend([stair.start.y, stair.end.y])
+            xs.extend([
+                stair.start.x - half,
+                stair.start.x + half,
+                stair.end.x - half,
+                stair.end.x + half,
+            ])
         zs.extend([stair.start.z, stair.end.z])
     if scene.terrain and scene.terrain.profiles:
         main = scene.volumes[0]
@@ -545,6 +562,35 @@ def _platform_parts(
     return parts
 
 
+def _stair_tread_geometry(
+    x: int,
+    y: int,
+    width: int,
+    dx: int,
+    dy: int,
+) -> tuple[list[tuple[int, int]], tuple[int, int], tuple[int, int]]:
+    """Return centered tread cells plus physical left/right edges in travel direction.
+
+    StairRun start/end coordinates are treated as the run centerline, matching the
+    Survey→Scene access validation which reserves half the stair width on each
+    side of an endpoint. Quantization may bias an even width by half a stud, but
+    it must never expand the whole stair to one arbitrary side of the centerline.
+    """
+    start_offset = -(width // 2)
+    if abs(dx) >= abs(dy):
+        cells = [(x, y + start_offset + offset) for offset in range(width)]
+        low, high = cells[0], cells[-1]
+        if dx >= 0:
+            return cells, high, low
+        return cells, low, high
+
+    cells = [(x + start_offset + offset, y) for offset in range(width)]
+    low, high = cells[0], cells[-1]
+    if dy >= 0:
+        return cells, low, high
+    return cells, high, low
+
+
 def _stair_parts(
     stair: StairRun,
     scene: ArchitecturalScene,
@@ -569,7 +615,6 @@ def _stair_parts(
         (stair.start.x + stair.end.x) / 2,
         (stair.start.y + stair.end.y) / 2,
     )
-    along_x = abs(dx) >= abs(dy)
     masonry = _is_masonry(stair, scene)
     left_edge, right_edge = _stair_edge_treatments(stair, scene)
     parts: list[BrickModelPart] = []
@@ -581,11 +626,8 @@ def _stair_parts(
         x = _round_half_up(sx + dx * t)
         y = _round_half_up(sy + dy * t)
         z = max(0, 3 * _round_half_up((sz + (ez - sz) * t) / 3.0))
-        tread: list[tuple[int, int]] = []
-        for offset in range(width):
-            px = x if along_x else x + offset
-            py = y + offset if along_x else y
-            tread.append((px, py))
+        tread, left_cell, right_cell = _stair_tread_geometry(x, y, width, dx, dy)
+        for px, py in tread:
             if _append_unique(
                 parts,
                 seen,
@@ -616,8 +658,8 @@ def _stair_parts(
                         index += 1
                     fill += 3
         for treatment, (px, py), label in (
-            (left_edge, tread[0], "left"),
-            (right_edge, tread[-1], "right"),
+            (left_edge, left_cell, "left"),
+            (right_edge, right_cell, "right"),
         ):
             if treatment is EdgeTreatment.SOLID_PARAPET:
                 for wall_z in (z + 3, z + 6):
