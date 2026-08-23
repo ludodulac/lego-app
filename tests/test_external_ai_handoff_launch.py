@@ -18,7 +18,7 @@ def test_external_ai_handoff_has_explicit_single_turn_launch_instruction() -> No
 def test_primary_handoff_is_direct_text_not_zip_dependent() -> None:
     source = SIMPLE.read_text(encoding="utf-8")
     assert "00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt" in source
-    assert "HANDOFF_SCHEMA_VERSION = 'handoff-0.5'" in source
+    assert "HANDOFF_SCHEMA_VERSION = 'handoff-0.6'" in source
     assert "execution_mode: 'single_turn_file_output'" in source
     assert "combinedInstruction" in source
     assert "ÉTAPE 1 — TOPOLOGIE MULTI-VUES" in source
@@ -40,7 +40,19 @@ def test_handoff_forbids_old_result_as_input_and_conversation_detours() -> None:
     assert "La réponse de chat finale doit être minimale" in source
 
 
-def test_handoff_keeps_building_generic_and_labels_non_authoritative() -> None:
+def test_handoff_distinguishes_capture_hints_from_confirmed_orientations() -> None:
+    source = SIMPLE.read_text(encoding="utf-8")
+    assert "confirm-guided-orientations" in source
+    assert "orientation_semantics" in source
+    assert "slot_labels_are_user_confirmed" in source
+    assert "orientation_authority" in source
+    assert "user_confirmed" in source
+    assert "capture_hint" in source
+    assert "ORIENTATION CONFIRMÉE PAR L’UTILISATEUR" in source
+    assert "ORIENTATION NON CONFIRMÉE" in source
+
+
+def test_handoff_keeps_building_generic() -> None:
     source = SIMPLE.read_text(encoding="utf-8")
     assert "Le bâtiment peut être non rectangulaire, multi-volume ou atypique" in source
     assert "ne pas imposer la maison benchmark comme modèle général" in source
