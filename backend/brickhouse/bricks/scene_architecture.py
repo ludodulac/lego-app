@@ -1,11 +1,9 @@
 """Add rich ArchitecturalScene exterior elements to an already-built BrickModel.
 
-M0 bridge for exterior architecture. Platforms and stair runs are reconstructed
-from the validated Scene instead of being flattened away by BuildingModel 0.1.
-The current Scene schema does not yet expose a dedicated material field, so this
-module reads conservative material hints from object ids/evidence/notes. Geometry
-remains subordinate to Scene coordinates: hints may change representation, never
-position, orientation or adjacency.
+M0 bridge for exterior architecture. Platforms, stair runs and facade grade
+profiles are reconstructed from the validated Scene instead of being flattened
+away by BuildingModel 0.1. Material hints currently come from ids/evidence/notes;
+those hints may change representation, never Scene coordinates or adjacency.
 """
 from __future__ import annotations
 
@@ -35,6 +33,21 @@ def _scene_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
         xs.extend([stair.start.x, stair.end.x])
         ys.extend([stair.start.y, stair.end.y])
         zs.extend([stair.start.z, stair.end.z])
+
+    # Reserve a narrow exterior band for grade profiles. This prevents left/front
+    # terrain from being clamped onto the house when no terrace already expands
+    # the global Scene bounds in that direction.
+    if scene.terrain and scene.terrain.profiles:
+        main = scene.volumes[0]
+        facades = {profile.facade for profile in scene.terrain.profiles}
+        if Facade.LEFT in facades:
+            xs.append(main.position.x - 0.5)
+        if Facade.RIGHT in facades:
+            xs.append(main.position.x + main.width.value + 0.5)
+        if Facade.FRONT in facades:
+            ys.append(main.position.y - 0.5)
+        if Facade.REAR in facades:
+            ys.append(main.position.y + main.depth.value + 0.5)
     return min(xs), min(ys), min(zs)
 
 
@@ -104,7 +117,10 @@ def _brick(
     )
 
 
-def _add_vertical_column(parts: list[BrickModelPart], *, prefix: str, x: int, y: int, z_from: int, z_to: int, facade: Facade, index_start: int) -> int:
+def _add_vertical_column(
+    parts: list[BrickModelPart], *, prefix: str, x: int, y: int,
+    z_from: int, z_to: int, facade: Facade, index_start: int,
+) -> int:
     index = index_start
     z = max(0, z_from)
     while z <= z_to:
@@ -136,8 +152,7 @@ def _platform_parts(
     parts: list[BrickModelPart] = []
     index = 1
 
-    # Timber terraces are decks, not solid cuboids. Keep only a thin structural
-    # deck at the Scene elevation. Masonry landings retain their full thickness.
+    # Timber terraces are thin decks; masonry landings retain physical thickness.
     courses = 1 if timber else max(1, ceil(platform.thickness * plates_per_meter / 3.0))
     for course in range(courses):
         z = z0 + course * 3
@@ -146,9 +161,6 @@ def _platform_parts(
                 parts.append(_brick(f"scene-platform:{platform.id}:deck:{index:05d}", x0 + dx, y0 + dy, z, facade))
                 index += 1
 
-    # Prefer explicit supports. If the Scene has not yet measured them, a timber
-    # deck gets a sparse support grid rather than the previous four arbitrary
-    # corner posts. Masonry landings do not receive invented timber posts.
     support_cells: set[tuple[int, int]] = set()
     if platform.supports:
         for support in platform.supports:
@@ -171,8 +183,6 @@ def _platform_parts(
             parts.append(_brick(f"scene-platform:{platform.id}:support{post_index}:{z:04d}", x, y, z, facade))
             z += 3
 
-    # If the evidence explicitly describes a solid masonry parapet/muret, retain
-    # a low perimeter wall. Do not invent it for timber decks.
     if masonry and any(token in _object_text(platform, scene) for token in ("muret", "parapet", "garde-corps plein")):
         rail_top = z0 + 6
         perimeter = {(x0 + dx, y0) for dx in range(width)} | {(x0 + dx, y0 + depth - 1) for dx in range(width)}
@@ -228,9 +238,7 @@ def _stair_parts(
             index += 1
 
         if masonry:
-            # A rendered concrete/stone stair is a supported mass, not floating
-            # treads. Fill below each tread and extend the two side cells above
-            # the tread to create the observed solid ramp/muret silhouette.
+            # Concrete/stone stairs are supported masses with solid side walls.
             for px, py in tread_cells:
                 fill_z = 0
                 while fill_z < z:
@@ -241,8 +249,7 @@ def _stair_parts(
                         index += 1
                     fill_z += 3
             if tread_cells:
-                side_cells = {tread_cells[0], tread_cells[-1]}
-                for px, py in side_cells:
+                for px, py in {tread_cells[0], tread_cells[-1]}:
                     for wall_z in (z + 3, z + 6):
                         key = (px, py, wall_z)
                         if key in seen:
@@ -254,14 +261,72 @@ def _stair_parts(
     return parts
 
 
+def _terrain_parts(
+    scene: ArchitecturalScene,
+    *,
+    origin_x: float,
+    origin_y: float,
+    origin_z: float,
+    studs_per_meter: float,
+    plates_per_meter: float,
+) -> list[BrickModelPart]:
+    """Render facade grade profiles as a narrow stepped exterior ground strip.
+
+    This is deliberately a site cue rather than a full terrain mesh: it preserves
+    the observed local ground level and slope next to the facade without moving
+    the house or changing any user measurement.
+    """
+    if not scene.terrain or not scene.terrain.profiles:
+        return []
+
+    main = scene.volumes[0]
+    x0 = _round_half_up((main.position.x - origin_x) * studs_per_meter)
+    y0 = _round_half_up((main.position.y - origin_y) * studs_per_meter)
+    width = max(1, _round_half_up(main.width.value * studs_per_meter))
+    depth = max(1, _round_half_up(main.depth.value * studs_per_meter))
+    band = max(1, _round_half_up(0.4 * studs_per_meter))
+    parts: list[BrickModelPart] = []
+    index = 1
+
+    for profile in scene.terrain.profiles:
+        length = width if profile.facade in {Facade.FRONT, Facade.REAR} else depth
+        if length <= 0:
+            continue
+        start_z = max(0, _round_half_up((profile.start_elevation - origin_z) * plates_per_meter))
+        end_z = max(0, _round_half_up((profile.end_elevation - origin_z) * plates_per_meter))
+
+        for along in range(length):
+            t = along / max(length - 1, 1)
+            grade_z = 3 * _round_half_up((start_z + (end_z - start_z) * t) / 3.0)
+            # One brick course is always shown so a zero-elevation portion still
+            # reads as ground; higher portions are filled up to the local grade.
+            top = max(0, grade_z)
+            for across in range(band):
+                if profile.facade is Facade.RIGHT:
+                    px, py = x0 + width + across, y0 + along
+                elif profile.facade is Facade.LEFT:
+                    px, py = x0 - 1 - across, y0 + depth - 1 - along
+                elif profile.facade is Facade.FRONT:
+                    px, py = x0 + along, y0 - 1 - across
+                else:
+                    px, py = x0 + width - 1 - along, y0 + depth + across
+                z = 0
+                while z <= top:
+                    parts.append(_brick(f"scene-terrain:{profile.facade.value}:{index:06d}", px, py, z, profile.facade, category="facade_detail"))
+                    index += 1
+                    z += 3
+    return parts
+
+
 def augment_brick_model_with_scene_architecture(
     model: BrickModel,
     scene: ArchitecturalScene,
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Return a BrickModel that also contains all Scene platforms and stair runs."""
-    if not scene.platforms and not scene.stairs:
+    """Return a BrickModel enriched with Scene terrain, platforms and stairs."""
+    has_grade = bool(scene.terrain and scene.terrain.profiles)
+    if not scene.platforms and not scene.stairs and not has_grade:
         return model
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
@@ -284,6 +349,11 @@ def augment_brick_model_with_scene_architecture(
         for part in model.parts
     ]
     extra: list[BrickModelPart] = []
+    extra.extend(_terrain_parts(
+        scene,
+        origin_x=origin_x, origin_y=origin_y, origin_z=origin_z,
+        studs_per_meter=studs_per_meter, plates_per_meter=plates_per_meter,
+    ))
     for platform in scene.platforms:
         extra.extend(_platform_parts(
             platform, scene,
@@ -298,7 +368,7 @@ def augment_brick_model_with_scene_architecture(
         ))
 
     all_parts = shifted + extra
-    width = max(model.width_studs + shift_x, max(part.x_studs + 1 for part in all_parts))
-    depth = max(model.depth_studs + shift_y, max(part.y_studs + 1 for part in all_parts))
-    height = max(model.height_plates + shift_z, max(part.z_plates + 3 for part in all_parts))
-    return model.model_copy(update={"width_studs": width, "depth_studs": depth, "height_plates": height, "parts": all_parts})
+    width_out = max(model.width_studs + shift_x, max(part.x_studs + 1 for part in all_parts))
+    depth_out = max(model.depth_studs + shift_y, max(part.y_studs + 1 for part in all_parts))
+    height_out = max(model.height_plates + shift_z, max(part.z_plates + 3 for part in all_parts))
+    return model.model_copy(update={"width_studs": width_out, "depth_studs": depth_out, "height_plates": height_out, "parts": all_parts})
