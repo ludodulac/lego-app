@@ -63,6 +63,8 @@ def test_guided_capture_supports_base_views_plus_targeted_extras() -> None:
     assert "MAX_EXTRA_PHOTOS = 6" in simple
     assert "targeted_extra" in simple
     assert "few_high_value_views_plus_targeted_extras" in simple
+    assert "chaîne de circulation" in simple
+    assert "réutiliser exactement l'id stable" in simple
 
 
 def test_external_ai_workflow_supports_json_files_and_validated_survey_download() -> None:
@@ -120,12 +122,14 @@ def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
     assert "4 à 6 vues générales" in topology
     assert "COMMENT DEMANDER UNE VUE SUPPLÉMENTAIRE" in topology
     assert "capture_assessment" in topology
-    assert "RELEVÉ ARCHITECTURAL v1.8" in survey
+    assert "RELEVÉ ARCHITECTURAL v1.9" in survey
     assert "DENSITÉ DE COUVERTURE" in survey
     assert "quantité de photos jamais confondue avec certitude architecturale" in survey
     assert "une volée qui disparaît derrière un mur ne prouve PAS" in survey
     assert "zone occultée" in survey
     assert "IDENTITÉ STABLE DES PRIMITIVES" in survey
+    assert "facade_horizontal_rank" in survey
+    assert "facade_vertical_rank" in survey
 
 
 def test_survey_extension_prompt_supports_append_only_refinement() -> None:
