@@ -2,11 +2,15 @@ const grid = document.querySelector('#guided-photo-grid');
 const packageButton = document.querySelector('#download-ai-package');
 const packageStatus = document.querySelector('#ai-package-status');
 const technicalPhotos = document.querySelector('#photos');
+const extraPhotosInput = document.querySelector('#guided-extra-photos');
+const extraSummary = document.querySelector('#guided-extra-summary');
 const notesInput = document.querySelector('#notes');
 const knownWidthInput = document.querySelector('#known-width');
 const studsInput = document.querySelector('#studs');
 
 const slots = [...document.querySelectorAll('.guided-photo-slot')];
+const MAX_TOTAL_PHOTOS = 12;
+const MAX_EXTRA_PHOTOS = 6;
 
 function selectedSlotRecords() {
   return slots.map((slot, index) => {
@@ -19,14 +23,29 @@ function selectedSlotRecords() {
       index: index + 1,
       file,
       note: note?.value.trim() ?? '',
+      role: 'guided_base',
     };
   }).filter(item => item.file);
+}
+
+function selectedExtraRecords() {
+  return [...(extraPhotosInput?.files ?? [])].slice(0, MAX_EXTRA_PHOTOS).map((file, index) => ({
+    slot: `extra_${index + 1}`,
+    label: `Vue supplémentaire ${index + 1}`,
+    file,
+    note: '',
+    role: 'targeted_extra',
+  }));
+}
+
+function selectedPhotoRecords() {
+  return [...selectedSlotRecords(), ...selectedExtraRecords()].slice(0, MAX_TOTAL_PHOTOS);
 }
 
 function syncTechnicalPhotoInput() {
   if (!technicalPhotos || typeof DataTransfer === 'undefined') return;
   const transfer = new DataTransfer();
-  for (const record of selectedSlotRecords()) transfer.items.add(record.file);
+  for (const record of selectedPhotoRecords()) transfer.items.add(record.file);
   technicalPhotos.files = transfer.files;
   technicalPhotos.dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -39,6 +58,16 @@ function updateSlot(slot) {
   if (name) name.textContent = file ? file.name : 'Aucune photo';
 }
 
+function updateExtraSummary() {
+  if (!extraSummary) return;
+  const count = selectedExtraRecords().length;
+  if (!count) {
+    extraSummary.textContent = 'Ajoutez-les surtout lorsqu’une zone complexe est mal visible : escalier tournant, dessous de terrasse, arrière masqué, jonction de volumes, toiture particulière… Jusqu’à 6 vues supplémentaires.';
+    return;
+  }
+  extraSummary.textContent = `${count} vue(s) supplémentaire(s) sélectionnée(s). Elles seront analysées avec les vues de base, pas comme des bâtiments séparés.`;
+}
+
 for (const slot of slots) {
   const input = slot.querySelector('.guided-photo-input');
   input?.addEventListener('change', () => {
@@ -46,6 +75,14 @@ for (const slot of slots) {
     syncTechnicalPhotoInput();
   });
 }
+
+extraPhotosInput?.addEventListener('change', () => {
+  if ((extraPhotosInput.files?.length ?? 0) > MAX_EXTRA_PHOTOS) {
+    packageStatus.textContent = `Gardez au maximum ${MAX_EXTRA_PHOTOS} vues supplémentaires ciblées.`;
+  }
+  updateExtraSummary();
+  syncTechnicalPhotoInput();
+});
 
 // --- Minimal ZIP writer (stored/uncompressed files, UTF-8 names) ---
 // This keeps the handoff self-contained without adding a runtime dependency.
@@ -128,14 +165,18 @@ async function fetchText(path) {
 function requestText(records) {
   const width = Number(knownWidthInput?.value);
   const general = notesInput?.value.trim() || 'Aucune précision générale.';
-  const photoLines = records.map((item, idx) => `${idx + 1}. ${item.label} — fichier ${item.file.name}${item.note ? ` — note utilisateur : ${item.note}` : ''}`).join('\n');
-  return `BRICKHOUSE — DEMANDE D'ANALYSE EXTERNE\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- décomposer terrasse/escalier en blocs rectilignes connectés si la structure change de direction, de niveau ou de matériau ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués à la maison cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement : topologie → ArchitecturalSurvey v0.1 → ArchitecturalScene v0.2.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier.\n`;
+  const photoLines = records.map((item, idx) => `${idx + 1}. ${item.label} (${item.role === 'targeted_extra' ? 'vue supplémentaire ciblée' : 'vue de base'}) — fichier ${item.file.name}${item.note ? ` — note utilisateur : ${item.note}` : ''}`).join('\n');
+  return `BRICKHOUSE — DEMANDE D'ANALYSE EXTERNE\n\nVous recevez un paquet préparé par BrickHouse. Analysez les images comme un ensemble multi-vues d'un même bâtiment. Les libellés de vues donnés par l'utilisateur sont des repères forts, mais vérifiez leur cohérence par les objets répétés, angles, ouvertures, terrasse, escalier, toiture, terrain et bâtiments voisins.\n\nIMPORTANT :\n- ne jamais inventer une ouverture dans une zone cachée ;\n- verrouiller d'abord le nombre d'ouvertures par pan, puis leur identité, leur ordre, leur position, puis leurs dimensions ;\n- exploiter les vues supplémentaires pour lever des occultations ou vérifier la géométrie, pas pour multiplier artificiellement les objets ;\n- décomposer terrasse/escalier en blocs rectilignes connectés si la structure change de direction, de niveau ou de matériau ;\n- ne jamais inverser gauche/droite ;\n- les éléments d'un bâtiment voisin ne doivent jamais être attribués à la maison cible ;\n- toute mesure utilisateur est prioritaire et doit garder source.kind=user_provided.\n\nPHOTOS FOURNIES :\n${photoLines}\n\nINFORMATIONS GENERALES :\n${general}\n\nLARGEUR AVANT CONNUE : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\nTAILLE CIBLE DE MAQUETTE : ${Number(studsInput?.value) || 48} tenons de façade\n\nLes fichiers de prompts BrickHouse sont inclus dans le paquet. Exécutez conceptuellement : topologie → ArchitecturalSurvey v0.1 → ArchitecturalScene v0.2.\n\nSORTIE ATTENDUE : créez un fichier téléchargeable nommé brickhouse-external-result.json ayant exactement cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { ... ArchitecturalSurvey v0.1 complet ... },\n  "scene": { ... ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey ... }\n}\n\nNe remplacez pas le fichier par une longue réponse dans le chat si votre interface permet de créer un fichier.\n`;
 }
 
 packageButton?.addEventListener('click', async () => {
-  const records = selectedSlotRecords();
+  const records = selectedPhotoRecords();
   if (!records.length) {
     packageStatus.textContent = 'Ajoutez au moins une photo avant de préparer le paquet.';
+    return;
+  }
+  if (records.length > MAX_TOTAL_PHOTOS) {
+    packageStatus.textContent = `Gardez au maximum ${MAX_TOTAL_PHOTOS} photos.`;
     return;
   }
   packageButton.disabled = true;
@@ -148,16 +189,22 @@ packageButton?.addEventListener('click', async () => {
     ]);
     const encoder = new TextEncoder();
     const manifest = {
-      schema_version: 'handoff-0.1',
+      schema_version: 'handoff-0.2',
       kind: 'brickhouse_external_ai_handoff',
       created_at: new Date().toISOString(),
       known_front_width_m: Number(knownWidthInput?.value) > 0 ? Number(knownWidthInput.value) : null,
       target_front_width_studs: Number(studsInput?.value) || 48,
       general_notes: notesInput?.value.trim() || '',
+      capture_strategy: {
+        guided_base_views: records.filter(item => item.role === 'guided_base').length,
+        targeted_extra_views: records.filter(item => item.role === 'targeted_extra').length,
+        principle: 'few_high_value_views_plus_targeted_extras',
+      },
       photos: records.map((item, index) => ({
         photo_index: index + 1,
         slot: item.slot,
         label: item.label,
+        capture_role: item.role,
         filename: `photos/${String(index + 1).padStart(2, '0')}-${item.file.name}`,
         media_type: item.file.type,
         user_note: item.note,
@@ -195,7 +242,7 @@ packageButton?.addEventListener('click', async () => {
 
 // Keep the technical input synchronized if the old advanced field is edited directly.
 technicalPhotos?.addEventListener('change', () => {
-  if (technicalPhotos.files?.length && !selectedSlotRecords().length) {
-    packageStatus.textContent = 'Des photos ont été ajoutées via les options avancées. Pour le paquet IA guidé, placez-les plutôt dans les cases nommées ci-dessus.';
+  if (technicalPhotos.files?.length && !selectedPhotoRecords().length) {
+    packageStatus.textContent = 'Des photos ont été ajoutées via les options avancées. Pour le paquet IA guidé, placez-les plutôt dans les cases ou dans les vues supplémentaires ci-dessus.';
   }
 });
