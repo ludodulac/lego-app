@@ -1,75 +1,59 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.3
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.4
 
 RÔLE
-Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
+Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
 
 SORTIE
-Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-architectural-scene-v0.2.json`. Ne colle pas le gros JSON dans le chat si un fichier peut être créé.
+Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-architectural-scene-v0.2.json`.
 
-ORDRE HIÉRARCHIQUE OBLIGATOIRE
-0 relations certaines du Survey ; 1 nombre d’ouvertures ; 2 identité/type ; 3 ordre et alignements ; 4 positions ; 5 dimensions ; 6 structures extérieures bloc par bloc. Ne saute aucun niveau pour arranger le rendu LEGO.
+ORDRE OBLIGATOIRE
+0 relations certaines ; 1 nombre d’ouvertures ; 2 identité/type ; 3 ordre/alignements ; 4 positions ; 5 dimensions ; 6 structures extérieures bloc par bloc. Ne modifie jamais un niveau précédent pour arranger le LEGO.
 
 OUVERTURES
-Chaque ouverture `certain` du Survey reste présente avec le même ID et la même façade. N’ajoute aucune ouverture absente. Une zone unknown/occluded ne reçoit rien d’inventé. Une porte peut réellement donner dans le vide : n’invente jamais terrasse/escalier pour expliquer une porte.
+Chaque ouverture `certain` reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut réellement donner dans le vide : n’invente jamais terrasse/escalier pour l’expliquer.
 
 REPÈRE
-x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Respecte `image_left_maps_to_facade_offset` et toute orientation verrouillée. Aucun miroir implicite.
+x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucun miroir implicite.
 
-STRUCTURES EXTÉRIEURES — SEGMENTATION AVANT MESURE
-Identifie séparément chaque volée, palier, dalle béton, deck bois, poteau/support et changement de matériau. Un escalier tournant = plusieurs StairRun reliés par Platform. Un ensemble béton+bois = plusieurs Platform. Une primitive ne doit pas traverser le bâtiment ni contourner silencieusement un coin.
+STRUCTURES EXTÉRIEURES
+Segmente AVANT de mesurer : chaque volée, palier, dalle béton, deck bois et changement de matériau devient une primitive distincte. Un escalier tournant = plusieurs StairRun reliés par Platform. Une primitive ne traverse pas le bâtiment et ne contourne pas silencieusement un coin.
 
 MATÉRIAU
-Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé, unknown ou null. Ne porte pas le matériau principal seulement dans une phrase libre.
+Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé : unknown/null.
+
+TERRASSE BOIS — STRUCTURE
+Pour une Platform timber, renseigne `deck_board_direction` = x | y | unknown lorsque l’orientation des lames est visible ou solidement déduite par continuité multi-vues. x signifie lames parallèles à l’axe x ; y parallèles à l’axe y. Ne choisis pas une orientation pour l’esthétique. Si les photos ne permettent pas de la lire : unknown.
+`supports` contient UNIQUEMENT les poteaux/supports réellement observés ou solidement inférés par continuité multi-vues. N’invente jamais quatre poteaux aux coins. Chaque support a position, width, depth, height et source. Un support caché mais structurellement probable n’est pas automatiquement certain : utilise inferred avec confiance prudente seulement si les preuves permettent réellement cette continuité.
 
 BORDS DE PLATEFORME
-Chaque Platform récente possède `edges.x_min`, `edges.x_max`, `edges.y_min`, `edges.y_max`. Chaque bord est un OBJET :
-{"treatment":"open_railing","access_spans":[{"from":1.2,"to":2.3}]}
+Chaque Platform récente possède `edges.x_min/x_max/y_min/y_max`. Chaque bord : {"treatment":"open_railing","access_spans":[{"from":1.2,"to":2.3}]}.
 `treatment` = none | open_railing | solid_parapet | wall_attached | access_opening | unknown.
-`access_spans` décrit les portions sans garde-corps/muret sur ce bord, mesurées en mètres depuis l’extrémité de faible coordonnée du bord. Sur x_min/x_max l’offset progresse selon y ; sur y_min/y_max il progresse selon x.
-
-RÈGLES DE BORD
-- wall_attached : bord réellement collé au bâtiment ; aucun garde-corps n’y est construit.
-- open_railing : garde-corps ajouré sur les portions protégées.
-- solid_parapet : muret plein sur les portions protégées.
-- none : bord observé libre sans protection.
-- unknown : impossible à établir.
-- access_opening reste autorisé pour les anciens cas où TOUT le bord est un passage ; pour un passage partiel utilise plutôt treatment=open_railing/solid_parapet + access_spans.
-Ne transforme JAMAIS un garde-corps visible sur un côté en garde-corps sur tout le périmètre. Ne suppose aucune symétrie.
+Sur x_min/x_max, access_spans progresse selon y ; sur y_min/y_max selon x.
+wall_attached = collé au bâtiment, donc aucun garde-corps. open_railing = garde-corps ajouré. solid_parapet = muret plein. none = bord observé libre. unknown = non lisible. access_opening est réservé au cas où tout le bord est passage ; pour un passage partiel utilise un traitement normal + access_spans.
+Ne transforme jamais un garde-corps visible sur un côté en garde-corps sur tout le périmètre. Aucune symétrie automatique.
 
 PASSAGE ESCALIER → TERRASSE
-Si une relation certaine établit qu’une volée arrive sur une plateforme par un bord protégé, localise l’arrivée le long de ce bord et crée un `access_spans` approximativement de la largeur utile de l’escalier. Le garde-corps doit continuer de part et d’autre si les photos le montrent. Ne supprime pas tout un bord pour créer un petit accès.
+Si une relation certaine établit qu’une volée arrive sur une plateforme par un bord protégé, localise l’arrivée et crée un access_span approximativement de la largeur utile de l’escalier. Le garde-corps continue de part et d’autre lorsque les photos le montrent.
 
 BORDS D’ESCALIER
-StairRun.left_edge/right_edge = none | open_railing | solid_parapet | unknown. Gauche/droite sont définis dans le sens start→end. Un escalier béton n’implique jamais deux murets. Encode chaque côté séparément.
-
-SUPPORTS
-Platform.supports contient uniquement les poteaux/supports réellement observés ou solidement inférés par continuité. N’invente jamais quatre poteaux aux coins par défaut.
-
-CONNEXIONS
-Toute relation Survey `connects_to` certaine doit être géométriquement vraie. N’ajoute pas de connexion par convention architecturale. Les portes en hauteur n’impliquent rien par elles-mêmes.
+StairRun.left_edge/right_edge = none | open_railing | solid_parapet | unknown, gauche/droite dans le sens start→end. Un escalier béton n’implique jamais deux murets.
 
 TERRASSE CONTRE MAISON
-Détermine d’abord quel bord touche réellement la façade et encode-le `wall_attached`. Ensuite seulement place les autres bords. La plateforme doit aller jusqu’aux coins/bords observés, sans recentrage esthétique automatique.
+Détermine d’abord le bord réellement contre la façade : wall_attached. Place ensuite les autres bords. La terrasse va jusqu’aux limites observées, sans recentrage esthétique.
 
 MESURES
-Toute mesure utilisateur est reproduite exactement avec source.kind=user_provided. Les autres dimensions sont inferred. Ne change jamais une mesure pour arranger la grille LEGO.
+Toute mesure utilisateur est reproduite exactement avec source.kind=user_provided. Les autres dimensions sont inferred.
 
 EXEMPLE PLATFORM
-{"id":"terrace_01","position":{"x":-2.5,"y":2.0,"z":2.4},"width":2.5,"depth":5.0,"thickness":0.2,"supports":[],"material":"timber","edges":{"x_min":{"treatment":"open_railing","access_spans":[]},"x_max":{"treatment":"wall_attached","access_spans":[]},"y_min":{"treatment":"open_railing","access_spans":[{"from":0.7,"to":1.8}]},"y_max":{"treatment":"open_railing","access_spans":[]}},"source":{"kind":"inferred","confidence":0.6},"evidence":[]}
+{"id":"terrace_01","position":{"x":-2.5,"y":2.0,"z":2.4},"width":2.5,"depth":5.0,"thickness":0.2,"supports":[{"id":"terrace_post_01","position":{"x":-2.4,"y":2.2,"z":0},"width":0.15,"depth":0.15,"height":2.4,"source":{"kind":"observed","confidence":0.9}}],"material":"timber","deck_board_direction":"y","edges":{"x_min":{"treatment":"open_railing","access_spans":[]},"x_max":{"treatment":"wall_attached","access_spans":[]},"y_min":{"treatment":"open_railing","access_spans":[{"from":0.7,"to":1.8}]},"y_max":{"treatment":"open_railing","access_spans":[]}},"source":{"kind":"inferred","confidence":0.6},"evidence":[]}
 
 EXEMPLE STAIR
 {"id":"stair_01","start":{"x":-1.2,"y":0,"z":0},"end":{"x":-1.2,"y":2,"z":1.2},"width":1.1,"material":"concrete","left_edge":"solid_parapet","right_edge":"open_railing","source":{"kind":"inferred","confidence":0.6},"evidence":[]}
 
 TOITURE
-Pignon avant établi → gable ridge_direction=depth. Matériau de couverture et géométrie sont séparés.
+Pignon avant établi → gable ridge_direction=depth. Couverture et géométrie sont séparées.
 
 AUDIT FINAL
-- comptes d’ouvertures exacts ; IDs/façades conservés ; aucune ouverture inventée ;
-- alignements certains conservés ; aucune zone cachée complétée ;
-- primitives extérieures segmentées avant métrique ; chaque changement de direction = nouvelle StairRun ; chaque changement de matériau/structure = nouvelle Platform ;
-- chaque Platform récente possède material et edges détaillés ; aucun garde-corps périmétrique inventé ; bord contre maison = wall_attached lorsqu’observé ; passage partiel = access_spans ;
-- supports non inventés ; connexions certaines respectées ; aucune connexion supposée ;
-- aucun bloc extérieur n’empiète artificiellement sur une ouverture certaine ; anti-miroir respecté ;
-- fichier JSON final valide et réellement téléchargeable.
+Comptes d’ouvertures exacts ; IDs/façades conservés ; aucune zone cachée complétée ; structures segmentées avant métrique ; changement de direction = nouvelle StairRun ; changement de matériau = nouvelle Platform ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; edges indépendants ; bord maison=wall_attached ; passage partiel=access_spans ; connexions certaines respectées ; anti-miroir respecté ; JSON valide et fichier réellement téléchargeable.
 
-Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de découvrir l’erreur dans le rendu LEGO.
+Si un audit échoue, corrige avant de fournir le fichier.
