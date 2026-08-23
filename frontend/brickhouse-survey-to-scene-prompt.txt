@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.1
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.2
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
@@ -23,6 +23,7 @@ ORDRE OBLIGATOIRE
 VOLUMES ET PORTÉE DES INFORMATIONS
 Un bâtiment peut contenir plusieurs `SceneVolume`. Ne fusionne pas deux volumes distincts uniquement pour simplifier le LEGO, et ne crée pas de volume secondaire sans preuve architecturale.
 Chaque `SceneOpening` et `SceneRoof` doit référencer son vrai `volume_id`.
+Chaque `Platform` peut porter `host_volume_id`. Dans une Scene multi-volume récente, renseigne ce champ lorsqu’une terrasse, un balcon, un palier ou une dalle extérieure est attaché à un volume déterminé. Ne rattache jamais implicitement une plateforme au corps principal uniquement parce qu’il est le premier volume. Pour compatibilité legacy, `host_volume_id=null` signifie le premier volume.
 Chaque entrée `visibility[]` peut porter `volume_id`. Dans toute Scene multi-volume récente, renseigne-le explicitement afin que deux façades de même nom appartenant à deux volumes différents ne soient jamais confondues. Une entrée legacy sans `volume_id` est interprétée par BrickHouse comme appartenant au premier volume de la Scene uniquement.
 Les spans de visibilité sont exprimés dans le repère local de la façade du volume ciblé. Une occultation du volume principal ne rend jamais automatiquement occultée la façade homonyme d’un volume secondaire.
 Le contrat `GradeProfile` v0.2 n’est pas encore volume-scoped. Si un terrain observé concerne clairement un volume secondaire et ne peut pas être décrit honnêtement relativement au volume principal, ne détourne pas le profil : documente cette limitation dans `notes` plutôt que de créer une fausse pente sur le mauvais volume.
@@ -45,6 +46,7 @@ STRUCTURES EXTÉRIEURES
 Ne crée que les structures réellement observées ou soutenues par les relations du Survey. Segmente AVANT de mesurer : chaque volée, palier, dalle, deck, balcon, rampe ou changement de matériau devient une primitive distincte lorsque cette décomposition est réellement nécessaire.
 Un escalier tournant = plusieurs StairRun reliés par Platform. Une primitive ne traverse pas le bâtiment et ne contourne pas silencieusement un coin.
 L’absence de terrasse, d’escalier, de plateforme ou de supports est parfaitement valide.
+Pour toute `Platform` attachée à un volume déterminé, renseigne `host_volume_id` avec cet ID. Ce rattachement est topologique : il ne doit jamais être changé pour rendre le LEGO plus facile.
 
 MATÉRIAU
 Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé : unknown/null.
@@ -66,7 +68,7 @@ BORDS D’ESCALIER
 StairRun.left_edge/right_edge = none | open_railing | solid_parapet | unknown, gauche/droite dans le sens start→end. Un escalier béton n’implique jamais deux murets.
 
 PLATEFORME CONTRE BÂTIMENT
-Lorsqu’une plateforme est réellement accolée à un mur, détermine d’abord le bord concerné : `wall_attached`. Place ensuite les autres bords selon les preuves. Ne recentre jamais une structure extérieure pour des raisons esthétiques.
+Lorsqu’une plateforme est réellement accolée à un mur, détermine d’abord le volume hôte (`host_volume_id`) puis le bord concerné : `wall_attached`. Place ensuite les autres bords selon les preuves. Ne recentre jamais une structure extérieure pour des raisons esthétiques.
 
 MESURES
 Toute mesure utilisateur est reproduite exactement avec source.kind=user_provided. Les autres dimensions sont inferred.
@@ -84,6 +86,6 @@ APPARENCE
 Représente les matériaux et couleurs architecturaux sous-jacents, pas les salissures accidentelles. Ignore les coulures, mousses, taches d’humidité et vieillissements localisés lorsqu’ils ne correspondent pas à une différence réelle de matériau. En revanche, conserve les encadrements, soubassements, bandeaux et changements de matériau structurés lorsqu’ils sont soutenus par les vues.
 
 AUDIT FINAL
-Comptes d’ouvertures exacts ; IDs/façades/volume_id conservés ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; structures complexes segmentées avant métrique ; raccords entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
+Comptes d’ouvertures exacts ; IDs/façades/volume_id conservés ; host_volume_id des plateformes multi-volume conservé ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; structures complexes segmentées avant métrique ; raccords entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
 
 Si un audit échoue, corrige avant de fournir le fichier.
