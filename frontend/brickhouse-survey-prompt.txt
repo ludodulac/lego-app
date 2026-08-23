@@ -1,71 +1,80 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.0
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.1
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventories ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
 
 PORTÉE GÉNÉRIQUE
-Ce prompt doit fonctionner pour n’importe quel bâtiment. N’utilise jamais un cas de test antérieur comme modèle implicite. Aucun nombre d’ouvertures, type de toiture, façade, terrasse, escalier, pente, matériau, proportion ou nombre de niveaux n’est présupposé. Une catégorie absente reste absente.
-
-ENTRÉES
-Photos originales + topologie validée + éventuels faits utilisateur.
-
-SORTIE
-Crée un vrai fichier joint `brickhouse-architectural-survey-v0.1.json`.
+Ce prompt doit fonctionner pour n’importe quel bâtiment. Aucun nombre d’ouvertures, type de toiture, façade, terrasse, escalier, pente, matériau, proportion ou nombre de niveaux n’est présupposé. Une catégorie absente reste absente.
 
 RÈGLE CENTRALE
 Observe avant de mesurer. Une architecture plausible n’est jamais une preuve. Une porte en hauteur peut réellement donner dans le vide. Une zone cachée reste inconnue.
 
+CONTRAT JSON EXACT — OBLIGATOIRE
+Le Survey final doit être directement validable par le modèle backend `ArchitecturalSurvey`. N’invente AUCUN alias de champ.
+- `schema_version` DOIT valoir exactement `"0.1"`, jamais `"architectural-survey-0.1"`.
+- `canonical_frame` doit utiliser exactement :
+  `{ "front_facade":"front", "x_direction":"front_view_left_to_right", "y_direction":"front_to_rear", "z_direction":"bottom_to_top" }`.
+- Chaque `photos[]` doit utiliser exactement : `photo_index`, `facade`, `description`, `source`, `image_left_maps_to_facade_offset`.
+- `facade` ∈ front | rear | left | right.
+- `source` = `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }` selon le contrat SourceInfo disponible.
+- `known_measurements[]` accepte actuellement uniquement la largeur avant utilisateur avec exactement :
+  `{ "kind":"front_width", "value": <mètres>, "units":"m", "source": {...} }`.
+  N’utilise jamais `quantity`, `dimension`, `unit` ni `id` pour cette structure.
+- Chaque `observations[]` doit utiliser exactement : `id`, `kind`, `facade` éventuelle, `certainty`, `statement`, `evidence`, `attributes` éventuel, `appearance` éventuelle, `opening_visual` éventuel.
+- Chaque `evidence[]` = `{ "photo_index":1, "observation":"..." }` ; `region` est facultatif.
+- Chaque `relations[]` doit utiliser exactement : `id`, `kind`, `subject_id`, `object_id`, `certainty`, `statement`, `evidence`.
+  N’utilise pas `from`, `to`, `type` à la place de ces champs.
+- `representation_policy` doit rester compatible avec : `preserve_nominal_materials`, `preserve_opening_composition`, `preserve_architectural_details`, `reproduce_weathering`, `reproduce_temporary_objects`.
+- `notes` est une chaîne ou null.
+Tout autre emballage ou renommage de ces champs est interdit.
+
 DENSITÉ DE COUVERTURE
-Le nombre de photos change la quantité de preuves, jamais les faits. Une observation certaine vue dans deux bonnes photos reste certaine si elle est hors champ ailleurs. Dix vues similaires ne transforment pas une zone cachée en fait certain.
+La quantité de photos ne change jamais les faits : elle change seulement la quantité de preuves et la confiance. Une observation certaine vue dans deux bonnes photos reste certaine si elle est hors champ ailleurs. Dix vues similaires ne transforment pas une zone cachée en fait certain.
 
 INVENTAIRE PHOTO PAR PHOTO
-Avant fusion, liste ouvertures, limites, plateformes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain, voisins et occultations réellement visibles.
+Avant fusion, liste mentalement ouvertures, limites, plateformes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain, voisins et occultations réellement visibles.
 
 IDENTITÉ PHYSIQUE MULTI-VUES
 Affecte chaque occurrence au bon objet/pan. Pour dire que deux occurrences sont le même objet, croise au moins deux indices spatiaux stables.
-Quand plusieurs vues montrent le même objet physique, fusionne-les sous un seul id stable et ajoute toutes les photos pertinentes dans `seen_in_photos`. Une fois cette fusion faite, ne crée pas une relation `same_physical_object` de l’objet vers lui-même. Une auto-relation `from == to` est invalide et n’apporte aucune preuve.
-`same_physical_object` n’est utile que si le contrat doit temporairement relier deux identifiants distincts avant leur déduplication ; dans un Survey final normalisé, préfère un id stable unique.
+Quand plusieurs vues montrent le même objet physique, fusionne-les sous un seul id stable et mets toutes les preuves dans `evidence`. Une fois cette fusion faite, ne crée pas une relation `same_physical_object` de l’objet vers lui-même. Toute relation doit relier deux IDs distincts.
 
 OUVERTURES — INVENTAIRE PUIS DISPOSITION
 Déduplique uniquement avec preuves compatibles. Compte les ouvertures certaines par façade. N’invente rien derrière une occultation.
-Pour chaque ouverture dont la disposition est lisible, `attributes.facade_horizontal_rank` croît de gauche vers droite lorsqu’on regarde cette façade depuis l’extérieur et `attributes.facade_vertical_rank` du bas vers le haut. Ces rangs expriment uniquement ordre/alignement, jamais une distance. Ne fabrique pas un rang si la perspective ne permet pas de départager.
+Pour chaque ouverture dont la disposition est lisible, conserve dans `attributes` :
+- `facade_horizontal_rank` croissant de gauche vers droite quand on regarde cette façade depuis l’extérieur ;
+- `facade_vertical_rank` croissant du bas vers le haut.
+Ces rangs sont qualitatifs, jamais métriques.
 
 STRUCTURES EXTÉRIEURES
-Décompose seulement les primitives réellement soutenues : volée, palier, dalle, deck, support. Un changement caché n’autorise aucune primitive. Si la séquence est `sol → volée visible → zone occultée → terrasse visible`, conserve l’occultation ; n’ajoute ni palier ni deuxième volée sans preuve.
-Chaque primitive reçoit un id stable unique réutilisable par Survey→Scene.
+Décompose seulement les primitives réellement soutenues : volée, palier, dalle, deck, support. Une volée qui disparaît derrière un mur ne prouve PAS qu’elle tourne, qu’un palier existe ou qu’une seconde volée rejoint une plateforme. Une zone occultée reste inconnue.
+Chaque primitive reçoit une IDENTITÉ STABLE DES PRIMITIVES réutilisable par Survey→Scene.
 
-TOITURE — CERTITUDE DE L’OBJET VS CERTITUDE DES ATTRIBUTS
-Sépare toujours la certitude de l’observation de toiture de la certitude de chacun de ses attributs. `certainty="certain"` peut signifier « un toit est certainement visible » sans rendre certaine sa forme exacte, son axe de faîtage, son pitch ou la présence d’un pignon.
-Lorsqu’un attribut n’est que probable/plausible, encode cette prudence explicitement dans les attributs ou notes selon le contrat disponible ; ne présente jamais simultanément une observation `certain` et une forme qualifiée `probable` comme si la forme était certaine.
-Si une façade est certainement un mur pignon, `attributes.facade_is_gable=true`. Sinon conserve l’incertitude. Aucun côté n’est présupposé pignon.
+TOITURE — CERTITUDE OBJET VS ATTRIBUTS
+Sépare toujours la certitude de l’observation de toiture de la certitude de chacun de ses attributs. `certainty="certain"` peut signifier qu’un toit est certainement visible sans rendre certaine sa forme, son axe, son pitch ou le pignon.
+Si un attribut est seulement plausible, encode cette prudence dans `attributes`/`statement`; ne transforme pas une forme probable en fait certain.
 
 MATÉRIAUX ET BORDS
-Pour platform/stair, `attributes.exterior_material` = timber | concrete | masonry | stone | metal | composite | unknown selon preuves. Pour une platform, décris séparément `edge_observations` sans mètres : treatment, access, access_position, access_width_relative et evidence_note lorsque lisible. Pour stair, left_edge/right_edge restent observationnels et non symétriques par défaut.
+Pour platform/stair, `attributes.exterior_material` = timber | concrete | masonry | stone | metal | composite | unknown selon preuves. Les bords et accès restent qualitatifs dans `attributes` ; aucun mètre dans le Survey.
 
 RELATIONS EXPLICITES
-`relations[]` contient uniquement des relations entre objets distincts réellement utiles : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. Une relation certaine cite une preuve photo ou confirmation utilisateur. `connects_to` n’est jamais ajouté par convention. Toute relation `from == to` doit être rejetée lors de l’audit final.
+`relations[]` contient uniquement des relations prouvées entre objets distincts : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. `connects_to` n’est jamais ajouté par convention.
 
 ANTI-MIROIR
 x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucune compensation du viewer.
-
-CONTRAT
-Racine : schema_version, id, name, canonical_frame, photos, known_measurements, observations, relations, representation_policy, notes.
-Valeurs observation.kind : building_boundary | terrain | material | weathering | opening | roof | chimney | equipment | volume | platform | stair | occlusion | context.
-Valeurs certainty : certain | plausible | unproven.
-Valeurs facade : front | rear | left | right.
 
 INTERDIT
 Pas de profondeur/hauteur globale, métrique d’ouverture, pixels→mètres, Scene, BuildingModel, LEGO, complétion cachée, symétrie inventée, typologie supposée ou réorientation silencieuse.
 
 AUDIT FINAL
-- topologie et rôles photo conservés ;
-- nombre d’ouvertures certaines stable ;
-- rangs qualitatifs cohérents et non métriques ;
+- `schema_version == "0.1"` exactement ;
+- champs conformes au contrat ci-dessus, aucun alias inventé ;
+- au moins une photo `facade="front"` ;
+- `known_measurements` seulement au format accepté ;
+- chaque observation possède `statement` + au moins une `evidence` ;
+- chaque relation possède `id`, `kind`, `subject_id`, `object_id`, `statement`, `evidence` et relie deux IDs distincts ;
+- quantité de photos jamais confondue avec certitude architecturale ;
 - objets multi-vues fusionnés sous ids stables ;
-- aucune auto-relation `from == to` ;
 - aucune portion cachée complétée ;
-- certitude de toiture séparée de la certitude de ses attributs ;
-- matériaux, bords et relations uniquement selon preuves ;
-- aucune porte ne crée automatiquement une plateforme ou un escalier ;
-- aucune caractéristique héritée d’un cas de test ;
-- JSON valide et fichier réellement téléchargeable.
+- certitude de toiture séparée de ses attributs ;
+- aucune caractéristique héritée du benchmark ;
+- JSON valide.
