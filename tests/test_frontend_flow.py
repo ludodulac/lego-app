@@ -156,6 +156,18 @@ def test_viewer_exposes_canonical_architectural_views() -> None:
     assert "perspective:new THREE.Vector3(.9,.65,1.05)" in viewer
 
 
+def test_viewer_exposes_final_fidelity_issues() -> None:
+    html = read("viewer.html")
+    viewer = read("viewer.js")
+    styles = read("styles.css")
+    assert 'id="fidelity-card"' in html
+    assert 'id="fidelity-list"' in html
+    assert "function updateFidelity" in viewer
+    assert "b.fidelity_issues" in viewer
+    assert "low_confidence_exterior_geometry" not in viewer  # UI stays generic to issue codes.
+    assert "#fidelity-card" in styles
+
+
 def test_named_architectural_views_preserve_canonical_handedness() -> None:
     viewer = read("viewer.js")
     assert "camera.up.copy(up)" in viewer
