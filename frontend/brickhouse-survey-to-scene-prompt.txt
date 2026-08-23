@@ -1,139 +1,79 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.5
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.6
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
 
 PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE
 BrickHouse doit fonctionner pour n’importe quel bâtiment documenté par le Survey : maison individuelle, immeuble, dépendance, bâtiment mitoyen, bâtiment industriel, bâtiment à toiture plate ou inclinée, architecture polygonale, inclinée ou courbe, avec ou sans terrasse, escalier, balcon, rampe, cour ou terrain en pente.
-Les exemples de terrasse, escalier, pignon ou pente servent uniquement à expliquer le contrat de données. Ils ne constituent JAMAIS un modèle architectural attendu.
-N’invente aucun élément parce qu’il existe dans un cas de test ou parce qu’il est courant sur un type de bâtiment. Une catégorie absente du Survey peut parfaitement rester absente de la Scene.
-Ne code ni n’applique aucun nombre d’ouvertures, façade, orientation, type de toit, structure extérieure ou proportion provenant d’un bâtiment de validation particulier. Chaque Scene doit être déduite uniquement du Survey courant, de ses preuves et des mesures utilisateur associées.
+Les exemples ne constituent JAMAIS un modèle architectural attendu. N’applique aucune proportion, orientation, typologie ou structure provenant d’un bâtiment de validation particulier.
 
 GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES
-Ne suppose jamais qu’un bâtiment est un parallélépipède simplement parce que `SceneVolume` v0.2 est actuellement rectangulaire. Si les preuves montrent une façade inclinée, un plan non orthogonal, une coque courbe, une enveloppe ovoïde, un porte-à-faux complexe ou une surface libre, cette caractéristique architecturale reste vraie même si les primitives Scene v0.2 ou le moteur LEGO M0 ne savent pas encore la coder exactement.
-Ne redresse jamais silencieusement une géométrie observée pour la faire entrer dans les primitives actuelles. Utilise les primitives v0.2 uniquement comme enveloppe porteuse conservatrice lorsque nécessaire, garde les dimensions concernées en `inferred` avec une confiance honnête, et documente explicitement dans `notes` la géométrie observée qui reste non représentable par le schéma courant. Une limitation du schéma n’est jamais une preuve que le bâtiment réel est rectiligne.
-Une seule photo peut établir une silhouette ou une topologie visible mais pas une profondeur cachée fiable. Les surfaces ou volumes non observés restent inconnus ; ne complète pas une coque ou une courbure par symétrie supposée.
+Ne suppose jamais qu’un bâtiment est un parallélépipède simplement parce que `SceneVolume` v0.2 est actuellement rectangulaire. Si les preuves montrent une géométrie non orthogonale, courbe, multi-volume ou autrement non représentable, conserve cette vérité dans les notes et utilise une primitive v0.2 seulement comme enveloppe porteuse conservatrice. Une `rectangular_envelope` utilisée comme enveloppe porteuse ne constitue jamais une affirmation que le bâtiment réel est rectangulaire.
+Les dimensions cachées restent inconnues au niveau architectural même lorsque le schéma exige une valeur numérique de rendu.
+
+DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
+Sépare toujours trois choses : existence de l’objet, topologie qualitative, métrique. Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines.
+Une seule largeur utilisateur, même certaine, ne suffit pas à déterminer automatiquement profondeur, hauteur, pente de toit, dimensions d’ouvertures, terrasse, escalier ou terrain. Elle fournit une échelle de référence, pas une calibration 3D complète.
+Toute dimension non directement fournie par l’utilisateur ou réellement contrainte par plusieurs preuves géométriques indépendantes reste `source.kind="inferred"` avec confiance prudente. Une photo unique en perspective ne justifie pas une confiance métrique élevée.
+Pour une dimension essentiellement choisie afin que Scene v0.2 soit rendable, utilise une confiance faible et explique dans `notes` qu’il s’agit d’une enveloppe de travail, pas d’une mesure architecturale.
+
+FAUSSE PRÉCISION
+N’utilise jamais des décimales détaillées pour donner une impression de mesure que les preuves ne permettent pas. La précision numérique doit refléter la précision des preuves. Si seules des proportions grossières sont lisibles, préfère des estimations grossières et une confiance basse.
+Les rangs qualitatifs d’ouvertures contraignent l’ordre, pas les mètres. Ils ne justifient à eux seuls ni largeur, ni hauteur, ni marges, ni entraxes exacts.
+Une terrasse visible peut être certaine tout en ayant position, largeur, profondeur et altitude peu certaines. Même règle pour escalier, toit, terrain et volumes.
 
 SORTIE
 Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-architectural-scene-v0.2.json`.
 
 ORDRE OBLIGATOIRE
-0 résolution des raffinements + relations certaines ; 1 nombre d’ouvertures ; 2 identité/type ; 3 ordre/alignements ; 4 positions ; 5 dimensions ; 6 terrain/niveaux locaux ; 7 structures extérieures bloc par bloc. Ne modifie jamais un niveau précédent pour arranger le LEGO.
-
-RAFFINEMENTS APPEND-ONLY DU SURVEY
-Un Survey étendu peut conserver l’historique d’une hypothèse faible puis ajouter une nouvelle observation portant `attributes.refines_observation_id` lorsque de nouvelles photos l’ont réellement résolue.
-Avant toute reconstruction métrique :
-- construis les chaînes de raffinement ;
-- une observation raffinée reste une provenance historique, pas un deuxième objet physique ;
-- pour une chaîne valide, utilise l’observation terminale la plus récente comme état actif de cette hypothèse ;
-- une chaîne peut progresser `unproven → plausible → certain` ;
-- ne cumule jamais ancien et nouveau comme deux plateformes, deux escaliers, deux ouvertures ou deux toitures si le nouveau n’est qu’un raffinement du même sujet ;
-- si une ancienne observation `certain` paraît être raffinée malgré tout, considère le Survey incohérent : ne choisis pas silencieusement une version ;
-- une observation raffinée ne modifie jamais un autre fait certain non lié.
-Les nouvelles photos peuvent donc préciser un raccord caché ou corriger une hypothèse faible sans effacer l’historique, mais elles ne doivent jamais réécrire un fait certain par simple préférence géométrique.
+0 relations certaines ; 1 inventaire ; 2 identité/type ; 3 ordre/alignements ; 4 positions seulement si nécessaires ; 5 dimensions avec discipline métrique ; 6 terrain/niveaux ; 7 structures extérieures. Ne modifie jamais un fait antérieur pour arranger le LEGO.
 
 IDENTITÉ SURVEY → SCENE
-Pour toute observation ACTIVE qui devient une entité Scene portant un `id`, conserve son id Survey exact chaque fois que le contrat le permet.
-En particulier :
-- une observation `kind="opening"` active → `SceneOpening.id` identique ;
-- une observation `kind="platform"` active → `Platform.id` identique ;
-- une observation `kind="stair"` active → `StairRun.id` identique.
-Ne crée jamais un `Platform` ou `StairRun` avec un nouvel id pour représenter une portion cachée absente du Survey. Si la primitive n’existe pas comme observation active, elle n’existe pas dans la Scene.
-Une observation historique raffinée ne doit jamais être rendue en plus de son observation terminale.
+Pour toute observation active qui devient une entité Scene portant un `id`, conserve son id Survey exact chaque fois que le contrat le permet : opening, platform et stair notamment. Ne crée jamais une primitive extérieure absente du Survey.
 
-VOLUMES ET PORTÉE DES INFORMATIONS
-Un bâtiment peut contenir plusieurs `SceneVolume`. Ne fusionne pas deux volumes distincts uniquement pour simplifier le LEGO, et ne crée pas de volume secondaire sans preuve architecturale.
-Chaque `SceneOpening` et `SceneRoof` doit référencer son vrai `volume_id`.
-Chaque `Platform` peut porter `host_volume_id`. Dans une Scene multi-volume récente, renseigne ce champ lorsqu’une terrasse, un balcon, un palier ou une dalle extérieure est attaché à un volume déterminé. Ne rattache jamais implicitement une plateforme au corps principal uniquement parce qu’il est le premier volume. Pour compatibilité legacy, `host_volume_id=null` signifie le premier volume.
-Chaque entrée `visibility[]` peut porter `volume_id`. Dans toute Scene multi-volume récente, renseigne-le explicitement afin que deux façades de même nom appartenant à deux volumes différents ne soient jamais confondues. Une entrée legacy sans `volume_id` est interprétée par BrickHouse comme appartenant au premier volume de la Scene uniquement.
-Les spans de visibilité sont exprimés dans le repère local de la façade du volume ciblé. Une occultation du volume principal ne rend jamais automatiquement occultée la façade homonyme d’un volume secondaire.
-Le contrat `GradeProfile` v0.2 n’est pas encore volume-scoped. Si un terrain observé concerne clairement un volume secondaire et ne peut pas être décrit honnêtement relativement au volume principal, ne détourne pas le profil : documente cette limitation dans `notes` plutôt que de créer une fausse pente sur le mauvais volume.
+AUTO-RELATIONS ET DÉDUPLICATION
+Une relation `same_physical_object` sert uniquement à relier deux identifiants d’observation distincts avant déduplication. Une relation avec `from == to` est invalide et doit être supprimée, pas reproduite dans la Scene. Si plusieurs vues ont déjà été fusionnées sous un seul id stable, `seen_in_photos` porte la provenance multi-vues et aucune auto-relation n’est nécessaire.
+
+VOLUMES
+Un bâtiment peut contenir plusieurs volumes. Ne fusionne pas des volumes distincts et n’en crée pas sans preuve. Si le schéma impose un volume rectangulaire pour porter des ouvertures alors que profondeur/hauteur sont mal contraintes, marque explicitement ces valeurs comme estimations de représentation à faible confiance. Ne déduis jamais une profondeur standard à partir de la largeur de façade.
 
 OUVERTURES
-Chaque ouverture `certain` ACTIVE après résolution des chaînes de raffinement reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut réellement donner dans le vide : n’invente jamais terrasse/escalier pour l’expliquer.
-Une ancienne ouverture plausible raffinée par une nouvelle observation certaine n’est pas comptée deux fois : l’observation raffinée est historique et l’observation terminale est l’état actif.
-
-Avant d’estimer les mètres, applique les rangs qualitatifs du Survey lorsqu’ils existent :
-- `attributes.facade_horizontal_rank` croît de gauche vers droite lorsqu’on regarde la façade depuis l’extérieur ;
-- `attributes.facade_vertical_rank` croît du bas vers le haut.
-Deux ouvertures de rangs horizontaux distincts doivent conserver cet ordre dans `offset_horizontal`. Deux ouvertures de rangs verticaux distincts doivent conserver cet ordre dans `offset_vertical`. Des rangs égaux n’imposent pas un alignement métrique parfait ; ils signifient seulement que le Survey les classe dans la même colonne ou le même niveau qualitatif.
-Ne change jamais cet ordre pour mieux centrer une façade, équilibrer des marges ou corriger visuellement la maquette. Sur rear/left/right, utilise le sens local canonique BrickHouse ; ne miroirise pas les rangs selon la caméra.
-
-Pour les fenêtres, conserve `window_style`, `has_sill` et `has_decorative_surround` seulement lorsque le Survey/les photos les soutiennent. Ne transforme JAMAIS un meneau, une traverse ou un cadre en mur. Si la composition exacte n’est pas déterminable, préfère `window_style="simple"` ou null plutôt qu’une fausse subdivision maçonnée.
-
-REPÈRE
-x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucun miroir implicite. Le rôle « face » provient du Survey courant ; ne suppose jamais qu’une vue photographique particulière est la façade avant sans cette information.
-
-SÉMANTIQUE EXACTE DES COORDONNÉES EXTÉRIEURES
-Ne traite jamais les coordonnées des primitives comme des centres implicites.
-- `Platform.position` = coin minimal de son emprise : `(x_min, y_min, z_surface)`. `width` s’étend vers +x, `depth` vers +y. `z` est le niveau de circulation supérieur de la plateforme ; son `thickness` se développe vers le bas dans le rendu LEGO.
-- `StairRun.start` et `StairRun.end` = points de l’AXE CENTRAL de la volée, aux niveaux de circulation de départ et d’arrivée. `width` s’étend symétriquement de part et d’autre de cet axe, perpendiculairement au sens start→end.
-- Une `StairRun` rectiligne ne change qu’un axe horizontal : x OU y. Un changement de direction impose une nouvelle volée et, si réellement observé, un palier distinct.
-Ces conventions sont géométriques et doivent rester identiques pour tous les bâtiments.
-
-TERRAIN ET OUVERTURES BASSES
-Une pente certaine devient `terrain.profiles[]` sur la bonne façade. `start_elevation` et `end_elevation` suivent le même sens canonique que `offset_horizontal`.
-Chaque profil peut porter `outward_extent` : largeur réelle/estimée de la surface extérieure documentée, mesurée perpendiculairement à la façade (rue, trottoir, cour, bande de terrain). Renseigne-la seulement si les photos ou une donnée utilisateur permettent une estimation utile. Sinon laisse null : ne transforme pas arbitrairement une ligne de pente en route de plusieurs mètres.
-Quand une ouverture basse est clairement liée au sol local, renseigne `local_grade_clearance`. Si elle touche visuellement le niveau local, utilise 0.0. Si la relation n’est pas lisible, laisse null.
-Avant de rendre la Scene, vérifie que `offset_vertical`, le profil de pente et `local_grade_clearance` sont compatibles.
-S’il n’existe aucune preuve de pente significative, ne crée pas de profil de terrain par défaut.
-Une observation de terrain seulement `plausible` ne doit pas produire un profil métrique à haute confiance. Une pente `unproven` ne devient pas un `GradeProfile` uniquement pour expliquer une ouverture basse.
-
-STRUCTURES EXTÉRIEURES
-Ne crée que les structures réellement observées ou soutenues par les relations du Survey. Segmente AVANT de mesurer : chaque volée, palier, dalle, deck, balcon, rampe ou changement de matériau devient une primitive distincte lorsque cette décomposition est réellement nécessaire.
-Un escalier tournant = plusieurs StairRun reliés par Platform, MAIS uniquement si le changement de direction est établi par le Survey. Une perspective ambiguë, un mur diagonal apparent ou une occultation ne suffit pas à inventer un retournement.
-Une primitive ne traverse pas le bâtiment et ne contourne pas silencieusement un coin.
-L’absence de terrasse, d’escalier, de plateforme ou de supports est parfaitement valide.
-Pour toute `Platform` attachée à un volume déterminé, renseigne `host_volume_id` avec cet ID. Ce rattachement est topologique : il ne doit jamais être changé pour rendre le LEGO plus facile.
-Aucune structure extérieure ne doit utiliser `source.kind="generated_default"`. Si son existence est certaine mais sa métrique estimée, utilise `source.kind="inferred"` avec une confiance conforme aux preuves.
-
-INCERTITUDE DES STRUCTURES EXTÉRIEURES
-La Scene doit distinguer « objet visible » et « topologie métrique certaine ».
-- Si l’existence d’un escalier est certaine mais que son raccord caché ne l’est pas, représente seulement les portions dont la géométrie est soutenue et documente le raccord inconnu dans `notes` ; n’invente pas une volée cachée pour fermer la chaîne.
-- Si un palier est seulement plausible, sa `source.confidence` doit rester ≤ 0.65 tant qu’aucune nouvelle vue/refinement ne l’a renforcé, et sa géométrie ne doit pas être utilisée pour déplacer une plateforme certaine.
-- Ne transforme jamais une relation `plausible` ou `unproven` du Survey en connexion métrique exacte simplement parce que le moteur préfère un graphe fermé.
-- Si une relation essentielle manque, laisse une limitation explicite plutôt que de créer une architecture propre mais fausse.
-- Si une nouvelle vue a créé une observation de raffinement, utilise son niveau de certitude et ses nouvelles preuves ; ne conserve pas simultanément la vieille géométrie plausible et la géométrie raffinée.
-Des vues supplémentaires peuvent augmenter la confiance et préciser les primitives, mais elles doivent enrichir le même objet physique et non créer une nouvelle interprétation sans réévaluer toutes les vues.
-
-MATÉRIAU
-Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé : unknown/null.
-
-PLATEFORME TIMBER — STRUCTURE
-Pour une Platform timber, `deck_board_direction` = x | y | unknown seulement si soutenu par les vues. `supports` contient uniquement les poteaux/supports réellement observés ou solidement inférés par continuité multi-vues. N’invente jamais quatre poteaux aux coins.
-Ces règles valent pour toute plateforme timber observée ; elles ne signifient pas qu’une terrasse bois doit exister.
-
-BORDS DE PLATEFORME
-Chaque Platform récente possède `edges.x_min/x_max/y_min/y_max`. Chaque bord : {"treatment":"open_railing","access_spans":[{"from":1.2,"to":2.3}]}.
-`treatment` = none | open_railing | solid_parapet | wall_attached | access_opening | unknown.
-Sur x_min/x_max, access_spans progresse selon y ; sur y_min/y_max selon x. `wall_attached` = bord collé au bâtiment. `access_opening` = tout le bord est passage. Pour un passage partiel, utilise un traitement normal + access_spans. Aucune symétrie automatique.
-
-PASSAGE ESCALIER → PLATEFORME
-Si une relation certaine établit qu’une volée arrive sur une plateforme par un bord protégé, l’access_span doit être au moins aussi large que l’emprise utile de toute la volée. Pas seulement l’axe central.
-Si deux plateformes `connects_to`, leurs niveaux doivent coïncider au raccord si la relation observée est de plain-pied et leurs emprises doivent réellement se toucher. Ne crée pas de petit pont implicite entre deux plateformes séparées. Un garde-corps/muret continu sur leur bord commun doit être interrompu uniquement si les preuves montrent un passage.
-
-BORDS D’ESCALIER
-StairRun.left_edge/right_edge = none | open_railing | solid_parapet | unknown, gauche/droite dans le sens start→end. Un escalier béton n’implique jamais deux murets.
-
-PLATEFORME CONTRE BÂTIMENT
-Lorsqu’une plateforme est réellement accolée à un mur, détermine d’abord le volume hôte (`host_volume_id`) puis le bord concerné : `wall_attached`. Place ensuite les autres bords selon les preuves. Ne recentre jamais une structure extérieure pour des raisons esthétiques.
-
-MESURES
-Toute mesure utilisateur est reproduite exactement avec source.kind=user_provided. Les autres dimensions sont inferred.
+Chaque ouverture `certain` active reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut donner dans le vide : n’invente jamais terrasse/escalier pour l’expliquer.
+Applique `facade_horizontal_rank` et `facade_vertical_rank` uniquement comme contraintes d’ordre. Sur rear/left/right, respecte le sens local canonique ; aucun miroir caméra.
+Les dimensions et offsets métriques des ouvertures doivent avoir une confiance cohérente avec la calibration réellement disponible. Une largeur de façade connue permet d’estimer des rapports sur cette façade si la perspective est suffisamment exploitable ; elle ne calibre pas automatiquement les autres façades.
 
 TOITURE
-`SceneRoof.type` autorise : `flat | gable | hip | shed | mansard | gambrel | butterfly | other`.
-Déduis `type`, `ridge_direction`, `pitch_degrees` et `overhang` uniquement des preuves du Survey et des relations multi-vues. Ne suppose jamais un pignon, une direction de faîtage ou une pente standard.
-Ne transforme JAMAIS une toiture `hip`, `shed`, `mansard`, `gambrel`, `butterfly` ou `other` en `gable`/`flat` pour faciliter le moteur LEGO. ArchitecturalScene doit préserver le type réel même si le backend LEGO actuel ne le construit pas encore.
-Si une observation certaine `kind="roof"` porte `attributes.facade_is_gable=true`, cette façade est un mur pignon et fixe l’axe du faîtage dans le repère canonique : pignon sur `front` ou `rear` → faîtage selon y → `ridge_direction="depth"`; pignon sur `left` ou `right` → faîtage selon x → `ridge_direction="width"`. Cette règle est géométrique et ne privilégie aucune façade.
-Pour `gable`, `ridge_direction` et `pitch_degrees` sont requis. Pour `flat`, ils doivent rester absents/null. Pour `shed`, il n’y a pas de faîtage : `ridge_direction` reste absent/null et `pitch_degrees` peut être renseigné si la pente est soutenue. Pour les formes plus complexes, `ridge_direction` et `pitch_degrees` restent optionnels et ne doivent être utilisés que comme axe dominant/pente représentative lorsque c’est honnête ; un seul scalaire ne doit pas prétendre encoder toute la toiture.
-Pour un toit à deux pans dont le faîtage est établi sans observation de pignon explicite, choisis `ridge_direction` d’après l’orientation réelle : `width` si le faîtage suit x, `depth` s’il suit y. Si la géométrie n’est pas suffisamment contrainte, conserve l’incertitude en amont plutôt que d’imposer un toit générique.
-Couverture, salissure et géométrie sont séparées : les traces d’usure ou d’humidité ne doivent pas modifier la forme architecturale.
+Distingue l’existence certaine d’un toit de la certitude de sa forme, de son axe, de son pitch et de ses débords. Un attribut Survey qualifié `probable`, `plausible` ou équivalent ne devient jamais une géométrie Scene certaine. Le pitch métrique reste inferred avec confiance prudente sauf contrainte réelle.
 
-APPARENCE
-Représente les matériaux et couleurs architecturaux sous-jacents, pas les salissures accidentelles. Ignore les coulures, mousses, taches d’humidité et vieillissements localisés lorsqu’ils ne correspondent pas à une différence réelle de matériau. En revanche, conserve les encadrements, soubassements, bandeaux et changements de matériau structurés lorsqu’ils sont soutenus par les vues.
+TERRAIN
+Une pente certaine peut devenir un profil, mais sa magnitude métrique reste indépendante de la certitude d’existence de la pente. `outward_extent` reste null sans preuve. Ne fabrique pas une route ou une cour de profondeur arbitraire.
 
-AUDIT FINAL
-Chaînes `refines_observation_id` résolues avant reconstruction ; aucune observation raffinée comptée comme objet physique supplémentaire ; comptes d’ouvertures exacts ; rangs horizontaux/verticaux des ouvertures certaines conservés ; IDs/façades/volume_id actifs conservés ; ids Platform/StairRun réutilisés depuis le Survey ; aucune primitive extérieure absente du Survey ; aucune géométrie extérieure generated_default ; host_volume_id des plateformes multi-volume conservé ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; pente non créée sans observation de terrain correspondante ; structures extérieures créées uniquement si soutenues ; aucune relation plausible transformée en raccord métrique exact ; coordonnées Platform et StairRun interprétées selon leur sémantique canonique ; structures complexes segmentées avant métrique ; raccords certains entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
+STRUCTURES EXTÉRIEURES
+Ne crée que les structures réellement observées. Si l’existence d’une plateforme ou d’un escalier est certaine mais que son raccord ou ses dimensions sont masqués, représente seulement la portion soutenue, avec métrique prudente et notes explicites. Ne ferme jamais une chaîne de circulation par plausibilité.
+Pour `Platform`, conserve `host_volume_id` seulement si l’attachement est soutenu. Pour `StairRun`, start/end sont l’axe central de la portion visible ; ne prolonge pas la volée dans une zone occultée.
+Les supports ne sont ajoutés que s’ils sont observés ou solidement contraints ; aucun nombre de poteaux par défaut.
 
-Si un audit échoue, corrige avant de fournir le fichier.
+COORDONNÉES EXTÉRIEURES
+`Platform.position` = coin minimal `(x_min,y_min,z_surface)`, width vers +x, depth vers +y. `StairRun.start/end` = axe central aux niveaux de circulation. Une volée rectiligne ne change qu’un axe horizontal. Ces conventions sont génériques mais ne donnent aucune permission d’inventer les coordonnées.
+
+MATÉRIAUX ET BORDS
+Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown selon preuves. Les bords inconnus restent unknown. Aucun garde-corps, parapet, accès ou symétrie automatique.
+
+MESURES UTILISATEUR
+Toute mesure utilisateur reste `source.kind="user_provided"`, confiance 1.0 sauf indication contraire. Ne transforme jamais une estimation IA en mesure utilisateur. Les mesures utilisateur contraignent les dimensions auxquelles elles se rapportent, pas toutes les dimensions du bâtiment.
+
+AUDIT FINAL OBLIGATOIRE
+Avant sortie :
+- aucun objet absent du Survey ;
+- IDs stables conservés ;
+- aucune auto-relation `from == to` ;
+- aucune zone cachée complétée ;
+- aucune `rectangular_envelope` présentée comme preuve de rectangularité ;
+- chaque valeur métrique non utilisateur a une confiance justifiée séparément de la certitude d’existence ;
+- une largeur connue n’a pas calibré silencieusement profondeur/hauteur/autres façades ;
+- ordre qualitatif des ouvertures conservé sans fausse précision ;
+- forme de toit et pitch ne sont pas plus certains que leurs preuves ;
+- structures extérieures limitées aux portions soutenues ;
+- toute limitation du schéma est documentée plutôt que transformée en architecture ;
+- aucune caractéristique héritée du benchmark ;
+- JSON valide et fichier téléchargeable.
