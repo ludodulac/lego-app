@@ -84,7 +84,7 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
 
 
 def augment_brick_model_with_scene_glazing(model: BrickModel, scene: ArchitecturalScene, *, front_width_studs: int) -> BrickModel:
-    """Add glass blocks and explicitly glazed doors from the rich Scene."""
+    """Replace generic opening treatment with richer Scene glazing where observed."""
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
     targets = [opening for opening in scene.openings if _is_glass_block(opening) or _is_glazed_door(opening)]
@@ -98,6 +98,15 @@ def augment_brick_model_with_scene_glazing(model: BrickModel, scene: Architectur
         extra.extend(_opening_parts(opening, scene, origin_x=origin_x, origin_y=origin_y, origin_z=origin_z, studs_per_meter=studs_per_meter))
     if not extra:
         return model
+
     target_cells = {(part.x_studs, part.y_studs, part.z_plates, part.facade) for part in extra}
-    kept = [part for part in model.parts if not (part.component == "facade_detail" and part.category in {"brick", "facade_detail"} and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells)]
+    replaceable_categories = {"brick", "facade_detail", "window_frame", "window_pane"}
+    kept = [
+        part for part in model.parts
+        if not (
+            part.component == "facade_detail"
+            and part.category in replaceable_categories
+            and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells
+        )
+    ]
     return model.model_copy(update={"parts": [*kept, *extra]})
