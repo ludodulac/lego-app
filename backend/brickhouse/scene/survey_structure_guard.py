@@ -1,10 +1,13 @@
-"""Guard Scene exterior primitives against invention after the validated Survey.
+"""Guard ArchitecturalScene against unsupported promotion of Survey hypotheses.
 
-The Survey is intentionally segmented before metric reconstruction. A Scene may
-estimate coordinates for a plausible observed platform/stair/grade, but it must
-not manufacture hidden circulation or terrain merely to make a clean model.
+The Survey is segmented before metric reconstruction. A Scene may estimate metric
+coordinates for supported observations, but it must not manufacture hidden
+circulation, terrain or rearrange the qualitative opening layout merely to make a
+clean model.
 """
 from __future__ import annotations
+
+from itertools import combinations
 
 from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
 
@@ -26,6 +29,92 @@ def _superseded_observation_ids(survey: ArchitecturalSurvey) -> set[str]:
         if isinstance((target_id := observation.attributes.get("refines_observation_id")), str)
         and target_id
     }
+
+
+def _positive_rank(value):
+    """Accept only explicit positive integer qualitative ranks; ignore legacy/free text."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
+def _opening_host_key(observation) -> str:
+    host = observation.attributes.get("host_object")
+    return host if isinstance(host, str) and host else "__primary__"
+
+
+def _guard_opening_layout(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> list[SceneSurveyIssue]:
+    """Keep certain qualitative left/right and low/high relationships before metrics.
+
+    Survey ranks are intentionally ordinal, not dimensional. Distinct ranks must
+    retain their order; equal ranks merely mean the Survey did not distinguish the
+    objects along that axis and do not force exact alignment.
+    """
+    issues: list[SceneSurveyIssue] = []
+    superseded = _superseded_observation_ids(survey)
+    scene_openings = {opening.id: opening for opening in scene.openings}
+    observations = [
+        observation
+        for observation in survey.observations
+        if observation.kind is ObservationKind.OPENING
+        and observation.certainty is Certainty.CERTAIN
+        and observation.id not in superseded
+        and observation.id in scene_openings
+    ]
+
+    for first, second in combinations(observations, 2):
+        if first.facade is None or first.facade is not second.facade:
+            continue
+        if _opening_host_key(first) != _opening_host_key(second):
+            continue
+        a = scene_openings[first.id]
+        b = scene_openings[second.id]
+        if a.volume_id != b.volume_id:
+            continue
+
+        first_h = _positive_rank(first.attributes.get("facade_horizontal_rank"))
+        second_h = _positive_rank(second.attributes.get("facade_horizontal_rank"))
+        if first_h is not None and second_h is not None and first_h != second_h:
+            a_center = a.offset_horizontal + a.width / 2
+            b_center = b.offset_horizontal + b.width / 2
+            expected = a_center < b_center if first_h < second_h else a_center > b_center
+            if not expected:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="opening_horizontal_order_drift",
+                        severity=SceneSurveySeverity.ERROR,
+                        object_id=first.id,
+                        message=(
+                            f"Les ouvertures {first.id!r} et {second.id!r} ont inversé leur ordre horizontal sur "
+                            f"la façade {first.facade.value!r}. Le Survey impose les rangs {first_h} et {second_h}; "
+                            "la métrique ne peut pas modifier cette relation qualitative."
+                        ),
+                    )
+                )
+
+        first_v = _positive_rank(first.attributes.get("facade_vertical_rank"))
+        second_v = _positive_rank(second.attributes.get("facade_vertical_rank"))
+        if first_v is not None and second_v is not None and first_v != second_v:
+            a_center = a.offset_vertical + a.height / 2
+            b_center = b.offset_vertical + b.height / 2
+            expected = a_center < b_center if first_v < second_v else a_center > b_center
+            if not expected:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="opening_vertical_order_drift",
+                        severity=SceneSurveySeverity.ERROR,
+                        object_id=first.id,
+                        message=(
+                            f"Les ouvertures {first.id!r} et {second.id!r} ont inversé leur ordre vertical sur "
+                            f"la façade {first.facade.value!r}. Le Survey impose les rangs {first_v} et {second_v}; "
+                            "la métrique ne peut pas modifier cette relation qualitative."
+                        ),
+                    )
+                )
+    return issues
 
 
 def _confidence_issues(label: str, code_prefix: str, object_id: str, certainty, source):
@@ -169,8 +258,9 @@ def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Run the historical validator plus strict no-invention exterior guards."""
+    """Run historical validation plus strict no-invention/order guards."""
     issues = list(_validate_scene_against_survey(survey, scene))
+    issues.extend(_guard_opening_layout(survey, scene))
     issues.extend(_guard_kind(survey, scene.platforms, ObservationKind.PLATFORM))
     issues.extend(_guard_kind(survey, scene.stairs, ObservationKind.STAIR))
     issues.extend(_guard_terrain(survey, scene))
