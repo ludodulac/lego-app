@@ -7,7 +7,7 @@ from .facade_details import FacadeDetailPlacement
 from .roof import SUPPORTED_SLOPE_FAMILIES, SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 from .windows import WindowPartPlacement
-PartCategory=Literal["brick","roof_tile","ridge_tile","window_frame","window_pane","facade_detail"]
+PartCategory=Literal["brick","roof_tile","ridge_tile","window_frame","window_pane","facade_detail","timber","terrain"]
 PartComponent=Literal["wall","roof","facade_detail"]
 class BrickModelPart(BaseModel):
     placement_id:str; part_id:str; category:PartCategory; component:PartComponent
@@ -24,7 +24,7 @@ class BrickModelPart(BaseModel):
             if self.category!=expected: raise ValueError(f"roof part on side {self.roof_side!r} must use category {expected!r}")
         else:
             if self.facade is None or self.roof_side is not None: raise ValueError("facade detail parts require facade and must not define roof_side")
-            if self.category not in {"brick","window_frame","window_pane","facade_detail"}: raise ValueError("facade detail parts must use a facade-compatible category")
+            if self.category not in {"brick","window_frame","window_pane","facade_detail","timber","terrain"}: raise ValueError("facade detail parts must use a facade-compatible category")
         return self
 class BrickModel(BaseModel):
     schema_version:Literal["0.1"]="0.1"; building_id:str; volume_id:str
