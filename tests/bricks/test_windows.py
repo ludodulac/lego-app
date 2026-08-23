@@ -20,12 +20,32 @@ def test_style_layout_is_faithful_instead_of_merely_dimensionally_possible():
     simple = choose_window_layout(WindowStyle.SIMPLE, 4, 3)
     assert len(simple) == 1 and simple[0][0].frame_part_id == "WINDOW_1X4X3_60594"
     paired = choose_window_layout(WindowStyle.PAIRED, 4, 3)
-    assert [offset for _, offset in paired] == [0, 2]
-    assert all(a.frame_part_id == "WINDOW_1X2X3_60593" for a, _ in paired)
-    assert choose_window_layout(WindowStyle.FOUR_PANE, 4, 3) == ()
+    assert [offset for _, offset, _ in paired] == [0, 2]
+    assert all(a.frame_part_id == "WINDOW_1X2X3_60593" for a, _, _ in paired)
     assert choose_window_layout(WindowStyle.BAY, 4, 3) == ()
     assert choose_window_layout(WindowStyle.TRADITIONAL_TALL, 2, 2) == ()
     assert choose_window_layout(WindowStyle.TRADITIONAL_TALL, 2, 3)
+
+
+def test_simple_window_never_gets_fake_mullions_or_transoms_to_fill_large_void():
+    # These rectangles can be tiled dimensionally with validated frames, but a
+    # SIMPLE style does not prove any internal joinery. Keep the opening clean.
+    assert choose_window_layout(WindowStyle.SIMPLE, 4, 6) == ()
+    assert choose_window_layout(WindowStyle.SIMPLE, 8, 3) == ()
+
+
+def test_paired_style_allows_only_the_observed_single_vertical_division():
+    assert len(choose_window_layout(WindowStyle.PAIRED, 4, 2)) == 2
+    assert len(choose_window_layout(WindowStyle.PAIRED, 4, 3)) == 2
+    assert choose_window_layout(WindowStyle.PAIRED, 4, 6) == ()
+    assert choose_window_layout(WindowStyle.PAIRED, 8, 3) == ()
+
+
+def test_four_pane_style_is_the_only_current_style_that_authorizes_two_by_two_frames():
+    four = choose_window_layout(WindowStyle.FOUR_PANE, 4, 6)
+    assert [(x, z) for _, x, z in four] == [(0, 0), (2, 0), (0, 3), (2, 3)]
+    assert all(a.frame_part_id == "WINDOW_1X2X3_60593" for a, _, _ in four)
+    assert choose_window_layout(WindowStyle.FOUR_PANE, 4, 3) == ()
 
 
 def test_window_global_mapping_runs_long_axis_along_each_facade():
