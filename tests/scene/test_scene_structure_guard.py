@@ -27,7 +27,7 @@ def _survey(*, include_platform=True, platform_certainty="plausible") -> Archite
     })
 
 
-def _scene(*, confidence=0.6) -> ArchitecturalScene:
+def _scene(*, confidence=0.6, source_kind="inferred") -> ArchitecturalScene:
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "structure-guard-scene",
@@ -41,7 +41,7 @@ def _scene(*, confidence=0.6) -> ArchitecturalScene:
         "platforms": [{
             "id": "deck", "host_volume_id": "main", "position": {"x": 10, "y": 2, "z": 1.5},
             "width": 1.5, "depth": 2, "thickness": 0.2, "material": "timber",
-            "source": {"kind": "inferred", "confidence": confidence},
+            "source": {"kind": source_kind, "confidence": confidence},
         }],
         "appearance": {"walls": {"color": "off_white"}, "roof": {"color": "dark_gray"}, "frames": {"color": "white"}},
     })
@@ -61,7 +61,15 @@ def test_plausible_platform_must_not_claim_high_metric_confidence() -> None:
     issues = validate_scene_against_survey(_survey(platform_certainty="plausible"), _scene(confidence=0.9))
     matches = [issue for issue in issues if issue.code == "plausible_platform_overconfidence"]
     assert len(matches) == 1
-    assert matches[0].severity.value == "warning"
+    assert matches[0].severity.value == "error"
+
+
+def test_exterior_platform_geometry_cannot_be_generated_default() -> None:
+    codes = {issue.code for issue in validate_scene_against_survey(
+        _survey(platform_certainty="certain"),
+        _scene(confidence=0.4, source_kind="generated_default"),
+    )}
+    assert "platform_generated_default_geometry" in codes
 
 
 def test_plausible_platform_with_conservative_confidence_remains_allowed() -> None:
