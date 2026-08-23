@@ -86,19 +86,9 @@ def test_accepts_two_stair_runs_joined_by_platform():
     assert len(ArchitecturalScene.model_validate(scene).stairs) == 2
 
 
-def test_accepts_elevated_right_door_when_deck_is_at_same_facade_position():
-    scene = _scene(platform=_platform(x=10, y=2, z=1), openings=[_door(facade="right", offset=3, z=1)])
+def test_elevated_door_without_access_is_valid_without_explicit_relationship():
+    # Real buildings can have loading doors, removed balconies, future access,
+    # or intentionally inaccessible openings. Access must only be enforced when
+    # the Survey explicitly establishes that relationship.
+    scene = _scene(openings=[_door(facade="right", offset=3, z=2)])
     assert ArchitecturalScene.model_validate(scene).openings[0].id == "door"
-
-
-def test_rejects_elevated_door_when_deck_is_on_wrong_part_of_same_facade():
-    scene = _scene(platform=_platform(x=10, y=5, z=1), openings=[_door(facade="right", offset=1, z=1)])
-    with pytest.raises(ValidationError, match="has no platform or stair access at its facade position"):
-        ArchitecturalScene.model_validate(scene)
-
-
-def test_left_facade_uses_rear_to_front_canonical_offset_for_access():
-    # left offset=1.0 on an 8 m deep volume maps close to y=6.5 (rear -> front).
-    deck = {"id": "left_deck", "position": {"x": -2, "y": 5.5, "z": 1}, "width": 2, "depth": 2, "thickness": 0.2, "source": SOURCE}
-    scene = _scene(platform=deck, openings=[_door(facade="left", offset=1, z=1)])
-    assert ArchitecturalScene.model_validate(scene).openings[0].facade.value == "left"
