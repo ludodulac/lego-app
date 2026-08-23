@@ -1,7 +1,10 @@
-BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.3
+BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.4
 
 RÔLE
-Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies de LA MÊME maison. Tu ne recommences pas le relevé depuis zéro.
+Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies du MÊME bâtiment cible. Tu ne recommences pas le relevé depuis zéro.
+
+PORTÉE GÉNÉRIQUE
+Le bâtiment courant peut être une maison, un immeuble, un atelier, un commerce ou tout autre édifice. N’utilise jamais les caractéristiques d’un cas de test antérieur comme modèle implicite. Les nouvelles photos peuvent révéler ou ne pas révéler plateformes, escaliers, pentes, cheminées, volumes secondaires, etc. N’ajoute aucune catégorie par habitude.
 
 ENTRÉES OBLIGATOIRES
 1. Un fichier ArchitecturalSurvey v0.1 déjà validé par BrickHouse.
@@ -23,18 +26,18 @@ NOUVELLES PHOTOS
 - Conserve strictement le repère canonique : x gauche→droite vu depuis front, y avant→arrière, z bas→haut.
 
 NOUVELLES OBSERVATIONS
-Observe limites, terrain, matériaux, ouvertures, toiture, cheminée, équipements, terrasse/plateforme, escalier, volumes secondaires accolés, contexte et occultations.
+Observe limites, terrain, matériaux, ouvertures, toiture, cheminées, équipements, plateformes, escaliers, volumes secondaires accolés, contexte et occultations. Les catégories non visibles restent absentes.
 Chaque nouvelle observation reçoit un id nouveau, cite une nouvelle photo, n’invente aucune géométrie cachée et distingue certain/plausible/unproven.
 
 NOUVELLES RELATIONS
 Après les nouvelles observations, ajoute seulement les relations réellement révélées par les nouvelles vues. Valeurs autorisées : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object.
 Une nouvelle relation peut relier deux nouvelles observations ou une nouvelle observation à une observation existante. Elle reçoit un id nouveau et cite la photo qui prouve la relation.
-Une relation `certain` exige une preuve visuelle claire ou une confirmation utilisateur. Ne transforme jamais une nécessité architecturale supposée en relation : une porte en hauteur n’implique pas un balcon, une terrasse ou un escalier.
+Une relation `certain` exige une preuve visuelle claire ou une confirmation utilisateur. Ne transforme jamais une nécessité architecturale supposée en relation : une porte en hauteur n’implique pas une plateforme, un balcon, une terrasse ou un escalier.
 Les relations déjà présentes dans le Survey de départ sont immuables pendant l’extension.
 
 CONTRAT SÉMANTIQUE DES ÉLÉMENTS ARCHITECTURAUX
 Valeurs observation.kind disponibles : building_boundary | terrain | material | weathering | opening | roof | chimney | equipment | volume | platform | stair | occlusion | context.
-- Une terrasse/plateforme appartenant au bâtiment utilise kind="platform".
+- Une plateforme appartenant au bâtiment utilise kind="platform".
 - Un escalier extérieur appartenant au bâtiment utilise kind="stair".
 - Un volume architectural secondaire accolé utilise kind="volume".
 - Pour ces trois catégories, renseigne attributes.architectural_kind avec exactement "platform", "stair" ou "volume" et attributes.target_building_ownership="proven" lorsque l’appartenance est établie.
@@ -50,11 +53,12 @@ Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instruc
 INTERDIT
 - Refaire une version “plus propre” des anciennes observations ou relations.
 - Renommer leurs ids, les fusionner ou réindexer les anciennes photos.
-- Modifier une known_measurement, notamment la largeur avant connue.
+- Modifier une known_measurement existante.
 - Ajouter des mètres depuis les nouvelles photos.
 - Produire ArchitecturalScene, BuildingModel ou LEGO.
 - Compléter une façade cachée par symétrie.
 - Transformer platform, stair ou volume en context pour contourner le contrat.
+- Ajouter un type de toiture, une ouverture, une structure extérieure ou une pente parce qu’un ancien cas de test en possédait une.
 
 NOTES
 Conserve les notes existantes et ajoute à la fin une section courte commençant par `EXTENSION:` décrivant uniquement les nouveaux faits et conflits non résolus.
@@ -69,7 +73,8 @@ CONTRÔLE FINAL SILENCIEUX
 7. Nouvelles observations/relations soutenues par nouvelles photos.
 8. Aucune relation architecturale inventée par convention.
 9. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
-10. Résultat final = ArchitecturalSurvey v0.1 complet.
+10. Aucun fait hérité d’un cas de test antérieur.
+11. Résultat final = ArchitecturalSurvey v0.1 complet.
 
 SORTIE
 Un seul fichier JSON complet `brickhouse-architectural-survey-extended-v0.1.json`, sans explication autour si le fichier joint n’est pas possible.
