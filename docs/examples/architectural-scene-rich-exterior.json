@@ -1,0 +1,104 @@
+{
+  "schema_version": "0.2",
+  "id": "scene_rich_exterior_example",
+  "name": "Generic rich exterior regression scene",
+  "units": "m",
+  "volumes": [
+    {
+      "id": "main",
+      "position": {"x": 0, "y": 0, "z": 0},
+      "width": {"value": 8, "source": {"kind": "user_provided", "confidence": 1.0}},
+      "depth": {"value": 6, "source": {"kind": "inferred", "confidence": 0.7}},
+      "height": {"value": 5.5, "source": {"kind": "inferred", "confidence": 0.7}},
+      "floors": 2,
+      "source": {"kind": "inferred", "confidence": 0.8}
+    }
+  ],
+  "openings": [
+    {
+      "id": "front_window",
+      "type": "window",
+      "volume_id": "main",
+      "facade": "front",
+      "offset_horizontal": 1.5,
+      "offset_vertical": 2.4,
+      "width": 1.2,
+      "height": 1.5,
+      "window_style": "simple",
+      "has_sill": true,
+      "has_decorative_surround": true,
+      "source": {"kind": "observed", "confidence": 0.9}
+    }
+  ],
+  "roofs": [
+    {
+      "id": "roof_main",
+      "volume_id": "main",
+      "type": "gable",
+      "overhang": 0.2,
+      "ridge_direction": "depth",
+      "pitch_degrees": 33,
+      "source": {"kind": "inferred", "confidence": 0.8}
+    }
+  ],
+  "terrain": {
+    "kind": "facade_grade_profiles",
+    "profiles": [
+      {
+        "facade": "right",
+        "start_elevation": 0,
+        "end_elevation": 0.8,
+        "outward_extent": 1.5,
+        "source": {"kind": "inferred", "confidence": 0.7}
+      }
+    ]
+  },
+  "platforms": [
+    {
+      "id": "deck",
+      "position": {"x": -1.6, "y": 2.0, "z": 1.8},
+      "width": 1.6,
+      "depth": 2.2,
+      "thickness": 0.2,
+      "material": "timber",
+      "deck_board_direction": "y",
+      "supports": [
+        {
+          "id": "deck_post",
+          "position": {"x": -1.45, "y": 3.6, "z": 0},
+          "width": 0.16,
+          "depth": 0.16,
+          "height": 1.8,
+          "source": {"kind": "inferred", "confidence": 0.7}
+        }
+      ],
+      "edges": {
+        "x_min": {"treatment": "open_railing", "access_spans": []},
+        "x_max": {"treatment": "wall_attached", "access_spans": []},
+        "y_min": {"treatment": "open_railing", "access_spans": [{"from": 0.35, "to": 1.25}]},
+        "y_max": {"treatment": "open_railing", "access_spans": []}
+      },
+      "source": {"kind": "inferred", "confidence": 0.8}
+    }
+  ],
+  "stairs": [
+    {
+      "id": "deck_stair",
+      "start": {"x": -0.8, "y": 0.6, "z": 0},
+      "end": {"x": -0.8, "y": 2.0, "z": 1.8},
+      "width": 0.8,
+      "material": "concrete",
+      "left_edge": "solid_parapet",
+      "right_edge": "none",
+      "source": {"kind": "inferred", "confidence": 0.75}
+    }
+  ],
+  "equipment": [],
+  "visibility": [],
+  "appearance": {
+    "walls": {"color": "off_white"},
+    "roof": {"color": "dark_gray"},
+    "frames": {"color": "dark_brown"}
+  },
+  "notes": "Generic CI fixture exercising rich Scene terrain, timber platform, support, stair, opening metadata and gable roof."
+}
