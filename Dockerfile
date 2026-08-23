@@ -8,6 +8,7 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend
+COPY data/processed ./data/processed
 
 RUN python -m pip install --upgrade pip && python -m pip install .
 
