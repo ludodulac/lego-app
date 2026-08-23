@@ -60,3 +60,46 @@ def test_glass_blocks_and_glazed_door_become_transparent_scene_parts() -> None:
     assert glass and all(part.category=="window_pane" for part in glass)
     assert door
     assert {part.category for part in door}=={"window_frame","window_pane"}
+
+
+def test_glazing_respects_scene_origin_when_terrain_falls_below_building() -> None:
+    payload=_scene().model_dump(mode="json")
+    payload["terrain"]["profiles"][0]["start_elevation"]=-1.5
+    payload["terrain"]["profiles"][0]["end_elevation"]=0.0
+    scene=ArchitecturalScene.model_validate(payload)
+    architecture=augment_brick_model_with_scene_architecture(_base_model(),scene,front_width_studs=48)
+    model=augment_brick_model_with_scene_glazing(architecture,scene,front_width_studs=48)
+    glass=[part for part in model.parts if part.placement_id.startswith("scene-glazing:right_glass_blocks:")]
+    assert glass
+    # Building and opening must both be shifted above the negative terrain datum.
+    wall=next(part for part in model.parts if part.placement_id=="wall-seed")
+    assert min(part.z_plates for part in glass) == wall.z_plates
+
+
+def test_scene_glazing_uses_the_openings_own_secondary_volume() -> None:
+    payload=_scene().model_dump(mode="json")
+    payload["terrain"]=None
+    payload["volumes"].append({
+        "id":"volume_second",
+        "position":{"x":12,"y":2,"z":1},
+        "width":{"value":4,"source":{"kind":"inferred","confidence":.7}},
+        "depth":{"value":5,"source":{"kind":"inferred","confidence":.7}},
+        "height":{"value":3,"source":{"kind":"inferred","confidence":.7}},
+        "floors":1,
+        "source":{"kind":"inferred","confidence":.7},
+    })
+    payload["openings"]=[{
+        "id":"secondary_glazed_door","type":"door","volume_id":"volume_second","facade":"front",
+        "offset_horizontal":1,"offset_vertical":.5,"width":1,"height":1.5,
+        "source":{"kind":"inferred","confidence":.7},
+        "evidence":[{"photo_index":3,"observation":"glazed door on secondary volume"}],
+    }]
+    scene=ArchitecturalScene.model_validate(payload)
+    model=augment_brick_model_with_scene_glazing(_base_model(),scene,front_width_studs=50)
+    parts=[part for part in model.parts if part.placement_id.startswith("scene-glazing:secondary_glazed_door:")]
+    assert parts
+    # Main width is 10m at 5 studs/m; secondary x=12m, so its front glazing must
+    # start beyond the main volume rather than being projected onto x~=5.
+    assert min(part.x_studs for part in parts) >= 60
+    # Secondary volume is raised 1m and the opening begins another .5m above it.
+    assert min(part.z_plates for part in parts) > 0
