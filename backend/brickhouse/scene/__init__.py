@@ -3,8 +3,10 @@
 from .models import (
     ArchitecturalScene,
     Chimney,
+    EdgeTreatment,
     EquipmentType,
     Evidence,
+    ExteriorMaterial,
     FacadeEquipment,
     FacadeVisibility,
     GradeProfile,
@@ -25,8 +27,10 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity, validate_s
 __all__ = [
     "ArchitecturalScene",
     "Chimney",
+    "EdgeTreatment",
     "EquipmentType",
     "Evidence",
+    "ExteriorMaterial",
     "FacadeEquipment",
     "FacadeVisibility",
     "GradeProfile",
