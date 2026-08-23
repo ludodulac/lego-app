@@ -1,19 +1,14 @@
 """Cross-check an ArchitecturalScene against its validated ArchitecturalSurvey source."""
 from __future__ import annotations
-
 from collections import Counter
 from enum import Enum
 from math import dist
 from pydantic import BaseModel
-
-from brickhouse.building import Facade, OpeningType, RidgeDirection, RoofType
-from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind, RelationKind
-from .models import ArchitecturalScene, CONNECTIVITY_TOLERANCE_M, EdgeTreatment
-
-class SceneSurveySeverity(str, Enum):
-    WARNING="warning"; ERROR="error"
-class SceneSurveyIssue(BaseModel):
-    code:str; severity:SceneSurveySeverity; message:str; object_id:str|None=None
+from brickhouse.building import Facade,OpeningType,RidgeDirection,RoofType
+from brickhouse.survey import ArchitecturalSurvey,Certainty,ObservationKind,RelationKind
+from .models import ArchitecturalScene,CONNECTIVITY_TOLERANCE_M,EdgeTreatment
+class SceneSurveySeverity(str,Enum):WARNING="warning";ERROR="error"
+class SceneSurveyIssue(BaseModel):code:str;severity:SceneSurveySeverity;message:str;object_id:str|None=None
 
 def _semantic_opening_type(value):
     if value=="window":return OpeningType.WINDOW
@@ -50,6 +45,13 @@ def _edge_access_interval(edge,offset):
     for span in edge.access_spans:
         if span.from_offset-CONNECTIVITY_TOLERANCE_M<=offset<=span.to_offset+CONNECTIVITY_TOLERANCE_M:return span.from_offset,span.to_offset
     return None
+def _interval_contains(container,required):
+    if container is None:return False
+    return required[0]>=container[0]-CONNECTIVITY_TOLERANCE_M and required[1]<=container[1]+CONNECTIVITY_TOLERANCE_M
+def _edge_allows_interval(edge,required):
+    if edge.treatment in {EdgeTreatment.NONE,EdgeTreatment.ACCESS_OPENING,EdgeTreatment.UNKNOWN}:return True
+    if edge.treatment is EdgeTreatment.WALL_ATTACHED:return False
+    return any(_interval_contains((s.from_offset,s.to_offset),required) for s in edge.access_spans)
 def _stair_cross_interval(stair,edge_name,endpoint,platform):
     half=stair.width/2;x0,y0=platform.position.x,platform.position.y;dx=abs(stair.end.x-stair.start.x);dy=abs(stair.end.y-stair.start.y)
     if edge_name in {"y_min","y_max"}:
@@ -59,9 +61,6 @@ def _stair_cross_interval(stair,edge_name,endpoint,platform):
     center=endpoint.y-y0
     if dx>=dy:return center-half,center+half
     return center-CONNECTIVITY_TOLERANCE_M,center+CONNECTIVITY_TOLERANCE_M
-def _interval_contains(container,required):
-    if container is None:return False
-    return required[0]>=container[0]-CONNECTIVITY_TOLERANCE_M and required[1]<=container[1]+CONNECTIVITY_TOLERANCE_M
 def _stair_platform_access_holds(stair,platform):
     if platform.edges is None:return True
     x0,x1=platform.position.x,platform.position.x+platform.width;y0,y1=platform.position.y,platform.position.y+platform.depth;checked=False
@@ -77,6 +76,24 @@ def _stair_platform_access_holds(stair,platform):
         for name,edge,offset in edges:
             if _interval_contains(_edge_access_interval(edge,offset),_stair_cross_interval(stair,name,p,platform)):return True
     return not checked
+
+def _platform_platform_access_holds(a,b):
+    """Require protected shared edges to expose the whole real overlap between two connected platforms."""
+    if a.edges is None and b.edges is None:return True
+    ax0,ax1=a.position.x,a.position.x+a.width;ay0,ay1=a.position.y,a.position.y+a.depth;bx0,bx1=b.position.x,b.position.x+b.width;by0,by1=b.position.y,b.position.y+b.depth
+    candidates=[]
+    y0,y1=max(ay0,by0),min(ay1,by1)
+    if y1>=y0-CONNECTIVITY_TOLERANCE_M:
+        if abs(ax1-bx0)<=CONNECTIVITY_TOLERANCE_M:candidates.append(((a.edges.x_max if a.edges else None,(y0-ay0,y1-ay0)),(b.edges.x_min if b.edges else None,(y0-by0,y1-by0))))
+        if abs(bx1-ax0)<=CONNECTIVITY_TOLERANCE_M:candidates.append(((a.edges.x_min if a.edges else None,(y0-ay0,y1-ay0)),(b.edges.x_max if b.edges else None,(y0-by0,y1-by0))))
+    x0,x1=max(ax0,bx0),min(ax1,bx1)
+    if x1>=x0-CONNECTIVITY_TOLERANCE_M:
+        if abs(ay1-by0)<=CONNECTIVITY_TOLERANCE_M:candidates.append(((a.edges.y_max if a.edges else None,(x0-ax0,x1-ax0)),(b.edges.y_min if b.edges else None,(x0-bx0,x1-bx0))))
+        if abs(by1-ay0)<=CONNECTIVITY_TOLERANCE_M:candidates.append(((a.edges.y_min if a.edges else None,(x0-ax0,x1-ax0)),(b.edges.y_max if b.edges else None,(x0-bx0,x1-bx0))))
+    if not candidates:return True
+    for pair in candidates:
+        if all(edge is None or _edge_allows_interval(edge,required) for edge,required in pair):return True
+    return False
 
 def _certain_connection_holds(scene,subject_id,object_id):
     platforms={i.id:i for i in scene.platforms};stairs={i.id:i for i in scene.stairs};openings={i.id:i for i in scene.openings}
@@ -116,14 +133,11 @@ def validate_scene_against_survey(survey:ArchitecturalSurvey,scene:Architectural
         expected=_semantic_opening_type(obs.attributes.get("semantic_type"))
         if expected is not None and o.type is not expected:issues.append(SceneSurveyIssue(code="opening_type_drift",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"Le type de {o.id!r} ne respecte pas le Survey."))
         if o.local_grade_clearance is not None:
-            grade=_local_grade_elevation(scene,o)
-            volume=next((v for v in scene.volumes if v.id==o.volume_id),None)
-            if grade is None or volume is None:
-                issues.append(SceneSurveyIssue(code="local_grade_clearance_uncheckable",severity=SceneSurveySeverity.WARNING,object_id=o.id,message=f"L’ouverture {o.id!r} définit une garde au sol locale, mais aucun profil de terrain correspondant ne permet de la vérifier."))
+            grade=_local_grade_elevation(scene,o);volume=next((v for v in scene.volumes if v.id==o.volume_id),None)
+            if grade is None or volume is None:issues.append(SceneSurveyIssue(code="local_grade_clearance_uncheckable",severity=SceneSurveySeverity.WARNING,object_id=o.id,message=f"L’ouverture {o.id!r} définit une garde au sol locale, mais aucun profil de terrain correspondant ne permet de la vérifier."))
             else:
                 actual=volume.position.z+o.offset_vertical-grade
-                if abs(actual-o.local_grade_clearance)>0.20:
-                    issues.append(SceneSurveyIssue(code="local_grade_clearance_mismatch",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"L’ouverture {o.id!r} annonce une garde au sol locale de {o.local_grade_clearance:g} m, mais sa géométrie et la pente donnent environ {actual:.2f} m."))
+                if abs(actual-o.local_grade_clearance)>.20:issues.append(SceneSurveyIssue(code="local_grade_clearance_mismatch",severity=SceneSurveySeverity.ERROR,object_id=o.id,message=f"L’ouverture {o.id!r} annonce une garde au sol locale de {o.local_grade_clearance:g} m, mais sa géométrie et la pente donnent environ {actual:.2f} m."))
     scene_ids={i.id for i in scene.openings}
     for obs in survey_openings.values():
         if obs.certainty is Certainty.CERTAIN and obs.id not in scene_ids:issues.append(SceneSurveyIssue(code="certain_opening_missing",severity=SceneSurveySeverity.ERROR,object_id=obs.id,message=f"L’ouverture certaine {obs.id!r} a disparu de la Scene."))
@@ -158,4 +172,7 @@ def validate_scene_against_survey(survey:ArchitecturalSurvey,scene:Architectural
         if relation.subject_id in stairs and relation.object_id in platforms:stair,platform=stairs[relation.subject_id],platforms[relation.object_id]
         elif relation.object_id in stairs and relation.subject_id in platforms:stair,platform=stairs[relation.object_id],platforms[relation.subject_id]
         if stair is not None and not _stair_platform_access_holds(stair,platform):issues.append(SceneSurveyIssue(code="certain_connection_blocked_by_platform_edge",severity=SceneSurveySeverity.ERROR,object_id=stair.id,message=f"La relation certaine {relation.id!r} ne dispose pas d’un passage assez large pour toute la volée. Élargis/corrige access_spans ou la géométrie de l’escalier."))
+        if relation.subject_id in platforms and relation.object_id in platforms:
+            a,b=platforms[relation.subject_id],platforms[relation.object_id]
+            if not _platform_platform_access_holds(a,b):issues.append(SceneSurveyIssue(code="certain_platform_transition_blocked",severity=SceneSurveySeverity.ERROR,object_id=a.id,message=f"La relation certaine {relation.id!r} relie deux plateformes mais leur bord commun est bloqué par un garde-corps/muret continu ou un passage trop étroit."))
     return issues
