@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building.models import Appearance
 
@@ -20,6 +20,15 @@ class BrickExportMetadata(BaseModel):
     engine_revision: str | None = None
 
 
+class BrickExportFidelityIssue(BaseModel):
+    """Explicit architectural information not faithfully represented by this LEGO export."""
+
+    code: str
+    severity: Literal["info", "warning", "blocker"] = "warning"
+    message: str
+    object_id: str | None = None
+
+
 class BrickExportBundle(BaseModel):
     schema_version: Literal["0.1"] = "0.1"
     building_id: str
@@ -29,6 +38,7 @@ class BrickExportBundle(BaseModel):
     brick_model: BrickModel
     bom: BillOfMaterials
     assembly_plan: AssemblyPlan | None = None
+    fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "BrickExportBundle":
@@ -57,8 +67,9 @@ def create_export_bundle(
     bom: BillOfMaterials,
     assembly_plan: AssemblyPlan | None = None,
     appearance: Appearance | None = None,
+    fidelity_issues: list[BrickExportFidelityIssue] | None = None,
 ) -> BrickExportBundle:
-    """Create the viewer/export bundle from one BrickModel, BOM and optional assembly plan."""
+    """Create the viewer/export bundle without hiding known architectural losses."""
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
@@ -66,6 +77,7 @@ def create_export_bundle(
         brick_model=model,
         bom=bom,
         assembly_plan=assembly_plan,
+        fidelity_issues=fidelity_issues or [],
     )
 
 
