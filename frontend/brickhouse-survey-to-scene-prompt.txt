@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.0
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.1
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
@@ -9,9 +9,9 @@ Les exemples de terrasse, escalier, pignon ou pente servent uniquement à expliq
 N’invente aucun élément parce qu’il existe dans un cas de test ou parce qu’il est courant sur un type de bâtiment. Une catégorie absente du Survey peut parfaitement rester absente de la Scene.
 Ne code ni n’applique aucun nombre d’ouvertures, façade, orientation, type de toit, structure extérieure ou proportion provenant d’un bâtiment de validation particulier. Chaque Scene doit être déduite uniquement du Survey courant, de ses preuves et des mesures utilisateur associées.
 
-GÉOMÉTRIE NON ORTHOGONALE / LIBRE
+GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES
 Ne suppose jamais qu’un bâtiment est un parallélépipède simplement parce que `SceneVolume` v0.2 est actuellement rectangulaire. Si les preuves montrent une façade inclinée, un plan non orthogonal, une coque courbe, une enveloppe ovoïde, un porte-à-faux complexe ou une surface libre, cette caractéristique architecturale reste vraie même si les primitives Scene v0.2 ou le moteur LEGO M0 ne savent pas encore la coder exactement.
-Dans ce cas, n’aplatis pas, ne redresse pas et ne transforme pas silencieusement cette géométrie en mur vertical/toit standard. Utilise les primitives v0.2 uniquement comme enveloppe porteuse conservatrice lorsque nécessaire, garde les dimensions concernées en `inferred` avec une confiance honnête, et documente explicitement dans `notes` la géométrie observée qui reste non représentable par le schéma courant. Une limitation du schéma n’est jamais une preuve que le bâtiment réel est rectiligne.
+Ne redresse jamais silencieusement une géométrie observée pour la faire entrer dans les primitives actuelles. Utilise les primitives v0.2 uniquement comme enveloppe porteuse conservatrice lorsque nécessaire, garde les dimensions concernées en `inferred` avec une confiance honnête, et documente explicitement dans `notes` la géométrie observée qui reste non représentable par le schéma courant. Une limitation du schéma n’est jamais une preuve que le bâtiment réel est rectiligne.
 Une seule photo peut établir une silhouette ou une topologie visible mais pas une profondeur cachée fiable. Les surfaces ou volumes non observés restent inconnus ; ne complète pas une coque ou une courbure par symétrie supposée.
 
 SORTIE
@@ -19,6 +19,13 @@ Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-archi
 
 ORDRE OBLIGATOIRE
 0 relations certaines ; 1 nombre d’ouvertures ; 2 identité/type ; 3 ordre/alignements ; 4 positions ; 5 dimensions ; 6 terrain/niveaux locaux ; 7 structures extérieures bloc par bloc. Ne modifie jamais un niveau précédent pour arranger le LEGO.
+
+VOLUMES ET PORTÉE DES INFORMATIONS
+Un bâtiment peut contenir plusieurs `SceneVolume`. Ne fusionne pas deux volumes distincts uniquement pour simplifier le LEGO, et ne crée pas de volume secondaire sans preuve architecturale.
+Chaque `SceneOpening` et `SceneRoof` doit référencer son vrai `volume_id`.
+Chaque entrée `visibility[]` peut porter `volume_id`. Dans toute Scene multi-volume récente, renseigne-le explicitement afin que deux façades de même nom appartenant à deux volumes différents ne soient jamais confondues. Une entrée legacy sans `volume_id` est interprétée par BrickHouse comme appartenant au premier volume de la Scene uniquement.
+Les spans de visibilité sont exprimés dans le repère local de la façade du volume ciblé. Une occultation du volume principal ne rend jamais automatiquement occultée la façade homonyme d’un volume secondaire.
+Le contrat `GradeProfile` v0.2 n’est pas encore volume-scoped. Si un terrain observé concerne clairement un volume secondaire et ne peut pas être décrit honnêtement relativement au volume principal, ne détourne pas le profil : documente cette limitation dans `notes` plutôt que de créer une fausse pente sur le mauvais volume.
 
 OUVERTURES
 Chaque ouverture `certain` reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut réellement donner dans le vide : n’invente jamais terrasse/escalier pour l’expliquer.
@@ -77,6 +84,6 @@ APPARENCE
 Représente les matériaux et couleurs architecturaux sous-jacents, pas les salissures accidentelles. Ignore les coulures, mousses, taches d’humidité et vieillissements localisés lorsqu’ils ne correspondent pas à une différence réelle de matériau. En revanche, conserve les encadrements, soubassements, bandeaux et changements de matériau structurés lorsqu’ils sont soutenus par les vues.
 
 AUDIT FINAL
-Comptes d’ouvertures exacts ; IDs/façades conservés ; aucune zone cachée complétée ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; structures complexes segmentées avant métrique ; raccords entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
+Comptes d’ouvertures exacts ; IDs/façades/volume_id conservés ; aucune zone cachée complétée ; aucune occultation propagée d’un volume à un autre ; aucune caractéristique empruntée à un bâtiment de test ; aucune géométrie courbe/inclinée/non orthogonale redressée silencieusement pour rentrer dans le schéma ; toute limitation géométrique v0.2 explicitée dans `notes` ; aucune fausse traverse en maçonnerie ; pente et garde au sol cohérentes lorsqu’elles existent ; outward_extent non inventé ; structures extérieures créées uniquement si soutenues ; structures complexes segmentées avant métrique ; raccords entre primitives sans vide implicite ; timber avec deck_board_direction lorsque prouvé ; supports non inventés ; bords indépendants ; passage assez large ; anti-miroir respecté ; type de toiture réel conservé même s’il est non supporté en LEGO ; `facade_is_gable` traduit selon la géométrie canonique et non selon un cas particulier ; JSON valide et fichier réellement téléchargeable.
 
 Si un audit échoue, corrige avant de fournir le fichier.
