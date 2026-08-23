@@ -104,10 +104,10 @@ def test_survey_to_scene_prompt_matches_current_generic_v20_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
     assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.0" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
-    assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
-    assert "Ne redresse jamais silencieusement" in prompt
+    assert "GÉOMÉTRIE NON ORTHOGONALE / LIBRE" in prompt
+    assert "n’aplatis pas, ne redresse pas et ne transforme pas silencieusement" in prompt
     assert "Une seule photo" in prompt
-    assert "SceneRoof.type autorise" in prompt
+    assert "SceneRoof.type` autorise" in prompt
     assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
 
 
