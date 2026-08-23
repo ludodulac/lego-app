@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.5
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v1.6
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventorie ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -26,6 +26,9 @@ Déduplique uniquement avec preuves multi-vues compatibles. Compte les ouverture
 
 PHASE 4 — STRUCTURES EXTÉRIEURES BLOC PAR BLOC
 Lorsqu’elles existent, décompose les structures extérieures en primitives : volée, palier, dalle/transition, deck, support. Tout changement de direction, niveau ou matériau peut impliquer une nouvelle primitive. Un escalier tournant n’est pas une seule volée en perspective. Ne crée aucune primitive simplement parce qu’elle serait architecturalement habituelle.
+
+TOITURE — PREUVES DE FORME
+Décris la toiture à partir des vues, sans supposer qu’un côté particulier porte le pignon. Si une façade donnée est CERTAINEMENT un mur pignon, enregistre une observation `kind="roof"` sur cette façade avec `attributes.facade_is_gable=true`. Ce champ est générique et peut concerner front, rear, left ou right. N’utilise plus de champ spécifique à une seule façade comme `front_is_gable` dans les nouveaux Surveys. Si le pignon ou l’axe du faîtage n’est pas certain, ne le transforme pas en fait.
 
 MATÉRIAUX
 Pour platform/stair, renseigne `attributes.exterior_material` si possible : timber | concrete | masonry | stone | metal | composite | unknown. Ne déduis pas par habitude.
@@ -74,6 +77,7 @@ AUDIT FINAL
 - topologie et rôles photo conservés ;
 - nombre d’ouvertures certaines stable ;
 - structures extérieures segmentées avant toute métrique lorsqu’elles existent ;
+- toiture décrite depuis les preuves et pignon affecté à la vraie façade uniquement ;
 - matériaux et bords observés séparément ;
 - accès partiels décrits qualitativement sans mètres ;
 - relations créées uniquement avec preuves ;
