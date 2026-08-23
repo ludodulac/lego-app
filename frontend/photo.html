@@ -15,43 +15,43 @@
       <p class="intro">Placez d’abord quelques vues générales dans les cases qui correspondent le mieux à votre prise de vue. Les cases servent de repères ; l’IA devra recouper les objets visibles entre plusieurs photos avant de reconstruire le bâtiment.</p>
 
       <section class="simple-card">
-        <div class="simple-heading"><div><h2>1. Ajouter les vues</h2><p>Quelques vues bien choisies suffisent souvent. Les vues en biais avec du recouvrement sont particulièrement utiles pour comprendre les angles, escaliers, terrasses et volumes secondaires.</p></div><span class="step-badge">6 vues de base</span></div>
+        <div class="simple-heading"><div><h2>1. Ajouter les vues</h2><p>Quelques vues bien choisies suffisent souvent. Vous pouvez mettre plusieurs photos dans une même case lorsqu’elles montrent le même côté ou le même angle depuis des positions différentes.</p></div><span class="step-badge">6 zones de base</span></div>
         <div id="guided-photo-grid" class="guided-photo-grid">
           <label class="guided-photo-slot" data-slot="front" data-label="Façade avant">
-            <strong>Façade avant</strong><span>Vue la plus de face possible</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>Façade avant</strong><span>Une ou plusieurs vues de face ou presque</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="front_left" data-label="3/4 avant gauche">
-            <strong>3/4 avant gauche</strong><span>Montre l’angle avant + côté gauche</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>3/4 avant gauche</strong><span>Une ou plusieurs vues de l’angle avant + côté gauche</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="left" data-label="Côté gauche">
-            <strong>Côté gauche</strong><span>Mur gauche et structures visibles</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>Côté gauche</strong><span>Vous pouvez mettre 2 ou 3 vues du même côté</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="rear" data-label="Arrière / 3/4 arrière">
-            <strong>Arrière / 3/4 arrière</strong><span>Même partielle ou masquée</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>Arrière / 3/4 arrière</strong><span>Même partielle ou masquée ; plusieurs vues possibles</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="right" data-label="Côté droit">
-            <strong>Côté droit</strong><span>Mur droit et niveau du terrain</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>Côté droit</strong><span>Vous pouvez mettre 2 ou 3 vues du même côté</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
           <label class="guided-photo-slot" data-slot="front_right" data-label="3/4 avant droit">
-            <strong>3/4 avant droit</strong><span>Montre l’angle avant + côté droit</span>
-            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" />
+            <strong>3/4 avant droit</strong><span>Une ou plusieurs vues de l’angle avant + côté droit</span>
+            <input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple />
             <small class="guided-photo-name">Aucune photo</small>
-            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette photo…"></textarea>
+            <textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur ces photos…"></textarea>
           </label>
         </div>
         <div class="field">
@@ -59,7 +59,7 @@
           <input id="guided-extra-photos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
           <small id="guided-extra-summary">Ajoutez-les surtout lorsqu’une zone complexe est mal visible : escalier tournant, dessous de terrasse, arrière masqué, jonction de volumes, toiture particulière… Jusqu’à 6 vues supplémentaires.</small>
         </div>
-        <p class="microcopy">Ne cherchez pas à multiplier les photos presque identiques. Une vue supplémentaire est surtout utile si elle montre une zone cachée, un autre côté d’un même objet ou un angle assez différent pour lever une ambiguïté. Si vous n’avez pas toutes les vues, laissez les cases manquantes vides : l’IA doit signaler les zones réellement inconnues au lieu de les inventer.</p>
+        <p class="microcopy">Les intitulés des cases sont seulement des repères. Si une photo correspond imparfaitement à un libellé, placez-la dans la zone la plus proche. Plusieurs photos d’une même zone restent des vues distinctes du même bâtiment et seront recoupées entre elles. Si vous n’avez pas toutes les vues, laissez les zones manquantes vides : l’IA doit signaler les zones réellement inconnues au lieu de les inventer.</p>
       </section>
 
       <section class="simple-card">
