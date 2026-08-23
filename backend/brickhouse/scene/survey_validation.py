@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from collections import Counter
 from enum import Enum
+from math import dist
 from pydantic import BaseModel
 
 from brickhouse.building import Facade, OpeningType, RidgeDirection, RoofType
-from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
+from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind, RelationKind
 
-from .models import ArchitecturalScene
+from .models import ArchitecturalScene, CONNECTIVITY_TOLERANCE_M
 
 
 class SceneSurveySeverity(str, Enum):
@@ -39,8 +40,82 @@ def _host_is_secondary(observation) -> bool:
     return bool(observation.attributes.get("host_object"))
 
 
+def _opening_threshold(scene: ArchitecturalScene, opening_id: str) -> tuple[float, float, float] | None:
+    opening = next((item for item in scene.openings if item.id == opening_id), None)
+    if opening is None:
+        return None
+    volume = next((item for item in scene.volumes if item.id == opening.volume_id), None)
+    if volume is None:
+        return None
+    center = opening.offset_horizontal + opening.width / 2
+    x0, y0, z0 = volume.position.x, volume.position.y, volume.position.z
+    x1 = x0 + volume.width.value
+    y1 = y0 + volume.depth.value
+    z = z0 + opening.offset_vertical
+    if opening.facade is Facade.FRONT:
+        return (x0 + center, y0, z)
+    if opening.facade is Facade.RIGHT:
+        return (x1, y0 + center, z)
+    if opening.facade is Facade.REAR:
+        return (x1 - center, y1, z)
+    return (x0, y1 - center, z)
+
+
+def _point_on_platform(point: tuple[float, float, float], platform) -> bool:
+    x, y, z = point
+    return (
+        platform.position.x - CONNECTIVITY_TOLERANCE_M <= x <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
+        and platform.position.y - CONNECTIVITY_TOLERANCE_M <= y <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
+        and abs(z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
+    )
+
+
+def _stair_touches_platform(stair, platform) -> bool:
+    return any(_point_on_platform((point.x, point.y, point.z), platform) for point in (stair.start, stair.end))
+
+
+def _stair_touches_stair(first, second) -> bool:
+    endpoints_a = [(first.start.x, first.start.y, first.start.z), (first.end.x, first.end.y, first.end.z)]
+    endpoints_b = [(second.start.x, second.start.y, second.start.z), (second.end.x, second.end.y, second.end.z)]
+    return any(dist(a, b) <= CONNECTIVITY_TOLERANCE_M for a in endpoints_a for b in endpoints_b)
+
+
+def _platform_touches_platform(first, second) -> bool:
+    if abs(first.position.z - second.position.z) > CONNECTIVITY_TOLERANCE_M:
+        return False
+    ax0, ax1 = first.position.x, first.position.x + first.width
+    ay0, ay1 = first.position.y, first.position.y + first.depth
+    bx0, bx1 = second.position.x, second.position.x + second.width
+    by0, by1 = second.position.y, second.position.y + second.depth
+    x_gap = max(0.0, max(ax0, bx0) - min(ax1, bx1))
+    y_gap = max(0.0, max(ay0, by0) - min(ay1, by1))
+    return x_gap <= CONNECTIVITY_TOLERANCE_M and y_gap <= CONNECTIVITY_TOLERANCE_M
+
+
+def _certain_connection_holds(scene: ArchitecturalScene, subject_id: str, object_id: str) -> bool | None:
+    platforms = {item.id: item for item in scene.platforms}
+    stairs = {item.id: item for item in scene.stairs}
+    openings = {item.id: item for item in scene.openings}
+
+    if subject_id in stairs and object_id in platforms:
+        return _stair_touches_platform(stairs[subject_id], platforms[object_id])
+    if subject_id in platforms and object_id in stairs:
+        return _stair_touches_platform(stairs[object_id], platforms[subject_id])
+    if subject_id in stairs and object_id in stairs:
+        return _stair_touches_stair(stairs[subject_id], stairs[object_id])
+    if subject_id in platforms and object_id in platforms:
+        return _platform_touches_platform(platforms[subject_id], platforms[object_id])
+    if subject_id in openings and object_id in platforms:
+        threshold = _opening_threshold(scene, subject_id)
+        return threshold is not None and _point_on_platform(threshold, platforms[object_id])
+    if subject_id in platforms and object_id in openings:
+        threshold = _opening_threshold(scene, object_id)
+        return threshold is not None and _point_on_platform(threshold, platforms[subject_id])
+    return None
+
+
 def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> list[SceneSurveyIssue]:
-    """Reject semantic, inventory or metric drift introduced during Survey -> Scene."""
+    """Reject semantic, inventory, relation or metric drift introduced during Survey -> Scene."""
     issues: list[SceneSurveyIssue] = []
     survey_openings = {item.id: item for item in survey.observations if item.kind is ObservationKind.OPENING}
 
@@ -66,22 +141,18 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
         if expected is not None and opening.type is not expected:
             issues.append(SceneSurveyIssue(code="opening_type_drift", severity=SceneSurveySeverity.ERROR, object_id=opening.id, message=f"Le type de {opening.id!r} ne respecte pas l’identité sémantique du Survey."))
 
-    # Gate 1: every certain physical opening survives, regardless of semantic vocabulary.
     scene_opening_ids = {item.id for item in scene.openings}
     for observation in survey_openings.values():
         if observation.certainty is Certainty.CERTAIN and observation.id not in scene_opening_ids:
             issues.append(SceneSurveyIssue(code="certain_opening_missing", severity=SceneSurveySeverity.ERROR, object_id=observation.id, message=f"L’ouverture certaine {observation.id!r} du Survey a disparu de la scène. Le nombre d’ouvertures doit être verrouillé avant leur type, position et dimensions."))
 
-    # Gate 2: exact main-wall count per documented facade, including explicit zero.
     main_survey_counts = Counter(
         observation.facade
         for observation in survey_openings.values()
         if observation.certainty is Certainty.CERTAIN and observation.facade is not None and not _host_is_secondary(observation)
     )
     main_volume_id = scene.volumes[0].id if scene.volumes else None
-    main_scene_counts = Counter(
-        opening.facade for opening in scene.openings if opening.volume_id == main_volume_id
-    )
+    main_scene_counts = Counter(opening.facade for opening in scene.openings if opening.volume_id == main_volume_id)
     documented_facades = {photo.facade for photo in survey.photos}
     for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
         if facade not in documented_facades:
@@ -140,5 +211,26 @@ def validate_scene_against_survey(survey: ArchitecturalSurvey, scene: Architectu
             continue
         if observation.id not in scene_ids_by_kind[observation.kind]:
             issues.append(SceneSurveyIssue(code=missing_codes[observation.kind], severity=SceneSurveySeverity.ERROR, object_id=observation.id, message=f"Le {labels[observation.kind]} certain {observation.id!r} du Survey a disparu de la scène ou a changé d’id."))
+
+    # Only explicit CERTAIN Survey connections become hard geometric constraints.
+    # A missing relation is never inferred from architectural convention.
+    for relation in survey.relations:
+        if relation.kind is not RelationKind.CONNECTS_TO or relation.certainty is not Certainty.CERTAIN:
+            continue
+        holds = _certain_connection_holds(scene, relation.subject_id, relation.object_id)
+        if holds is False:
+            issues.append(SceneSurveyIssue(
+                code="certain_connection_broken",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=relation.subject_id,
+                message=f"La relation certaine {relation.id!r} ({relation.subject_id} connects_to {relation.object_id}) est établie par le Survey mais n’est pas respectée géométriquement dans la Scene.",
+            ))
+        elif holds is None:
+            issues.append(SceneSurveyIssue(
+                code="certain_connection_not_yet_checkable",
+                severity=SceneSurveySeverity.WARNING,
+                object_id=relation.subject_id,
+                message=f"La relation certaine {relation.id!r} est conservée comme fait du Survey, mais cette paire de types n’a pas encore de contrôle géométrique automatique.",
+            ))
 
     return issues
