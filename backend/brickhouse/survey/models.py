@@ -32,6 +32,22 @@ class ObservationKind(str, Enum):
     CONTEXT = "context"
 
 
+class RelationKind(str, Enum):
+    """Observed semantic/physical relation between two survey observations.
+
+    Relations are evidence, not architectural assumptions. They let later stages
+    preserve facts such as a stair joining a landing without making universal
+    rules such as "every raised door needs a platform".
+    """
+
+    CONNECTS_TO = "connects_to"
+    ADJACENT_TO = "adjacent_to"
+    ALIGNED_WITH = "aligned_with"
+    SUPPORTS = "supports"
+    PART_OF = "part_of"
+    SAME_PHYSICAL_OBJECT = "same_physical_object"
+
+
 class NormalizedImageRegion(BaseModel):
     """Optional evidence box in image coordinates, normalized to 0..1."""
 
@@ -116,6 +132,22 @@ class SurveyObservation(BaseModel):
     opening_visual: OpeningVisualDescription | None = None
 
 
+class SurveyRelation(BaseModel):
+    id: str
+    kind: RelationKind
+    subject_id: str
+    object_id: str
+    certainty: Certainty
+    statement: str = Field(min_length=1)
+    evidence: list[PhotoEvidence] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_distinct_objects(self) -> "SurveyRelation":
+        if self.subject_id == self.object_id:
+            raise ValueError("survey relation subject_id and object_id must differ")
+        return self
+
+
 class RepresentationPolicy(BaseModel):
     """What understanding should survive, separately from LEGO fidelity."""
 
@@ -134,6 +166,7 @@ class ArchitecturalSurvey(BaseModel):
     photos: list[PhotoView] = Field(min_length=1)
     known_measurements: list[KnownMeasurement] = Field(default_factory=list)
     observations: list[SurveyObservation] = Field(default_factory=list)
+    relations: list[SurveyRelation] = Field(default_factory=list)
     representation_policy: RepresentationPolicy = Field(default_factory=RepresentationPolicy)
     notes: str | None = None
 
@@ -153,11 +186,22 @@ class ArchitecturalSurvey(BaseModel):
         if len(observation_ids) != len(set(observation_ids)):
             raise ValueError("survey observation IDs must be unique")
 
+        relation_ids = [relation.id for relation in self.relations]
+        if len(relation_ids) != len(set(relation_ids)):
+            raise ValueError("survey relation IDs must be unique")
+
         known_photos = set(photo_indexes)
+        known_observations = set(observation_ids)
         for observation in self.observations:
             for evidence in observation.evidence:
                 if evidence.photo_index not in known_photos:
                     raise ValueError(
                         f"observation {observation.id!r} references unknown photo {evidence.photo_index}"
                     )
+        for relation in self.relations:
+            if relation.subject_id not in known_observations or relation.object_id not in known_observations:
+                raise ValueError(f"relation {relation.id!r} references unknown survey observation")
+            for evidence in relation.evidence:
+                if evidence.photo_index not in known_photos:
+                    raise ValueError(f"relation {relation.id!r} references unknown photo {evidence.photo_index}")
         return self
