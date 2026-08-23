@@ -71,7 +71,7 @@ def _opening_grid(
     origin_x: float,
     origin_y: float,
     studs_per_meter: float,
-) -> tuple[int, int, int, int, int, int]:
+) -> tuple[int, int, int, int, int, int, int, int]:
     main = scene.volumes[0]
     courses_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO
     house_x = _round_half_up((main.position.x - origin_x) * studs_per_meter)
@@ -93,17 +93,16 @@ def _global_cell(
     house_width: int,
     house_depth: int,
     local_x: int,
-    opening_width: int,
     z_course: int,
 ) -> tuple[int, int, int, int]:
     z = z_course * 3
     if facade is Facade.FRONT:
         return house_x + local_x, house_y, z, 1
     if facade is Facade.REAR:
-        return house_x + house_width - local_x - opening_width, house_y + house_depth - 1, z, 1
+        return house_x + house_width - local_x - 1, house_y + house_depth - 1, z, 1
     if facade is Facade.RIGHT:
         return house_x + house_width - 1, house_y + local_x, z, 0
-    return house_x, house_y + house_depth - local_x - opening_width, z, 0
+    return house_x, house_y + house_depth - local_x - 1, z, 0
 
 
 def _opening_parts(
@@ -130,15 +129,13 @@ def _opening_parts(
             # Glass blocks remain transparent cells across the whole opening.
             is_frame = glazed_door and (dx in {0, width - 1} or dz in {0, height - 1})
             category = "window_frame" if is_frame else "window_pane"
-            local_x = local + dx
             gx, gy, gz, rotation = _global_cell(
                 opening.facade,
                 house_x=house_x,
                 house_y=house_y,
                 house_width=house_width,
                 house_depth=house_depth,
-                local_x=local_x,
-                opening_width=1,
+                local_x=local + dx,
                 z_course=z0 + dz,
             )
             parts.append(_part(
@@ -156,7 +153,12 @@ def augment_brick_model_with_scene_glazing(
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Add glass blocks and explicitly glazed doors from the rich Scene."""
+    """Add glass blocks and explicitly glazed doors from the rich Scene.
+
+    Any generic facade-detail masonry that occupies the exact target cells is
+    removed first. The structural wall already contains the opening void, so this
+    replacement cannot remove load-bearing wall bricks outside the opening.
+    """
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
     targets = [opening for opening in scene.openings if _is_glass_block(opening) or _is_glazed_door(opening)]
@@ -176,4 +178,14 @@ def augment_brick_model_with_scene_glazing(
         ))
     if not extra:
         return model
-    return model.model_copy(update={"parts": [*model.parts, *extra]})
+
+    target_cells = {(part.x_studs, part.y_studs, part.z_plates, part.facade) for part in extra}
+    kept = [
+        part for part in model.parts
+        if not (
+            part.component == "facade_detail"
+            and part.category in {"brick", "facade_detail"}
+            and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells
+        )
+    ]
+    return model.model_copy(update={"parts": [*kept, *extra]})
