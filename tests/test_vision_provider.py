@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from brickhouse.vision.openai_provider import PhotoInput, analyze_building_photos
+from brickhouse.vision.openai_provider import MAX_VISION_PHOTOS, PhotoInput, analyze_building_photos
 
 
 REFERENCE = Path("docs/examples/building-model-simple-house.json")
@@ -81,9 +81,26 @@ def test_provider_sends_multiple_images_as_data_urls_and_parses_contract():
     assert "wall edge -> opening" in instructions
     assert "known_front_width_m" in instructions
     assert "proportion_evidence" in instructions
+    assert "Treat all photos as observations of one physical property" in instructions
+    assert "repeated physical objects" in instructions
+    assert "hidden" in instructions and "connection" in instructions
     prompt = content[0]["text"]
     assert "Recover normalized architectural proportions" in prompt
     assert "Correct mentally for perspective" in prompt
+    assert "Lock the observed opening inventory" in prompt
+
+
+def test_provider_accepts_twelve_targeted_views():
+    client = FakeClient(_output())
+    photos = [
+        PhotoInput(content=f"view-{index}".encode(), media_type="image/jpeg", filename=f"view-{index}.jpg")
+        for index in range(MAX_VISION_PHOTOS)
+    ]
+    result = analyze_building_photos(photos, client=client, model="test-vision-model")
+    assert result.building.metadata.created_from == "photo_analysis"
+    content = client.responses.kwargs["input"][0]["content"]
+    assert len([item for item in content if item["type"] == "input_image"]) == MAX_VISION_PHOTOS
+    assert f"There are {MAX_VISION_PHOTOS} supplied views" in content[0]["text"]
 
 
 def test_provider_rejects_invalid_photo_contract_before_network():
@@ -91,7 +108,19 @@ def test_provider_rejects_invalid_photo_contract_before_network():
     try:
         analyze_building_photos([], client=client)
     except ValueError as exc:
-        assert "between 1 and 6" in str(exc)
+        assert f"between 1 and {MAX_VISION_PHOTOS}" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+    assert client.responses.kwargs is None
+
+    too_many = [
+        PhotoInput(content=b"x", media_type="image/jpeg", filename=f"{index}.jpg")
+        for index in range(MAX_VISION_PHOTOS + 1)
+    ]
+    try:
+        analyze_building_photos(too_many, client=client)
+    except ValueError as exc:
+        assert f"between 1 and {MAX_VISION_PHOTOS}" in str(exc)
     else:
         raise AssertionError("expected ValueError")
     assert client.responses.kwargs is None
