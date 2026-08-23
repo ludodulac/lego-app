@@ -46,3 +46,26 @@ jobs:
 
       - name: Verify export exists
         run: test -s /tmp/brickhouse-house-export.json
+
+      - name: Run rich ArchitecturalScene pipeline smoke test
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.pipeline import run_m0_pipeline_scene
+          from brickhouse.scene import ArchitecturalScene
+
+          path = Path('docs/examples/architectural-scene-rich-exterior.json')
+          scene = ArchitecturalScene.model_validate_json(path.read_text(encoding='utf-8'))
+          bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
+          ids = [part.placement_id for part in bundle.brick_model.parts]
+          assert any(value.startswith('scene-platform:deck:') for value in ids)
+          assert any(value.startswith('scene-stair:deck_stair:') for value in ids)
+          assert any(value.startswith('scene-terrain:right:') for value in ids)
+          assert bundle.bom.total_parts == len(bundle.brick_model.parts)
+          output = Path('/tmp/brickhouse-rich-scene-export.json')
+          output.write_text(json.dumps(bundle.model_dump(mode='json'), indent=2), encoding='utf-8')
+          PY
+
+      - name: Verify rich Scene export exists
+        run: test -s /tmp/brickhouse-rich-scene-export.json
