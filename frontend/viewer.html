@@ -23,10 +23,10 @@
         </section>
         <section class="status-card"><h2>Maquette</h2><dl id="model-summary"><div><dt>Projet</dt><dd>—</dd></div><div><dt>Pièces</dt><dd>—</dd></div><div><dt>Types</dt><dd>—</dd></div><div><dt>Taille</dt><dd>—</dd></div></dl></section>
         <section id="assembly-card" class="status-card assembly-card" hidden><h2>Montage</h2><div class="assembly-header"><strong id="assembly-title">—</strong><span id="assembly-progress">—</span></div><input id="assembly-range" type="range" min="0" max="0" value="0" step="1" /><div class="assembly-buttons"><button id="assembly-prev" type="button">← Précédent</button><button id="assembly-next" type="button">Suivant →</button></div><button id="assembly-full" type="button">Voir le modèle complet</button></section>
-        <section class="legend" aria-label="Légende"><h2>Légende</h2><p><span class="swatch wall"></span>Murs</p><p><span class="swatch roof"></span>Toiture</p><p><span class="swatch ridge"></span>Faîtage</p></section>
+        <section class="legend" aria-label="Légende"><h2>Légende</h2><p><span class="swatch wall"></span>Murs</p><p><span class="swatch roof"></span>Toiture</p><p><span class="swatch timber"></span>Bois</p><p><span class="swatch concrete"></span>Béton</p><p><span class="swatch masonry"></span>Maçonnerie</p><p><span class="swatch terrain"></span>Terrain</p></section>
         <p id="message" class="message" role="status"></p>
       </aside>
-      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D de la maison en briques"></canvas><div class="viewer-hint">Repère canonique : avant = y faible, droite = x fort · glisser pour tourner · molette/pincer pour zoomer</div></section>
+      <section class="viewer-wrap"><canvas id="viewer" aria-label="Visualisation 3D du bâtiment en briques"></canvas><div class="viewer-hint">Repère canonique : avant = y faible, droite = x fort · glisser pour tourner · molette/pincer pour zoomer</div></section>
     </main>
     <script type="module" src="./viewer.js"></script>
   </body>
