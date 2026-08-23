@@ -1,122 +1,67 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.1
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v1.2
 
 RÔLE
-Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Tu ne refais ni la topologie ni l’inventaire architectural. Le Survey est la source de vérité.
-
-ENTRÉES
-1. Photos originales.
-2. ArchitecturalSurvey v0.1 VALIDÉ ET ACTIF.
-3. Éventuelles confirmations utilisateur.
+Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 déjà validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
 
 SORTIE
 Crée un vrai fichier joint téléchargeable nommé exactement `brickhouse-architectural-scene-v0.2.json`. Ne colle pas le gros JSON dans le chat si un fichier peut être créé.
 
-RÈGLE FONDAMENTALE — RECONSTRUCTION HIÉRARCHIQUE
-Tu travailles dans cet ordre et tu audites chaque niveau avant le suivant.
+ORDRE HIÉRARCHIQUE OBLIGATOIRE
+0 relations certaines du Survey ; 1 nombre d’ouvertures ; 2 identité/type ; 3 ordre et alignements ; 4 positions ; 5 dimensions ; 6 structures extérieures bloc par bloc. Ne saute aucun niveau pour arranger le rendu LEGO.
 
-NIVEAU 0 — RELATIONS DU SURVEY
-Lis `relations[]` AVANT d’estimer la géométrie. Une relation `certainty="certain"` est un fait à préserver. Une relation `plausible` aide l’estimation mais ne devient pas une obligation. Une relation `unproven` ne doit jamais être matérialisée comme certitude.
-Pour `kind="connects_to"` certain, les deux objets doivent réellement se toucher/rejoindre dans la Scene. Exemples : volée→palier, palier→terrasse, ou porte→plateforme UNIQUEMENT si le Survey établit explicitement cette connexion.
-Ne crée aucune connexion absente du Survey par simple convention architecturale. En particulier, une porte en hauteur n’implique pas une terrasse ou un escalier.
+OUVERTURES
+Chaque ouverture `certain` du Survey reste présente avec le même ID et la même façade. N’ajoute aucune ouverture absente. Une zone unknown/occluded ne reçoit rien d’inventé. Une porte peut réellement donner dans le vide : n’invente jamais terrasse/escalier pour expliquer une porte.
 
-NIVEAU 1 — INVENTAIRE PHYSIQUE DES OUVERTURES
-Pour chaque façade du CORPS PRINCIPAL, compte toutes les observations `kind="opening"` et `certainty="certain"` du Survey. Ce nombre est IMMUTABLE. Une ouverture certaine reste un vide physique certain même si son type sémantique est imprécis. INTERDIT de supprimer une ouverture au motif que son type est ambigu. INTERDIT d’en ajouter une absente du Survey. Les ouvertures d’un volume secondaire sont comptées séparément.
+REPÈRE
+x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Respecte `image_left_maps_to_facade_offset` et toute orientation verrouillée. Aucun miroir implicite.
 
-NIVEAU 2 — IDENTITÉ / TYPE
-Conserve chaque ID et sa façade EXACTEMENT. window→window ; door/door_or_glazed_door/glazed_door_or_large_glazed_opening→door ; garage_door→garage_door. Pour une ouverture certaine ambiguë (pavés de verre, petite ouverture technique), choisis le porteur géométrique le moins engageant parmi les types supportés et conserve l’ID. `unproven` n’est jamais matérialisé.
+STRUCTURES EXTÉRIEURES — SEGMENTATION AVANT MESURE
+Identifie séparément chaque volée, palier, dalle béton, deck bois, poteau/support et changement de matériau. Un escalier tournant = plusieurs StairRun reliés par Platform. Un ensemble béton+bois = plusieurs Platform. Une primitive ne doit pas traverser le bâtiment ni contourner silencieusement un coin.
 
-NIVEAU 3 — ORDRE ET ALIGNEMENTS
-Avant les dimensions, détermine l’ordre physique des ouvertures sur chaque façade. Préserve les relations fortes du Survey, notamment les `aligned_with` certaines, ainsi que les relations visuelles : au-dessus/en dessous, même colonne, proche d’un coin, niveau bas, niveau terrasse. Une fenêtre clairement au-dessus d’une porte doit avoir un axe horizontal cohérent avec cette porte.
+MATÉRIAU
+Platform/StairRun.material = timber | concrete | masonry | stone | metal | composite | unknown. Si non prouvé, unknown ou null. Ne porte pas le matériau principal seulement dans une phrase libre.
 
-NIVEAU 4 — POSITION
-Seulement maintenant estime `offset_horizontal` et `offset_vertical` à partir des rapports visuels et des mesures utilisateur.
-Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
-Offset horizontal : front avant-gauche→avant-droit ; right avant-droit→arrière-droit ; rear arrière-droit→arrière-gauche ; left arrière-gauche→avant-gauche.
-Respecte `image_left_maps_to_facade_offset`; aucune compensation d’un miroir du viewer.
+BORDS DE PLATEFORME — OBLIGATOIRE POUR LES NOUVELLES SCENES
+Une Platform possède `edges` avec quatre côtés physiques indépendants : `x_min`, `x_max`, `y_min`, `y_max`.
+Valeurs : none | open_railing | solid_parapet | wall_attached | access_opening | unknown.
+- `wall_attached` = ce bord est réellement accolé au mur du bâtiment.
+- `access_opening` = rupture volontaire du garde-corps/muret permettant le passage vers escalier/palier adjacent.
+- `open_railing` = garde-corps ajouré.
+- `solid_parapet` = muret plein.
+- `none` = bord libre observé sans protection.
+- `unknown` = impossible à établir.
+Ne transforme JAMAIS un seul garde-corps observé en garde-corps sur tout le périmètre. Ne suppose jamais la symétrie. Un bord collé au mur ne reçoit pas de garde-corps LEGO.
+`edge_treatment` est uniquement un ancien champ de compatibilité ; ne l’utilise pas pour les nouvelles Scenes.
 
-NIVEAU 5 — DIMENSIONS
-Ensuite seulement estime largeur/hauteur. Les rapports observés priment sur les dimensions architecturales typiques. Toute dimension non fournie par l’utilisateur est `inferred`.
+BORDS D’ESCALIER
+StairRun.left_edge/right_edge = none | open_railing | solid_parapet | unknown. Gauche/droite sont définis dans le sens start→end. Un escalier béton n’implique jamais deux murets. Encode chaque côté selon les photos.
 
-NIVEAU 6 — DÉCOMPOSITION DES STRUCTURES EXTÉRIEURES
-NE représente JAMAIS automatiquement un ensemble extérieur comme « une terrasse + un escalier droit ».
-Avant toute mesure, fais une passe de SEGMENTATION STRUCTURELLE multi-vues. Cherche les changements de direction, changements de niveau, changements de matériau, ruptures de garde-corps, poteaux, paliers, dalles et jonctions avec le mur.
+SUPPORTS
+Platform.supports contient uniquement les poteaux/supports réellement observés ou solidement inférés par continuité. N’invente jamais quatre poteaux aux coins par défaut.
 
-Méthode obligatoire pour terrasse/escalier :
-A. INVENTAIRE DES BLOCS : identifie chaque primitive rectiligne visible indépendamment : volée d’escalier, palier, dalle béton, plateforme bois, garde-corps/muret, poteau/support.
-B. CORRESPONDANCE MULTI-VUES : prouve qu’un bloc vu sur plusieurs photos est le même à l’aide des coins, ouvertures, végétation, garde-corps, poteaux et jonctions.
-C. GRAPHE DE CONNEXION : commence par les relations `connects_to` certaines du Survey. Complète seulement les connexions imposées par plusieurs indices concordants. Ne fabrique jamais un graphe « logique » sans preuve.
-D. ORIENTATION : détermine séparément le vecteur horizontal de CHAQUE volée. Si l’escalier tourne, utilise plusieurs objets `stairs[]`, un par volée, reliés par un `platforms[]` servant de palier. N’écrase jamais un escalier tournant en un seul segment diagonal ou droit.
-E. EMPREINTE : pour chaque plateforme, vérifie d’abord quels bords touchent la maison et jusqu’à quel coin elle s’étend. L’adjacence au mur et aux coins est prioritaire sur les dimensions estimées.
-F. MATÉRIAU STRUCTURÉ : utilise le champ `material` de Platform/StairRun. Valeurs : timber | concrete | masonry | stone | metal | composite | unknown. Un changement clair béton/maçonnerie → bois signifie deux objets physiques distincts. Ne compte plus sur `notes` ou `evidence` pour porter le matériau principal.
-G. BORDS STRUCTURÉS : utilise `edge_treatment` pour une Platform et `left_edge` / `right_edge` pour une StairRun. Valeurs : none | open_railing | solid_parapet | unknown. Ne suppose jamais que les deux côtés d’un escalier sont identiques. Un escalier en béton n’implique pas automatiquement deux murets.
-H. OCCLUSION : une partie cachée peut être inférée uniquement si les deux extrémités visibles et les connexions imposent une continuité simple. Sinon marque l’incertitude au lieu d’inventer une forme.
+CONNEXIONS
+Toute relation Survey `connects_to` certaine doit être géométriquement vraie. Mais n’ajoute pas de connexion par convention. Pour une connexion StairRun→Platform, l’extrémité doit atteindre la plateforme. Si elle arrive par un bord protégé, ce bord doit comporter `access_opening` plutôt qu’un garde-corps continu.
 
-RÈGLE D’ACCÈS — NE PAS SURINTERPRÉTER LES PORTES
-Une porte ou porte-fenêtre en hauteur ne prouve PAS à elle seule l’existence d’une terrasse, d’un balcon, d’un palier ou d’un escalier. Les bâtiments réels peuvent avoir une porte donnant dans le vide, un balcon supprimé, un accès futur, une porte de chargement ou une ouverture devenue inaccessible.
-N’invente JAMAIS une structure d’accès uniquement pour « expliquer » une porte.
-Inversement, si une relation Survey `connects_to` certaine établit qu’une porte dessert une plateforme précise, cette connexion devient une contrainte géométrique.
-
-EXEMPLE DE DÉCOMPOSITION À PRODUIRE QUAND LES PHOTOS LE JUSTIFIENT
-`stairs`: stair_run_01 (sol→palier), stair_run_02 (palier→niveau terrasse)
-`platforms`: stair_landing_01 (palier béton), terrace_transition_01 (partie béton), terrace_timber_01 (grande partie bois)
-Ce n’est qu’un exemple de STRUCTURE, jamais une géométrie à recopier sans preuve.
-
-CONTRAINTE PORTE / PORTE-FENÊTRE
-La géométrie d’un escalier ou d’une terrasse ne peut pas masquer artificiellement une ouverture certaine du Survey. Si une porte ou porte-fenêtre certaine se retrouve « dans » un escalier estimé, considère d’abord que la géométrie de l’escalier est fausse et reconstruis les blocs. Ne supprime ni ne déplace l’ouverture certaine pour faire rentrer l’escalier.
-Cette règle n’implique PAS qu’une porte doive obligatoirement avoir une terrasse ou un escalier devant elle.
-
-TOPOLOGIE ET ANTI-MIROIR
-Si `topology_reference.orientation_locked=true`, aucune photo, façade ou relation left/right ne peut être réinterprétée. Une photo arrière pouvant montrer un objet de gauche ne déplace jamais cet objet vers rear. Si le Survey établit un pignon avant, la toiture principale gable doit avoir `ridge_direction="depth"`.
-
-ZONES CACHÉES
-Une zone `unknown` ou `occluded` ne reçoit aucune ouverture inventée. Une façade photographiée avec zéro ouverture certaine reste à zéro sauf fait utilisateur explicite. Une démolition, cheminée, trace ou baie du bâtiment voisin n’autorise jamais la création d’une ouverture sur la maison cible.
-
-TOITURE / MATÉRIAU
-Géométrie de toiture et matériau de couverture sont deux questions séparées. Ne transforme jamais une couverture non visible en fait observé.
+TERRASSE CONTRE MAISON
+Détermine d’abord quel bord de la plateforme touche réellement la façade et encode ce bord `wall_attached`. Ensuite seulement place les autres bords. La terrasse doit aller jusqu’aux coins/bords observés, sans recentrage esthétique automatique.
 
 MESURES
-Toute mesure utilisateur est reproduite exactement avec `source.kind="user_provided"`. Les autres dimensions sont inférées. Ne modifie jamais une mesure utilisateur pour arranger la grille LEGO.
+Toute mesure utilisateur est reproduite exactement avec source.kind=user_provided. Les autres dimensions sont inferred. Ne change jamais une mesure pour arranger la grille LEGO.
 
-CONTRAT ARCHITECTURALSCENE v0.2
-Racine :
-{"schema_version":"0.2","id":"...","name":"...","units":"m","volumes":[],"openings":[],"roofs":[],"terrain":null,"chimneys":[],"platforms":[],"stairs":[],"equipment":[],"visibility":[],"appearance":{"walls":{"color":"off_white"},"roof":{"color":"dark_gray"},"frames":{"color":"dark_brown"}},"notes":"..."}
+CONTRAT UTILE
+Platform : {"id":"...","position":{"x":0,"y":0,"z":0},"width":1,"depth":1,"thickness":0.2,"supports":[],"material":"timber","edges":{"x_min":"unknown","x_max":"open_railing","y_min":"wall_attached","y_max":"open_railing"},"source":{"kind":"inferred","confidence":0.6},"evidence":[]}
+StairRun : {"id":"...","start":{"x":0,"y":0,"z":0},"end":{"x":0,"y":2,"z":1},"width":1,"material":"concrete","left_edge":"solid_parapet","right_edge":"none","source":{"kind":"inferred","confidence":0.6},"evidence":[]}
 
-Position3D : {"x":0.0,"y":0.0,"z":0.0}
-SourceInfo : {"kind":"inferred","confidence":0.6}
-PropertyValue : {"value":10.0,"source":{"kind":"user_provided","confidence":1.0},"evidence":[]}
-Volume : id, position, width PropertyValue, depth PropertyValue, height PropertyValue, floors, source, evidence.
-Opening : id IDENTIQUE au Survey, type, volume_id, facade IDENTIQUE au Survey, offset_horizontal>=0, offset_vertical>=0, width>0, height>0, source, evidence.
-Roof : id, volume_id, type, overhang, source, evidence. Pour gable : ridge_direction et pitch_degrees obligatoires.
-Platform : id, position{x,y,z}, width>0, depth>0, thickness>0, supports[], material optionnel, edge_treatment optionnel, source, evidence. Plusieurs plateformes sont autorisées et REQUISES lorsqu’il y a plusieurs blocs physiques distincts.
-StairRun : id, start{x,y,z}, end{x,y,z}, width>0, material optionnel, left_edge optionnel, right_edge optionnel, source, evidence. Plusieurs StairRun sont autorisés et REQUIS si l’escalier change de direction.
-Visibility : au plus une entrée par façade, spans non chevauchants.
+TOITURE
+Pignon avant établi → gable ridge_direction=depth. Matériau de couverture et géométrie sont deux questions séparées.
 
-VALEURS AUTORISÉES
-facade = front | rear | left | right
-opening.type = window | door | garage_door
-window_style = simple | four_pane | traditional_tall | paired | bay | null
-roof.type = flat | gable
-ridge_direction = width | depth | null
-material = timber | concrete | masonry | stone | metal | composite | unknown
-edge_treatment / left_edge / right_edge = none | open_railing | solid_parapet | unknown
-source.kind = observed | user_provided | inferred | generated_default
+AUDIT FINAL
+- comptes d’ouvertures exacts par façade ; IDs/façades conservés ; aucune ouverture inventée ;
+- alignements certains conservés ; aucune zone cachée complétée ;
+- primitives extérieures segmentées avant métrique ; chaque changement de direction = nouvelle StairRun ; chaque changement de matériau/structure = nouvelle Platform ;
+- chaque Platform récente possède material et edges détaillés ; aucun garde-corps périmétrique inventé ; bord contre maison = wall_attached lorsqu’observé ; passage escalier = access_opening lorsqu’observé ;
+- supports non inventés ; connexions certaines respectées ; aucune connexion architecturale supposée ;
+- aucun bloc extérieur n’empiète artificiellement sur une ouverture certaine ; anti-miroir respecté ;
+- fichier JSON final valide et réellement téléchargeable.
 
-AUDIT FINAL OBLIGATOIRE
-1. comptes d’ouvertures certaines Survey = Scene par façade du corps principal ;
-2. chaque ouverture certaine garde ID + façade ; aucune ouverture Scene absente du Survey ;
-3. chaque relation `connects_to` certaine du Survey est géométriquement respectée ;
-4. aucune nouvelle connexion n’est inventée par convention architecturale ;
-5. alignements certains conservés ;
-6. aucune ouverture dans une zone cachée ;
-7. terrasse/escalier : liste des primitives établie avant métrique ;
-8. chaque changement de direction d’escalier correspond à un StairRun distinct ;
-9. chaque changement de matériau/structure de plateforme correspond à un Platform distinct ;
-10. matériau et traitements de bord renseignés uniquement quand observés/plausibles, jamais inventés par symétrie ;
-11. aucun bloc extérieur n’empiète sur une ouverture certaine ;
-12. les bords de terrasse observés accolés au mur le restent ;
-13. pignon avant → ridge_direction=depth ; aucune inversion left/right ;
-14. chaque platform possède thickness/supports ; chaque stair possède start/end ;
-15. références volume_id valides et géométrie dans les limites ;
-16. fichier final créé et téléchargeable.
-
-Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de détecter l’erreur dans le rendu LEGO.
+Si un audit échoue, corrige avant de fournir le fichier. Ne demande pas à l’utilisateur de découvrir l’erreur dans le rendu LEGO.
