@@ -60,16 +60,19 @@ The next stages should migrate consumers gradually rather than replacing the wor
 
 `data/processed/piece_types_master.csv` is richer than the hardcoded M0 catalog and already contains standard bricks, plates, tiles, many slope angles, inverted slopes, windows, doors and other part families. Presence in that dataset does **not** mean a part is already geometrically modeled or safe for automatic use.
 
-A piece should pass through capability stages:
+A piece passes through explicit capability stages in `brickhouse.bricks.piece_capabilities`:
 
-1. known in source dataset;
-2. canonical BrickHouse identity established;
-3. dimensions and connection semantics validated;
-4. orientation/footprint behavior modeled;
-5. approved for deterministic placement;
-6. optionally approved for special techniques (SNOT, hinge, rotated subassembly).
+1. `KNOWN` — present in the source dataset;
+2. `CANONICAL` — BrickHouse identity established;
+3. `GEOMETRY_VALIDATED` — dimensions/connection geometry verified;
+4. `PLACEMENT_APPROVED` — deterministic engine may place it automatically;
+5. `SPECIAL_TECHNIQUE_APPROVED` — validated for advanced techniques such as SNOT/hinged or rotated subassemblies.
 
-The optimizer must never use a merely-known part as if its connection geometry were validated.
+The current M0 standard bricks, currently modeled roof families and validated window frame/pane assemblies are explicitly promoted to `PLACEMENT_APPROVED`. Other pieces remain known but unavailable to automatic placement until their geometry is modeled.
+
+The final pipeline now audits every generated `BrickModel` against this registry. Accidentally using a merely-known exotic piece therefore fails loudly rather than silently expanding engine capability.
+
+Deployment must ship the processed piece catalogue because the capability audit is part of runtime generation, not just development metadata.
 
 ## Single-view vs multi-view
 
