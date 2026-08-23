@@ -17,6 +17,9 @@ from .brick_model import BrickModel, BrickModelPart
 from .scaling import COURSES_PER_STUD_RATIO
 
 
+EPSILON = 1e-6
+
+
 def _round_half_up(value: float) -> int:
     return int(value + 0.5)
 
@@ -34,9 +37,6 @@ def _scene_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
         ys.extend([stair.start.y, stair.end.y])
         zs.extend([stair.start.z, stair.end.z])
 
-    # Reserve a narrow exterior band for grade profiles. This prevents left/front
-    # terrain from being clamped onto the house when no terrace already expands
-    # the global Scene bounds in that direction.
     if scene.terrain and scene.terrain.profiles:
         main = scene.volumes[0]
         facades = {profile.facade for profile in scene.terrain.profiles}
@@ -92,6 +92,59 @@ def _is_timber(obj, scene: ArchitecturalScene) -> bool:
 def _is_masonry(obj, scene: ArchitecturalScene) -> bool:
     text = _object_text(obj, scene)
     return any(token in text for token in ("beton", "concrete", "maconne", "masonry", "pierre", "muret", "enduit"))
+
+
+def _validate_exterior_primitives(scene: ArchitecturalScene) -> None:
+    """Reject generic exterior shapes that silently wrap or cut through a house.
+
+    Each Platform is one rectilinear primitive attached to at most one facade. A
+    platform that turns a corner must be split into multiple Platform objects.
+    Each StairRun is one rectilinear horizontal run; a turning stair must be split
+    into multiple StairRun objects connected by a landing.
+    """
+    main = scene.volumes[0]
+    left = main.position.x
+    right = left + main.width.value
+    front = main.position.y
+    rear = front + main.depth.value
+
+    for platform in scene.platforms:
+        x0 = platform.position.x
+        x1 = x0 + platform.width
+        y0 = platform.position.y
+        y1 = y0 + platform.depth
+        sides = []
+        if x1 <= left + EPSILON:
+            sides.append(Facade.LEFT)
+        if x0 >= right - EPSILON:
+            sides.append(Facade.RIGHT)
+        if y1 <= front + EPSILON:
+            sides.append(Facade.FRONT)
+        if y0 >= rear - EPSILON:
+            sides.append(Facade.REAR)
+        if not sides:
+            raise ValueError(
+                f"platform {platform.id!r} intersects the main building footprint; "
+                "split attached exterior structures into primitives outside one facade"
+            )
+        if len(sides) > 1:
+            raise ValueError(
+                f"platform {platform.id!r} wraps a building corner; split it into one Platform per rectilinear facade segment"
+            )
+        side = sides[0]
+        if side in {Facade.LEFT, Facade.RIGHT} and (y0 < front - EPSILON or y1 > rear + EPSILON):
+            raise ValueError(f"platform {platform.id!r} extends past a side-facade corner; split the geometry")
+        if side in {Facade.FRONT, Facade.REAR} and (x0 < left - EPSILON or x1 > right + EPSILON):
+            raise ValueError(f"platform {platform.id!r} extends past a front/rear corner; split the geometry")
+
+    for stair in scene.stairs:
+        dx = abs(stair.end.x - stair.start.x)
+        dy = abs(stair.end.y - stair.start.y)
+        if dx > EPSILON and dy > EPSILON:
+            raise ValueError(
+                f"stair {stair.id!r} changes two horizontal axes in one run; "
+                "split turning stairs into axis-aligned StairRun objects joined by a landing"
+            )
 
 
 def _brick(
@@ -151,8 +204,6 @@ def _platform_parts(
 
     parts: list[BrickModelPart] = []
     index = 1
-
-    # Timber terraces are thin decks; masonry landings retain physical thickness.
     courses = 1 if timber else max(1, ceil(platform.thickness * plates_per_meter / 3.0))
     for course in range(courses):
         z = z0 + course * 3
@@ -161,21 +212,14 @@ def _platform_parts(
                 parts.append(_brick(f"scene-platform:{platform.id}:deck:{index:05d}", x0 + dx, y0 + dy, z, facade))
                 index += 1
 
+    # Supports are architectural facts, not structural defaults. Never invent
+    # arbitrary corner posts: only emit posts explicitly carried by the Scene.
     support_cells: set[tuple[int, int]] = set()
-    if platform.supports:
-        for support in platform.supports:
-            support_cells.add((
-                _round_half_up((support.position.x - origin_x) * studs_per_meter),
-                _round_half_up((support.position.y - origin_y) * studs_per_meter),
-            ))
-    elif timber:
-        xs = {x0, x0 + width - 1}
-        if width >= 8:
-            xs.add(x0 + width // 2)
-        ys = {y0, y0 + depth - 1}
-        if depth >= 10:
-            ys.add(y0 + depth // 2)
-        support_cells = {(x, y) for x in xs for y in ys}
+    for support in platform.supports:
+        support_cells.add((
+            _round_half_up((support.position.x - origin_x) * studs_per_meter),
+            _round_half_up((support.position.y - origin_y) * studs_per_meter),
+        ))
 
     for post_index, (x, y) in enumerate(sorted(support_cells), start=1):
         z = 0
@@ -238,7 +282,6 @@ def _stair_parts(
             index += 1
 
         if masonry:
-            # Concrete/stone stairs are supported masses with solid side walls.
             for px, py in tread_cells:
                 fill_z = 0
                 while fill_z < z:
@@ -270,12 +313,7 @@ def _terrain_parts(
     studs_per_meter: float,
     plates_per_meter: float,
 ) -> list[BrickModelPart]:
-    """Render facade grade profiles as a narrow stepped exterior ground strip.
-
-    This is deliberately a site cue rather than a full terrain mesh: it preserves
-    the observed local ground level and slope next to the facade without moving
-    the house or changing any user measurement.
-    """
+    """Render grade profiles as a stepped ground surface, not a retaining wall."""
     if not scene.terrain or not scene.terrain.profiles:
         return []
 
@@ -297,10 +335,7 @@ def _terrain_parts(
 
         for along in range(length):
             t = along / max(length - 1, 1)
-            grade_z = 3 * _round_half_up((start_z + (end_z - start_z) * t) / 3.0)
-            # One brick course is always shown so a zero-elevation portion still
-            # reads as ground; higher portions are filled up to the local grade.
-            top = max(0, grade_z)
+            grade_z = max(0, 3 * _round_half_up((start_z + (end_z - start_z) * t) / 3.0))
             for across in range(band):
                 if profile.facade is Facade.RIGHT:
                     px, py = x0 + width + across, y0 + along
@@ -310,11 +345,11 @@ def _terrain_parts(
                     px, py = x0 + along, y0 - 1 - across
                 else:
                     px, py = x0 + width - 1 - along, y0 + depth + across
-                z = 0
-                while z <= top:
-                    parts.append(_brick(f"scene-terrain:{profile.facade.value}:{index:06d}", px, py, z, profile.facade, category="facade_detail"))
-                    index += 1
-                    z += 3
+                parts.append(_brick(
+                    f"scene-terrain:{profile.facade.value}:{index:06d}",
+                    px, py, grade_z, profile.facade, category="facade_detail",
+                ))
+                index += 1
     return parts
 
 
@@ -330,6 +365,8 @@ def augment_brick_model_with_scene_architecture(
         return model
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
+
+    _validate_exterior_primitives(scene)
 
     main = scene.volumes[0]
     studs_per_meter = front_width_studs / main.width.value
