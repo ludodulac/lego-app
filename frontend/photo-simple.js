@@ -12,8 +12,8 @@ const slots = [...document.querySelectorAll('.guided-photo-slot')];
 const MAX_TOTAL_PHOTOS = 12;
 const MAX_EXTRA_PHOTOS = 6;
 const HANDOFF_SCHEMA_VERSION = 'handoff-0.5';
-const INSTRUCTION_FILENAME = 'brickhouse-analyse-instructions.txt';
-const EXTERNAL_AI_LAUNCH_MESSAGE = `Exécute maintenant BrickHouse en mode mono-tour. Le fichier brickhouse-analyse-instructions.txt joint est la commande utilisateur complète et prioritaire. Analyse toutes les photos jointes comme les vues d’un même bâtiment, exécute entièrement Topologie → Survey → Scene, puis crée immédiatement le fichier téléchargeable brickhouse-external-result.json. Ne réponds pas par une analyse intermédiaire, ne propose aucune option, ne demande aucune confirmation et ne demande pas ce que je souhaite. Si une information est incertaine, encode cette incertitude dans le JSON au lieu de m’interroger. Ta réponse finale doit uniquement annoncer ou joindre brickhouse-external-result.json.`;
+const INSTRUCTION_FILENAME = '00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt';
+const EXTERNAL_AI_LAUNCH_MESSAGE = `Exécute maintenant BrickHouse en mode mono-tour. Le fichier 00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt joint est la commande utilisateur complète et prioritaire. Analyse toutes les photos jointes comme les vues d’un même bâtiment, exécute entièrement Topologie → Survey → Scene, puis crée immédiatement le fichier téléchargeable brickhouse-external-result.json. Ne réponds pas par une analyse intermédiaire, ne propose aucune option, ne demande aucune confirmation et ne demande pas ce que je souhaite. Si une information est incertaine, encode cette incertitude dans le JSON au lieu de m’interroger. N’utilise aucun ancien brickhouse-external-result.json éventuellement présent ailleurs : reconstruis uniquement depuis les photos et ce fichier de commande. Ta réponse finale doit uniquement annoncer ou joindre brickhouse-external-result.json.`;
 
 function ensureLaunchInstruction() {
   let block = document.querySelector('#ai-launch-instruction-block');
@@ -23,17 +23,17 @@ function ensureLaunchInstruction() {
   block.className = 'field fallback-paste';
   block.hidden = true;
   block.innerHTML = `
-    <label for="ai-launch-instruction">Message à envoyer avec les photos et le fichier d’instructions</label>
-    <textarea id="ai-launch-instruction" rows="7" readonly spellcheck="false"></textarea>
+    <label for="ai-launch-instruction">Message à envoyer avec les photos et la commande BrickHouse</label>
+    <textarea id="ai-launch-instruction" rows="8" readonly spellcheck="false"></textarea>
     <button id="copy-ai-launch-instruction" type="button">Copier cette consigne</button>
-    <small>Dans une nouvelle conversation IA, joignez les photos originales et ${INSTRUCTION_FILENAME}, puis envoyez exactement cette consigne. L’IA doit produire le JSON directement, sans conversation intermédiaire.</small>`;
+    <small>Nouvelle conversation uniquement : joignez les photos originales et ${INSTRUCTION_FILENAME}. Ne joignez PAS un ancien brickhouse-external-result.json. L’IA doit produire le nouveau JSON directement, sans conversation intermédiaire.</small>`;
   packageStatus?.insertAdjacentElement('afterend', block);
   const textarea = block.querySelector('#ai-launch-instruction');
   textarea.value = EXTERNAL_AI_LAUNCH_MESSAGE;
   block.querySelector('#copy-ai-launch-instruction')?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(EXTERNAL_AI_LAUNCH_MESSAGE);
-      packageStatus.textContent = 'Consigne BrickHouse mono-tour copiée. Collez-la dans le même message que les photos et le fichier d’instructions.';
+      packageStatus.textContent = 'Consigne BrickHouse mono-tour copiée. Joignez uniquement les photos et le fichier 00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt.';
     } catch {
       textarea.focus();
       textarea.select();
@@ -130,6 +130,7 @@ function manifestFor(records) {
     kind: 'brickhouse_external_ai_handoff',
     execution_mode: 'single_turn_file_output',
     instruction_file: INSTRUCTION_FILENAME,
+    forbidden_context_files: ['brickhouse-external-result.json'],
     launch_instruction: EXTERNAL_AI_LAUNCH_MESSAGE,
     known_front_width_m: Number(knownWidthInput?.value) > 0 ? Number(knownWidthInput.value) : null,
     target_front_width_studs: Number(studsInput?.value) || 48,
@@ -157,7 +158,7 @@ function requestText(records) {
   const width = Number(knownWidthInput?.value);
   const general = notesInput?.value.trim() || 'Aucune précision générale.';
   const photoLines = records.map((item, idx) => `${idx + 1}. ${item.file.name} — repère utilisateur : ${item.label}${item.role === 'guided_base' && item.slot_view_index > 1 ? ` (vue ${item.slot_view_index} de cette zone)` : ''}${item.note ? ` — note : ${item.note}` : ''}`).join('\n');
-  return `BRICKHOUSE — COMMANDE MONO-TOUR — À EXÉCUTER EN ENTIER\n\nCe fichier est la commande utilisateur complète. Tu dois produire le résultat final dans ce même tour. Aucun dialogue intermédiaire n’est autorisé.\n\nINTERDIT AVANT LA SORTIE JSON\n- ne demande pas confirmation de l’orientation ;\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas rénovation, plan LEGO, analyse architecturale, élévations ou autres options ;\n- ne réponds pas par un résumé de ce que tu as compris ;\n- ne t’arrête pas après la topologie ou le Survey ;\n- ne demande aucune information supplémentaire si elle peut être représentée comme inconnue/incertaine ;\n- ne réutilise jamais un ancien brickhouse-external-result.json éventuellement présent dans le contexte : reconstruis depuis les photos et les présentes instructions.\n\nAnalyse toutes les photos jointes comme un ensemble multi-vues du même bâtiment. Les libellés sont des repères de prise de vue : vérifie leur cohérence par les images. S’ils sont ambigus, conserve l’ambiguïté dans les niveaux de certitude ; ne transforme pas cette ambiguïté en question utilisateur.\n\nVUES JOINTES\n${photoLines}\n\nINFORMATIONS UTILISATEUR\n- Informations générales : ${general}\n- Largeur avant connue : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- Taille cible : ${Number(studsInput?.value) || 48} tenons de façade\n\nRÈGLES NON NÉGOCIABLES\n- Ne jamais inventer une ouverture ou une structure dans une zone cachée.\n- Verrouiller topologie et correspondances multi-vues avant la métrique.\n- Une géométrie plausible ne devient pas certaine parce qu’elle ferme une circulation.\n- Une porte en hauteur peut donner dans le vide : ne pas inventer balcon, palier, terrasse ou escalier.\n- Les primitives extérieures de Scene doivent être soutenues par le Survey et réutiliser exactement l'id stable correspondant.\n- Ne jamais inverser gauche/droite.\n- Ne jamais attribuer au bâtiment cible un élément d’un bâtiment voisin.\n- Toute mesure utilisateur reste prioritaire avec source.kind=user_provided.\n- Le bâtiment peut être non rectangulaire, multi-volume ou atypique : ne pas imposer la maison benchmark comme modèle général.\n\nEXÉCUTION OBLIGATOIRE\n1. Exécute la topologie multi-vues.\n2. Sans t’arrêter ni demander confirmation, construis le Survey.\n3. Sans t’arrêter, reconstruis la Scene uniquement depuis ce Survey.\n4. Effectue les audits finaux demandés par les prompts.\n5. Crée immédiatement le fichier brickhouse-external-result.json.\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-external-result.json avec cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "...": "ArchitecturalSurvey v0.1 complet" },\n  "scene": { "...": "ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey" }\n}\n\nLa réponse de chat finale doit être minimale : elle peut seulement indiquer que brickhouse-external-result.json a été créé/attaché. Tout le contenu substantiel doit être dans ce fichier.\n`;
+  return `BRICKHOUSE — COMMANDE MONO-TOUR — À EXÉCUTER EN ENTIER\n\nCe fichier est la commande utilisateur complète. Tu dois produire le résultat final dans ce même tour. Aucun dialogue intermédiaire n’est autorisé.\n\nINTERDIT AVANT LA SORTIE JSON\n- ne demande pas confirmation de l’orientation ;\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas rénovation, plan LEGO, analyse architecturale, élévations ou autres options ;\n- ne réponds pas par un résumé de ce que tu as compris ;\n- ne t’arrête pas après la topologie ou le Survey ;\n- ne demande aucune information supplémentaire si elle peut être représentée comme inconnue/incertaine ;\n- ignore tout ancien brickhouse-external-result.json : ce type de fichier est une SORTIE, jamais une entrée de ce run ;\n- reconstruis exclusivement depuis les photos jointes, les faits utilisateur ci-dessous et les prompts inclus dans CE fichier.\n\nAnalyse toutes les photos jointes comme un ensemble multi-vues du même bâtiment. Les libellés sont des repères de prise de vue : vérifie leur cohérence par les images. S’ils sont ambigus, conserve l’ambiguïté dans les niveaux de certitude ; ne transforme pas cette ambiguïté en question utilisateur.\n\nVUES JOINTES\n${photoLines}\n\nINFORMATIONS UTILISATEUR\n- Informations générales : ${general}\n- Largeur avant connue : ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- Taille cible : ${Number(studsInput?.value) || 48} tenons de façade\n\nRÈGLES NON NÉGOCIABLES\n- Ne jamais inventer une ouverture ou une structure dans une zone cachée.\n- Verrouiller topologie et correspondances multi-vues avant la métrique.\n- Une géométrie plausible ne devient pas certaine parce qu’elle ferme une circulation.\n- Une porte en hauteur peut donner dans le vide : ne pas inventer balcon, palier, terrasse ou escalier.\n- Les primitives extérieures de Scene doivent être soutenues par le Survey et réutiliser exactement l'id stable correspondant.\n- Ne jamais inverser gauche/droite.\n- Ne jamais attribuer au bâtiment cible un élément d’un bâtiment voisin.\n- Toute mesure utilisateur reste prioritaire avec source.kind=user_provided.\n- Le bâtiment peut être non rectangulaire, multi-volume ou atypique : ne pas imposer la maison benchmark comme modèle général.\n\nEXÉCUTION OBLIGATOIRE\n1. Exécute la topologie multi-vues.\n2. Sans t’arrêter ni demander confirmation, construis le Survey.\n3. Sans t’arrêter, reconstruis la Scene uniquement depuis ce Survey.\n4. Effectue les audits finaux demandés par les prompts.\n5. Crée immédiatement le fichier brickhouse-external-result.json.\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-external-result.json avec cette enveloppe :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "...": "ArchitecturalSurvey v0.1 complet" },\n  "scene": { "...": "ArchitecturalScene v0.2 complet reconstruit uniquement depuis ce Survey" }\n}\n\nLa réponse de chat finale doit être minimale : elle peut seulement indiquer que brickhouse-external-result.json a été créé/attaché. Tout le contenu substantiel doit être dans ce fichier.\n`;
 }
 
 function combinedInstruction(records, topologyPrompt, surveyPrompt, scenePrompt) {
@@ -188,7 +189,7 @@ packageButton?.addEventListener('click', async () => {
     return;
   }
   packageButton.disabled = true;
-  packageStatus.textContent = 'Préparation des instructions BrickHouse mono-tour…';
+  packageStatus.textContent = 'Préparation de la commande BrickHouse mono-tour…';
   try {
     const [topologyPrompt, surveyPrompt, scenePrompt] = await Promise.all([
       fetchText('./brickhouse-topology-prompt.txt'),
@@ -200,9 +201,9 @@ packageButton?.addEventListener('click', async () => {
     launchBlock.hidden = false;
     try {
       await navigator.clipboard.writeText(EXTERNAL_AI_LAUNCH_MESSAGE);
-      packageStatus.textContent = `${records.length} photo(s) référencée(s). ${INSTRUCTION_FILENAME} est prêt et la commande mono-tour est copiée. L’IA doit créer directement brickhouse-external-result.json.`;
+      packageStatus.textContent = `${records.length} photo(s) référencée(s). ${INSTRUCTION_FILENAME} est prêt et la commande mono-tour est copiée. Ne joignez aucun ancien JSON.`;
     } catch {
-      packageStatus.textContent = `${records.length} photo(s) référencée(s). ${INSTRUCTION_FILENAME} est prêt. Copiez la commande affichée ci-dessous avec les photos et le fichier.`;
+      packageStatus.textContent = `${records.length} photo(s) référencée(s). ${INSTRUCTION_FILENAME} est prêt. Copiez la commande affichée ci-dessous. Ne joignez aucun ancien JSON.`;
     }
   } catch (error) {
     packageStatus.textContent = `Impossible de préparer les instructions : ${error.message}`;
