@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 190" role="img" aria-labelledby="title desc">
+  <title id="title">Boldungo</title><desc id="desc">Logo Boldungo avec maison rouge, tenons jaune et bleu et nom Boldungo.</desc>
+  <rect width="760" height="190" fill="white"/>
+  <g transform="translate(24 32)">
+    <rect x="18" y="28" width="108" height="84" rx="2" fill="#ed1c24"/>
+    <rect x="34" y="8" width="30" height="25" rx="7" fill="#ffc719"/>
+    <rect x="82" y="8" width="30" height="25" rx="7" fill="#1976c9"/>
+    <path d="M38 112V72L72 43l34 29v40H86V87H60v25Z" fill="white"/>
+    <rect x="67" y="91" width="11" height="21" rx="2" fill="#ed1c24"/>
+  </g>
+  <text x="165" y="133" font-family="Arial,Helvetica,sans-serif" font-size="104" font-weight="700" letter-spacing="-6" fill="#050505">bold</text>
+  <g transform="translate(382 0)">
+    <path d="M20 82v35c0 22 16 34 37 34s37-12 37-34V82H73v33c0 11-6 17-16 17s-16-6-16-17V82Z" fill="#ffc719"/>
+    <circle cx="32" cy="62" r="10" fill="#ed1c24"/><circle cx="82" cy="62" r="10" fill="#1976c9"/>
+  </g>
+  <text x="480" y="133" font-family="Arial,Helvetica,sans-serif" font-size="104" font-weight="700" letter-spacing="-6" fill="#050505">ngo</text>
+</svg>
