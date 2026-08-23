@@ -70,19 +70,21 @@ def _opening_grid(
     *,
     origin_x: float,
     origin_y: float,
+    origin_z: float,
     studs_per_meter: float,
 ) -> tuple[int, int, int, int, int, int, int, int]:
-    main = scene.volumes[0]
+    """Rasterize one opening relative to its own SceneVolume and global Scene origin."""
+    volume = next(item for item in scene.volumes if item.id == opening.volume_id)
     courses_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO
-    house_x = _round_half_up((main.position.x - origin_x) * studs_per_meter)
-    house_y = _round_half_up((main.position.y - origin_y) * studs_per_meter)
-    house_width = max(1, _round_half_up(main.width.value * studs_per_meter))
-    house_depth = max(1, _round_half_up(main.depth.value * studs_per_meter))
+    volume_x = _round_half_up((volume.position.x - origin_x) * studs_per_meter)
+    volume_y = _round_half_up((volume.position.y - origin_y) * studs_per_meter)
+    volume_width = max(1, _round_half_up(volume.width.value * studs_per_meter))
+    volume_depth = max(1, _round_half_up(volume.depth.value * studs_per_meter))
     local = max(0, _round_half_up(opening.offset_horizontal * studs_per_meter))
-    z0 = max(0, _round_half_up(opening.offset_vertical * courses_per_meter))
+    z0 = max(0, _round_half_up((volume.position.z + opening.offset_vertical - origin_z) * courses_per_meter))
     width = max(1, _round_half_up(opening.width * studs_per_meter))
     height = max(1, _round_half_up(opening.height * courses_per_meter))
-    return house_x, house_y, house_width, house_depth, local, z0, width, height
+    return volume_x, volume_y, volume_width, volume_depth, local, z0, width, height
 
 
 def _global_cell(
@@ -111,6 +113,7 @@ def _opening_parts(
     *,
     origin_x: float,
     origin_y: float,
+    origin_z: float,
     studs_per_meter: float,
 ) -> list[BrickModelPart]:
     glass_blocks = _is_glass_block(opening)
@@ -119,7 +122,12 @@ def _opening_parts(
         return []
 
     house_x, house_y, house_width, house_depth, local, z0, width, height = _opening_grid(
-        opening, scene, origin_x=origin_x, origin_y=origin_y, studs_per_meter=studs_per_meter
+        opening,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        origin_z=origin_z,
+        studs_per_meter=studs_per_meter,
     )
     parts: list[BrickModelPart] = []
     index = 1
@@ -167,13 +175,15 @@ def augment_brick_model_with_scene_glazing(
 
     main = scene.volumes[0]
     studs_per_meter = front_width_studs / main.width.value
-    origin_x, origin_y, _ = _scene_bounds(scene)
+    origin_x, origin_y, origin_z = _scene_bounds(scene)
     extra: list[BrickModelPart] = []
     for opening in targets:
         extra.extend(_opening_parts(
-            opening, scene,
+            opening,
+            scene,
             origin_x=origin_x,
             origin_y=origin_y,
+            origin_z=origin_z,
             studs_per_meter=studs_per_meter,
         ))
     if not extra:
