@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.2
+BRICKHOUSE — PROMPT D’EXTENSION ARCHITECTURALSURVEY v0.3
 
 RÔLE
 Tu étends un ArchitecturalSurvey BrickHouse déjà validé avec de nouvelles photographies de LA MÊME maison. Tu ne recommences pas le relevé depuis zéro.
@@ -9,13 +9,13 @@ ENTRÉES OBLIGATOIRES
 3. Si disponibles, les anciennes photographies peuvent aussi être jointes pour le recoupement visuel, mais le fichier Survey validé reste la source de vérité pour ce qui est déjà acquis.
 
 OBJECTIF
-Produis un NOUVEAU fichier ArchitecturalSurvey v0.1 complet qui contient l’ancien Survey intact + les nouvelles photos + les nouvelles observations directement soutenues par ces photos.
+Produis un NOUVEAU fichier ArchitecturalSurvey v0.1 complet qui contient l’ancien Survey intact + les nouvelles photos + les nouvelles observations et relations directement soutenues par ces photos.
 Crée de préférence un fichier joint nommé `brickhouse-architectural-survey-extended-v0.1.json`. Si ton interface ne permet pas de créer un fichier, renvoie uniquement le JSON pur.
 
 RÈGLE ABSOLUE — EXTENSION, PAS RÉÉCRITURE
 Le Survey validé de départ est IMMUTABLE pendant cette passe.
-Tu dois conserver EXACTEMENT schema_version, id, canonical_frame, known_measurements, representation_policy, chaque ancienne photo et chaque ancienne observation.
-NE RENOMME, NE SUPPRIME ET NE MODIFIE AUCUNE OBSERVATION EXISTANTE.
+Tu dois conserver EXACTEMENT schema_version, id, canonical_frame, known_measurements, representation_policy, chaque ancienne photo, chaque ancienne observation ET chaque ancienne relation.
+NE RENOMME, NE SUPPRIME ET NE MODIFIE AUCUNE OBSERVATION OU RELATION EXISTANTE.
 
 NOUVELLES PHOTOS
 - Utilise des photo_index strictement supérieurs au maximum existant.
@@ -26,6 +26,12 @@ NOUVELLES OBSERVATIONS
 Observe limites, terrain, matériaux, ouvertures, toiture, cheminée, équipements, terrasse/plateforme, escalier, volumes secondaires accolés, contexte et occultations.
 Chaque nouvelle observation reçoit un id nouveau, cite une nouvelle photo, n’invente aucune géométrie cachée et distingue certain/plausible/unproven.
 
+NOUVELLES RELATIONS
+Après les nouvelles observations, ajoute seulement les relations réellement révélées par les nouvelles vues. Valeurs autorisées : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object.
+Une nouvelle relation peut relier deux nouvelles observations ou une nouvelle observation à une observation existante. Elle reçoit un id nouveau et cite la photo qui prouve la relation.
+Une relation `certain` exige une preuve visuelle claire ou une confirmation utilisateur. Ne transforme jamais une nécessité architecturale supposée en relation : une porte en hauteur n’implique pas un balcon, une terrasse ou un escalier.
+Les relations déjà présentes dans le Survey de départ sont immuables pendant l’extension.
+
 CONTRAT SÉMANTIQUE DES ÉLÉMENTS ARCHITECTURAUX
 Valeurs observation.kind disponibles : building_boundary | terrain | material | weathering | opening | roof | chimney | equipment | volume | platform | stair | occlusion | context.
 - Une terrasse/plateforme appartenant au bâtiment utilise kind="platform".
@@ -34,16 +40,15 @@ Valeurs observation.kind disponibles : building_boundary | terrain | material | 
 - Pour ces trois catégories, renseigne attributes.architectural_kind avec exactement "platform", "stair" ou "volume" et attributes.target_building_ownership="proven" lorsque l’appartenance est établie.
 - context est réservé aux objets qui ne font pas partie du bâtiment cible ou dont l’appartenance n’est pas prouvée.
 - INTERDIT : reclasser un élément architectural en context uniquement pour satisfaire le schéma.
-- Si un élément architectural observé ne peut pas être représenté honnêtement par le contrat disponible, conserve sa nature dans notes et signale explicitement la limitation au lieu de lui attribuer une fausse catégorie.
 
 RACCORDEMENT ENTRE FAÇADES
-Utilise coins, continuités de toiture, alignements, terrain et éléments traversant les angles pour raccorder les vues, sans inventer de métrique globale.
+Utilise coins, continuités de toiture, alignements, terrain et éléments traversant les angles pour raccorder les vues, sans inventer de métrique globale. Enregistre une relation explicite seulement lorsqu’elle est effectivement prouvée.
 
 FAITS UTILISATEUR
-Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations avec attributes.confirmed_by_user=true et une sémantique stable. Ne rétro-modifie pas une ancienne observation.
+Tout fait explicitement confirmé par l’utilisateur dans les nouvelles instructions doit être enregistré dans les NOUVELLES observations/relations avec une sémantique stable. Ne rétro-modifie pas un ancien objet.
 
 INTERDIT
-- Refaire une version “plus propre” des anciennes observations.
+- Refaire une version “plus propre” des anciennes observations ou relations.
 - Renommer leurs ids, les fusionner ou réindexer les anciennes photos.
 - Modifier une known_measurement, notamment la largeur avant connue.
 - Ajouter des mètres depuis les nouvelles photos.
@@ -57,12 +62,14 @@ Conserve les notes existantes et ajoute à la fin une section courte commençant
 CONTRÔLE FINAL SILENCIEUX
 1. Anciennes photos identiques.
 2. Anciennes observations identiques champ par champ.
-3. canonical_frame, known_measurements et representation_policy identiques.
-4. Nouveaux photo_index strictement supérieurs à l’ancien maximum.
-5. Nouveaux ids uniques.
-6. Nouvelles observations soutenues par nouvelles photos.
-7. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
-8. Résultat final = ArchitecturalSurvey v0.1 complet.
+3. Anciennes relations identiques champ par champ.
+4. canonical_frame, known_measurements et representation_policy identiques.
+5. Nouveaux photo_index strictement supérieurs à l’ancien maximum.
+6. Nouveaux ids d’observations et relations uniques.
+7. Nouvelles observations/relations soutenues par nouvelles photos.
+8. Aucune relation architecturale inventée par convention.
+9. platform/stair/volume jamais dégradés en context quand l’appartenance au bâtiment est prouvée.
+10. Résultat final = ArchitecturalSurvey v0.1 complet.
 
 SORTIE
 Un seul fichier JSON complet `brickhouse-architectural-survey-extended-v0.1.json`, sans explication autour si le fichier joint n’est pas possible.
