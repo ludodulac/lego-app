@@ -16,6 +16,8 @@ from .survey_validation import (
     validate_scene_against_survey as _validate_scene_against_survey,
 )
 
+MAX_PLAUSIBLE_METRIC_CONFIDENCE = 0.65
+
 
 def _guard_kind(
     survey: ArchitecturalSurvey,
@@ -28,7 +30,7 @@ def _guard_kind(
         for observation in survey.observations
         if observation.kind is kind
     }
-    label = "platforme" if kind is ObservationKind.PLATFORM else "volée d’escalier"
+    label = "plateforme" if kind is ObservationKind.PLATFORM else "volée d’escalier"
 
     for obj in scene_objects:
         observation = observations.get(obj.id)
@@ -59,7 +61,10 @@ def _guard_kind(
                 )
             )
             continue
-        if observation.certainty is Certainty.PLAUSIBLE and obj.source.confidence > 0.75:
+        if (
+            observation.certainty is Certainty.PLAUSIBLE
+            and obj.source.confidence > MAX_PLAUSIBLE_METRIC_CONFIDENCE
+        ):
             issues.append(
                 SceneSurveyIssue(
                     code=f"plausible_{kind.value}_overconfidence",
@@ -67,8 +72,8 @@ def _guard_kind(
                     object_id=obj.id,
                     message=(
                         f"La {label} {obj.id!r} reste seulement plausible dans le Survey, mais la Scene lui "
-                        f"attribue une confiance métrique de {obj.source.confidence:.2f}. Conservez une confiance "
-                        "prudente ou ajoutez une nouvelle preuve/refinement."
+                        f"attribue une confiance métrique de {obj.source.confidence:.2f}. Tant qu’aucune nouvelle "
+                        f"preuve ne la raffine, conservez une confiance ≤ {MAX_PLAUSIBLE_METRIC_CONFIDENCE:.2f}."
                     ),
                 )
             )
