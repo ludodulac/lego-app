@@ -272,6 +272,9 @@ class VisibilitySpan(BaseModel):
 
 
 class FacadeVisibility(BaseModel):
+    # Explicit scope is required for unambiguous multi-volume scenes. Legacy
+    # entries without volume_id remain scoped to the primary (first) volume.
+    volume_id: str | None = None
     facade: Facade
     spans: list[VisibilitySpan] = Field(default_factory=list)
 
@@ -330,6 +333,9 @@ class ArchitecturalScene(BaseModel):
             if roof.volume_id in roof_ids:
                 raise ValueError("at most one roof may reference a scene volume in v0.2")
             roof_ids.add(roof.volume_id)
+        for entry in self.visibility:
+            if entry.volume_id is not None and entry.volume_id not in volumes:
+                raise ValueError(f"visibility on {entry.facade.value} references unknown volume {entry.volume_id!r}")
 
     def _validate_opening_geometry(self):
         volumes = {volume.id: volume for volume in self.volumes}
@@ -359,21 +365,34 @@ class ArchitecturalScene(BaseModel):
         )
 
     def _validate_visibility(self):
-        if len({entry.facade for entry in self.visibility}) != len(self.visibility):
-            raise ValueError("at most one visibility entry may be defined per facade")
-        by_facade = {entry.facade: entry for entry in self.visibility}
+        volumes = {volume.id: volume for volume in self.volumes}
+        primary_volume_id = self.volumes[0].id
+
+        def scope(entry):
+            return entry.volume_id or primary_volume_id
+
+        keys = [(scope(entry), entry.facade) for entry in self.visibility]
+        if len(keys) != len(set(keys)):
+            raise ValueError("at most one visibility entry may be defined per volume/facade")
+
+        by_scope_facade = {(scope(entry), entry.facade): entry for entry in self.visibility}
         for entry in self.visibility:
-            if len(self.volumes) == 1:
-                volume = self.volumes[0]
-                span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
-                if any(item.to_offset > span + EPSILON for item in entry.spans):
-                    raise ValueError(f"visibility span on {entry.facade.value} extends past facade")
+            volume_id = scope(entry)
+            volume = volumes[volume_id]
+            span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
+            if any(item.to_offset > span + EPSILON for item in entry.spans):
+                raise ValueError(
+                    f"visibility span on volume {volume_id!r} facade {entry.facade.value} extends past facade"
+                )
             ordered = sorted(entry.spans, key=lambda item: item.from_offset)
             for previous, current in zip(ordered, ordered[1:]):
                 if current.from_offset < previous.to_offset - EPSILON:
-                    raise ValueError(f"visibility spans overlap on facade {entry.facade.value}")
+                    raise ValueError(
+                        f"visibility spans overlap on volume {volume_id!r} facade {entry.facade.value}"
+                    )
+
         for opening in self.openings:
-            entry = by_facade.get(opening.facade)
+            entry = by_scope_facade.get((opening.volume_id, opening.facade))
             if entry:
                 for span in entry.spans:
                     if (
