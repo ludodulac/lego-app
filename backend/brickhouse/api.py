@@ -41,7 +41,9 @@ from brickhouse.vision.provider import (
 
 MAX_PHOTO_BYTES = 12 * 1024 * 1024
 SUPPORTED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
-MAX_PHOTOS = 6
+# Six broad exterior views are the guided baseline, not an architectural ceiling.
+# Extra targeted angles/details are useful for occluded or geometrically complex areas.
+MAX_PHOTOS = 12
 
 
 class BuildRequest(BaseModel):
@@ -162,7 +164,7 @@ def _with_scene_build_preflight(
 
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.16.0",
+    version="0.17.0",
     description=(
         "Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or "
         "BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan"
