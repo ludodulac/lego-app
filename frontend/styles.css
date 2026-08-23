@@ -26,7 +26,12 @@ dt { opacity: .58; }
 dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
 .legend p { margin: 8px 0; display: flex; align-items: center; gap: 9px; opacity: .78; }
 .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-.swatch.wall { background: #d8c7a4; }.swatch.roof { background: #b9564b; }.swatch.ridge { background: #e5a15f; }
+.swatch.wall { background: #d8c7a4; }
+.swatch.roof { background: #565b61; }
+.swatch.timber { background: #a87845; }
+.swatch.concrete { background: #b8b8b2; }
+.swatch.masonry { background: #d4d0c5; }
+.swatch.terrain { background: #72777b; }
 .message { min-height: 1.3em; margin: 0; font-size: 13px; color: #ffcf7d; line-height: 1.45; }
 .assembly-card { display: grid; gap: 12px; }
 .assembly-card[hidden] { display: none; }
