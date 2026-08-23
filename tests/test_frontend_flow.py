@@ -117,11 +117,12 @@ def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
 def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> None:
     topology = read("brickhouse-topology-prompt.txt")
     survey = read("brickhouse-survey-prompt.txt")
-    assert "TOPOLOGIQUE v0.6" in topology
+    assert "TOPOLOGIQUE v0.7" in topology
     assert "execution_mode=single_turn_file_output" in topology
     assert "N’ENTRE PAS en mode conversationnel" in topology
-    assert "REPÈRE DE CAPTURE" in topology
+    assert "slot_labels_are_user_confirmed" in topology
     assert "indices faibles" in topology
+    assert "contrainte utilisateur forte" in topology
     assert "user_confirmed" in topology
     assert "RELEVÉ ARCHITECTURAL v2.2" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
@@ -144,9 +145,9 @@ def test_survey_extension_prompt_supports_append_only_refinement() -> None:
     assert "workflow de correction explicite" in prompt
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v28_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v29_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.8" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.9" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "CONTRAT JSON EXACT — OBLIGATOIRE" in prompt
     assert 'schema_version` DOIT valoir exactement `"0.2"' in prompt
@@ -154,8 +155,6 @@ def test_survey_to_scene_prompt_matches_current_generic_v28_contract() -> None:
     assert "PropertyValue" in prompt
     assert "SceneVolume" in prompt
     assert "IDENTITÉ SURVEY → SCENE" in prompt
-    assert "facade_horizontal_rank" in prompt
-    assert "facade_vertical_rank" in prompt
     assert "SupportPost" in prompt
     assert "facade_grade_profiles" in prompt
     assert "building_boundary" in prompt
@@ -164,7 +163,8 @@ def test_survey_to_scene_prompt_matches_current_generic_v28_contract() -> None:
     assert "GÉOMÉTRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA" in prompt
     assert "type:\"other\"" in prompt
     assert 'type":"window|door|garage_door' in prompt
-    assert "walls/roof/frames" in prompt
+    assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in prompt
+    assert "chaque Platform touche un volume ou une StairRun" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
