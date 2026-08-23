@@ -199,6 +199,24 @@ def run_m0_pipeline_model(
     )
 
 
+def _source_confidence_issue(kind: str, obj) -> BrickExportFidelityIssue | None:
+    """Surface architectural uncertainty instead of presenting inferred geometry as measured fact."""
+    source = getattr(obj, "source", None)
+    if source is None or source.kind == "user_provided" or source.confidence >= 0.65:
+        return None
+    severity = "warning" if source.confidence < 0.5 else "info"
+    return BrickExportFidelityIssue(
+        code="low_confidence_exterior_geometry",
+        severity=severity,
+        object_id=obj.id,
+        message=(
+            f"{kind} {obj.id!r} is rendered from inferred architectural geometry "
+            f"with confidence {source.confidence:.2f}. Additional overlapping views may refine "
+            "its position or connectivity; the current LEGO geometry must not be treated as measured fact."
+        ),
+    )
+
+
 def _scene_export_fidelity_issues(
     scene: ArchitecturalScene,
     projection,
@@ -220,6 +238,17 @@ def _scene_export_fidelity_issues(
                 object_id=issue.object_id,
             )
         )
+
+    # Scene-aware structures survive projection, but their metric topology may
+    # still be an inference. Keep that uncertainty visible in the final result.
+    for platform in scene.platforms:
+        issue = _source_confidence_issue("Platform", platform)
+        if issue is not None:
+            issues.append(issue)
+    for stair in scene.stairs:
+        issue = _source_confidence_issue("StairRun", stair)
+        if issue is not None:
+            issues.append(issue)
 
     # A gable can be constructed while still using the closest validated LEGO
     # slope family. Report that approximation rather than pretending its pitch
