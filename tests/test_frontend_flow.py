@@ -114,19 +114,21 @@ def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
     assert "Étape suivante : cliquez sur « Construire cette proposition »" in gate
 
 
-def test_topology_and_survey_prompts_use_adaptive_photo_coverage() -> None:
+def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> None:
     topology = read("brickhouse-topology-prompt.txt")
     survey = read("brickhouse-survey-prompt.txt")
-    assert "TOPOLOGIQUE INTERACTIVE v0.5" in topology
-    assert "STRATÉGIE DE COUVERTURE — QUALITÉ AVANT QUANTITÉ" in topology
-    assert "4 à 6 vues générales" in topology
-    assert "COMMENT DEMANDER UNE VUE SUPPLÉMENTAIRE" in topology
-    assert "capture_assessment" in topology
-    assert "RELEVÉ ARCHITECTURAL v1.9" in survey
-    assert "DENSITÉ DE COUVERTURE" in survey
-    assert "quantité de photos jamais confondue avec certitude architecturale" in survey
+    assert "TOPOLOGIQUE v0.6" in topology
+    assert "execution_mode=single_turn_file_output" in topology
+    assert "N’ENTRE PAS en mode conversationnel" in topology
+    assert "REPÈRE DE CAPTURE" in topology
+    assert "indices faibles" in topology
+    assert "user_confirmed" in topology
+    assert "RELEVÉ ARCHITECTURAL v2.1" in survey
+    assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
+    assert '"kind":"front_width"' in survey
+    assert "subject_id" in survey
+    assert "object_id" in survey
     assert "une volée qui disparaît derrière un mur ne prouve PAS" in survey
-    assert "zone occultée" in survey
     assert "IDENTITÉ STABLE DES PRIMITIVES" in survey
     assert "facade_horizontal_rank" in survey
     assert "facade_vertical_rank" in survey
@@ -141,32 +143,25 @@ def test_survey_extension_prompt_supports_append_only_refinement() -> None:
     assert "workflow de correction explicite" in prompt
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v25_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v27_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.5" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.7" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
-    assert "GÉOMÉTRIE NON ORTHOGONALE ET ARCHITECTURES ATYPIQUES" in prompt
-    assert "Ne redresse jamais silencieusement" in prompt
-    assert "Une seule photo" in prompt
-    assert "RAFFINEMENTS APPEND-ONLY DU SURVEY" in prompt
-    assert "refines_observation_id" in prompt
-    assert "observation raffinée reste une provenance historique" in prompt
+    assert "CONTRAT JSON EXACT — OBLIGATOIRE" in prompt
+    assert 'schema_version` DOIT valoir exactement `"0.2"' in prompt
+    assert "Position3D est TOUJOURS un objet" in prompt
+    assert "PropertyValue" in prompt
+    assert "SceneVolume" in prompt
     assert "IDENTITÉ SURVEY → SCENE" in prompt
-    assert "SceneOpening.id" in prompt
-    assert "Platform.id" in prompt
-    assert "StairRun.id" in prompt
     assert "facade_horizontal_rank" in prompt
     assert "facade_vertical_rank" in prompt
-    assert "VOLUMES ET PORTÉE DES INFORMATIONS" in prompt
-    assert "visibility[]` peut porter `volume_id`" in prompt
-    assert "Platform` peut porter `host_volume_id`" in prompt
-    assert "SÉMANTIQUE EXACTE DES COORDONNÉES EXTÉRIEURES" in prompt
-    assert "AXE CENTRAL" in prompt
-    assert "INCERTITUDE DES STRUCTURES EXTÉRIEURES" in prompt
-    assert "relation `plausible` ou `unproven`" in prompt
-    assert "source.kind=\"generated_default\"" in prompt
-    assert "SceneRoof.type` autorise" in prompt
-    assert "type de toiture réel conservé même s’il est non supporté en LEGO" in prompt
+    assert "SupportPost" in prompt
+    assert "facade_grade_profiles" in prompt
+    assert "building_boundary" in prompt
+    assert "DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE" in prompt
+    assert "FAUSSE PRÉCISION" in prompt
+    assert "GÉOMÉTRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA" in prompt
+    assert "type:\"other\"" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
