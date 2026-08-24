@@ -1,3 +1,5 @@
+import './brickhouse-survey-package.js';
+
 const button = document.querySelector('#import-analysis');
 const input = document.querySelector('#external-analysis');
 const apiInput = document.querySelector('#api-url');
