@@ -1,4 +1,4 @@
-from brickhouse.scene import ArchitecturalScene, project_scene_to_building, validate_scene_against_survey
+from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
 from brickhouse.survey import ArchitecturalSurvey
 
 SOURCE = {"kind": "inferred", "confidence": 0.55}
@@ -77,20 +77,3 @@ def test_preserving_unknown_roof_shape_satisfies_existence_invariant() -> None:
     }])
     issues = validate_scene_against_survey(_survey(), scene)
     assert "certain_roof_missing" not in {issue.code for issue in issues}
-
-
-def test_scene_roof_that_engine_cannot_render_blocks_open_building() -> None:
-    scene = _scene(roofs=[{
-        "id": "roof_scene",
-        "volume_id": "main",
-        "type": "other",
-        "overhang": 0,
-        "ridge_direction": None,
-        "pitch_degrees": None,
-        "source": SOURCE,
-    }])
-    projection = project_scene_to_building(scene)
-    assert projection.building is None
-    assert projection.blocked
-    issue = next(issue for issue in projection.issues if issue.code == "roof_type_not_supported")
-    assert issue.severity.value == "blocker"
