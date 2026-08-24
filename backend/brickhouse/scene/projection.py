@@ -32,6 +32,14 @@ class ProjectionResult(BaseModel):
         return any(issue.severity is ProjectionSeverity.BLOCKER for issue in self.issues)
 
 
+def _roof_is_building_model_representable(roof) -> bool:
+    if roof.type is SceneRoofType.FLAT:
+        return True
+    if roof.type is SceneRoofType.GABLE:
+        return roof.ridge_direction is not None and roof.pitch_degrees is not None
+    return False
+
+
 def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
     """Project every BuildingModel-representable scene object without silent simplification."""
 
@@ -68,6 +76,24 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                     message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
                 )
             )
+        elif roof.type is SceneRoofType.GABLE and not _roof_is_building_model_representable(roof):
+            missing = []
+            if roof.ridge_direction is None:
+                missing.append("ridge_direction")
+            if roof.pitch_degrees is None:
+                missing.append("pitch_degrees")
+            issues.append(
+                ProjectionIssue(
+                    code="gable_geometry_incomplete",
+                    severity=ProjectionSeverity.WARNING,
+                    object_id=roof.id,
+                    message=(
+                        "ArchitecturalScene preserves a gable roof but does not know "
+                        f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so the roof "
+                        "remains Scene-only instead of inventing metric roof geometry."
+                    ),
+                )
+            )
 
     # BuildingModel v0.1 already supports multiple rectangular volumes and one roof
     # per volume. Do not reject valid scene structure here merely because the
@@ -95,7 +121,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             source=roof.source,
         )
         for roof in scene.roofs
-        if roof.type in {SceneRoofType.FLAT, SceneRoofType.GABLE}
+        if _roof_is_building_model_representable(roof)
     ]
 
     notes = scene.notes
