@@ -231,6 +231,60 @@ def _confidence_issues(label: str, code_prefix: str, object_id: str, certainty, 
     return issues
 
 
+def _guard_multiview_visible_exterior(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> list[SceneSurveyIssue]:
+    """Do not drop certain visible terrace/stair primitives just because their hidden continuation is unknown.
+
+    Multi-view evidence can prove an object's existence without proving its full circulation path.  The
+    Scene should encode the visible primitive conservatively; omission is only acceptable when the Survey
+    itself does not mark that primitive certain.
+    """
+    issues: list[SceneSurveyIssue] = []
+    superseded = _superseded_observation_ids(survey)
+    scene_ids = {
+        ObservationKind.PLATFORM: {item.id for item in scene.platforms},
+        ObservationKind.STAIR: {item.id for item in scene.stairs},
+    }
+    photos_by_observation = {
+        observation.id: {evidence.photo_index for evidence in observation.evidence}
+        for observation in survey.observations
+    }
+    relation_evidence = {}
+    for relation in survey.relations:
+        for object_id in (relation.subject_id, relation.object_id):
+            relation_evidence.setdefault(object_id, set()).update(
+                evidence.photo_index for evidence in relation.evidence
+            )
+
+    for observation in survey.observations:
+        if (
+            observation.kind not in scene_ids
+            or observation.certainty is not Certainty.CERTAIN
+            or observation.id in superseded
+            or observation.id in scene_ids[observation.kind]
+        ):
+            continue
+        evidence_views = photos_by_observation.get(observation.id, set()) | relation_evidence.get(observation.id, set())
+        if len(evidence_views) < 2:
+            continue
+        label = "plateforme" if observation.kind is ObservationKind.PLATFORM else "volée d’escalier"
+        issues.append(
+            SceneSurveyIssue(
+                code=f"certain_multiview_{observation.kind.value}_not_geometrically_encoded",
+                severity=SceneSurveySeverity.ERROR,
+                object_id=observation.id,
+                message=(
+                    f"La {label} {observation.id!r} est certaine et recoupée par plusieurs vues du Survey, "
+                    "mais elle est absente de la Scene. Encodez uniquement sa portion visible; une continuation "
+                    "cachée ou incertaine ne doit pas être inventée pour compléter la circulation."
+                ),
+            )
+        )
+    return issues
+
+
 def _guard_kind(
     survey: ArchitecturalSurvey,
     scene_objects,
@@ -345,6 +399,7 @@ def validate_scene_against_survey(
     """Run historical validation plus strict no-invention/order/edge guards."""
     issues = list(_validate_scene_against_survey(survey, scene))
     issues.extend(_guard_opening_layout(survey, scene))
+    issues.extend(_guard_multiview_visible_exterior(survey, scene))
     issues.extend(_guard_kind(survey, scene.platforms, ObservationKind.PLATFORM))
     issues.extend(_guard_kind(survey, scene.stairs, ObservationKind.STAIR))
     issues.extend(_guard_terrain(survey, scene))
