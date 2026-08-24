@@ -13,11 +13,12 @@ def test_scene_prompt_separates_observed_existence_from_metric_confidence() -> N
     assert "Une seule largeur utilisateur ne suffit pas" in source
     assert "source.kind=\"inferred\"" in source
     assert "FAUSSE PRÉCISION" in source
+    assert "gable + pitch_degrees:null" in source
 
 
 def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     source = SCENE_PROMPT.read_text(encoding="utf-8")
-    assert "SURVEY → SCENE v3.0" in source
+    assert "SURVEY → SCENE v3.1" in source
     assert 'schema_version` DOIT valoir exactement `"0.2"' in source
     assert "Position3D est TOUJOURS un objet" in source
     assert "PropertyValue" in source
@@ -28,6 +29,7 @@ def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     assert "building_boundary" in source
     assert 'type":"window|door|garage_door' in source
     assert "attribute_certainty" in source
+    assert "gable_geometry_incomplete" in source
 
 
 def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
