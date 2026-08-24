@@ -54,12 +54,15 @@ Ne crée un profil que si le Survey soutient réellement une pente. Une pente ce
 
 Platform :
 `{ "id":"...", "host_volume_id":"volume_main|null", "position":{"x":0,"y":0,"z":0}, "width":1.0, "depth":1.0, "thickness":0.2, "supports":[], "material":"timber|concrete|masonry|stone|metal|composite|unknown|null", "deck_board_direction":"x|y|unknown|null", "edges":null, "source":{...}, "evidence":[...] }`.
+SupportPost :
+`{ "id":"...", "position":{"x":0.0,"y":0.0,"z":0.0}, "width":0.15, "depth":0.15, "height":2.4, "source":{ "kind":"observed|inferred|user_provided", "confidence":0..1 } }`.
+`Platform.supports` est TOUJOURS une liste d’objets SupportPost complets. N’écris jamais une chaîne comme `"vertical_posts"`, `"post"` ou `"diagonal_bracing"` dans `supports`. Un contreventement qui ne peut pas être encodé par SupportPost reste décrit par l’evidence/notes au lieu d’être forcé dans ce champ.
 Une vraie surface de circulation distincte — par exemple dalle/palier béton distinct d’une terrasse bois — est une Platform distincte seulement si le Survey l’a inventoriée comme telle.
 Ne représente jamais un poteau/support par une deuxième Platform. Un support observé devient éventuellement un SupportPost.
 `Platform.position` est le coin minimal `(x_min,y_min,z_surface)`.
 
 StairRun :
-`{ "id":"...", "start":{"x":0,"y":0,"z":0}, "end":{"x":0,"y":1,"z":1}, "width":1.0, "material":"...", "left_edge":"none|open_railing|solid_parapet|unknown|null", "right_edge":"none|open_railing|solid_parapet|unknown|null", "source":{...}, "evidence":[...] }`.
+`{ "id":"...", "start":{"x":0,"y":0,"z":0}, "end":{"x":0,"y":1,"z":1}, "width":1.0, "material":"timber|concrete|masonry|stone|metal|composite|unknown|null", "left_edge":"none|open_railing|solid_parapet|unknown|null", "right_edge":"none|open_railing|solid_parapet|unknown|null", "source":{...}, "evidence":[...] }`.
 L’ID reprend exactement l’ID Survey. Une volée orthogonale ne change qu’un axe horizontal : `start.x == end.x` OU `start.y == end.y`.
 Représente la portion visible. Une extrémité réellement connue doit toucher sol, plateforme ou frontière de volume avec une tolérance 0,12 m.
 Si UNE extrémité disparaît dans une zone occultée mais que le Survey établit certainement à quel objet elle se raccorde, conserve la portion visible et ajoute la relation correspondante avec `geometry_status:"unresolved"`. Ne déplace pas l’extrémité jusqu’à l’objet pour fabriquer le contact.
@@ -150,5 +153,5 @@ AUDIT FINAL OBLIGATOIRE
 - une volée avec raccord occulté peut avoir une seule extrémité non connectée seulement si une relation `unresolved` certaine explique ce raccord ;
 - aucune volée entièrement flottante ;
 - terrain au format `facade_grade_profiles` ;
-- supports de terrasse sont des SupportPost ;
+- supports de terrasse sont des SupportPost ; chaque élément de `Platform.supports` est un objet complet avec `id`, `position`, `width`, `depth`, `height`, `source`, jamais une chaîne ;
 - JSON valide et conforme à ArchitecturalScene v0.2.
