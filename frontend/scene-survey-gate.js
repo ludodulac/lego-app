@@ -54,6 +54,35 @@ function pendingSurvey() {
     return payload?.valid_for_scene_fusion ? payload.survey : null;
   } catch { return null; }
 }
+function hydrateCertainSurveyRelations(survey, scene) {
+  const hydrated = JSON.parse(JSON.stringify(scene));
+  const relations = Array.isArray(hydrated.relations) ? [...hydrated.relations] : [];
+  const existingIds = new Set(relations.map(item => item?.id).filter(Boolean));
+  const objectIds = new Set();
+  for (const key of ['volumes', 'openings', 'roofs', 'chimneys', 'platforms', 'stairs', 'equipment']) {
+    for (const item of hydrated[key] ?? []) {
+      if (item?.id) objectIds.add(item.id);
+      if (key === 'platforms') for (const support of item?.supports ?? []) if (support?.id) objectIds.add(support.id);
+    }
+  }
+  for (const relation of survey?.relations ?? []) {
+    if (relation?.certainty !== 'certain' || existingIds.has(relation.id)) continue;
+    if (!objectIds.has(relation.subject_id) || !objectIds.has(relation.object_id)) continue;
+    relations.push({
+      id: relation.id,
+      kind: relation.kind,
+      subject_id: relation.subject_id,
+      object_id: relation.object_id,
+      certainty: 'certain',
+      geometry_status: 'unresolved',
+      statement: relation.statement,
+      evidence: (relation.evidence ?? []).map(item => ({ photo_index: item.photo_index, observation: item.observation })),
+    });
+    existingIds.add(relation.id);
+  }
+  hydrated.relations = relations;
+  return hydrated;
+}
 function formatValidationDetail(detail) {
   if (typeof detail === 'string') return detail;
   if (!Array.isArray(detail)) return 'La scène ne respecte pas le contrat BrickHouse.';
@@ -240,6 +269,7 @@ gateImportButton.addEventListener('click', async event => {
   currentSceneBuildPayload = null;
   gateImportButton.disabled = true;
   gateBuild.disabled = true;
+  parsed = hydrateCertainSurveyRelations(survey, parsed);
 
   try {
     startSceneProgress('Contrôle Survey → Scene');
