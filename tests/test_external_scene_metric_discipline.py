@@ -20,7 +20,7 @@ def test_scene_prompt_separates_observed_existence_from_metric_confidence() -> N
 
 def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     source = SCENE_PROMPT.read_text(encoding="utf-8")
-    assert "SURVEY → SCENE v3.4" in source
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8" in source
     assert 'schema_version` DOIT valoir exactement `"0.2"' in source
     assert "Position3D est TOUJOURS un objet" in source
     assert "PropertyValue" in source
