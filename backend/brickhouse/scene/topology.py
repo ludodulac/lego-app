@@ -9,6 +9,7 @@ from brickhouse.survey import Certainty, RelationKind
 
 from .models import ArchitecturalScene as _MetricArchitecturalScene
 from .models import CONNECTIVITY_TOLERANCE_M, Evidence
+from .terrain_uncertainty import Terrain
 
 
 class SceneRelation(BaseModel):
@@ -38,6 +39,7 @@ class ArchitecturalScene(_MetricArchitecturalScene):
     """
 
     relations: list[SceneRelation] = Field(default_factory=list)
+    terrain: Terrain | None = None
 
     def _validate_ids_and_references(self):
         super()._validate_ids_and_references()
