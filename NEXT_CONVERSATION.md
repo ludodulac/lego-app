@@ -2,181 +2,74 @@
 
 Date : 2026-08-24
 
-> À lire **après `HANDOFF.md`**. Ce fichier décrit uniquement l'état le plus récent du benchmark 5 photos et le point exact de reprise. Si le code de `main` diverge, `main` reste la source de vérité.
+> À lire **après `HANDOFF.md`**. `main` reste la source de vérité si ce document diverge.
 
-## 1. Dépôt et URLs utiles
+## 1. Dépôt / benchmark / URL
 
 - dépôt : `ludodulac/lego-app`
 - branche de vérité : `main`
 - interface photo : `https://ludodulac.github.io/lego-app/photo.html`
-- benchmark : `frontend/benchmarks/real-house-5/`
-- les 5 JPEG originaux sont maintenant réellement présents dans ce dossier et sont chargeables via le bouton **« Charger la maison test — 5 photos »**.
+- benchmark principal : `frontend/benchmarks/real-house-5/`
+- ne jamais demander à l'utilisateur de renvoyer les 5 photos : elles sont déjà dans le dépôt.
 
-## 2. Ce qui a été intégré récemment
+## 2. État réel du chantier fidélité 5 photos
 
-- Logo Boldungo + texte d'accueil ajoutés au frontend sans Base64.
-- Benchmark 5 photos chargeable directement depuis l'interface de test.
-- PR #114 mergée : consigne de recouvrement entre photos et notion d'`overlap_anchors` ajoutées au workflow et au prompt topologique.
-- Règle produit à conserver : une bonne séquence de photos doit garder un élément physique reconnaissable entre deux vues voisines (angle, fenêtre, terrasse, garde-corps, cheminée, toiture, etc.). Ces éléments servent d'ancres multi-vues. Une absence d'ancre ne doit jamais être compensée par une continuité inventée.
+Le premier vrai run complet `5 photos -> Survey -> Scene -> LEGO -> viewer` a traversé le pipeline mais a produit un résultat architecturalement mauvais : toit/pignon perdu, ouvertures mal conservées, encadrements absents ou détails vitrés inventés, terrasse/escalier incohérents.
 
-## 3. Ordre actuel du benchmark 5 photos
+Depuis ce run, les corrections génériques suivantes ont été mergées sur `main` :
 
-1. façade avant ;
-2. côté droit ;
-3. côté gauche ;
-4. deuxième vue côté gauche / 3-4 ;
-5. arrière / 3-4 arrière partiel.
+- PR #115 : toiture certaine préservée Survey -> Scene ; un gable incomplet ne peut plus devenir silencieusement un bâtiment ouvert côté LEGO.
+- PR #116 : une observation `opening` représente exactement une ouverture physique (`physical_object_count:1`) ; plus de groupes comme `front_openings`.
+- PR #117 : conservation de l'ordre qualitatif horizontal/vertical certain des ouvertures sans inventer de métrique.
+- PR #118 : conservation des appuis/encadrements observés ; suppression du cadre de porte vitrée inventé à partir de texte libre.
+- PR #119 : une terrasse/volée certaine corroborée multi-vues ne peut plus disparaître simplement parce que sa continuation cachée est inconnue.
+- PR #120 : `ArchitecturalScene` peut conserver des relations topologiques avec `geometry_status:"resolved|unresolved"`; une relation `unresolved` conserve la compréhension physique mais bloque volontairement la projection LEGO.
+- PR #121 : prompt Survey -> Scene v3.3 aligné sur ce contrat : topologie certaine != raccord métrique certain ; ne pas étirer/snaper une structure pour fermer une connexion cachée.
+- PR #122 : correction du handoff PDF externe après un vrai échec d'import ; le PDF exige maintenant un `ArchitecturalSurvey` complet et une `ArchitecturalScene` complète, et interdit de mettre la topologie intermédiaire directement dans `survey`/`scene`.
 
-Les labels restent des `capture_hint`, pas des vérités imposées à l'IA.
+## 3. Dernier test utilisateur et dernier bug observé
 
-## 4. Test réel effectué
+Le dernier fichier `brickhouse-external-result.json` produit par l'IA externe a été refusé à l'import avec :
 
-Le parcours a été exécuté manuellement :
+`id : Field required · name : Field required · photos : Field required · relations.0.id : Field required · relations.0.kind : Field required · relations.0.statement : Field required ...`
 
-`5 photos -> PDF externe -> analyse IA -> import bundle JSON -> validation Survey -> validation Scene -> build LEGO -> viewer`
+Diagnostic confirmé : l'IA avait placé une structure de type topologie intermédiaire dans `survey` au lieu d'un `ArchitecturalSurvey v0.1` complet. Le backend a correctement refusé le fichier. Ne pas assouplir le backend pour accepter ce résultat.
 
-Le PDF généré par l'interface contenait bien les 5 photos et les prompts actuels.
+PR #122 corrige précisément cette ambiguïté dans `frontend/brickhouse-single-package.js` et ajoute un test de non-régression. CI PR #122 verte, puis merge sur `main` au commit `1a7770c91bd8020d6c02eeced67a772cec0e71ee`.
 
-Le premier JSON produit par l'IA n'était pas conforme au contrat. Plusieurs corrections manuelles ont été nécessaires uniquement pour faire traverser le validateur :
+## 4. Point exact de reprise
 
-- kinds Survey invalides (`dimension`, `secondary_volume`, `visibility`) ;
-- rangs qualitatifs invalides (`facade_horizontal_rank`, `facade_vertical_rank`) ;
-- `SourceInfo.kind="unknown"` invalide pour des métriques Scene ;
-- `floors` manquant ;
-- IDs Survey -> Scene non conservés ;
-- observations d'ouvertures groupées alors que le validateur attend des objets physiques individuels ;
-- pente Scene sans observation Survey `terrain` correspondante ;
-- escalier non raccordé au sol selon le validateur ;
-- convention de `facade_vertical_rank` inversée.
+Avant de demander un nouveau run utilisateur :
 
-Important : **ne pas considérer le JSON corrigé manuellement comme une vérité architecturale ou un gold fixture**. Le but de ces corrections était de tester le pipeline et d'atteindre le viewer, pas d'établir une reconstruction fiable.
+1. vérifier que GitHub Pages a réellement redéployé le `main` contenant PR #122 ;
+2. vérifier si possible que le fichier servi `brickhouse-single-package.js` contient la règle : `survey et scene ne sont PAS des résumés de la topologie` ;
+3. si le connecteur ne permet pas d'inspecter directement l'environnement Pages, ne pas prétendre que le déploiement est confirmé ; utiliser le mécanisme GitHub disponible ou demander seulement le test minimal permettant de le constater ;
+4. ensuite seulement demander à l'utilisateur de régénérer un **nouveau** `BRICKHOUSE-ANALYSE-COMPLETE.pdf` depuis `https://ludodulac.github.io/lego-app/photo.html` avec les 5 photos benchmark ;
+5. nouveau chat IA vierge, joindre uniquement le nouveau PDF, récupérer le nouveau `brickhouse-external-result.json` sans correction manuelle ;
+6. réimporter dans Boldungo et relever le premier refus ou, s'il passe, pousser jusqu'au viewer.
 
-Le dernier état a finalement été accepté par Boldungo avec le message :
+Ne jamais réutiliser l'ancien PDF ni l'ancien JSON après PR #122.
 
-> `ArchitecturalScene valide et constructible. Étape suivante : cliquez sur « Construire cette proposition ».`
+## 5. Objectif produit immédiat
 
-Puis la maquette LEGO a été construite et visualisée.
+Le but n'est plus d'ajouter des couches théoriques. Le prochain run réel doit valider que les garde-fous accumulés produisent effectivement un meilleur résultat avec les mêmes 5 photos.
 
-## 5. Résultat visuel obtenu : benchmark d'échec n°1
+Lors de ce run, observer en priorité :
 
-Le modèle est techniquement constructible, mais architecturalement insuffisant. Il faut conserver ce résultat comme **échec de fidélité**, pas comme succès.
+- toiture/pignon conservé ou blocage honnête si métrique insuffisante ;
+- inventaire exact des ouvertures et leur ordre ;
+- encadrements observés présents, aucun vitrage décoratif inventé ;
+- terrasse bois / dalle ou palier béton / escalier distingués seulement si les photos le soutiennent ;
+- relations topologiques conservées même si un raccord caché reste `unresolved` ;
+- aucune géométrie cachée inventée pour rendre le modèle constructible.
 
-Retour utilisateur précis sur le modèle :
+Si un `unresolved` bloque LEGO, ce n'est pas automatiquement un échec : vérifier d'abord si la compréhension architecturale est correcte et si le raccord est réellement non prouvé par les 5 vues.
 
-- **toiture/pignon : échec majeur** : le rendu est ouvert / sans vraie toiture alors que les photos montrent clairement une toiture inclinée et un pignon ; auparavant le pipeline savait encore afficher un toit, donc rechercher une régression ;
-- **façade avant** : la grande ouverture basse / porte d'atelier n'est pas correctement représentée ;
-- **encadrements de fenêtres** : les bordures minérales visibles sur la façade avant manquent dans le rendu ;
-- **terrasse côté gauche** : mauvaise emprise et mauvaise géométrie ; la vraie terrasse se prolonge beaucoup plus loin le long de la maison ;
-- **escalier côté gauche** : mauvais emplacement, mauvaise longueur et mauvais matériau ; il est en béton, continue plus loin et dépasse vers l'arrière ;
-- **ouvertures côté terrasse** : plusieurs ouvertures visibles manquent, notamment une porte / porte-fenêtre et une fenêtre au-dessus de la zone d'accès / en haut de l'escalier ;
-- **côté droit** : fenêtre(s) mal positionnée(s) ;
-- **vitrages** : le moteur a créé un aspect quadrillé / pavés alors que ce détail n'est pas prouvé pour toutes les fenêtres ; quand le style exact est incertain, utiliser un rendu neutre ou garder l'incertitude plutôt que d'inventer un motif ;
-- **terrain** : la pente du côté droit est au moins présente, mais ce point positif ne compense pas les erreurs structurelles.
+## 6. Discipline de travail
 
-Le viewer a signalé des `fidelity_issues` sur la terrasse et l'escalier, mais **il n'a pas signalé l'absence catastrophique du toit comme une perte de fidélité suffisante**. Le message « valide et constructible » est donc trop permissif vis-à-vis de la fidélité architecturale.
-
-## 6. Diagnostic principal
-
-Le prochain travail ne doit PAS consister à retoucher encore le JSON à la main jusqu'à obtenir une jolie maison.
-
-Le problème principal est en amont : **transmission de la vérité architecturale entre photos -> Survey -> Scene -> LEGO**.
-
-Une Scene peut aujourd'hui être valide/constructible tout en ayant perdu des faits visuellement évidents. Il faut renforcer les invariants et tests de fidélité.
-
-## 7. Priorités exactes de reprise
-
-### Priorité A — toiture / pignon
-
-C'est la première régression à traiter.
-
-- vérifier le Survey généré pour savoir si le toit/pignon était encore présent et avec quelle certitude ;
-- vérifier le passage Survey -> Scene ;
-- vérifier le validateur Scene/Survey ;
-- vérifier le build LEGO ;
-- ajouter un test de régression : un toit/pignon certain dans le Survey ne doit jamais aboutir à un bâtiment ouvert sans toiture dans le viewer ;
-- si la géométrie exacte du toit est inconnue, le système doit conserver l'existence du toit et signaler la géométrie incomplète plutôt que l'omettre silencieusement.
-
-### Priorité B — inventaire d'ouvertures par façade
-
-- chaque ouverture physique visible doit avoir un ID stable individuel dès le Survey ;
-- ne pas regrouper plusieurs fenêtres dans une seule observation comme `front_openings` ;
-- préserver comptes, façade, ordre horizontal/vertical et type avec certitudes séparées ;
-- façade avant du benchmark : 6 ouvertures visibles ;
-- côté droit : 2 ouvertures visibles ;
-- côté gauche : il faut exploiter les vues 3/4 et les recouvrements pour conserver les ouvertures visibles près de la terrasse ;
-- ne pas utiliser les valeurs métriques bricolées lors du test manuel comme vérité.
-
-### Priorité C — terrasse et escalier multi-vues
-
-- utiliser explicitement les `overlap_anchors` entre photos 3, 4 et 5 ;
-- la terrasse commune à plusieurs vues doit être reconnue comme le même objet physique ;
-- l'escalier visible doit conserver matériau et portée observables ;
-- ne pas inventer de raccord caché ; si une portion n'est pas visible, garder `unknown`/incertain ;
-- ne pas raccourcir une structure uniquement pour satisfaire le validateur de connectivité.
-
-### Priorité D — fenêtres et détails architecturaux
-
-- préserver les encadrements / surrounds observés ;
-- ne pas transformer une fenêtre incertaine en pavés de verre ou faux quadrillage ;
-- si le type exact n'est pas prouvé, choisir une représentation visuellement neutre et reporter l'incertitude ;
-- les vraies fenêtres / portes distinctes doivent rester distinctes jusqu'au viewer.
-
-### Priorité E — qualité du message de validation
-
-Le système doit distinguer clairement :
-
-- `schema_valid` ;
-- `scene_survey_consistent` ;
-- `constructible` ;
-- `architecturally_faithful_enough_for_review`.
-
-Une Scene sans toit alors que le toit est certain ne doit pas être présentée simplement comme « valide et constructible » sans alerte bloquante ou fidélité critique.
-
-## 8. Fichiers à inspecter en premier
-
-Toujours vérifier l'état réel de `main`, mais commencer ici :
-
-- `HANDOFF.md`
-- `NEXT_CONVERSATION.md` (ce fichier)
-- `frontend/brickhouse-topology-prompt.txt`
-- `frontend/brickhouse-survey-prompt.txt`
-- `frontend/brickhouse-survey-to-scene-prompt.txt`
-- `frontend/brickhouse-single-package.js`
-- `frontend/benchmark-test.js`
-- `frontend/benchmarks/real-house-5/manifest.json`
-- `backend/brickhouse/survey/models.py`
-- `backend/brickhouse/survey/validation.py`
-- `backend/brickhouse/scene/models.py`
-- `backend/brickhouse/scene/survey_validation.py`
-- `backend/brickhouse/scene/survey_structure_guard.py`
-- `backend/brickhouse/scene/projection.py`
-- `backend/brickhouse/bricks/scene_architecture.py`
-- `backend/brickhouse/bricks/roof.py`
-- `backend/brickhouse/bricks/windows.py`
-- `backend/brickhouse/bricks/facade_details.py`
-- tests liés au Survey/Scene/toit/ouvertures/structures extérieures.
-
-## 9. Règles de travail pour la prochaine conversation
-
-- Ne pas demander à l'utilisateur de renvoyer les 5 photos : elles sont dans GitHub.
-- Ne pas utiliser Base64 dans le dépôt pour les images.
-- Ne pas modifier l'interface pour l'instant sauf si cela facilite strictement le test.
-- Corriger une cause à la fois et ajouter un test de non-régression avant merge.
-- Ne pas rendre le benchmark 5 photos artificiellement parfait avec des informations provenant d'autres photos ou de souvenirs hors benchmark.
-- Les éléments invisibles doivent rester inconnus.
-- Ne pas déclarer un succès sur la seule base du passage des validateurs.
-
-## 10. Point exact de reprise
-
-**Commencer par diagnostiquer la disparition de la toiture/pignon dans le dernier pipeline accepté.**
-
-Objectif du prochain jalon :
-
-1. déterminer précisément à quelle étape l'information de toit est perdue ;
-2. corriger cette étape de manière générique ;
-3. ajouter un test de régression utilisant le benchmark ou un fixture minimal générique ;
-4. faire passer CI ;
-5. merger ;
-6. seulement ensuite relancer un test utilisateur 5 photos.
-
-Après le toit, traiter l'inventaire d'ouvertures et le complexe terrasse/escalier.
+- corriger la première cause réelle observée, pas le JSON du benchmark à la main ;
+- correction générique + test de non-régression + CI verte + merge avant nouveau test utilisateur ;
+- ne pas lancer de refonte parallèle sans lien direct avec le prochain test réel ;
+- ne pas considérer `schema_valid` ou `constructible` comme synonyme de fidélité architecturale ;
+- les photos supplémentaires de la maison servent seulement de vérité de contrôle, jamais à rendre artificiellement le benchmark 5 photos parfait ;
+- main est toujours prioritaire sur cette passation.
