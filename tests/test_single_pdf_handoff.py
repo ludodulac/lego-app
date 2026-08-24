@@ -42,3 +42,11 @@ def test_single_pdf_requires_direct_json_output_without_conversation() -> None:
     assert "ne demande pas de confirmation intermédiaire" in source
     assert "brickhouse-external-result.json" in source
     assert '"schema_version": "external-bundle-0.1"' in source
+
+
+def test_single_pdf_distinguishes_topology_from_complete_survey_and_scene_contracts() -> None:
+    source = (FRONTEND / "brickhouse-single-package.js").read_text(encoding="utf-8")
+    assert "survey et scene ne sont PAS des résumés de la topologie" in source
+    assert "id, name, canonical_frame, photos, observations et relations" in source
+    assert "Chaque relation Survey doit contenir id, kind, subject_id, object_id, certainty, statement et evidence" in source
+    assert "ne mets jamais directement le résultat de l'étape TOPOLOGIE dans survey ou scene" in source
