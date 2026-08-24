@@ -59,7 +59,8 @@ def test_glass_blocks_and_glazed_door_become_transparent_scene_parts() -> None:
     door=[part for part in model.parts if part.placement_id.startswith("scene-glazing:left_glazed_door:")]
     assert glass and all(part.category=="window_pane" for part in glass)
     assert door
-    assert {part.category for part in door}=={"window_frame","window_pane"}
+    # "Glazed" proves transparent material, not a perimeter-frame geometry.
+    assert {part.category for part in door}=={"window_pane"}
 
 
 def test_glazing_respects_scene_origin_when_terrain_falls_below_building() -> None:

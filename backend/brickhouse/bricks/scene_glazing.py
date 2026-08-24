@@ -75,8 +75,11 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
     index = 1
     for dx in range(width):
         for dz in range(height):
-            is_frame = glazed_door and (dx in {0, width - 1} or dz in {0, height - 1})
-            category = "window_frame" if is_frame else "window_pane"
+            # A text label such as "glazed door" proves glazing, not the exact
+            # thickness/layout of a surrounding frame. Until Scene has explicit
+            # door-frame geometry, render only the glazing cells here rather than
+            # inventing a perimeter frame.
+            category = "window_pane"
             gx, gy, gz, rotation = _global_cell(opening.facade, house_x=house_x, house_y=house_y, house_width=house_width, house_depth=house_depth, local_x=local + dx, z_course=z0 + dz)
             parts.append(_part(f"scene-glazing:{opening.id}:{index:05d}", x=gx, y=gy, z=gz, facade=opening.facade, category=category, rotation=rotation))
             index += 1
