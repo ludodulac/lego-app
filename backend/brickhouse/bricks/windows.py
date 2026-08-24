@@ -116,7 +116,10 @@ def choose_window_layout(
         return ((assembly, 0, 0),) if assembly is not None else ()
 
     if style is WindowStyle.TRADITIONAL_TALL:
-        assembly = _assembly(2, height_bricks) if width_studs == 2 else None
+        # A 2x2 frame is dimensionally possible but contradicts the semantic
+        # style. Keep the original style-aware contract: only the validated
+        # three-brick-high module is a real traditional-tall assembly.
+        assembly = _assembly(2, 3) if width_studs == 2 and height_bricks == 3 else None
         return ((assembly, 0, 0),) if assembly is not None else ()
 
     if style is WindowStyle.PAIRED:
