@@ -19,7 +19,8 @@ def test_real_house_5_scene_parses_with_exact_backend_contract():
     assert scene.roofs[0].id == "main_gable_roof"
     assert scene.roofs[0].type.value == "gable"
     assert scene.roofs[0].ridge_direction.value == "depth"
-    assert scene.roofs[0].pitch_degrees is None
+    assert scene.roofs[0].source.kind.value == "inferred"
+    assert 10.0 < scene.roofs[0].pitch_degrees < 30.0
 
 
 def test_real_house_5_platform_supports_are_support_posts_not_strings():
@@ -38,4 +39,5 @@ def test_real_house_5_projection_is_blocked_only_after_scene_validation_by_unres
     result = project_scene_to_building(scene)
     blocker_codes = {issue.code for issue in result.issues if issue.severity.value == "blocker"}
     assert "topological_relation_geometry_unresolved" in blocker_codes
+    assert "gable_geometry_incomplete" not in blocker_codes
     assert result.building is None
