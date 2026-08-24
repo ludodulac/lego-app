@@ -4,27 +4,22 @@ ROOT = Path(__file__).resolve().parents[1]
 PROMPT = ROOT / "frontend" / "brickhouse-survey-prompt.txt"
 
 
-def test_survey_v26_prompt_forbids_legacy_external_shapes() -> None:
+def test_survey_v28_prompt_locks_backend_shapes() -> None:
     source = PROMPT.read_text(encoding="utf-8")
-    assert "BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.6" in source
+    assert "RELEVÉ ARCHITECTURAL v2.8" in source
     assert '"front_facade":"front"' in source
     assert '"x_direction":"front_view_left_to_right"' in source
-    assert '"y_direction":"front_to_rear"' in source
-    assert '"z_direction":"bottom_to_top"' in source
-    assert 'source` = `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`' in source
-    assert 'Chaque `evidence[]` = `{ "photo_index":1, "observation":"..." }`' in source
-    assert "N’invente AUCUN alias de champ" in source
-    assert "N’ajoute jamais de racine `physical_objects`" in source
-    assert "N’utilise jamais les anciens champs `x`, `y`, `z`, `orientation_source`" in source
-    assert "N’utilise jamais une chaîne telle que `\"photo_1\"` comme élément d’evidence" in source
+    assert 'source` est un objet `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`' in source
+    assert 'Chaque `evidence[]` est un objet `{ "photo_index":1, "observation":"..." }`' in source
+    assert "`representation_policy` est OBLIGATOIREMENT UN OBJET JSON, JAMAIS une liste" in source
+    assert '"preserve_nominal_materials":true' in source
+    assert "Si c’est une liste, CORRIGE-LA avant de répondre" in source
 
 
-def test_survey_v26_prompt_requires_roof_and_exterior_multiview_audits() -> None:
+def test_survey_v28_prompt_locks_enum_like_ai_outputs() -> None:
     source = PROMPT.read_text(encoding="utf-8")
-    assert "DÉCOMPOSITION PALIER / VOLUME PORTEUR / TERRASSE — AUDIT MULTI-VUES" in source
-    assert "TOITURE — CERTITUDE OBJET VS ATTRIBUTS" in source
-    assert 'attributes.facade_is_gable:true' in source
-    assert 'attribute_certainty.facade_is_gable' in source
-    assert 'attributes.roof_type' in source
-    assert 'attribute_certainty.roof_type' in source
-    assert "certitude de toiture séparée de ses attributs" in source
+    assert 'N’écris jamais `semantic_type:"opening"`' in source
+    assert 'Si `semantic_type:"opening"` apparaît, SUPPRIME ce champ' in source
+    assert "`flat`, `gable`, `hip`, `shed`, `mansard`, `gambrel`, `butterfly`, `other`" in source
+    assert "N’invente jamais une valeur composée libre comme `low-slope_or_flat_appearance`" in source
+    assert "TOITURE — PRÉFLIGHT MULTI-VUES" in source
