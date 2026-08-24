@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from brickhouse.survey import Certainty, RelationKind
 
 from .models import ArchitecturalScene as _MetricArchitecturalScene
 from .models import CONNECTIVITY_TOLERANCE_M, Evidence
+from .terrain_uncertainty import Terrain
 
 
 class SceneRelation(BaseModel):
@@ -38,6 +39,16 @@ class ArchitecturalScene(_MetricArchitecturalScene):
     """
 
     relations: list[SceneRelation] = Field(default_factory=list)
+    terrain: Terrain | None = None
+
+    @field_validator("terrain", mode="before")
+    @classmethod
+    def normalize_legacy_terrain(cls, value):
+        if value is None or isinstance(value, dict):
+            return value
+        if isinstance(value, BaseModel):
+            return value.model_dump(mode="python")
+        return value
 
     def _validate_ids_and_references(self):
         super()._validate_ids_and_references()
