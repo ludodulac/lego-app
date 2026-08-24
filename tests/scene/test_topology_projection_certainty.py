@@ -106,6 +106,8 @@ def test_current_real_house_5_benchmark_reaches_lego_without_inventing_unknown_g
     assert any(value.startswith("scene-platform:left_timber_terrace:board:") for value in ids)
     assert any(value.startswith("scene-platform:left_concrete_landing:deck:") for value in ids)
     assert any(value.startswith("scene-stair:left_exterior_stair:tread:") for value in ids)
+    assert any(value.startswith("scene-chimney:chimney_front_left:") for value in ids)
+    assert any(value.startswith("scene-chimney:chimney_rear_area:") for value in ids)
     assert not any(value.startswith("scene-terrain:right:") for value in ids)
     assert profile.end_elevation is None
 
@@ -117,5 +119,14 @@ def test_current_real_house_5_benchmark_reaches_lego_without_inventing_unknown_g
     ) in fidelity
     assert ("terrain_geometry_incomplete", "terrain:right", "warning") in fidelity
     assert ("roof_type_not_supported", "main_gable_roof", "warning") in fidelity
-    assert ("chimney_not_supported", "chimney_front_left", "warning") in fidelity
-    assert ("chimney_not_supported", "chimney_rear_area", "warning") in fidelity
+    assert not any(code == "chimney_not_supported" for code, _, _ in fidelity)
+    assert (
+        "low_confidence_exterior_geometry",
+        "chimney_front_left",
+        "warning",
+    ) in fidelity
+    assert (
+        "low_confidence_exterior_geometry",
+        "chimney_rear_area",
+        "warning",
+    ) in fidelity
