@@ -147,9 +147,9 @@ def test_survey_extension_prompt_supports_append_only_refinement() -> None:
     assert "workflow de correction explicite" in prompt
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v30_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v31_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.0" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.1" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "CONTRAT JSON EXACT — OBLIGATOIRE" in prompt
     assert 'schema_version` DOIT valoir exactement `"0.2"' in prompt
@@ -169,6 +169,8 @@ def test_survey_to_scene_prompt_matches_current_generic_v30_contract() -> None:
     assert "CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT" in prompt
     assert "attribute_certainty" in prompt
     assert "chaque Platform rendue touche un volume ou une StairRun" in prompt
+    assert "pitch_degrees:null" in prompt
+    assert "gable_geometry_incomplete" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
