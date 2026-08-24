@@ -128,8 +128,27 @@ class SurveyObservation(BaseModel):
     statement: str = Field(min_length=1)
     evidence: list[PhotoEvidence] = Field(min_length=1)
     attributes: dict[str, Any] = Field(default_factory=dict)
+    # Object existence and one of its properties are different claims. A roof
+    # may certainly exist while its type/pitch is only plausible; an opening may
+    # certainly exist while door-vs-window remains uncertain. This append-only,
+    # backwards-compatible map makes that distinction machine-readable.
+    attribute_certainty: dict[str, Certainty] = Field(default_factory=dict)
     appearance: SurfaceAppearance | None = None
     opening_visual: OpeningVisualDescription | None = None
+
+    @model_validator(mode="after")
+    def validate_attribute_certainty(self) -> "SurveyObservation":
+        unknown = set(self.attribute_certainty) - set(self.attributes)
+        if unknown:
+            names = ", ".join(sorted(unknown))
+            raise ValueError(
+                f"attribute_certainty references missing attributes: {names}"
+            )
+        return self
+
+    def certainty_for_attribute(self, name: str) -> Certainty:
+        """Return property certainty, preserving legacy Surveys when unmapped."""
+        return self.attribute_certainty.get(name, self.certainty)
 
 
 class SurveyRelation(BaseModel):
