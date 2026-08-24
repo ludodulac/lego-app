@@ -21,7 +21,8 @@ def test_guided_photo_workflow_keeps_required_legacy_hooks() -> None:
     ):
         assert f'id="{element_id}"' in html
     assert "photo-simple.js" in html
-    assert "brickhouse-single-package.js" in html
+    assert "brickhouse-survey-package.js?v=pdf-handoff-0.3" in html
+    assert "brickhouse-single-package.js" not in html
     assert "external-bundle-import.js" in html
 
 

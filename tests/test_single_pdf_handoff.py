@@ -8,8 +8,8 @@ def test_photo_page_uses_single_pdf_as_primary_handoff() -> None:
     html = (FRONTEND / "photo.html").read_text(encoding="utf-8")
     assert "Créer le PDF unique à envoyer à l’IA" in html
     assert "BRICKHOUSE-ANALYSE-COMPLETE.pdf" in html
-    assert 'src="./brickhouse-single-package.js"' in html
-    assert html.index('src="./brickhouse-single-package.js"') < html.index('src="./photo-simple.js"')
+    assert 'src="./brickhouse-survey-package.js?v=pdf-handoff-0.3"' in html
+    assert html.index('src="./brickhouse-survey-package.js?v=pdf-handoff-0.3"') < html.index('src="./photo-simple.js"')
 
 
 def test_single_pdf_contains_prompts_and_embedded_photo_pages() -> None:
