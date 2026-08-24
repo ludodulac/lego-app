@@ -49,6 +49,7 @@ Affecte chaque occurrence au bon objet/pan. Pour dire que deux occurrences sont 
 Quand plusieurs vues montrent le même objet physique, fusionne-les sous un seul id stable et mets toutes les preuves dans `evidence`. Une fois cette fusion faite, ne crée pas une relation `same_physical_object` de l’objet vers lui-même. Toute relation doit relier deux IDs distincts.
 
 OUVERTURES — INVENTAIRE, TYPE SÉMANTIQUE, DISPOSITION
+Une observation `kind:"opening"` représente EXACTEMENT UNE ouverture physique. Pour toute ouverture, ajoute obligatoirement `attributes.physical_object_count:1`. Toute valeur autre que `1`, ou l’absence de cet attribut, rend le Survey invalide. Ne crée jamais un objet `front_openings`, `left_windows`, `pair_of_windows` ou autre groupe physique : crée un ID stable distinct pour chaque fenêtre, porte ou porte de garage visible. Si la même ouverture apparaît dans plusieurs photos, garde UN seul ID et ajoute plusieurs éléments dans `evidence`.
 Déduplique uniquement avec preuves compatibles. Compte les ouvertures certaines par façade. N’invente rien derrière une occultation.
 Le backend distingue la certitude d’existence de l’ouverture de son type. Pour `attributes.semantic_type`, utilise uniquement les valeurs comprises par le garde Survey→Scene :
 - `window` ;
@@ -93,6 +94,7 @@ AUDIT FINAL
 - `known_measurements` seulement au format accepté ;
 - chaque observation possède `statement` + au moins une `evidence` ;
 - chaque clé de `attribute_certainty` existe aussi dans `attributes` ;
+- chaque observation `kind:"opening"` possède `attributes.physical_object_count:1` et représente un seul objet physique ;
 - aucun attribut `plausible`/`unproven` n’est implicitement promu parce que l’objet est `certain` ;
 - les `semantic_type` d’ouvertures sont dans la liste supportée ou absents ;
 - aucun poteau/support simple n’est déguisé en Platform ;

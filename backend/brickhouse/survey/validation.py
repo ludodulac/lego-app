@@ -94,7 +94,6 @@ def _validate_refinement_semantics(survey: ArchitecturalSurvey) -> list[SurveyVa
                 ),
             ))
 
-    # Refinement chains are allowed (unproven -> plausible -> certain), but cycles are not.
     for observation in survey.observations:
         seen = {observation.id}
         current = observation
@@ -140,6 +139,19 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
             ))
 
         if observation.kind is ObservationKind.OPENING:
+            physical_count = attributes.get("physical_object_count")
+            if isinstance(physical_count, bool) or physical_count != 1:
+                issues.append(SurveyValidationIssue(
+                    code="opening_not_single_physical_object",
+                    observation_id=observation.id,
+                    message=(
+                        "Chaque observation kind='opening' doit représenter exactement une ouverture physique "
+                        "et déclarer attributes.physical_object_count=1. Ne regroupez jamais plusieurs fenêtres "
+                        "ou portes sous un seul ID ; créez un ID stable par ouverture et dédupliquez seulement "
+                        "les occurrences multi-vues du même objet."
+                    ),
+                ))
+
             confirmed = bool(attributes.get("confirmed_by_user", False))
             semantic_role = attributes.get("semantic_role") or attributes.get("semantic_type")
             if confirmed and (not isinstance(semantic_role, str) or not semantic_role.strip()):

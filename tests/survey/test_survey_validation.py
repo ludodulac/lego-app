@@ -31,6 +31,40 @@ def evidence() -> list[dict]:
     return [{"photo_index": 1, "observation": "visible"}]
 
 
+def opening_attributes(**extra) -> dict:
+    return {"physical_object_count": 1, **extra}
+
+
+def test_grouped_opening_observation_is_rejected() -> None:
+    survey = base_survey({
+        "id": "front_openings",
+        "kind": "opening",
+        "facade": "front",
+        "certainty": "certain",
+        "statement": "Three front windows",
+        "evidence": evidence(),
+        "attributes": {"physical_object_count": 3, "semantic_type": "window"},
+    })
+    assert "opening_not_single_physical_object" in {
+        issue.code for issue in validate_survey_semantics(survey)
+    }
+
+
+def test_opening_must_explicitly_declare_single_physical_object() -> None:
+    survey = base_survey({
+        "id": "front_window",
+        "kind": "opening",
+        "facade": "front",
+        "certainty": "certain",
+        "statement": "Front window",
+        "evidence": evidence(),
+        "attributes": {"semantic_type": "window"},
+    })
+    assert "opening_not_single_physical_object" in {
+        issue.code for issue in validate_survey_semantics(survey)
+    }
+
+
 def test_user_confirmed_opening_requires_stable_semantic_role() -> None:
     survey = base_survey({
         "id": "opening",
@@ -39,7 +73,7 @@ def test_user_confirmed_opening_requires_stable_semantic_role() -> None:
         "certainty": "certain",
         "statement": "Low opening",
         "evidence": evidence(),
-        "attributes": {"confirmed_by_user": True, "target_building_ownership": "proven"},
+        "attributes": opening_attributes(confirmed_by_user=True, target_building_ownership="proven"),
     })
     assert {issue.code for issue in validate_survey_semantics(survey)} == {"confirmed_opening_missing_semantic_role"}
 
@@ -52,12 +86,12 @@ def test_user_confirmed_workshop_window_can_keep_glass_block_glazing() -> None:
         "certainty": "certain",
         "statement": "Workshop window",
         "evidence": evidence(),
-        "attributes": {
-            "confirmed_by_user": True,
-            "semantic_role": "window",
-            "room_role": "workshop",
-            "target_building_ownership": "proven",
-        },
+        "attributes": opening_attributes(
+            confirmed_by_user=True,
+            semantic_role="window",
+            room_role="workshop",
+            target_building_ownership="proven",
+        ),
         "opening_visual": {"glazing": "glass_blocks"},
     })
     assert validate_survey_semantics(survey) == []
@@ -71,7 +105,7 @@ def test_unproven_opening_ownership_cannot_be_plausible_target_opening() -> None
         "certainty": "plausible",
         "statement": "Possible opening beyond boundary",
         "evidence": evidence(),
-        "attributes": {"semantic_role": "window", "target_building_ownership": "unproven"},
+        "attributes": opening_attributes(semantic_role="window", target_building_ownership="unproven"),
     })
     assert {issue.code for issue in validate_survey_semantics(survey)} == {"opening_target_ownership_unproven"}
 
@@ -100,7 +134,7 @@ def survey_for_extension() -> ArchitecturalSurvey:
         "certainty": "certain",
         "statement": "Front window",
         "evidence": evidence(),
-        "attributes": {"semantic_type": "window", "target_building_ownership": "proven"},
+        "attributes": opening_attributes(semantic_type="window", target_building_ownership="proven"),
     })
 
 
@@ -120,7 +154,7 @@ def valid_extension(base: ArchitecturalSurvey) -> ArchitecturalSurvey:
         "certainty": "certain",
         "statement": "Left window",
         "evidence": [{"photo_index": 2, "observation": "visible on new photo"}],
-        "attributes": {"semantic_type": "window", "target_building_ownership": "proven"},
+        "attributes": opening_attributes(semantic_type="window", target_building_ownership="proven"),
     })
     return ArchitecturalSurvey.model_validate(payload)
 
