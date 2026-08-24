@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from brickhouse.pipeline import run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene, project_scene_to_building
 from brickhouse.survey import Certainty
@@ -33,6 +35,13 @@ def test_certain_unresolved_relation_still_blocks_projection() -> None:
         is Certainty.CERTAIN
         for issue in blockers
     )
+
+
+def test_full_pipeline_cannot_bypass_certain_unresolved_relation() -> None:
+    scene = _load(OLD_SCENE)
+
+    with pytest.raises(ValueError, match="raccord métrique"):
+        run_m0_pipeline_scene(scene, front_width_studs=48)
 
 
 def test_plausible_unresolved_relation_is_preserved_without_blocking_m0() -> None:
@@ -79,6 +88,7 @@ def test_current_real_house_5_benchmark_reaches_corrected_m0_projection() -> Non
         "rel_lower_structure_landing",
         "warning",
     ) in issues
+    assert ("terrain_geometry_incomplete", "terrain:right", "warning") in issues
     assert ("roof_type_not_supported", "main_gable_roof", "warning") in issues
 
 
@@ -98,3 +108,14 @@ def test_current_real_house_5_benchmark_reaches_lego_without_inventing_unknown_g
     assert any(value.startswith("scene-stair:left_exterior_stair:tread:") for value in ids)
     assert not any(value.startswith("scene-terrain:right:") for value in ids)
     assert profile.end_elevation is None
+
+    fidelity = {(issue.code, issue.object_id, issue.severity) for issue in bundle.fidelity_issues}
+    assert (
+        "topological_relation_geometry_unresolved",
+        "rel_lower_structure_landing",
+        "warning",
+    ) in fidelity
+    assert ("terrain_geometry_incomplete", "terrain:right", "warning") in fidelity
+    assert ("roof_type_not_supported", "main_gable_roof", "warning") in fidelity
+    assert ("chimney_not_supported", "chimney_front_left", "warning") in fidelity
+    assert ("chimney_not_supported", "chimney_rear_area", "warning") in fidelity
