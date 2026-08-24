@@ -13,7 +13,14 @@ from .terrain_uncertainty import Terrain
 
 
 class SceneRelation(BaseModel):
-    """A proven architectural relation whose exact metric junction may remain unknown."""
+    """A proven architectural relation whose exact metric junction may remain unknown.
+
+    ``semantic_anchor_volume_id`` is an append-only bridge for a Survey endpoint
+    such as a ``building_boundary`` observation that deliberately does not become
+    its own Scene primitive.  The Survey endpoint ID remains untouched.  When the
+    rendered primitive actually touches a concrete Scene volume, this field lets
+    the relation become metrically resolved without renaming the semantic anchor.
+    """
 
     id: str
     kind: RelationKind
@@ -21,6 +28,7 @@ class SceneRelation(BaseModel):
     object_id: str
     certainty: Certainty
     geometry_status: Literal["resolved", "unresolved"]
+    semantic_anchor_volume_id: str | None = None
     statement: str = Field(min_length=1)
     evidence: list[Evidence] = Field(default_factory=list)
 
@@ -28,6 +36,8 @@ class SceneRelation(BaseModel):
     def validate_distinct_objects(self):
         if self.subject_id == self.object_id:
             raise ValueError("scene relation subject_id and object_id must differ")
+        if self.geometry_status == "unresolved" and self.semantic_anchor_volume_id is not None:
+            raise ValueError("unresolved scene relation cannot claim a semantic_anchor_volume_id")
         return self
 
 
@@ -64,16 +74,35 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 *self.equipment,
             ]
         }
+        volume_ids = {volume.id for volume in self.volumes}
         relation_ids = [relation.id for relation in self.relations]
         if len(relation_ids) != len(set(relation_ids)):
             raise ValueError("scene relation IDs must be unique")
         for relation in self.relations:
             subject_present = relation.subject_id in object_ids
             object_present = relation.object_id in object_ids
-            if relation.geometry_status == "resolved" and not (subject_present and object_present):
+            if relation.semantic_anchor_volume_id is not None and relation.semantic_anchor_volume_id not in volume_ids:
                 raise ValueError(
-                    f"resolved scene relation {relation.id!r} references an object absent from the Scene"
+                    f"scene relation {relation.id!r} references unknown semantic anchor volume "
+                    f"{relation.semantic_anchor_volume_id!r}"
                 )
+            if relation.geometry_status == "resolved":
+                if subject_present and object_present:
+                    if relation.semantic_anchor_volume_id is not None:
+                        raise ValueError(
+                            f"resolved scene relation {relation.id!r} has two Scene endpoints and must not "
+                            "define semantic_anchor_volume_id"
+                        )
+                elif subject_present ^ object_present:
+                    if relation.semantic_anchor_volume_id is None:
+                        raise ValueError(
+                            f"resolved scene relation {relation.id!r} has a semantic endpoint absent from the "
+                            "Scene and therefore requires semantic_anchor_volume_id"
+                        )
+                else:
+                    raise ValueError(
+                        f"resolved scene relation {relation.id!r} references no Scene object"
+                    )
             if relation.geometry_status == "unresolved" and not (subject_present or object_present):
                 raise ValueError(
                     f"unresolved scene relation {relation.id!r} must reference at least one Scene object"
@@ -86,13 +115,46 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             for relation in self.relations
         )
 
-    def _validate_external_connectivity(self):
-        """Allow one evidenced-but-unresolved junction without inventing its coordinates.
+    def _validate_resolved_semantic_anchors(self) -> None:
+        """Require a claimed semantic-boundary resolution to exist in metric geometry."""
+        platforms = {item.id: item for item in self.platforms}
+        stairs = {item.id: item for item in self.stairs}
+        volumes = {item.id: item for item in self.volumes}
 
-        Existing fully metric Scenes retain the original strict behaviour. An unresolved
-        topological relation may excuse a missing junction, but it never makes the Scene
-        buildable: the projection boundary blocks it until the relation is resolved.
-        """
+        for relation in self.relations:
+            anchor_id = relation.semantic_anchor_volume_id
+            if relation.geometry_status != "resolved" or anchor_id is None:
+                continue
+            if relation.kind is not RelationKind.CONNECTS_TO:
+                raise ValueError(
+                    f"scene relation {relation.id!r} may use semantic_anchor_volume_id only for connects_to"
+                )
+            present_id = (
+                relation.subject_id
+                if relation.subject_id in platforms or relation.subject_id in stairs
+                else relation.object_id
+            )
+            volume = volumes[anchor_id]
+            if present_id in platforms:
+                holds = self._platform_touches_volume(platforms[present_id], volume)
+            elif present_id in stairs:
+                stair = stairs[present_id]
+                holds = self._point_on_volume_boundary(stair.start, volume) or self._point_on_volume_boundary(
+                    stair.end, volume
+                )
+            else:
+                raise ValueError(
+                    f"resolved semantic-anchor relation {relation.id!r} must expose a Platform or StairRun "
+                    "as its Scene endpoint"
+                )
+            if not holds:
+                raise ValueError(
+                    f"resolved semantic-anchor relation {relation.id!r} is not reflected by metric contact "
+                    f"with volume {anchor_id!r}"
+                )
+
+    def _validate_external_connectivity(self):
+        """Allow evidenced hidden junctions but verify all claimed metric resolutions."""
         if not self.platforms and not self.stairs:
             return
 
@@ -126,3 +188,5 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             raise ValueError(
                 f"stair {stair.id!r} {', '.join(free_endpoints)} does not connect to ground, a platform, or the building"
             )
+
+        self._validate_resolved_semantic_anchors()
