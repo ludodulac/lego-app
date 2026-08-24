@@ -1,4 +1,4 @@
-"""Scene-aware glazing for openings not represented by the basic window catalogue."""
+"""Scene-aware final detail augmentation for glazing and metric chimneys."""
 from __future__ import annotations
 
 import unicodedata
@@ -8,6 +8,7 @@ from brickhouse.scene.models import ArchitecturalScene, SceneOpening
 from .brick_model import BrickModel, BrickModelPart
 from .scaling import COURSES_PER_STUD_RATIO
 from .scene_architecture import _round_half_up, _scene_bounds
+from .scene_chimneys import augment_brick_model_with_scene_chimneys
 
 
 def _normalized(value: str) -> str:
@@ -87,9 +88,19 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
 
 
 def augment_brick_model_with_scene_glazing(model: BrickModel, scene: ArchitecturalScene, *, front_width_studs: int) -> BrickModel:
-    """Replace generic opening treatment with richer Scene glazing where observed."""
+    """Apply final Scene details without inventing unsupported geometry."""
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
+
+    # Chimneys are independent of glazing but belong to the same final
+    # Scene-aware detail pass in the current M0 orchestration. Their renderer uses
+    # only explicit metric Scene geometry and never infers roof shape or caps.
+    model = augment_brick_model_with_scene_chimneys(
+        model,
+        scene,
+        front_width_studs=front_width_studs,
+    )
+
     targets = [opening for opening in scene.openings if _is_glass_block(opening) or _is_glazed_door(opening)]
     if not targets:
         return model
