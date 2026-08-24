@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from brickhouse.pipeline import run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene, project_scene_to_building
 from brickhouse.survey import Certainty
 
@@ -79,3 +80,21 @@ def test_current_real_house_5_benchmark_reaches_corrected_m0_projection() -> Non
         "warning",
     ) in issues
     assert ("roof_type_not_supported", "main_gable_roof", "warning") in issues
+
+
+def test_current_real_house_5_benchmark_reaches_lego_without_inventing_unknown_grade() -> None:
+    scene = _load(CURRENT_SCENE)
+    profile = scene.terrain.profiles[0]
+    assert profile.start_elevation == 0.0
+    assert profile.end_elevation is None
+
+    bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
+    ids = [part.placement_id for part in bundle.brick_model.parts]
+
+    assert bundle.bom.total_parts == len(bundle.brick_model.parts)
+    assert bundle.bom.total_parts > 0
+    assert any(value.startswith("scene-platform:left_timber_terrace:board:") for value in ids)
+    assert any(value.startswith("scene-platform:left_concrete_landing:deck:") for value in ids)
+    assert any(value.startswith("scene-stair:left_exterior_stair:tread:") for value in ids)
+    assert not any(value.startswith("scene-terrain:right:") for value in ids)
+    assert profile.end_elevation is None
