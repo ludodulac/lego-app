@@ -2,14 +2,15 @@
   "schema_version": "brickhouse-benchmark-0.1",
   "id": "real-house-5",
   "title": "Maison réelle — 5 photos originales",
-  "status": "awaiting_original_files",
+  "status": "ready",
+  "asset_policy": "binary_files_only_no_base64",
   "orientation_authority": "capture_hint",
   "known_front_width_m": null,
   "photos": [
-    {"photo_index": 1, "path": "01-original.jpg", "label": "Photo originale 1"},
-    {"photo_index": 2, "path": "02-original.jpg", "label": "Photo originale 2"},
-    {"photo_index": 3, "path": "03-original.jpg", "label": "Photo originale 3"},
-    {"photo_index": 4, "path": "04-original.jpg", "label": "Photo originale 4"},
-    {"photo_index": 5, "path": "05-original.jpg", "label": "Photo originale 5"}
+    {"photo_index": 1, "path": "01-original.jpg", "label": "Photo originale 1", "width": 691, "height": 1536, "size_bytes": 145666, "sha256": "81f064aa642f3e51c284473583e9c48016535177510b2cddde8f60676f87fa07"},
+    {"photo_index": 2, "path": "02-original.jpg", "label": "Photo originale 2", "width": 691, "height": 1536, "size_bytes": 181056, "sha256": "490a9058e9de9b689860256e4b9bb22f16111256106cc48fd90612c5ae3c6ec3"},
+    {"photo_index": 3, "path": "03-original.jpg", "label": "Photo originale 3", "width": 1536, "height": 691, "size_bytes": 149924, "sha256": "4b53ec191f74a9c9b4c29a960eb15af60c3ad3337e8c8b19b2bab8ffe797e0dc"},
+    {"photo_index": 4, "path": "04-original.jpg", "label": "Photo originale 4", "width": 691, "height": 1536, "size_bytes": 180586, "sha256": "ca8488a165ecbd687c4c2c6b42b989e57becca0c2684c01b2dd6b6bcc9c02733"},
+    {"photo_index": 5, "path": "05-original.jpg", "label": "Photo originale 5", "width": 691, "height": 1536, "size_bytes": 176941, "sha256": "690b83c1af13f7a68a31e5a30a1d14d9967c565c647661743ac8d46732874093"}
   ]
 }
