@@ -15,10 +15,13 @@ const SLOT_LABELS = {
   front_right: '3/4 avant droit',
 };
 const PACKAGE_FILENAME = 'BRICKHOUSE-ANALYSE-COMPLETE.pdf';
+const PDF_HANDOFF_VERSION = 'pdf-handoff-0.2';
 const MAX_PHOTOS = 12;
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const MARGIN = 86;
+
+if (status) status.textContent = `Handoff ${PDF_HANDOFF_VERSION} prêt · ${PACKAGE_FILENAME}`;
 
 function orientationConfirmed() {
   return Boolean(document.querySelector('#confirm-guided-orientations')?.checked);
@@ -71,7 +74,7 @@ function commandText(records, topology, survey, scene) {
     ? 'Les orientations des cases Avant / Droite / Gauche / Arrière ont été explicitement confirmées par l’utilisateur. Elles sont des contraintes fortes. Une vue oblique peut montrer un second pan, mais tu ne dois pas réorienter silencieusement son rôle principal.'
     : 'Les libellés de vues sont seulement des indices de capture. Vérifie-les par recoupement visuel multi-vues et conserve toute ambiguïté réelle comme incertitude.';
 
-  return `BRICKHOUSE — COMMANDE UNIQUE — EXÉCUTION MONO-TOUR\n\nIMPORTANT\nCe PDF est l’unique entrée BrickHouse de ce run. Il contient d’abord la commande et les prompts, puis les photos originales elles-mêmes. Tu dois analyser les pages photo de CE PDF et produire directement le fichier brickhouse-external-result.json.\n\nINTERDIT\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas de rénovation, plan LEGO, élévation ou autre option ;\n- ne demande pas de confirmation intermédiaire ;\n- ne t’arrête ni après la topologie ni après le Survey ;\n- ne réponds pas par une synthèse avant le JSON ;\n- ne complète jamais une zone cachée par plausibilité ;\n- ne transforme jamais le bâtiment benchmark en règle générale.\n\n${orientationRule}\n\nPHOTOS, DANS L’ORDRE DU PDF\n${photoLines}\n\nFAITS UTILISATEUR\n- largeur réelle de façade avant: ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- largeur cible de maquette: ${targetStuds} tenons\n- notes: ${notes?.value.trim() || 'aucune'}\n\nSORTIE OBLIGATOIRE\nCrée immédiatement un fichier téléchargeable nommé exactement brickhouse-external-result.json.\nLe fichier racine doit contenir EXACTEMENT l'enveloppe suivante :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "schema_version": "0.1", "...": "ArchitecturalSurvey COMPLET conforme au contrat Survey ci-dessous" },\n  "scene": { "schema_version": "0.2", "...": "ArchitecturalScene COMPLET conforme au contrat Scene ci-dessous" }\n}\nIMPORTANT : survey et scene ne sont PAS des résumés de la topologie. Ils doivent contenir tous les champs obligatoires de leurs contrats respectifs.\nPour survey, vérifie avant sortie qu'il contient au minimum id, name, canonical_frame, photos, observations et relations. Chaque relation Survey doit contenir id, kind, subject_id, object_id, certainty, statement et evidence.\nPour scene, vérifie avant sortie qu'il contient au minimum id, name, units, volumes, openings, roofs, platforms, stairs, relations et appearance. Les relations Scene utilisent SceneRelation, pas SurveyRelation.\nINTERDIT : ne mets jamais directement le résultat de l'étape TOPOLOGIE dans survey ou scene. La topologie est une étape de raisonnement intermédiaire seulement.\nAvant de créer le fichier, relis séparément les deux sections CONTRAT JSON EXACT - OBLIGATOIRE des prompts Survey et Scene et effectue leurs audits finaux.\nLa réponse de chat finale doit seulement annoncer/joindre ce fichier.\n\n================ TOPOLOGIE ================\n${topology}\n\n================ SURVEY ================\n${survey}\n\n================ SURVEY -> SCENE ================\n${scene}\n`;
+  return `BRICKHOUSE — COMMANDE UNIQUE — EXÉCUTION MONO-TOUR\nHANDOFF_VERSION=${PDF_HANDOFF_VERSION}\n\nIMPORTANT\nCe PDF est l’unique entrée BrickHouse de ce run. Il contient d’abord la commande et les prompts, puis les photos originales elles-mêmes. Tu dois analyser les pages photo de CE PDF et produire directement le fichier brickhouse-external-result.json.\n\nINTERDIT\n- ne demande pas ce que l’utilisateur souhaite ;\n- ne propose pas de rénovation, plan LEGO, élévation ou autre option ;\n- ne demande pas de confirmation intermédiaire ;\n- ne t’arrête ni après la topologie ni après le Survey ;\n- ne réponds pas par une synthèse avant le JSON ;\n- ne complète jamais une zone cachée par plausibilité ;\n- ne transforme jamais le bâtiment benchmark en règle générale.\n\n${orientationRule}\n\nPHOTOS, DANS L’ORDRE DU PDF\n${photoLines}\n\nFAITS UTILISATEUR\n- largeur réelle de façade avant: ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- largeur cible de maquette: ${targetStuds} tenons\n- notes: ${notes?.value.trim() || 'aucune'}\n\nSORTIE OBLIGATOIRE\nCrée immédiatement un fichier téléchargeable nommé exactement brickhouse-external-result.json.\nLe fichier racine doit contenir EXACTEMENT l'enveloppe suivante :\n{\n  "schema_version": "external-bundle-0.1",\n  "kind": "brickhouse_external_result",\n  "survey": { "schema_version": "0.1", "...": "ArchitecturalSurvey COMPLET conforme au contrat Survey ci-dessous" },\n  "scene": { "schema_version": "0.2", "...": "ArchitecturalScene COMPLET conforme au contrat Scene ci-dessous" }\n}\nIMPORTANT : survey et scene ne sont PAS des résumés de la topologie. Ils doivent contenir tous les champs obligatoires de leurs contrats respectifs.\nPour survey, vérifie avant sortie qu'il contient au minimum id, name, canonical_frame, photos, observations et relations. Chaque relation Survey doit contenir id, kind, subject_id, object_id, certainty, statement et evidence.\nPour scene, vérifie avant sortie qu'il contient au minimum id, name, units, volumes, openings, roofs, platforms, stairs, relations et appearance. Les relations Scene utilisent SceneRelation, pas SurveyRelation.\nINTERDIT : ne mets jamais directement le résultat de l'étape TOPOLOGIE dans survey ou scene. La topologie est une étape de raisonnement intermédiaire seulement.\nAvant de créer le fichier, relis séparément les deux sections CONTRAT JSON EXACT - OBLIGATOIRE des prompts Survey et Scene et effectue leurs audits finaux.\nLa réponse de chat finale doit seulement annoncer/joindre ce fichier.\n\n================ TOPOLOGIE ================\n${topology}\n\n================ SURVEY ================\n${survey}\n\n================ SURVEY -> SCENE ================\n${scene}\n`;
 }
 
 function ascii(text) {
@@ -237,11 +240,11 @@ button?.addEventListener('click', async event => {
   event.stopImmediatePropagation();
   const records = photoRecords();
   if (!records.length) {
-    status.textContent = 'Ajoutez au moins une photo avant de préparer le document BrickHouse.';
+    status.textContent = `Handoff ${PDF_HANDOFF_VERSION} · Ajoutez au moins une photo avant de préparer le document BrickHouse.`;
     return;
   }
   button.disabled = true;
-  status.textContent = `Création du PDF unique BrickHouse avec ${records.length} photo(s)…`;
+  status.textContent = `Handoff ${PDF_HANDOFF_VERSION} · Création du PDF unique BrickHouse avec ${records.length} photo(s)…`;
   try {
     const [topology, survey, scene] = await Promise.all([
       fetchText('./brickhouse-topology-prompt.txt'),
@@ -252,9 +255,9 @@ button?.addEventListener('click', async event => {
     for (let index = 0; index < records.length; index++) pages.push(await makePhotoPage(records[index], index));
     const pdf = pdfFromCanvases(pages);
     downloadBlob(pdf, PACKAGE_FILENAME);
-    status.textContent = `${PACKAGE_FILENAME} est prêt : une seule pièce jointe contient la commande BrickHouse et les ${records.length} photo(s).`;
+    status.textContent = `Handoff ${PDF_HANDOFF_VERSION} · ${PACKAGE_FILENAME} est prêt avec ${records.length} photo(s).`;
   } catch (error) {
-    status.textContent = `Impossible de créer le PDF BrickHouse : ${error.message}`;
+    status.textContent = `Handoff ${PDF_HANDOFF_VERSION} · Impossible de créer le PDF BrickHouse : ${error.message}`;
   } finally {
     button.disabled = false;
   }
