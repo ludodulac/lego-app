@@ -85,12 +85,12 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             issues.append(
                 ProjectionIssue(
                     code="gable_geometry_incomplete",
-                    severity=ProjectionSeverity.WARNING,
+                    severity=ProjectionSeverity.BLOCKER,
                     object_id=roof.id,
                     message=(
                         "ArchitecturalScene preserves a gable roof but does not know "
-                        f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so the roof "
-                        "remains Scene-only instead of inventing metric roof geometry."
+                        f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so LEGO projection "
+                        "is blocked rather than inventing metric roof geometry or producing an open building."
                     ),
                 )
             )
