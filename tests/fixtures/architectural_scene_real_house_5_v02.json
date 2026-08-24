@@ -1,0 +1,65 @@
+{
+  "schema_version": "0.2",
+  "id": "scene_real_house_5_v04",
+  "name": "Maison réelle — scène reconstruite conservatrice",
+  "units": "m",
+  "volumes": [
+    {
+      "id": "volume_main",
+      "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+      "width": {"value": 10.0, "source": {"kind": "user_provided", "confidence": 0.99}, "evidence": [{"photo_index": 1, "observation": "Largeur de façade avant fournie par l’utilisateur."}]},
+      "depth": {"value": 8.0, "source": {"kind": "inferred", "confidence": 0.48}, "evidence": [{"photo_index": 2, "observation": "Le côté droit contraint la profondeur relative à la façade."}, {"photo_index": 3, "observation": "La vue gauche fournit une seconde contrainte de profondeur."}]},
+      "height": {"value": 7.2, "source": {"kind": "inferred", "confidence": 0.46}, "evidence": [{"photo_index": 1, "observation": "La façade montre les niveaux d’ouvertures et l’égout."}, {"photo_index": 2, "observation": "La vue latérale recoupe hauteur du mur et toiture."}]},
+      "floors": 3,
+      "source": {"kind": "inferred", "confidence": 0.52},
+      "evidence": [{"photo_index": 1, "observation": "Enveloppe principale visible."}, {"photo_index": 2, "observation": "Volume recoupé latéralement."}]
+    },
+    {
+      "id": "left_lower_structure",
+      "position": {"x": -2.0, "y": 4.8, "z": 0.0},
+      "width": {"value": 2.0, "source": {"kind": "inferred", "confidence": 0.35}, "evidence": [{"photo_index": 4, "observation": "Ouvrage bas visible."}]},
+      "depth": {"value": 2.2, "source": {"kind": "inferred", "confidence": 0.32}, "evidence": [{"photo_index": 5, "observation": "Ouvrage recoupé depuis l’arrière."}]},
+      "height": {"value": 2.2, "source": {"kind": "inferred", "confidence": 0.35}, "evidence": [{"photo_index": 4, "observation": "Hauteur relative visible."}]},
+      "floors": 1,
+      "source": {"kind": "inferred", "confidence": 0.4},
+      "evidence": [{"photo_index": 4, "observation": "Ouvrage bas distinct."}, {"photo_index": 5, "observation": "Même ouvrage depuis l’arrière."}]
+    }
+  ],
+  "openings": [
+    {"id":"front_upper_left_window","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":1.4,"offset_vertical":5.15,"width":2.1,"height":1.25,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null,"has_sill":true,"has_decorative_surround":true},
+    {"id":"front_upper_right_window","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":6.5,"offset_vertical":5.15,"width":2.1,"height":1.25,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null,"has_sill":true,"has_decorative_surround":true},
+    {"id":"front_middle_left_window","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":1.4,"offset_vertical":2.95,"width":2.1,"height":1.25,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null,"has_sill":true,"has_decorative_surround":true},
+    {"id":"front_middle_right_window","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":6.5,"offset_vertical":2.95,"width":2.1,"height":1.25,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null,"has_sill":true,"has_decorative_surround":true},
+    {"id":"front_low_left_window","type":"window","volume_id":"volume_main","facade":"front","offset_horizontal":1.55,"offset_vertical":0.65,"width":1.45,"height":0.85,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null,"has_decorative_surround":true},
+    {"id":"front_glazed_access","type":"door","volume_id":"volume_main","facade":"front","offset_horizontal":6.55,"offset_vertical":0.0,"width":2.0,"height":2.25,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":1,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null},
+    {"id":"right_upper_window","type":"window","volume_id":"volume_main","facade":"right","offset_horizontal":2.0,"offset_vertical":4.0,"width":1.15,"height":1.55,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":2,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null},
+    {"id":"right_low_window","type":"window","volume_id":"volume_main","facade":"right","offset_horizontal":5.6,"offset_vertical":0.45,"width":1.0,"height":0.65,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":2,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null},
+    {"id":"left_upper_window","type":"window","volume_id":"volume_main","facade":"left","offset_horizontal":4.8,"offset_vertical":4.0,"width":1.1,"height":1.55,"source":{"kind":"inferred","confidence":0.42},"evidence":[{"photo_index":3,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null},
+    {"id":"left_mid_opening","type":"window","volume_id":"volume_main","facade":"left","offset_horizontal":4.9,"offset_vertical":1.8,"width":1.2,"height":1.35,"source":{"kind":"inferred","confidence":0.25},"evidence":[{"photo_index":3,"observation":"Ouverture observée; métrique estimée depuis les vues et l’ancre de largeur."}],"local_grade_clearance":null}
+  ],
+  "roofs": [{"id":"main_gable_roof","volume_id":"volume_main","type":"gable","overhang":0.25,"ridge_direction":"depth","pitch_degrees":null,"source":{"kind":"observed","confidence":0.95},"evidence":[{"photo_index":1,"observation":"Pignon avant certain."},{"photo_index":2,"observation":"Toiture à deux versants corroborée."}]}],
+  "terrain": {"kind":"facade_grade_profiles","profiles":[{"facade":"right","start_elevation":0.0,"end_elevation":null,"outward_extent":null,"source":{"kind":"observed","confidence":0.95},"evidence":[{"photo_index":2,"observation":"Voirie montante; amplitude métrique non prouvée."}]}]},
+  "chimneys": [
+    {"id":"chimney_front_left","position":{"x":1.7,"y":2.0,"z":7.2},"width":0.65,"depth":0.65,"height":1.6,"source":{"kind":"inferred","confidence":0.35},"evidence":[{"photo_index":1,"observation":"Souche maçonnée certaine; position et dimensions métriques seulement inférées."},{"photo_index":5,"observation":"Même zone de cheminée recoupée depuis l’arrière."}]},
+    {"id":"chimney_rear_area","position":{"x":7.4,"y":6.5,"z":7.2},"width":0.55,"depth":0.55,"height":1.4,"source":{"kind":"inferred","confidence":0.3},"evidence":[{"photo_index":5,"observation":"Seconde souche certaine vers l’arrière; métrique seulement inférée."}]}
+  ],
+  "platforms": [{
+    "id":"left_timber_terrace","host_volume_id":"volume_main","position":{"x":-2.6,"y":2.0,"z":2.4},"width":2.6,"depth":3.8,"thickness":0.18,
+    "supports":[
+      {"id":"left_timber_terrace_post_front","position":{"x":-2.45,"y":2.25,"z":0.0},"width":0.16,"depth":0.16,"height":2.4,"source":{"kind":"inferred","confidence":0.4}},
+      {"id":"left_timber_terrace_post_rear","position":{"x":-2.45,"y":5.45,"z":0.0},"width":0.16,"depth":0.16,"height":2.4,"source":{"kind":"inferred","confidence":0.4}}
+    ],
+    "material":"timber","deck_board_direction":"unknown","edges":null,"source":{"kind":"inferred","confidence":0.45},
+    "evidence":[{"photo_index":3,"observation":"Terrasse bois surélevée avec supports."},{"photo_index":4,"observation":"Bord et jonction au mur visibles."}]
+  }],
+  "stairs": [{"id":"left_exterior_stair","start":{"x":-1.4,"y":6.8,"z":0.0},"end":{"x":-1.4,"y":4.8,"z":2.4},"width":1.1,"material":"concrete","left_edge":"solid_parapet","right_edge":"unknown","source":{"kind":"inferred","confidence":0.43},"evidence":[{"photo_index":4,"observation":"Volée béton avec muret."},{"photo_index":5,"observation":"Même volée recoupée depuis l’arrière."}]}],
+  "equipment": [],
+  "visibility": [{"volume_id":"volume_main","facade":"rear","spans":[{"from":0.0,"to":8.0,"state":"unknown","by":"rear_left_occlusion"}]}],
+  "relations": [
+    {"id":"rel_terrace_building","kind":"connects_to","subject_id":"left_timber_terrace","object_id":"left_boundary","certainty":"certain","geometry_status":"unresolved","statement":"La terrasse bois rejoint physiquement le bâtiment.","evidence":[{"photo_index":3,"observation":"Relation certaine du Survey; raccord métrique conservé unresolved."}]},
+    {"id":"rel_stair_building","kind":"connects_to","subject_id":"left_exterior_stair","object_id":"left_boundary","certainty":"certain","geometry_status":"unresolved","statement":"L’escalier extérieur rejoint physiquement le bâtiment.","evidence":[{"photo_index":4,"observation":"Relation certaine du Survey; raccord métrique conservé unresolved."}]},
+    {"id":"rel_lower_structure_building","kind":"adjacent_to","subject_id":"left_lower_structure","object_id":"left_boundary","certainty":"certain","geometry_status":"unresolved","statement":"L’ouvrage bas est immédiatement adjacent au bâtiment.","evidence":[{"photo_index":4,"observation":"Relation certaine du Survey; raccord métrique conservé unresolved."}]}
+  ],
+  "appearance": {"walls":{"color":"off_white_light_gray"},"roof":{"color":"dark_gray_anthracite"},"frames":{"color":"dark_gray_brown"}},
+  "notes": "Reconstruction conservatrice. Métriques inférées prudemment; raccords vers left_boundary unresolved."
+}
