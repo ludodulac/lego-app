@@ -39,7 +39,10 @@
   ],
   "roofs": [{"id":"main_gable_roof","volume_id":"volume_main","type":"gable","overhang":0.25,"ridge_direction":"depth","pitch_degrees":null,"source":{"kind":"observed","confidence":0.95},"evidence":[{"photo_index":1,"observation":"Pignon avant certain."},{"photo_index":2,"observation":"Toiture à deux versants corroborée."}]}],
   "terrain": {"kind":"facade_grade_profiles","profiles":[{"facade":"right","start_elevation":0.0,"end_elevation":null,"outward_extent":null,"source":{"kind":"observed","confidence":0.95},"evidence":[{"photo_index":2,"observation":"Voirie montante; amplitude métrique non prouvée."}]}]},
-  "chimneys": [],
+  "chimneys": [
+    {"id":"chimney_front_left","position":{"x":1.7,"y":2.0,"z":7.2},"width":0.65,"depth":0.65,"height":1.6,"source":{"kind":"inferred","confidence":0.35},"evidence":[{"photo_index":1,"observation":"Souche maçonnée certaine; position et dimensions métriques seulement inférées."},{"photo_index":5,"observation":"Même zone de cheminée recoupée depuis l’arrière."}]},
+    {"id":"chimney_rear_area","position":{"x":7.4,"y":6.5,"z":7.2},"width":0.55,"depth":0.55,"height":1.4,"source":{"kind":"inferred","confidence":0.3},"evidence":[{"photo_index":5,"observation":"Seconde souche certaine vers l’arrière; métrique seulement inférée."}]}
+  ],
   "platforms": [{
     "id":"left_timber_terrace","host_volume_id":"volume_main","position":{"x":-2.6,"y":2.0,"z":2.4},"width":2.6,"depth":3.8,"thickness":0.18,
     "supports":[
