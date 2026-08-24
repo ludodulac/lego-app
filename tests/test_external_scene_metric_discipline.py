@@ -49,13 +49,13 @@ def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
 
 def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
     source = SURVEY_PROMPT.read_text(encoding="utf-8")
-    assert "RELEVÉ ARCHITECTURAL v2.3" in source
+    assert "RELEVÉ ARCHITECTURAL v2.6" in source
     assert 'schema_version` DOIT valoir exactement `"0.1"' in source
     assert '"kind":"front_width"' in source
     assert "subject_id" in source
     assert "object_id" in source
     assert "same_physical_object" in source
-    assert "certitude de l’observation de toiture" in source
+    assert "TOITURE — CERTITUDE OBJET VS ATTRIBUTS" in source
     assert "attributes.semantic_type" in source
     assert "attribute_certainty" in source
     assert "SupportPost" in SCENE_PROMPT.read_text(encoding="utf-8")
