@@ -1,4 +1,5 @@
 BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.3
+Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.2` désigne le contrat précédent ; la version active et autoritative est v3.3.
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie. Tu transformes la compréhension architecturale en géométrie uniquement quand les preuves le permettent.
@@ -72,7 +73,7 @@ Si le Survey établit escalier visible → palier béton ; palier béton ↔ ter
 
 Visibility :
 `{ "volume_id":"volume_main|null", "facade":"front", "spans":[ { "from":0.0, "to":5.0, "state":"visible|occluded|unknown", "by":null } ] }`.
-Aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une ouverture observée prouve que sa propre emprise est visible : découpe le span autour d’elle.
+Règle absolue : aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une ouverture observée prouve que sa propre emprise est visible : découpe le span autour d’elle.
 Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée.
 
 Appearance : `{ "walls":{"color":"..."}|null, "roof":{"color":"..."}|null, "frames":{"color":"..."}|null }`.
@@ -108,7 +109,7 @@ Toute observation active `opening`, `platform` ou `stair` rendue conserve exacte
 STRUCTURES EXTÉRIEURES
 Ne crée que les primitives réellement soutenues. Décompose terrasse bois, dalle/palier béton et volées distinctes seulement si le Survey les distingue physiquement. Conserve supports, matériaux, garde-corps/murets et passages au niveau de certitude fourni par le Survey.
 Sans relation topologique `unresolved`, chaque Platform rendue touche un volume suffisamment défini ou une StairRun.
-Aucune connexion cachée inventée pour satisfaire le validateur : lorsqu’une relation certaine existe mais que son raccord métrique est occulté, utilise `geometry_status:"unresolved"` au lieu d’omettre la primitive ou d’inventer son contact.
+Règle : aucune connexion cachée inventée pour satisfaire le validateur ; lorsqu’une relation certaine existe mais que son raccord métrique est occulté, utilise `geometry_status:"unresolved"` au lieu d’omettre la primitive ou d’inventer son contact.
 
 MESURES UTILISATEUR
 Toute mesure utilisateur reste `source.kind="user_provided"` et ne contraint que la dimension concernée.
