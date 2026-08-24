@@ -50,3 +50,10 @@ def test_single_pdf_distinguishes_topology_from_complete_survey_and_scene_contra
     assert "id, name, canonical_frame, photos, observations et relations" in source
     assert "Chaque relation Survey doit contenir id, kind, subject_id, object_id, certainty, statement et evidence" in source
     assert "ne mets jamais directement le résultat de l'étape TOPOLOGIE dans survey ou scene" in source
+
+
+def test_single_pdf_exposes_handoff_version_in_ui_and_pdf_command() -> None:
+    source = (FRONTEND / "brickhouse-single-package.js").read_text(encoding="utf-8")
+    assert "PDF_HANDOFF_VERSION = 'pdf-handoff-0.2'" in source
+    assert "HANDOFF_VERSION=${PDF_HANDOFF_VERSION}" in source
+    assert "Handoff ${PDF_HANDOFF_VERSION} prêt" in source
