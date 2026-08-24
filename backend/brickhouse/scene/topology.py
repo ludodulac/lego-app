@@ -68,9 +68,15 @@ class ArchitecturalScene(_MetricArchitecturalScene):
         if len(relation_ids) != len(set(relation_ids)):
             raise ValueError("scene relation IDs must be unique")
         for relation in self.relations:
-            if relation.subject_id not in object_ids or relation.object_id not in object_ids:
+            subject_present = relation.subject_id in object_ids
+            object_present = relation.object_id in object_ids
+            if relation.geometry_status == "resolved" and not (subject_present and object_present):
                 raise ValueError(
-                    f"scene relation {relation.id!r} references an object absent from the Scene"
+                    f"resolved scene relation {relation.id!r} references an object absent from the Scene"
+                )
+            if relation.geometry_status == "unresolved" and not (subject_present or object_present):
+                raise ValueError(
+                    f"unresolved scene relation {relation.id!r} must reference at least one Scene object"
                 )
 
     def _has_unresolved_relation(self, object_id: str) -> bool:

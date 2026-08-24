@@ -1,4 +1,5 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.3
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.4
+Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.3` désigne le contrat précédent ; la version active est v2.4.
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventories ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -10,7 +11,7 @@ RÈGLE CENTRALE
 Observe avant de mesurer. Une architecture plausible n’est jamais une preuve. Une porte en hauteur peut réellement donner dans le vide. Une zone cachée reste inconnue.
 
 CONTRAT JSON EXACT — OBLIGATOIRE
-Le Survey final doit être directement validable par le modèle backend `ArchitecturalSurvey`. N’invente AUCUN alias de champ.
+La Survey final doit être directement validable par le modèle backend `ArchitecturalSurvey`. N’invente AUCUN alias de champ.
 - `schema_version` DOIT valoir exactement `"0.1"`, jamais `"architectural-survey-0.1"`.
 - `canonical_frame` doit utiliser exactement :
   `{ "front_facade":"front", "x_direction":"front_view_left_to_right", "y_direction":"front_to_rear", "z_direction":"bottom_to_top" }`.
@@ -68,6 +69,14 @@ Décompose seulement les primitives réellement soutenues : volée, palier/dalle
 Chaque vraie primitive `platform` ou `stair` reçoit une IDENTITÉ STABLE DES PRIMITIVES réutilisable par Survey→Scene.
 Un poteau, une poutre ou un cadre porteur observé SOUS une plateforme n’est PAS une deuxième observation `kind="platform"`. Encode les supports visibles dans `attributes.supports` de la plateforme principale, avec des descriptions/preuves non métriques. La Scene les convertira éventuellement en `SupportPost`. Ne crée une deuxième Platform que si les photos montrent réellement une deuxième surface de circulation distincte.
 
+AUDIT DE CONNECTIVITÉ DES STRUCTURES EXTÉRIEURES
+Après avoir inventorié `platform` et `stair`, vérifie explicitement leurs raccords physiques prouvés.
+- Si les photos établissent qu’une plateforme, un palier ou un escalier touche/rejoint certainement une autre primitive observée, ajoute une relation `connects_to` certaine entre leurs IDs stables.
+- Si les photos établissent qu’une plateforme ou un escalier rejoint certainement l’enveloppe du bâtiment, ajoute une relation `connects_to` vers l’observation `building_boundary` correspondante. Le raccord peut être certain topologiquement même si son point métrique exact est occulté.
+- Si seule l’existence des deux objets est certaine mais pas leur contact physique, N’AJOUTE PAS de relation certaine.
+- Ne remplace jamais une relation prouvée par des coordonnées ou une distance : le Survey reste non métrique.
+Avant sortie, toute primitive extérieure certaine qui apparaît manifestement rattachée au bâtiment ou à une autre primitive dans les preuves doit avoir sa relation correspondante dans `relations[]`; sinon le Survey est incomplet.
+
 TOITURE — CERTITUDE OBJET VS ATTRIBUTS
 Sépare toujours la certitude de l’observation de toiture de la certitude de chacun de ses attributs. `certainty="certain"` peut signifier qu’un toit est certainement visible sans rendre certaine sa forme, son axe, son pitch ou le pignon.
 Pour tout attribut de toiture explicitement présent mais moins certain que l’existence du toit, encode la prudence dans `attribute_certainty` ; ne te contente pas d’une réserve en prose. Ne transforme jamais une forme probable en fait certain.
@@ -79,7 +88,7 @@ MATÉRIAUX ET BORDS
 Pour platform/stair, `attributes.exterior_material` = timber | concrete | masonry | stone | metal | composite | unknown selon preuves. Les bords et accès restent qualitatifs dans `attributes` ; aucun mètre dans le Survey. Si matériau, bord ou accès est moins certain que l’existence de la primitive, indique sa certitude dans `attribute_certainty`.
 
 RELATIONS EXPLICITES
-`relations[]` contient uniquement des relations prouvées entre objets distincts : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. `connects_to` n’est jamais ajouté par convention.
+`relations[]` contient uniquement des relations prouvées entre objets distincts : connects_to | adjacent_to | aligned_with | supports | part_of | same_physical_object. `connects_to` n’est jamais ajouté par convention. L’audit de connectivité ci-dessus impose toutefois d’écrire les `connects_to` réellement prouvés au lieu de les laisser seulement dans la prose d’une observation.
 
 ANTI-MIROIR
 x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Aucune compensation du viewer.
@@ -99,6 +108,7 @@ AUDIT FINAL
 - les `semantic_type` d’ouvertures sont dans la liste supportée ou absents ;
 - aucun poteau/support simple n’est déguisé en Platform ;
 - chaque relation possède `id`, `kind`, `subject_id`, `object_id`, `statement`, `evidence` et relie deux IDs distincts ;
+- toute connexion extérieure certaine prouvée est matérialisée dans `relations[]`, y compris vers `building_boundary` lorsqu’elle relie une primitive à l’enveloppe ;
 - quantité de photos jamais confondue avec certitude architecturale ;
 - objets multi-vues fusionnés sous ids stables ;
 - aucune portion cachée complétée ;
