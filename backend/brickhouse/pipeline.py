@@ -30,7 +30,7 @@ from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 from brickhouse.geometry import generate_building_geometry
 from brickhouse.scene.models import ArchitecturalScene, SceneRoofType
-from brickhouse.scene.projection import project_scene_to_building
+from brickhouse.scene.topology_projection import project_scene_to_building
 from brickhouse.vision.compatibility import assess_m0_compatibility
 
 DEFAULT_FRONT_WIDTH_STUDS = 48

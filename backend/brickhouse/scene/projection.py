@@ -47,6 +47,20 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
 
     if scene.terrain and scene.terrain.profiles:
         issues.append(ProjectionIssue(code="terrain_not_supported", severity=ProjectionSeverity.WARNING, message="BuildingModel 0.1 uses a global flat ground plane; facade grade profiles are preserved only in scene data."))
+        for profile in scene.terrain.profiles:
+            if profile.start_elevation is None or profile.end_elevation is None:
+                issues.append(
+                    ProjectionIssue(
+                        code="terrain_geometry_incomplete",
+                        severity=ProjectionSeverity.WARNING,
+                        object_id=f"terrain:{profile.facade.value}",
+                        message=(
+                            f"Terrain grade on facade {profile.facade.value!r} is architecturally observed, "
+                            "but its metric endpoint elevations are incomplete. The rich Scene preserves the "
+                            "unknown value and the LEGO pipeline must not invent a grade amplitude."
+                        ),
+                    )
+                )
 
     if scene.visibility:
         issues.append(ProjectionIssue(code="visibility_not_supported", severity=ProjectionSeverity.WARNING, message="Facade visibility/occlusion spans constrain the ArchitecturalScene but are not represented in BuildingModel 0.1."))
