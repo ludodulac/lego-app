@@ -95,11 +95,28 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                 )
             )
 
-    # BuildingModel v0.1 already supports multiple rectangular volumes and one roof
-    # per volume. Do not reject valid scene structure here merely because the
-    # downstream brick engine is still catching up; M0 compatibility owns that
-    # separate decision.
+    # ArchitecturalScene may now preserve explicitly unknown envelope metrics.
+    # BuildingModel/LEGO still need concrete dimensions, so block projection at
+    # this boundary instead of forcing the Scene-producing model to invent them.
     for volume in scene.volumes:
+        missing_metrics = [
+            name
+            for name in ("width", "depth", "height")
+            if getattr(volume, name).value is None
+        ]
+        if missing_metrics:
+            issues.append(
+                ProjectionIssue(
+                    code="volume_geometry_incomplete",
+                    severity=ProjectionSeverity.BLOCKER,
+                    object_id=volume.id,
+                    message=(
+                        f"ArchitecturalScene volume {volume.id!r} has unknown metric "
+                        f"{', '.join(missing_metrics)}. Keep those values null rather than inventing them; "
+                        "BuildingModel/LEGO projection requires a supported metric envelope."
+                    ),
+                )
+            )
         if volume.floors > 3:
             issues.append(ProjectionIssue(code="building_model_floor_limit", severity=ProjectionSeverity.BLOCKER, object_id=volume.id, message="BuildingModel 0.1 supports at most three floors; projection will not silently clamp the scene value."))
 
