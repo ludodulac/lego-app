@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.survey import Certainty, RelationKind
 
@@ -11,7 +11,7 @@ from .models import ArchitecturalScene as _MetricArchitecturalScene
 from .models import CONNECTIVITY_TOLERANCE_M, Evidence
 
 
-class SceneRelation(_MetricArchitecturalScene.__base__):
+class SceneRelation(BaseModel):
     """A proven architectural relation whose exact metric junction may remain unknown."""
 
     id: str
