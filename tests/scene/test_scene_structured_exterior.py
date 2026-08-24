@@ -49,14 +49,14 @@ def _scene(*, platform_material="timber", stair_material="concrete", left_edge="
 
 def test_timber_platform_uses_one_deck_course_without_text_material_hint() -> None:
     bundle = run_m0_pipeline_scene(_scene(), front_width_studs=48)
-    deck_parts = [part for part in bundle.brick_model.parts if part.placement_id.startswith("scene-platform:deck:deck:")]
+    deck_parts = [part for part in bundle.brick_model.parts if part.placement_id.startswith("scene-platform:deck:board:")]
     assert deck_parts
     assert len({part.z_plates for part in deck_parts}) == 1
 
 
 def test_concrete_stair_emits_only_the_explicit_solid_sidewall() -> None:
     bundle = run_m0_pipeline_scene(_scene(), front_width_studs=48)
-    sidewalls = [part for part in bundle.brick_model.parts if part.placement_id.startswith("scene-stair:stair:sidewall:")]
+    sidewalls = [part for part in bundle.brick_model.parts if part.placement_id.startswith("scene-stair:stair:left-parapet:")]
     assert sidewalls
     # One parapet means one sidewall cell per height level, not symmetric walls on both sides.
     xy = {(part.x_studs, part.y_studs) for part in sidewalls}
@@ -64,6 +64,7 @@ def test_concrete_stair_emits_only_the_explicit_solid_sidewall() -> None:
     # There must be fewer sidewall cells than if both sides were mirrored at every stair step.
     tread_xy = {(part.x_studs, part.y_studs) for part in bundle.brick_model.parts if part.placement_id.startswith("scene-stair:stair:tread:")}
     assert len(xy) < len(tread_xy)
+    assert not any(part.placement_id.startswith("scene-stair:stair:right-parapet:") for part in bundle.brick_model.parts)
 
 
 def test_legacy_scene_without_structured_fields_still_validates() -> None:
