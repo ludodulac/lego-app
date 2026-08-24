@@ -21,17 +21,19 @@ def test_guided_photo_workflow_keeps_required_legacy_hooks() -> None:
     ):
         assert f'id="{element_id}"' in html
     assert "photo-simple.js" in html
+    assert "brickhouse-single-package.js" in html
     assert "external-bundle-import.js" in html
 
 
-def test_external_handoff_is_one_downloadable_package_and_one_result_file() -> None:
-    source = (FRONTEND / "photo-simple.js").read_text(encoding="utf-8")
-    assert "brickhouse-photos-a-analyser.zip" in source
-    assert "external-bundle-0.1" in source
+def test_external_handoff_is_one_pdf_package_and_one_result_file() -> None:
+    source = (FRONTEND / "brickhouse-single-package.js").read_text(encoding="utf-8")
+    assert "BRICKHOUSE-ANALYSE-COMPLETE.pdf" in source
     assert "brickhouse-external-result.json" in source
-    assert "instructions/01-topologie.txt" in source
-    assert "instructions/02-survey.txt" in source
-    assert "instructions/03-survey-vers-scene.txt" in source
+    assert "brickhouse-topology-prompt.txt" in source
+    assert "brickhouse-survey-prompt.txt" in source
+    assert "brickhouse-survey-to-scene-prompt.txt" in source
+    assert "makePhotoPage" in source
+    assert "pdfFromCanvases" in source
 
 
 def test_external_result_bundle_reuses_existing_scene_gate() -> None:
