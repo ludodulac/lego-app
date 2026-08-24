@@ -25,7 +25,7 @@ def _survey(kind: str, object_id: str) -> ArchitecturalSurvey:
     })
 
 
-def _scene() -> ArchitecturalScene:
+def _scene(notes: str | None) -> ArchitecturalScene:
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "scene-partial-geometry",
@@ -45,12 +45,13 @@ def _scene() -> ArchitecturalScene:
             "roof": {"color": "dark_gray"},
             "frames": {"color": "dark_brown"},
         },
-        "notes": "Certain exterior element omitted because its hidden connection is not evidenced.",
+        "notes": notes,
     })
 
 
 def test_certain_stair_may_be_omitted_instead_of_inventing_hidden_connection():
-    issues = validate_scene_against_survey(_survey("stair", "stair_hidden"), _scene())
+    scene = _scene("stair_hidden omitted: hidden continuation is not evidenced.")
+    issues = validate_scene_against_survey(_survey("stair", "stair_hidden"), scene)
     matching = [issue for issue in issues if issue.object_id == "stair_hidden"]
     assert any(issue.code == "certain_stair_not_geometrically_encoded" for issue in matching)
     assert all(issue.severity is SceneSurveySeverity.WARNING for issue in matching)
@@ -58,8 +59,17 @@ def test_certain_stair_may_be_omitted_instead_of_inventing_hidden_connection():
 
 
 def test_certain_platform_may_be_omitted_instead_of_inventing_hidden_connection():
-    issues = validate_scene_against_survey(_survey("platform", "deck_hidden"), _scene())
+    scene = _scene("deck_hidden omitted: hidden attachment geometry is not evidenced.")
+    issues = validate_scene_against_survey(_survey("platform", "deck_hidden"), scene)
     matching = [issue for issue in issues if issue.object_id == "deck_hidden"]
     assert any(issue.code == "certain_platform_not_geometrically_encoded" for issue in matching)
     assert all(issue.severity is SceneSurveySeverity.WARNING for issue in matching)
     assert not any(issue.code == "certain_platform_missing" for issue in issues)
+
+
+def test_undocumented_omission_remains_an_error():
+    issues = validate_scene_against_survey(_survey("stair", "stair_hidden"), _scene(None))
+    assert any(
+        issue.code == "certain_stair_missing" and issue.severity is SceneSurveySeverity.ERROR
+        for issue in issues
+    )
