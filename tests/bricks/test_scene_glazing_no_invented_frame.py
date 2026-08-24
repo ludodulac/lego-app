@@ -1,4 +1,4 @@
-from brickhouse.bricks.brick_model import BrickModel
+from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.scene import ArchitecturalScene
 
@@ -38,7 +38,17 @@ def test_glazed_door_adds_panes_without_inventing_perimeter_frame() -> None:
         width_studs=48,
         depth_studs=38,
         height_plates=60,
-        parts=[],
+        parts=[BrickModelPart(
+            placement_id="seed",
+            part_id="BRICK_1X1",
+            category="brick",
+            component="wall",
+            x_studs=0,
+            y_studs=0,
+            z_plates=0,
+            rotation_quarter_turns=0,
+            facade="front",
+        )],
     )
 
     enriched = augment_brick_model_with_scene_glazing(model, scene, front_width_studs=48)
