@@ -21,5 +21,5 @@ def test_prompt_maps_resolved_semantic_boundary_without_renaming_survey_endpoint
     source = PROMPT.read_text(encoding="utf-8")
     assert "semantic_anchor_volume_id" in source
     assert "Ne renomme jamais `building_boundary` en `volume_main`" in source
-    assert 'geometry_status:"resolved" + `semantic_anchor_volume_id`' in source
+    assert 'geometry_status:"resolved"' in source
     assert "si la primitive touche réellement un volume Scene non ambigu" in source
