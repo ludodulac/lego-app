@@ -69,4 +69,4 @@ def test_topology_prompt_obeys_single_turn_and_has_conditional_orientation_autho
     assert "contrainte utilisateur forte" in source
     assert "user_confirmed" in source
     assert "overlap_anchors" in source
-    assert "Une absence d’ancre ne doit jamais être compensée" in source
+    assert "une absence d’ancre ne doit jamais être compensée" in source
