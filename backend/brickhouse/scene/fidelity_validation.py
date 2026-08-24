@@ -74,6 +74,48 @@ def _strict_claims_only(survey: ArchitecturalSurvey) -> ArchitecturalSurvey:
     return survey.model_copy(update={"observations": observations})
 
 
+def _superseded_observation_ids(survey: ArchitecturalSurvey) -> set[str]:
+    return {
+        target_id
+        for observation in survey.observations
+        if isinstance((target_id := observation.attributes.get("refines_observation_id")), str)
+        and target_id
+    }
+
+
+def _certain_roof_existence_issues(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> list[SceneSurveyIssue]:
+    """A certainly observed roof must survive into Scene even if its shape is unknown."""
+    if scene.roofs:
+        return []
+
+    superseded = _superseded_observation_ids(survey)
+    certain_roofs = [
+        observation
+        for observation in survey.observations
+        if observation.kind is ObservationKind.ROOF
+        and observation.certainty is Certainty.CERTAIN
+        and observation.id not in superseded
+    ]
+    if not certain_roofs:
+        return []
+
+    return [
+        SceneSurveyIssue(
+            code="certain_roof_missing",
+            severity=SceneSurveySeverity.ERROR,
+            object_id=observation.id,
+            message=(
+                f"La toiture certaine {observation.id!r} a disparu de la Scene. "
+                "Conservez son existence même si sa forme, son axe ou sa pente restent inconnus."
+            ),
+        )
+        for observation in certain_roofs
+    ]
+
+
 def _omission_is_documented(scene: ArchitecturalScene, object_id: str | None) -> bool:
     """Require an explicit object-level audit trail before relaxing a missing primitive."""
     if not object_id or not scene.notes:
@@ -92,10 +134,12 @@ def validate_scene_against_survey(
     Surveys keep their prior semantics. Certain Platform/StairRun observations
     may also be omitted when hidden geometry would otherwise have to be invented,
     but only when ``scene.notes`` names that exact Survey object. Rendered
-    primitives remain fully validated.
+    primitives remain fully validated. A certainly observed roof is never
+    omittable: Scene can preserve it with unknown geometry, but cannot erase it.
     """
     validation_survey = _strict_claims_only(survey)
     issues = list(_validate_scene_against_survey(validation_survey, scene))
+    issues.extend(_certain_roof_existence_issues(validation_survey, scene))
     result: list[SceneSurveyIssue] = []
 
     for issue in issues:
