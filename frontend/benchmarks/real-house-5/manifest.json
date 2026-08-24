@@ -1,0 +1,15 @@
+{
+  "schema_version": "brickhouse-benchmark-0.1",
+  "id": "real-house-5",
+  "title": "Maison réelle — 5 photos originales",
+  "status": "awaiting_original_files",
+  "orientation_authority": "capture_hint",
+  "known_front_width_m": null,
+  "photos": [
+    {"photo_index": 1, "path": "01-original.jpg", "label": "Photo originale 1"},
+    {"photo_index": 2, "path": "02-original.jpg", "label": "Photo originale 2"},
+    {"photo_index": 3, "path": "03-original.jpg", "label": "Photo originale 3"},
+    {"photo_index": 4, "path": "04-original.jpg", "label": "Photo originale 4"},
+    {"photo_index": 5, "path": "05-original.jpg", "label": "Photo originale 5"}
+  ]
+}
