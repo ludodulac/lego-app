@@ -35,7 +35,7 @@ def _scene_without_hidden_geometry() -> ArchitecturalScene:
             "height": {"value": 6, "source": SOURCE}, "floors": 2, "source": SOURCE,
         }],
         "appearance": {"walls": {"color": "off_white"}, "roof": {"color": "dark_gray"}, "frames": {"color": "white"}},
-        "notes": "Visible exterior elements are retained in Survey; hidden metric continuation is not invented in Scene.",
+        "notes": "stair omitted and deck omitted: visible architectural existence remains in Survey, but hidden metric continuation is not evidenced.",
     })
 
 
