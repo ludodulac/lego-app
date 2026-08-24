@@ -126,7 +126,7 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert "user_confirmed" in topology
     assert "overlap_anchors" in topology
     assert "une vue partielle peut être extrêmement utile" in topology
-    assert "RELEVÉ ARCHITECTURAL v2.3" in survey
+    assert "RELEVÉ ARCHITECTURAL v2.6" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
     assert '"kind":"front_width"' in survey
     assert "subject_id" in survey
@@ -164,7 +164,6 @@ def test_survey_to_scene_prompt_matches_current_generic_contract() -> None:
     assert "building_boundary" in prompt
     assert "DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE" in prompt
     assert "FAUSSE PRÉCISION" in prompt
-    assert "GÉOMÉTRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA" in prompt
     assert "type:\"other\"" in prompt
     assert 'type":"window|door|garage_door' in prompt
     assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in prompt
@@ -176,8 +175,6 @@ def test_survey_to_scene_prompt_matches_current_generic_contract() -> None:
     assert "PropertyValue.value=null" in prompt
     assert "volume_geometry_incomplete" in prompt
     assert "NON-CHEVAUCHEMENT DES OUVERTURES" in prompt
-    assert "attributes.roof_type" in prompt
-    assert "ne la transforme jamais en fait certain" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:

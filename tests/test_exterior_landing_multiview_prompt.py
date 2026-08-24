@@ -6,7 +6,7 @@ PROMPT = ROOT / "frontend" / "brickhouse-survey-prompt.txt"
 
 def test_survey_separates_walkable_landing_from_support_volume() -> None:
     source = PROMPT.read_text(encoding="utf-8")
-    assert "PROMPT DE RELEVÉ ARCHITECTURAL v2.5" in source
+    assert "PROMPT DE RELEVÉ ARCHITECTURAL v2.6" in source
     assert "DÉCOMPOSITION PALIER / VOLUME PORTEUR / TERRASSE" in source
     assert "surface horizontale praticable distincte" in source
     assert 'observation `kind:"platform"` distincte du volume/support' in source
@@ -18,7 +18,7 @@ def test_survey_preserves_stair_landing_deck_topology_before_metrics() -> None:
     assert "DEUX primitives (`stair` + `platform`)" in source
     assert "Ne remplace pas ce palier par une connexion directe escalier→bâtiment" in source
     assert "terrasse bois et un palier béton restent deux objets" in source
-    assert "relation palier→`building_boundary`" in source
+    assert "relation palier→l’observation `building_boundary` correspondante" in source
     assert "Ne déduis pas automatiquement terrasse→bâtiment ou escalier→bâtiment" in source
     assert "N’invente jamais une volée cachée" in source
 
