@@ -71,9 +71,13 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             issues.append(
                 ProjectionIssue(
                     code="roof_type_not_supported",
-                    severity=ProjectionSeverity.WARNING,
+                    severity=ProjectionSeverity.BLOCKER,
                     object_id=roof.id,
-                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
+                    message=(
+                        f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 "
+                        "cannot represent it. LEGO projection is blocked rather than producing an open building "
+                        "that would silently erase a known roof."
+                    ),
                 )
             )
         elif roof.type is SceneRoofType.GABLE and not _roof_is_building_model_representable(roof):
@@ -85,12 +89,12 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             issues.append(
                 ProjectionIssue(
                     code="gable_geometry_incomplete",
-                    severity=ProjectionSeverity.WARNING,
+                    severity=ProjectionSeverity.BLOCKER,
                     object_id=roof.id,
                     message=(
                         "ArchitecturalScene preserves a gable roof but does not know "
-                        f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so the roof "
-                        "remains Scene-only instead of inventing metric roof geometry."
+                        f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so LEGO projection "
+                        "is blocked rather than inventing metric roof geometry or producing an open building."
                     ),
                 )
             )
