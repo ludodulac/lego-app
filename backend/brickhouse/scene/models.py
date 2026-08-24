@@ -87,10 +87,11 @@ class SceneRoof(BaseModel):
     def validate_roof(self):
         if self.pitch_degrees is not None and not 0 < self.pitch_degrees < 90:
             raise ValueError("roof pitch_degrees must be > 0 and < 90 when provided")
-        if self.type is SceneRoofType.GABLE:
-            if self.ridge_direction is None or self.pitch_degrees is None:
-                raise ValueError("gable roof requires ridge_direction and pitch_degrees")
-        elif self.type is SceneRoofType.FLAT:
+        # ArchitecturalScene is an understanding layer, not a construction
+        # solver. A gable can be visually certain while ridge direction or pitch
+        # remain unknown. Keep those fields nullable here; projection/build gates
+        # decide whether enough metric information exists to construct the roof.
+        if self.type is SceneRoofType.FLAT:
             if self.ridge_direction is not None or self.pitch_degrees is not None:
                 raise ValueError("flat roof must not define pitched-roof fields")
         elif self.type is SceneRoofType.SHED:
