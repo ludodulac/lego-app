@@ -8,6 +8,8 @@ continuation cannot be encoded without invention.
 """
 from __future__ import annotations
 
+from itertools import combinations
+
 from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
 
 from .models import ArchitecturalScene
@@ -21,11 +23,15 @@ _OMITTABLE_CERTAIN_GEOMETRY = {
 }
 
 # These attributes historically inherited the observation-level certainty. They
-# directly drive topology/type constraints in Scene validation, so when a modern
-# Survey explicitly marks one as plausible/unproven it must not be promoted back
-# to a certain fact by a legacy validator.
+# directly drive topology/type/layout constraints in Scene validation, so when a
+# modern Survey explicitly marks one as plausible/unproven it must not be
+# promoted back to a certain fact by a legacy validator.
 _STRUCTURAL_ATTRIBUTE_KEYS = {
-    ObservationKind.OPENING: ("semantic_type",),
+    ObservationKind.OPENING: (
+        "semantic_type",
+        "facade_horizontal_rank",
+        "facade_vertical_rank",
+    ),
     ObservationKind.ROOF: ("facade_is_gable", "front_is_gable"),
     ObservationKind.TERRAIN: ("slope_direction",),
 }
@@ -116,6 +122,91 @@ def _certain_roof_existence_issues(
     ]
 
 
+def _opening_layout_order_issues(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> list[SceneSurveyIssue]:
+    """Preserve certain qualitative opening order without inventing metric spacing."""
+    scene_openings = {opening.id: opening for opening in scene.openings}
+    observations = [
+        observation
+        for observation in survey.observations
+        if observation.kind is ObservationKind.OPENING
+        and observation.certainty is Certainty.CERTAIN
+        and observation.facade is not None
+        and observation.id in scene_openings
+    ]
+    issues: list[SceneSurveyIssue] = []
+
+    for first, second in combinations(observations, 2):
+        if first.facade is not second.facade:
+            continue
+        first_scene = scene_openings[first.id]
+        second_scene = scene_openings[second.id]
+
+        horizontal_first = first.attributes.get("facade_horizontal_rank")
+        horizontal_second = second.attributes.get("facade_horizontal_rank")
+        if (
+            isinstance(horizontal_first, int)
+            and not isinstance(horizontal_first, bool)
+            and isinstance(horizontal_second, int)
+            and not isinstance(horizontal_second, bool)
+            and horizontal_first != horizontal_second
+        ):
+            first_center = first_scene.offset_horizontal + first_scene.width / 2
+            second_center = second_scene.offset_horizontal + second_scene.width / 2
+            order_holds = (
+                first_center < second_center
+                if horizontal_first < horizontal_second
+                else first_center > second_center
+            )
+            if not order_holds:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="opening_horizontal_order_drift",
+                        severity=SceneSurveySeverity.ERROR,
+                        object_id=second.id,
+                        message=(
+                            f"Les ouvertures {first.id!r} et {second.id!r} ont inversé leur ordre horizontal "
+                            f"certain sur la façade {first.facade.value}. Les rangs qualitatifs imposent "
+                            "l'ordre gauche→droite, pas une distance métrique."
+                        ),
+                    )
+                )
+
+        vertical_first = first.attributes.get("facade_vertical_rank")
+        vertical_second = second.attributes.get("facade_vertical_rank")
+        if (
+            isinstance(vertical_first, int)
+            and not isinstance(vertical_first, bool)
+            and isinstance(vertical_second, int)
+            and not isinstance(vertical_second, bool)
+            and vertical_first != vertical_second
+        ):
+            first_center = first_scene.offset_vertical + first_scene.height / 2
+            second_center = second_scene.offset_vertical + second_scene.height / 2
+            order_holds = (
+                first_center < second_center
+                if vertical_first < vertical_second
+                else first_center > second_center
+            )
+            if not order_holds:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="opening_vertical_order_drift",
+                        severity=SceneSurveySeverity.ERROR,
+                        object_id=second.id,
+                        message=(
+                            f"Les ouvertures {first.id!r} et {second.id!r} ont inversé leur ordre vertical "
+                            f"certain sur la façade {first.facade.value}. Les rangs qualitatifs imposent "
+                            "l'ordre bas→haut, pas une hauteur métrique."
+                        ),
+                    )
+                )
+
+    return issues
+
+
 def _omission_is_documented(scene: ArchitecturalScene, object_id: str | None) -> bool:
     """Require an explicit object-level audit trail before relaxing a missing primitive."""
     if not object_id or not scene.notes:
@@ -136,10 +227,13 @@ def validate_scene_against_survey(
     but only when ``scene.notes`` names that exact Survey object. Rendered
     primitives remain fully validated. A certainly observed roof is never
     omittable: Scene can preserve it with unknown geometry, but cannot erase it.
+    Certain qualitative opening ranks preserve ordering while remaining entirely
+    non-metric.
     """
     validation_survey = _strict_claims_only(survey)
     issues = list(_validate_scene_against_survey(validation_survey, scene))
     issues.extend(_certain_roof_existence_issues(validation_survey, scene))
+    issues.extend(_opening_layout_order_issues(validation_survey, scene))
     result: list[SceneSurveyIssue] = []
 
     for issue in issues:
