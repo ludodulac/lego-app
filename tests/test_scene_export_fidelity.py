@@ -101,11 +101,13 @@ def test_scene_export_reports_only_losses_that_remain_after_scene_augmentation()
     codes = {issue.code for issue in bundle.fidelity_issues}
 
     assert "roof_type_not_supported" in codes
-    assert "chimney_not_supported" in codes
-    # Terrain is absent from BuildingModel 0.1 but is restored by the Scene-aware
-    # LEGO augmentation, so it must not be advertised as a final export loss.
+    assert "chimney_not_supported" not in codes
     assert "terrain_not_supported" not in codes
     assert any(part.category == "terrain" for part in bundle.brick_model.parts)
+    assert any(
+        part.placement_id.startswith("scene-chimney:chimney-1:")
+        for part in bundle.brick_model.parts
+    )
 
 
 def test_scene_export_surfaces_low_confidence_exterior_geometry() -> None:
