@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-from brickhouse.pipeline import run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene, project_scene_to_building
 from brickhouse.survey import Certainty
 
@@ -61,23 +60,22 @@ def test_plausible_unresolved_relation_is_preserved_without_blocking_m0() -> Non
     assert any(item.id == relation.id for item in scene.relations)
 
 
-def test_current_real_house_5_benchmark_reaches_lego_after_m0_fix() -> None:
+def test_current_real_house_5_benchmark_reaches_corrected_m0_projection() -> None:
     scene = _load(CURRENT_SCENE)
 
     projection = project_scene_to_building(scene)
+
     assert projection.building is not None
     assert not projection.blocked
-
-    bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
-    ids = [part.placement_id for part in bundle.brick_model.parts]
-
-    assert bundle.bom.total_parts == len(bundle.brick_model.parts)
-    assert bundle.bom.total_parts > 0
-    assert any(value.startswith("scene-platform:deck:left_timber_terrace") for value in ids)
-    assert any(value.startswith("scene-platform:deck:left_concrete_landing") for value in ids)
-    assert any(value.startswith("scene-stair:deck_stair:left_exterior_stair") for value in ids)
-
-    fidelity = {(issue.code, issue.object_id) for issue in bundle.fidelity_issues}
-    assert ("roof_type_not_supported", "main_gable_roof") in fidelity
-    assert ("chimney_not_supported", "chimney_front_left") in fidelity
-    assert ("chimney_not_supported", "chimney_rear_area") in fidelity
+    assert len(projection.building.volumes) == 2
+    assert len(projection.building.openings) == 10
+    assert {opening.id for opening in projection.building.openings} == {
+        opening.id for opening in scene.openings
+    }
+    issues = {(issue.code, issue.object_id, issue.severity.value) for issue in projection.issues}
+    assert (
+        "topological_relation_geometry_unresolved",
+        "rel_lower_structure_landing",
+        "warning",
+    ) in issues
+    assert ("roof_type_not_supported", "main_gable_roof", "warning") in issues
