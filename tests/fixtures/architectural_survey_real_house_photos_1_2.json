@@ -49,12 +49,13 @@
       }
     },
     {
-      "id": "front_primary_windows",
+      "id": "front_upper_left_window",
       "kind": "opening",
       "facade": "front",
       "certainty": "certain",
-      "statement": "Quatre fenêtres principales forment deux axes approximatifs sur deux niveaux supérieurs; elles ne sont pas toutes strictement identiques.",
-      "evidence": [{"photo_index": 1, "observation": "Quatre fenêtres principales clairement visibles en grille approximative 2 x 2."}],
+      "statement": "Fenêtre principale supérieure gauche visible sur la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Fenêtre supérieure gauche clairement visible parmi les quatre fenêtres principales."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 1, "facade_vertical_rank": 3},
       "opening_visual": {
         "frame_color": "dark_gray_brown",
         "frame_material": "painted_or_dark_joinery",
@@ -63,8 +64,64 @@
         "glazing": "dark_reflective",
         "sill": "projecting",
         "surround_material": "mineral_or_stone_like",
-        "surround_color": "beige_pink_light",
-        "notes": "Les proportions diffèrent légèrement entre les baies; ne pas cloner une seule géométrie de fenêtre sans contrôle."
+        "surround_color": "beige_pink_light"
+      }
+    },
+    {
+      "id": "front_upper_right_window",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre principale supérieure droite visible sur la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Fenêtre supérieure droite clairement visible parmi les quatre fenêtres principales."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 2, "facade_vertical_rank": 3},
+      "opening_visual": {
+        "frame_color": "dark_gray_brown",
+        "frame_material": "painted_or_dark_joinery",
+        "leaf_count": 2,
+        "mullion_count": 1,
+        "glazing": "dark_reflective",
+        "sill": "projecting",
+        "surround_material": "mineral_or_stone_like",
+        "surround_color": "beige_pink_light"
+      }
+    },
+    {
+      "id": "front_middle_left_window",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre principale intermédiaire gauche visible sur la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Fenêtre intermédiaire gauche clairement visible parmi les quatre fenêtres principales."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 1, "facade_vertical_rank": 2},
+      "opening_visual": {
+        "frame_color": "dark_gray_brown",
+        "frame_material": "painted_or_dark_joinery",
+        "leaf_count": 2,
+        "mullion_count": 1,
+        "glazing": "dark_reflective",
+        "sill": "projecting",
+        "surround_material": "mineral_or_stone_like",
+        "surround_color": "beige_pink_light"
+      }
+    },
+    {
+      "id": "front_middle_right_window",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre principale intermédiaire droite visible sur la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Fenêtre intermédiaire droite clairement visible parmi les quatre fenêtres principales."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 2, "facade_vertical_rank": 2},
+      "opening_visual": {
+        "frame_color": "dark_gray_brown",
+        "frame_material": "painted_or_dark_joinery",
+        "leaf_count": 2,
+        "mullion_count": 1,
+        "glazing": "dark_reflective",
+        "sill": "projecting",
+        "surround_material": "mineral_or_stone_like",
+        "surround_color": "beige_pink_light"
       }
     },
     {
@@ -74,6 +131,7 @@
       "certainty": "certain",
       "statement": "L'ouverture basse gauche est une fenêtre étroite et basse, partiellement contextualisée par un parterre en bois placé devant.",
       "evidence": [{"photo_index": 1, "observation": "Fenêtre basse gauche et parterre en bois visibles; type confirmé par l'utilisateur."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 1, "facade_vertical_rank": 1},
       "opening_visual": {
         "frame_color": "dark_gray_brown",
         "glazing": "dark",
@@ -88,6 +146,7 @@
       "certainty": "certain",
       "statement": "L'ouverture basse droite est un accès vitré de grande hauteur avec menuiserie nettement plus claire que les fenêtres supérieures.",
       "evidence": [{"photo_index": 1, "observation": "Grande porte vitrée claire visible jusqu'au niveau du sol."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "door", "facade_horizontal_rank": 2, "facade_vertical_rank": 1},
       "opening_visual": {
         "frame_color": "white_or_light_gray",
         "glazing": "clear_to_dark_reflective",
@@ -141,6 +200,7 @@
       "certainty": "certain",
       "statement": "Une grande fenêtre haute verticale appartient clairement au mur droit du bâtiment cible.",
       "evidence": [{"photo_index": 2, "observation": "Fenêtre haute verticale visible avant la limite physique du bâtiment."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 1, "facade_vertical_rank": 2},
       "opening_visual": {
         "frame_color": "light_gray_or_white",
         "glazing": "dark_reflective",
@@ -154,6 +214,7 @@
       "certainty": "certain",
       "statement": "La petite ouverture basse arrière est une fenêtre d'atelier presque au niveau du sol local à cause de la route montante.",
       "evidence": [{"photo_index": 2, "observation": "Petite fenêtre basse visible près de la chaussée; fonction confirmée par l'utilisateur."}],
+      "attributes": {"physical_object_count": 1, "semantic_type": "window", "facade_horizontal_rank": 2, "facade_vertical_rank": 1},
       "opening_visual": {
         "glazing": "small_subdivided_or_textured",
         "notes": "Visuellement distincte de la fenêtre haute; relation au sol local prioritaire."
