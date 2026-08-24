@@ -25,6 +25,14 @@ function isBundleRoot(value) {
     && value?.kind === 'brickhouse_external_result';
 }
 
+function looksLikeBundle(value) {
+  return Boolean(value && typeof value === 'object' && (
+    value.kind === 'brickhouse_external_result'
+    || Object.prototype.hasOwnProperty.call(value, 'survey')
+    || Object.prototype.hasOwnProperty.call(value, 'scene')
+  ));
+}
+
 function isBundle(value) {
   return isBundleRoot(value)
     && value?.survey?.schema_version === '0.1'
@@ -32,7 +40,13 @@ function isBundle(value) {
 }
 
 function bundleContractIssue(value) {
-  if (!isBundleRoot(value)) return null;
+  if (!looksLikeBundle(value)) return null;
+  if (value?.schema_version !== 'external-bundle-0.1') {
+    return `Version de l’enveloppe incompatible : attendu « external-bundle-0.1 », reçu « ${value?.schema_version ?? 'absent'} ».`;
+  }
+  if (value?.kind !== 'brickhouse_external_result') {
+    return `Type d’enveloppe incompatible : attendu « brickhouse_external_result », reçu « ${value?.kind ?? 'absent'} ».`;
+  }
   if (!value?.survey || !value?.scene) {
     return 'Le résultat BrickHouse doit contenir à la fois survey et scene.';
   }
@@ -48,7 +62,7 @@ function bundleContractIssue(value) {
 function formatDetail(detail) {
   if (typeof detail === 'string') return detail;
   if (!Array.isArray(detail)) return 'Le fichier résultat ne respecte pas le contrat BrickHouse.';
-  return detail.slice(0, 8).map(item => {
+  return detail.slice(0, 12).map(item => {
     const path = Array.isArray(item.loc) ? item.loc.filter(part => part !== 'body').join('.') : 'champ';
     return `${path} : ${item.msg || item.type || 'valeur invalide'}`;
   }).join(' · ');
@@ -82,7 +96,7 @@ button?.addEventListener('click', async event => {
       body: JSON.stringify(parsed.survey),
     });
     const surveyPayload = await surveyResponse.json();
-    if (!surveyResponse.ok) throw new Error(formatDetail(surveyPayload.detail));
+    if (!surveyResponse.ok) throw new Error(`Survey invalide : ${formatDetail(surveyPayload.detail)}`);
     if (!surveyPayload.valid_for_scene_fusion) {
       const messages = (surveyPayload.issues ?? []).filter(item => item.severity === 'error').map(item => item.message);
       throw new Error(messages.join(' ') || 'Le relevé contenu dans le fichier résultat est refusé.');
@@ -95,9 +109,6 @@ button?.addEventListener('click', async event => {
       localStorage.setItem('brickhouse.knownFrontWidthM', String(frontWidth.value));
     }
 
-    // Reuse the established Scene gate rather than duplicating its validation/build logic.
-    // The next synthetic click contains only the Scene; existing Survey->Scene validation
-    // then performs all semantic and geometric checks before enabling construction.
     input.value = JSON.stringify(parsed.scene, null, 2);
     status.textContent = 'Relevé valide. BrickHouse contrôle maintenant automatiquement la reconstruction 3D…';
     handingOffScene = true;

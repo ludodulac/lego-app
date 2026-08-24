@@ -9,11 +9,15 @@ SCENE_MODEL = ROOT / "backend" / "brickhouse" / "scene" / "models.py"
 def test_external_bundle_importer_rejects_nested_schema_drift_explicitly() -> None:
     source = IMPORTER.read_text(encoding="utf-8")
     assert "function isBundleRoot" in source
+    assert "function looksLikeBundle" in source
     assert "function bundleContractIssue" in source
+    assert "Version de l’enveloppe incompatible" in source
+    assert "Type d’enveloppe incompatible" in source
     assert "Version Survey incompatible" in source
     assert "Version Scene incompatible" in source
     assert "event.stopImmediatePropagation()" in source
     assert "Régénérez le résultat avec la commande BrickHouse la plus récente" in source
+    assert "Survey invalide :" in source
 
 
 def test_prompt_contract_versions_match_backend_literals() -> None:
