@@ -17,7 +17,7 @@ class SceneRelation(BaseModel):
 
     ``semantic_anchor_volume_id`` is an append-only bridge for a Survey endpoint
     such as a ``building_boundary`` observation that deliberately does not become
-    its own Scene primitive.  The Survey endpoint ID remains untouched.  When the
+    its own Scene primitive. The Survey endpoint ID remains untouched. When the
     rendered primitive actually touches a concrete Scene volume, this field lets
     the relation become metrically resolved without renaming the semantic anchor.
     """
@@ -115,6 +115,19 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             for relation in self.relations
         )
 
+    @staticmethod
+    def _platforms_touch(first, second) -> bool:
+        """Treat coplanar touching/overlapping walkable surfaces as connected."""
+        if abs(first.position.z - second.position.z) > CONNECTIVITY_TOLERANCE_M:
+            return False
+        ax0, ax1 = first.position.x, first.position.x + first.width
+        ay0, ay1 = first.position.y, first.position.y + first.depth
+        bx0, bx1 = second.position.x, second.position.x + second.width
+        by0, by1 = second.position.y, second.position.y + second.depth
+        x_gap = max(0.0, max(ax0, bx0) - min(ax1, bx1))
+        y_gap = max(0.0, max(ay0, by0) - min(ay1, by1))
+        return x_gap <= CONNECTIVITY_TOLERANCE_M and y_gap <= CONNECTIVITY_TOLERANCE_M
+
     def _validate_resolved_semantic_anchors(self) -> None:
         """Require a claimed semantic-boundary resolution to exist in metric geometry."""
         platforms = {item.id: item for item in self.platforms}
@@ -162,13 +175,16 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             touches_metric = any(
                 self._platform_touches_volume(platform, volume) for volume in self.volumes
             ) or any(
+                other.id != platform.id and self._platforms_touch(platform, other)
+                for other in self.platforms
+            ) or any(
                 self._point_on_platform(stair.start, platform)
                 or self._point_on_platform(stair.end, platform)
                 for stair in self.stairs
             )
             if not touches_metric and not self._has_unresolved_relation(platform.id):
                 raise ValueError(
-                    f"platform {platform.id!r} is disconnected from both building and stairs"
+                    f"platform {platform.id!r} is disconnected from building, platforms, and stairs"
                 )
 
         for stair in self.stairs:
