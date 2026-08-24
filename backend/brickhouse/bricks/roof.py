@@ -180,7 +180,15 @@ def _plane_run_and_rise(plane: RoofPlaneGeometry) -> tuple[float, float]:
     ridge = [point for point in plane.corners if abs(point.z - high) < 1e-9]
     if high <= low or not eave or not ridge:
         raise ValueError("invalid gable roof plane")
-    run = hypot(eave[0].x - ridge[0].x, eave[0].y - ridge[0].y)
+    # A roof plane can list its eave/ridge vertices in either longitudinal
+    # order.  Pairing the first vertices can therefore measure a diagonal and
+    # make pitch depend on ridge orientation.  The true run is the shortest
+    # horizontal distance from the eave line to the ridge line.
+    run = min(
+        hypot(eave_point.x - ridge_point.x, eave_point.y - ridge_point.y)
+        for eave_point in eave
+        for ridge_point in ridge
+    )
     if run <= 0:
         raise ValueError("gable roof plane must have positive horizontal run")
     return run, high - low
