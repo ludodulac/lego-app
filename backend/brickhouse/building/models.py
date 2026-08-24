@@ -54,6 +54,7 @@ class OpeningType(str, Enum):
     WINDOW = "window"
     DOOR = "door"
     GARAGE_DOOR = "garage_door"
+    UNKNOWN = "unknown"
 
 
 class WindowStyle(str, Enum):
