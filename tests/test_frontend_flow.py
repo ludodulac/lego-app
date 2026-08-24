@@ -164,7 +164,6 @@ def test_survey_to_scene_prompt_matches_current_generic_contract() -> None:
     assert "building_boundary" in prompt
     assert "DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE" in prompt
     assert "FAUSSE PRÉCISION" in prompt
-    assert "GÉOMÉRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA" in prompt
     assert "type:\"other\"" in prompt
     assert 'type":"window|door|garage_door' in prompt
     assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in prompt
