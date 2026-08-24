@@ -17,7 +17,7 @@ def test_scene_prompt_separates_observed_existence_from_metric_confidence() -> N
 
 def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     source = SCENE_PROMPT.read_text(encoding="utf-8")
-    assert "SURVEY → SCENE v2.9" in source
+    assert "SURVEY → SCENE v3.0" in source
     assert 'schema_version` DOIT valoir exactement `"0.2"' in source
     assert "Position3D est TOUJOURS un objet" in source
     assert "PropertyValue" in source
@@ -27,6 +27,7 @@ def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     assert "facade_grade_profiles" in source
     assert "building_boundary" in source
     assert 'type":"window|door|garage_door' in source
+    assert "attribute_certainty" in source
 
 
 def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
@@ -34,14 +35,14 @@ def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
     assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in source
     assert "start.x == end.x` OU `start.y == end.y" in source
     assert "tolérance 0,12 m" in source
-    assert "chaque Platform touche un volume ou une StairRun" in source
+    assert "chaque Platform rendue touche un volume ou une StairRun" in source
     assert "aucune connexion cachée inventée pour satisfaire le validateur" in source
-    assert "primitive omise de Scene" in source
+    assert "omets la primitive Scene concernée" in source
 
 
 def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
     source = SURVEY_PROMPT.read_text(encoding="utf-8")
-    assert "RELEVÉ ARCHITECTURAL v2.2" in source
+    assert "RELEVÉ ARCHITECTURAL v2.3" in source
     assert 'schema_version` DOIT valoir exactement `"0.1"' in source
     assert '"kind":"front_width"' in source
     assert "subject_id" in source
@@ -49,6 +50,7 @@ def test_survey_prompt_is_locked_to_backend_v01_shapes() -> None:
     assert "same_physical_object" in source
     assert "certitude de l’observation de toiture" in source
     assert "attributes.semantic_type" in source
+    assert "attribute_certainty" in source
     assert "SupportPost" in SCENE_PROMPT.read_text(encoding="utf-8")
     assert "n’est PAS une deuxième observation `kind=\"platform\"`" in source
 

@@ -124,7 +124,7 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert "indices faibles" in topology
     assert "contrainte utilisateur forte" in topology
     assert "user_confirmed" in topology
-    assert "RELEVÉ ARCHITECTURAL v2.2" in survey
+    assert "RELEVÉ ARCHITECTURAL v2.3" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
     assert '"kind":"front_width"' in survey
     assert "subject_id" in survey
@@ -134,6 +134,8 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert "facade_horizontal_rank" in survey
     assert "facade_vertical_rank" in survey
     assert "attributes.semantic_type" in survey
+    assert "attribute_certainty" in survey
+    assert "CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT" in survey
 
 
 def test_survey_extension_prompt_supports_append_only_refinement() -> None:
@@ -145,9 +147,9 @@ def test_survey_extension_prompt_supports_append_only_refinement() -> None:
     assert "workflow de correction explicite" in prompt
 
 
-def test_survey_to_scene_prompt_matches_current_generic_v29_contract() -> None:
+def test_survey_to_scene_prompt_matches_current_generic_v30_contract() -> None:
     prompt = read("brickhouse-survey-to-scene-prompt.txt")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v2.9" in prompt
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.0" in prompt
     assert "PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE" in prompt
     assert "CONTRAT JSON EXACT — OBLIGATOIRE" in prompt
     assert 'schema_version` DOIT valoir exactement `"0.2"' in prompt
@@ -164,7 +166,9 @@ def test_survey_to_scene_prompt_matches_current_generic_v29_contract() -> None:
     assert "type:\"other\"" in prompt
     assert 'type":"window|door|garage_door' in prompt
     assert "aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`" in prompt
-    assert "chaque Platform touche un volume ou une StairRun" in prompt
+    assert "CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT" in prompt
+    assert "attribute_certainty" in prompt
+    assert "chaque Platform rendue touche un volume ou une StairRun" in prompt
 
 
 def test_viewer_exposes_canonical_architectural_views() -> None:
