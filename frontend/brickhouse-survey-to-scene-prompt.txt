@@ -1,4 +1,4 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.0
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.1
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
@@ -35,7 +35,7 @@ Si le type reste ambigu, choisis seulement l’enum le mieux soutenu, `source.ki
 
 SceneRoof :
 `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
-Pour `gable`, ridge_direction et pitch_degrees sont obligatoires dans le contrat actuel. Pour une forme incertaine, préfère `type:"other"` plutôt que de transformer une hypothèse en fait architectural.
+IMPORTANT : pour `gable`, `ridge_direction` et `pitch_degrees` peuvent désormais rester `null` lorsqu’ils ne sont pas soutenus par les preuves. Une forme de toit certaine ne justifie pas l’invention de sa pente métrique. La projection BuildingModel/LEGO omettra alors provisoirement cette toiture et signalera `gable_geometry_incomplete` plutôt que de fabriquer un angle. Pour une forme elle-même incertaine, préfère `type:"other"`.
 
 Terrain :
 `{ "kind":"facade_grade_profiles", "profiles":[ { "facade":"right", "start_elevation":0.0, "end_elevation":1.0, "outward_extent":null, "source":{...}, "evidence":[...] } ] }`.
@@ -79,10 +79,10 @@ La couverture de toiture et sa couleur sont des faits séparés de la géométri
 
 DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
 Sépare existence, topologie et métrique. Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines. Une seule largeur utilisateur ne suffit pas à déterminer profondeur, hauteur, pente de toit, dimensions d’ouvertures, terrasse, escalier ou terrain. Toute dimension non fournie ou non contrainte par plusieurs preuves indépendantes reste `source.kind="inferred"` avec confiance prudente.
-Un attribut Survey `plausible` ne justifie jamais une confiance métrique élevée dans la Scene.
+Un attribut Survey `plausible` ne justifie jamais une confiance métrique élevée dans la Scene. Lorsqu’un champ nullable permet de conserver explicitement l’inconnu — notamment `SceneRoof.ridge_direction` et `pitch_degrees` — utilise `null` plutôt qu’un nombre ou un axe inventé.
 
 FAUSSE PRÉCISION
-La précision numérique doit refléter les preuves. Les rangs qualitatifs imposent l’ordre, pas les mètres. Une terrasse visible peut être certaine avec métrique peu certaine. Même règle pour escalier, toit, terrain et volumes.
+La précision numérique doit refléter les preuves. Les rangs qualitatifs imposent l’ordre, pas les mètres. Une terrasse visible peut être certaine avec métrique peu certaine. Même règle pour escalier, toit, terrain et volumes. Pour la toiture, l’absence de pitch est préférable à une fausse précision : `gable + pitch_degrees:null` est valide dans ArchitecturalScene v0.2.
 
 GÉOMÉTRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA
 SceneVolume v0.2 est rectangulaire, mais cela ne prouve jamais que le bâtiment réel l’est. Si la géométrie observée est non représentable, utilise une enveloppe porteuse conservatrice et documente la perte dans `notes`.
@@ -98,7 +98,7 @@ Chaque ouverture certaine active reste présente avec même ID/façade. Aucune o
 Si `attributes.semantic_type` existe avec `attribute_certainty.semantic_type="certain"`, respecte son mapping vers `SceneOpening.type`. S’il est `plausible`, le type Scene reste un choix de schéma inféré à faible confiance et non une vérité architecturale. S’il est `unproven`, ne le traite pas comme contrainte.
 
 TOITURE
-Distingue existence du toit et certitude de sa forme, axe, pitch et débord. Un `facade_is_gable` seulement plausible ne suffit pas à imposer un gable/ridge_direction comme fait certain. Si le type exact n’est pas justifié, utilise `type:"other"` avec confiance prudente. Si le schéma force une valeur numérique pour représenter une hypothèse, documente explicitement cette perte de fidélité et garde une confiance basse ; ne présente jamais ce nombre comme mesuré.
+Distingue existence du toit et certitude de sa forme, axe, pitch et débord. Un `facade_is_gable` seulement plausible ne suffit pas à imposer un gable/ridge_direction comme fait certain. Si la forme exacte est inconnue, utilise `type:"other"`. Si la forme `gable` est réellement établie mais l’axe ou la pente métrique ne le sont pas, CONSERVE `type:"gable"` et mets respectivement `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible : la projection signalera la toiture Scene-only jusqu’à ce qu’une preuve suffisante permette de la construire.
 
 TERRAIN
 Ne crée un profil métrique que si le Survey soutient réellement une pente. Un `slope_direction` explicitement `plausible` peut seulement guider une estimation prudente ; il ne constitue pas une contrainte certaine. Un `slope_direction` `unproven` ne doit pas être promu en terrain métrique.
@@ -126,6 +126,7 @@ Avant sortie :
 - aucune connexion cachée inventée pour satisfaire le validateur ; si impossible, primitive omise et son ID Survey exact cité dans `notes` ;
 - chaque Platform rendue touche un volume ou une StairRun ;
 - métriques non utilisateur à confiance prudente ;
+- un gable sans preuve de pente garde `pitch_degrees:null`, jamais un angle fabriqué ;
 - toiture dans l’enum supportée ;
 - terrain au format `facade_grade_profiles` ;
 - supports de terrasse sont des SupportPost ;
