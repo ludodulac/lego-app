@@ -43,6 +43,7 @@ _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION = {
     "local_grade_clearance_not_supported",
     "platform_not_supported",
     "stair_not_supported",
+    "chimney_not_supported",
 }
 
 
@@ -247,6 +248,10 @@ def _scene_export_fidelity_issues(
             issues.append(issue)
     for stair in scene.stairs:
         issue = _source_confidence_issue("StairRun", stair)
+        if issue is not None:
+            issues.append(issue)
+    for chimney in scene.chimneys:
+        issue = _source_confidence_issue("Chimney", chimney)
         if issue is not None:
             issues.append(issue)
 
