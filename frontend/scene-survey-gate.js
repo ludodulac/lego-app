@@ -62,6 +62,11 @@ function formatValidationDetail(detail) {
     return `${path || 'racine'} : ${item.msg || item.type || 'valeur invalide'}`;
   }).join(' · ');
 }
+function formatSurveyIssue(issue) {
+  const object = issue.object_id ? ` [${issue.object_id}]` : '';
+  const code = issue.code ? `${issue.code}${object}` : (issue.object_id || 'issue');
+  return `${code} : ${issue.message}`;
+}
 function isIdleStatus(text) { return String(text || '').trim().startsWith(IDLE_STATUS_PREFIX); }
 function rememberSceneStatus(text) {
   const value = String(text || '').trim();
@@ -241,11 +246,18 @@ gateImportButton.addEventListener('click', async event => {
     const surveyResponse = await postJsonWithTimeout(`${base}/api/v1/validate-scene-against-survey`, { survey, scene: parsed });
     const surveyPayload = await surveyResponse.json();
     if (!surveyResponse.ok) throw new Error(formatValidationDetail(surveyPayload.detail));
-    if (!surveyPayload.valid_for_projection) {
-      const errors = (surveyPayload.issues ?? []).filter(item => item.severity === 'error').map(item => item.message);
-      throw new Error(`Scène refusée par le Survey : ${errors.join(' ') || 'dérive sémantique détectée.'}`);
-    }
+
+    const surveyErrors = (surveyPayload.issues ?? []).filter(item => item.severity === 'error');
     localStorage.setItem('brickhouse.lastSceneSurveyValidation', JSON.stringify(surveyPayload));
+    if (surveyErrors.length) {
+      throw new Error(`Scène refusée par le Survey : ${surveyErrors.map(formatSurveyIssue).join(' · ')}`);
+    }
+
+    if (!surveyPayload.valid_for_projection && surveyPayload.projection) {
+      stopSceneProgress();
+      renderFinalSceneValidation(surveyPayload);
+      return;
+    }
 
     startSceneProgress('Validation géométrique finale');
     const sceneResponse = await postJsonWithTimeout(`${base}/api/v1/validate-scene`, parsed);
