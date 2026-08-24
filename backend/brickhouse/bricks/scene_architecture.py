@@ -72,7 +72,10 @@ def _scene_bounds(scene: ArchitecturalScene) -> tuple[float, float, float]:
     if scene.terrain and scene.terrain.profiles:
         main = scene.volumes[0]
         for profile in scene.terrain.profiles:
-            zs.extend([profile.start_elevation, profile.end_elevation])
+            if profile.start_elevation is not None:
+                zs.append(profile.start_elevation)
+            if profile.end_elevation is not None:
+                zs.append(profile.end_elevation)
             extent = _terrain_extent(profile)
             if profile.facade is Facade.LEFT:
                 xs.append(main.position.x - extent)
@@ -723,6 +726,8 @@ def _terrain_parts(
     index = 1
 
     for profile in scene.terrain.profiles:
+        if profile.start_elevation is None or profile.end_elevation is None:
+            continue
         band = max(1, ceil(_terrain_extent(profile) * studs_per_meter - EPSILON))
         length = width if profile.facade in {Facade.FRONT, Facade.REAR} else depth
         start = _course_z(profile.start_elevation, origin_z, plates_per_meter)
