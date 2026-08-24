@@ -33,7 +33,7 @@ def test_scene_prompt_is_locked_to_backend_v02_shapes() -> None:
     assert "attribute_certainty" in source
     assert "gable_geometry_incomplete" in source
     assert "SceneRelation" in source
-    assert 'geometry_status:"resolved|unresolved"' in source
+    assert '"geometry_status":"resolved|unresolved"' in source
 
 
 def test_scene_prompt_preflights_visibility_and_external_connectivity() -> None:
