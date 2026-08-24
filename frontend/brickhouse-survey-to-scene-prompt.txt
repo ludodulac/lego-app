@@ -32,8 +32,9 @@ Un `building_boundary` Survey n’est PAS automatiquement un volume Scene. Un ob
 Une largeur utilisateur connue, prise seule, ne justifie jamais profondeur ou hauteur. En revanche, elle peut servir d’ancre d’échelle lorsque plusieurs vues indépendantes contraignent réellement les proportions de profondeur ou de hauteur. Dans ce cas utilise une estimation prudente `source.kind="inferred"`, avec confiance faible/modérée et evidence explicite. Une enveloppe réellement non contrainte reste valide avec `value:null` ; la projection signale alors `volume_geometry_incomplete` plutôt que de fabriquer la dimension.
 
 SceneOpening :
-`{ "id":"...", "type":"window|door|garage_door", "volume_id":"volume_main", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...], "local_grade_clearance":null }`.
+`{ "id":"...", "type":"window|door|garage_door|unknown", "volume_id":"volume_main", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...], "local_grade_clearance":null }`.
 Mapping Survey : `window` → `window`; `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening` → `door`; `garage_door` → `garage_door`.
+Si l’existence physique d’une ouverture est certaine mais que `attributes.semantic_type` est absent ou n’est pas suffisamment prouvé, utilise `type:"unknown"`. Ne transforme JAMAIS cette ouverture en fenêtre ou porte par commodité. `unknown` conserve le vide architectural dans BuildingModel/LEGO mais n’autorise aucun cadre, vitrage, meneau, appui ou décor de fenêtre inventé.
 Les IDs et façades certaines sont conservés. Les rangs qualitatifs gauche→droite et bas→haut imposent l’ordre, jamais une distance arbitraire.
 Pour une fenêtre, conserve `has_sill:true` ou `has_decorative_surround:true` lorsque le Survey observe explicitement ces détails. N’invente jamais de meneaux/cadres depuis le seul mot « vitré ».
 
@@ -148,7 +149,7 @@ AUDIT FINAL OBLIGATOIRE
 - relation certaine vers `building_boundary` ou autre anchor Survey non rendu : conserve l’ID Survey avec `geometry_status:"unresolved"` si l’autre endpoint existe dans la Scene ;
 - raccord métrique caché → `geometry_status:"unresolved"`, jamais coordonnées inventées ;
 - relation `unresolved` assumée comme blocker LEGO futur ;
-- `SceneOpening.type` uniquement window|door|garage_door ;
+- `SceneOpening.type` uniquement window|door|garage_door|unknown ; type Survey non prouvé → `unknown`, jamais vitrage/cadre inventé ;
 - inventaire et ordre des ouvertures conservés ;
 - aucune paire d’ouvertures distinctes ne se chevauche sur une même façade ; vérifier les rectangles complets avec `offset_horizontal + width` et `offset_vertical + height` ;
 - appuis/encadrements observés conservés, vitrage non décoré par invention ;
