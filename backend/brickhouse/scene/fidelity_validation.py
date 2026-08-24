@@ -1,15 +1,10 @@
 """Final Survey -> Scene fidelity policy.
 
-This module resolves an important distinction that the lower-level validators
-cannot express on their own: a Survey can prove that an exterior platform or
-stair exists without proving enough hidden geometry to encode a complete,
-connected Scene primitive.
-
-Rendered primitives remain subject to all strict connectivity and no-invention
-guards.  The only relaxation here is that omission of a *certain* platform or
-stair is reported as an explicit warning rather than an error.  This lets the
-reconstruction follow the prompt's rule "omit rather than invent" when the
-hidden connection cannot be supported by evidence.
+A Survey can prove that an exterior platform or stair exists without proving
+enough hidden geometry to encode a complete connected Scene primitive. Rendered
+primitives stay under the strict connectivity/no-invention guards. A missing
+certain platform/stair is relaxed only when the Scene explicitly records that
+specific omitted Survey object in ``notes``.
 """
 from __future__ import annotations
 
@@ -26,30 +21,34 @@ _OMITTABLE_CERTAIN_GEOMETRY = {
 }
 
 
+def _omission_is_documented(scene: ArchitecturalScene, object_id: str | None) -> bool:
+    """Require an explicit object-level audit trail before relaxing a missing primitive."""
+    if not object_id or not scene.notes:
+        return False
+    return object_id.casefold() in scene.notes.casefold()
+
+
 def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
     """Validate fidelity without forcing hidden exterior geometry to be invented.
 
-    A certain Survey observation establishes architectural existence.  It does
-    not necessarily establish enough metric geometry to create a complete
-    Platform/StairRun satisfying Scene connectivity.  In that specific case the
-    Scene may omit the primitive; the omission remains visible to callers as a
-    warning and should be explained in ``scene.notes`` by the reconstruction
-    stage.
+    Certain architectural existence is distinct from complete metric geometry.
+    A certain Platform/StairRun may therefore be omitted when encoding it would
+    require an unsupported hidden continuation, but only if ``scene.notes`` names
+    that exact Survey object. An undocumented omission remains an error.
 
-    This does *not* weaken validation of a platform/stair that is actually
-    rendered: invented primitives, unproven promotion, confidence discipline,
-    edge semantics and geometric connectivity are still enforced by the
-    underlying validators.
+    This does not weaken validation of rendered primitives: invented primitives,
+    unproven promotion, confidence discipline, edge semantics and geometric
+    connectivity are still enforced by the underlying validators.
     """
     issues = list(_validate_scene_against_survey(survey, scene))
     result: list[SceneSurveyIssue] = []
 
     for issue in issues:
         replacement_code = _OMITTABLE_CERTAIN_GEOMETRY.get(issue.code)
-        if replacement_code is None:
+        if replacement_code is None or not _omission_is_documented(scene, issue.object_id):
             result.append(issue)
             continue
         result.append(
@@ -58,9 +57,8 @@ def validate_scene_against_survey(
                 severity=SceneSurveySeverity.WARNING,
                 object_id=issue.object_id,
                 message=(
-                    f"{issue.message} La Scene peut omettre cette géométrie plutôt que "
-                    "d'inventer une portion ou une connexion occultée; documentez la "
-                    "limitation dans scene.notes."
+                    f"{issue.message} L'omission est explicitement tracée dans scene.notes; "
+                    "elle est acceptée plutôt que d'inventer une portion ou une connexion occultée."
                 ),
             )
         )
