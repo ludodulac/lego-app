@@ -1,5 +1,5 @@
 BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.5
-Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.4` désigne le contrat précédent ; la version active est v2.5.
+Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.4` désigne le contrat précédent ; `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.3` un contrat antérieur ; la version active est v2.5.
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventories ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
