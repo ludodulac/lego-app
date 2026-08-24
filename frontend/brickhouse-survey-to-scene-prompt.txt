@@ -1,5 +1,5 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7
-Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.6` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.5` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.4` des contrats antérieurs. La version active et autoritative est v3.7.
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8
+Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.6` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.5` des contrats antérieurs. La version active et autoritative est v3.8.
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie. Tu transformes la compréhension architecturale en géométrie uniquement quand les preuves le permettent.
@@ -46,12 +46,13 @@ La priorité est : identité physique et ordre Survey > non-chevauchement géom�
 
 SceneRoof :
 `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
-L’existence certaine d’un toit doit survivre. Si la forme exacte est inconnue, utilise `type:"other"`. Si `gable` est établi mais axe ou pente ne le sont pas, conserve `gable` avec `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible : la projection signale `gable_geometry_incomplete`.
+L’existence certaine d’un toit doit survivre. Si le Survey ne propose aucune forme soutenue, utilise `type:"other"`. Si `attributes.roof_type` propose explicitement une forme avec `attribute_certainty:"plausible"`, conserve cette forme comme hypothèse Scene `source.kind="inferred"` à confiance prudente ; ne la transforme jamais en fait certain et n’invente aucune métrique manquante. Si `gable` est établi ou explicitement plausible mais axe ou pente ne le sont pas, conserve `gable` avec `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible : la projection signale `gable_geometry_incomplete` si les métriques indispensables restent inconnues.
+Une valeur `attribute_certainty:"unproven"` ne doit pas devenir un type Scene concret : utilise alors `type:"other"` sauf autre preuve indépendante.
 La couverture de toiture et sa couleur sont des faits séparés de la géométrie. N’infère jamais "tuile" uniquement parce qu’un toit en pente est plausible ou parce que le moteur LEGO utilise des slopes.
 
 PENTE DE TOIT INFÉRÉE DEPUIS UN PIGNON VISIBLE
-Un `gable` certain ne doit pas rester avec `pitch_degrees:null` par simple excès de prudence si la géométrie visible permet une estimation défendable. Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet, et qu’une mesure réelle ou une autre ancre d’échelle contraint la portée correspondante, estime la pente depuis le rapport géométrique montée / demi-portée (`rise/run`, conceptuellement `atan(rise / half_span)`).
-Cette pente numérique est TOUJOURS `source.kind="inferred"`, avec confiance prudente, et son evidence doit citer la vue du pignon ainsi qu’une vue indépendante corroborant l’orientation/la continuité de toiture lorsque disponible. La forme `gable` ou l’axe peuvent être certains alors que la valeur de pente reste une estimation.
+Un `gable` certain ou explicitement plausible ne doit pas rester avec `pitch_degrees:null` par simple excès de prudence si la géométrie visible permet une estimation défendable. Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet, et qu’une mesure réelle ou une autre ancre d’échelle contraint la portée correspondante, estime la pente depuis le rapport géométrique montée / demi-portée (`rise/run`, conceptuellement `atan(rise / half_span)`).
+Cette pente numérique est TOUJOURS `source.kind="inferred"`, avec confiance prudente, et son evidence doit citer la vue du pignon ainsi qu’une vue indépendante corroborant l’orientation/la continuité de toiture lorsque disponible. La forme `gable` peut rester plausible alors que la pente numérique est une estimation géométrique défendable ; ne rehausse jamais la certitude de forme à cause de cette métrique.
 N’utilise AUCUN angle par défaut et ne convertis jamais des adjectifs tels que « faible », « modérée » ou « forte » en degrés prédéfinis. Une typologie de maison, une convention constructive ou le besoin de satisfaire M0 ne sont jamais des preuves de pente.
 Conserve `pitch_degrees:null` lorsque le sommet, les égouts, la perspective ou l’échelle rendent réellement le rapport rise/run non défendable. L’objectif est d’éviter à la fois la pente inventée et la perte d’un pignon pourtant métriquement contraignable.
 
@@ -112,9 +113,9 @@ Appearance : `{ "walls":{"color":"..."}|null, "roof":{"color":"..."}|null, "fram
 CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT — INVARIANT ABSOLU
 Dans le Survey, `certainty` porte sur l’existence/l’identité de l’objet. `attribute_certainty` porte sur ses propriétés. Ne les fusionne jamais.
 - `certain` : contrainte architecturale forte ;
-- `plausible` : hypothèse utile mais non invariant ;
+- `plausible` : hypothèse utile à préserver comme telle lorsqu’elle est explicitement fournie, jamais invariant certain ;
 - `unproven` : ne pas promouvoir en géométrie réelle.
-Un toit certain peut avoir `facade_is_gable` plausible. Une ouverture certaine peut avoir un type plausible. Une plateforme certaine peut avoir matériau/bord seulement plausible.
+Un toit certain peut avoir `roof_type:"gable"` plausible : la Scene peut conserver `type:"gable"` uniquement comme inférence à confiance prudente, sans changer la certitude conceptuelle ni inventer les métriques manquantes. Une ouverture certaine peut avoir un type plausible. Une plateforme certaine peut avoir matériau/bord seulement plausible.
 
 ORIENTATION DES FAÇADES ET OFFSETS — INVARIANT ANTI-MIROIR
 Le repère canonique est x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
@@ -157,7 +158,7 @@ AUDIT FINAL OBLIGATOIRE
 - largeur utilisateur seule ne propage aucune fausse mesure ; largeur + plusieurs vues réellement contraignantes peuvent produire profondeur/hauteur `inferred` à confiance prudente ;
 - métrique d’enveloppe réellement non contrainte → `PropertyValue.value:null` ;
 - certitude objet et certitude attribut séparées ;
-- aucun attribut plausible/unproven promu ;
+- aucun attribut plausible promu en fait certain ; une hypothèse explicite `roof_type` plausible peut survivre comme `SceneRoof.type` inféré à confiance prudente ; attribut `unproven` non promu ;
 - IDs Survey des openings/platforms/stairs conservés ;
 - toutes les relations Survey certaines conservées dans `relations[]` avec mêmes IDs/kinds/sujets/objets/certitudes ;
 - raccord visible entre primitives certaines → géométrie résolue conjointement, jamais petit vide produit par des estimations indépendantes ;
@@ -169,7 +170,7 @@ AUDIT FINAL OBLIGATOIRE
 - aucune paire d’ouvertures distinctes ne se chevauche sur une même façade ; vérifier les rectangles complets avec `offset_horizontal + width` et `offset_vertical + height` ;
 - appuis/encadrements observés conservés, vitrage non décoré par invention ;
 - aucune ouverture dans zone non visible ;
-- toiture certaine conservée ; gable sans pitch réellement contraignable → `pitch_degrees:null` ; pignon lisible + ancre d’échelle → pente `inferred`, jamais angle par défaut ;
+- toiture certaine conservée ; `roof_type` plausible explicitement fourni reste une hypothèse Scene inférée, jamais un fait certain ; gable sans pitch réellement contraignable → `pitch_degrees:null` ; pignon lisible + ancre d’échelle → pente `inferred`, jamais angle par défaut ;
 - aucune zone cachée complétée ;
 - chaque StairRun change un seul axe horizontal ;
 - une volée avec raccord occulté peut avoir une seule extrémité non connectée seulement si une relation `unresolved` certaine explique ce raccord ;
