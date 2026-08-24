@@ -19,7 +19,10 @@ class Evidence(BaseModel):
 
 
 class PropertyValue(BaseModel):
-    value: float = Field(gt=0)
+    # ArchitecturalScene is allowed to preserve an explicitly unknown metric.
+    # Downstream projection/build gates decide whether a concrete value is
+    # required; the understanding layer must not fabricate one merely to parse.
+    value: float | None = Field(default=None, gt=0)
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
 
@@ -342,9 +345,9 @@ class ArchitecturalScene(BaseModel):
         for opening in self.openings:
             volume = volumes[opening.volume_id]
             span = volume.width.value if opening.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
-            if opening.offset_horizontal + opening.width > span + EPSILON:
+            if span is not None and opening.offset_horizontal + opening.width > span + EPSILON:
                 raise ValueError(f"opening {opening.id!r} extends past facade horizontally")
-            if opening.offset_vertical + opening.height > volume.height.value + EPSILON:
+            if volume.height.value is not None and opening.offset_vertical + opening.height > volume.height.value + EPSILON:
                 raise ValueError(f"opening {opening.id!r} extends above volume")
         for index, first in enumerate(self.openings):
             for second in self.openings[index + 1 :]:
@@ -380,7 +383,7 @@ class ArchitecturalScene(BaseModel):
             volume_id = scope(entry)
             volume = volumes[volume_id]
             span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
-            if any(item.to_offset > span + EPSILON for item in entry.spans):
+            if span is not None and any(item.to_offset > span + EPSILON for item in entry.spans):
                 raise ValueError(
                     f"visibility span on volume {volume_id!r} facade {entry.facade.value} extends past facade"
                 )
@@ -412,6 +415,8 @@ class ArchitecturalScene(BaseModel):
 
     @staticmethod
     def _point_on_volume_boundary(point, volume):
+        if any(value is None for value in (volume.width.value, volume.depth.value, volume.height.value)):
+            return False
         x0, x1 = volume.position.x, volume.position.x + volume.width.value
         y0, y1 = volume.position.y, volume.position.y + volume.depth.value
         z0, z1 = volume.position.z, volume.position.z + volume.height.value
@@ -424,6 +429,8 @@ class ArchitecturalScene(BaseModel):
 
     @staticmethod
     def _platform_touches_volume(platform, volume):
+        if volume.width.value is None or volume.depth.value is None:
+            return False
         px0, px1 = platform.position.x, platform.position.x + platform.width
         py0, py1 = platform.position.y, platform.position.y + platform.depth
         vx0, vx1 = volume.position.x, volume.position.x + volume.width.value
