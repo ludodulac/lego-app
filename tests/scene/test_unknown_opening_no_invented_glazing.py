@@ -11,6 +11,21 @@ from brickhouse.bricks.windows import generate_window_assemblies
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "architectural_scene_real_house_5_v02.json"
 
 
+def _primary_building():
+    scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
+    building = project_scene_to_building(scene).building
+    assert building is not None
+    main = next(volume for volume in building.volumes if volume.id == "volume_main")
+    return building.model_copy(
+        update={
+            "volumes": [main],
+            "openings": [item for item in building.openings if item.volume_id == "volume_main"],
+            "roofs": [item for item in building.roofs if item.volume_id == "volume_main"],
+        },
+        deep=True,
+    )
+
+
 def test_unknown_opening_survives_projection_without_becoming_window_or_door() -> None:
     scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
     opening = next(item for item in scene.openings if item.id == "left_mid_opening")
@@ -26,9 +41,7 @@ def test_unknown_opening_survives_projection_without_becoming_window_or_door() -
 
 
 def test_unknown_opening_keeps_wall_void_but_is_not_fitted_as_window() -> None:
-    scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
-    building = project_scene_to_building(scene).building
-    assert building is not None
+    building = _primary_building()
     geometry = generate_building_geometry(building)
     shell = generate_building_brick_shell(geometry, front_width_studs=48)
 
