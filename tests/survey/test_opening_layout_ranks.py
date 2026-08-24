@@ -17,6 +17,7 @@ def _survey(horizontal_rank=1, vertical_rank=2) -> ArchitecturalSurvey:
             "statement": "window visible",
             "evidence": [{"photo_index": 1, "observation": "window visible"}],
             "attributes": {
+                "physical_object_count": 1,
                 "semantic_type": "window",
                 "facade_horizontal_rank": horizontal_rank,
                 "facade_vertical_rank": vertical_rank,
