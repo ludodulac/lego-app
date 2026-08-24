@@ -125,7 +125,7 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert "contrainte utilisateur forte" in topology
     assert "user_confirmed" in topology
     assert "overlap_anchors" in topology
-    assert "Une vue partielle peut être extrêmement utile" in topology
+    assert "une vue partielle peut être extrêmement utile" in topology
     assert "RELEVÉ ARCHITECTURAL v2.3" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
     assert '"kind":"front_width"' in survey
