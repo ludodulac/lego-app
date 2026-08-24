@@ -1,5 +1,5 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.4
-Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.3` désigne le contrat précédent ; la version active est v2.4.
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.5
+Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.4` désigne le contrat précédent ; la version active est v2.5.
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventories ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -69,6 +69,17 @@ Décompose seulement les primitives réellement soutenues : volée, palier/dalle
 Chaque vraie primitive `platform` ou `stair` reçoit une IDENTITÉ STABLE DES PRIMITIVES réutilisable par Survey→Scene.
 Un poteau, une poutre ou un cadre porteur observé SOUS une plateforme n’est PAS une deuxième observation `kind="platform"`. Encode les supports visibles dans `attributes.supports` de la plateforme principale, avec des descriptions/preuves non métriques. La Scene les convertira éventuellement en `SupportPost`. Ne crée une deuxième Platform que si les photos montrent réellement une deuxième surface de circulation distincte.
 
+DÉCOMPOSITION PALIER / VOLUME PORTEUR / TERRASSE — AUDIT MULTI-VUES
+Un ouvrage extérieur massif et la surface de circulation située à son sommet ne sont pas automatiquement le même objet sémantique.
+- Si plusieurs vues montrent une surface horizontale praticable distincte au sommet ou au bord d’un volume maçonné/béton — palier, dalle, coursive ou terrasse — inventorie cette surface comme observation `kind:"platform"` distincte du volume/support qui se trouve dessous ou à côté.
+- Le fait que cette plateforme soit portée par un volume massif n’autorise jamais à l’absorber dans `kind:"volume"` si sa fonction de circulation et ses bords sont visuellement distinguables.
+- Si une volée d’escalier aboutit visiblement sur cette surface dans une vue et que la même surface est recoupée dans une autre vue, conserve DEUX primitives (`stair` + `platform`) et une relation `connects_to` certaine. Ne remplace pas ce palier par une connexion directe escalier→bâtiment.
+- Si une terrasse/deck d’un autre matériau jouxte ce palier et que leur bord commun ou leur continuité de circulation est visible, conserve DEUX observations `platform` distinctes et une relation `connects_to` certaine entre elles. Une terrasse bois et un palier béton restent deux objets même lorsqu’ils sont à la même altitude.
+- Si le palier touche clairement l’enveloppe du bâtiment, ajoute séparément la relation palier→`building_boundary`. Ne déduis pas automatiquement terrasse→bâtiment ou escalier→bâtiment si les images montrent que le raccord passe d’abord par le palier.
+- Si seule la proximité est visible sans contact certain, conserve les objets distincts sans inventer `connects_to`.
+- N’invente jamais une volée cachée, un virage ou un prolongement derrière un muret : l’audit sert à décomposer ce qui EST visible, pas à compléter la circulation invisible.
+Avant sortie, recoupe les vues d’un même ensemble extérieur en cherchant les continuités de sol, changements de matériau, murets/garde-corps, aboutissements de marches et jonctions au mur. Ces indices doivent décider des primitives et relations avant toute reconstruction métrique.
+
 AUDIT DE CONNECTIVITÉ DES STRUCTURES EXTÉRIEURES
 Après avoir inventorié `platform` et `stair`, vérifie explicitement leurs raccords physiques prouvés.
 - Si les photos établissent qu’une plateforme, un palier ou un escalier touche/rejoint certainement une autre primitive observée, ajoute une relation `connects_to` certaine entre leurs IDs stables.
@@ -82,7 +93,7 @@ Sépare toujours la certitude de l’observation de toiture de la certitude de c
 Pour tout attribut de toiture explicitement présent mais moins certain que l’existence du toit, encode la prudence dans `attribute_certainty` ; ne te contente pas d’une réserve en prose. Ne transforme jamais une forme probable en fait certain.
 
 TERRAIN
-Une pente observée peut être `certainty="certain"` tout en gardant sa magnitude inconnue. Quand le sens de pente est réellement lisible et doit être conservé dans la Scene, utilise `attributes.slope_direction` avec une description qualitative cohérente ; si le sens est seulement plausible, marque `attribute_certainty.slope_direction="plausible"`. N’invente aucune valeur métrique dans le Survey.
+Une pente observée peut être `certainty="certain"` tout en gardant sa magnitude inconnue. Quand le sens de pente est réellement lisible et doit être conservé dans la Scene, utilise `attributes.slope_direction` avec une description qualitative cohérente ; si le sens est seulement plausible, marque `attribute_certainty.slope_direction:"plausible"`. N’invente aucune valeur métrique dans le Survey.
 
 MATÉRIAUX ET BORDS
 Pour platform/stair, `attributes.exterior_material` = timber | concrete | masonry | stone | metal | composite | unknown selon preuves. Les bords et accès restent qualitatifs dans `attributes` ; aucun mètre dans le Survey. Si matériau, bord ou accès est moins certain que l’existence de la primitive, indique sa certitude dans `attribute_certainty`.
@@ -107,6 +118,9 @@ AUDIT FINAL
 - aucun attribut `plausible`/`unproven` n’est implicitement promu parce que l’objet est `certain` ;
 - les `semantic_type` d’ouvertures sont dans la liste supportée ou absents ;
 - aucun poteau/support simple n’est déguisé en Platform ;
+- toute surface de circulation extérieure distincte visuellement — notamment un palier au sommet d’un volume massif — est inventoriée comme `platform` distincte du volume porteur ;
+- un escalier aboutissant visiblement sur un palier conserve la relation escalier→palier au lieu d’être relié directement au bâtiment par simplification ;
+- deux plateformes de matériaux/fonctions distincts restent deux objets lorsqu’elles sont séparables dans les vues ; leur relation n’est certaine que si le contact est prouvé ;
 - chaque relation possède `id`, `kind`, `subject_id`, `object_id`, `statement`, `evidence` et relie deux IDs distincts ;
 - toute connexion extérieure certaine prouvée est matérialisée dans `relations[]`, y compris vers `building_boundary` lorsqu’elle relie une primitive à l’enveloppe ;
 - quantité de photos jamais confondue avec certitude architecturale ;
