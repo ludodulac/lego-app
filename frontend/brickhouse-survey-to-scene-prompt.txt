@@ -1,5 +1,5 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.3
-Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.2` désigne le contrat précédent ; la version active et autoritative est v3.3.
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.4
+Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.3` désigne le contrat précédent ; la version active et autoritative est v3.4.
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie. Tu transformes la compréhension architecturale en géométrie uniquement quand les preuves le permettent.
@@ -36,6 +36,12 @@ SceneOpening :
 Mapping Survey : `window` → `window`; `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening` → `door`; `garage_door` → `garage_door`.
 Les IDs et façades certaines sont conservés. Les rangs qualitatifs gauche→droite et bas→haut imposent l’ordre, jamais une distance arbitraire.
 Pour une fenêtre, conserve `has_sill:true` ou `has_decorative_surround:true` lorsque le Survey observe explicitement ces détails. N’invente jamais de meneaux/cadres depuis le seul mot « vitré ».
+
+NON-CHEVAUCHEMENT DES OUVERTURES — INVARIANT GÉOMÉTRIQUE
+Deux ouvertures distinctes d’une même façade ne doivent jamais se chevaucher. Avant sortie, traite chaque ouverture comme un rectangle `[offset_horizontal, offset_horizontal + width] × [offset_vertical, offset_vertical + height]` et compare toutes les paires qui partagent `volume_id` et `facade`.
+Un chevauchement horizontal seul est permis si les plages verticales sont disjointes ; un chevauchement vertical seul est permis si les plages horizontales sont disjointes. Le rectangle complet ne doit jamais avoir d’aire commune positive avec celui d’une autre ouverture physique.
+Si les rangs qualitatifs sont certains mais que les dimensions/positions métriques ne suffisent pas à séparer deux rectangles, réduis la précision métrique : ajuste uniquement des valeurs `source.kind="inferred"` dans les limites des preuves et avec confiance prudente. Ne modifie jamais une mesure utilisateur. N’invente jamais une fusion de deux ouvertures, n’en supprime aucune, ne change pas leur ordre et ne transforme pas une ouverture certaine en une autre pour résoudre un conflit numérique.
+La priorité est : identité physique et ordre Survey > non-chevauchement géométrique > précision métrique inférée. Une valeur métrique inférée moins précise vaut mieux qu’une Scene physiquement impossible.
 
 SceneRoof :
 `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
@@ -127,6 +133,7 @@ AUDIT FINAL OBLIGATOIRE
 - relation `unresolved` assumée comme blocker LEGO futur ;
 - `SceneOpening.type` uniquement window|door|garage_door ;
 - inventaire et ordre des ouvertures conservés ;
+- aucune paire d’ouvertures distinctes ne se chevauche sur une même façade ; vérifier les rectangles complets avec `offset_horizontal + width` et `offset_vertical + height` ;
 - appuis/encadrements observés conservés, vitrage non décoré par invention ;
 - aucune ouverture dans zone non visible ;
 - toiture certaine conservée ; gable sans pitch prouvé → `pitch_degrees:null` ;
