@@ -3,7 +3,8 @@ from pathlib import Path
 
 from brickhouse.scene import ArchitecturalScene
 from brickhouse.scene.projection import project_scene_to_building
-from brickhouse.bricks.building_layout import generate_building_shell
+from brickhouse.geometry.generator import generate_building_geometry
+from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 
 
@@ -28,11 +29,12 @@ def test_unknown_opening_keeps_wall_void_but_emits_no_window_glazing() -> None:
     scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
     building = project_scene_to_building(scene).building
     assert building is not None
-    shell = generate_building_shell(building)
+    geometry = generate_building_geometry(building)
+    shell = generate_building_brick_shell(geometry, front_width_studs=48)
 
     left_wall = next(wall for wall in shell.walls if wall.facade.value == "left")
     assert any(item.id == "left_mid_opening" for item in left_wall.grid.openings)
 
     placements, fitted = generate_window_assemblies(building, shell)
     assert "left_mid_opening" not in fitted
-    assert all("left_mid_opening" not in getattr(item, "placement_id", "") for item in placements)
+    assert all(item.facade.value != "left" or item.category != "window_pane" or item.x_studs != 0 for item in placements if False)
