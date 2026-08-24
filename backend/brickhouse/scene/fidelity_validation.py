@@ -34,9 +34,9 @@ _STRUCTURAL_ATTRIBUTE_KEYS = {
 def _strict_claims_only(survey: ArchitecturalSurvey) -> ArchitecturalSurvey:
     """Hide explicitly non-certain structural attributes from strict validators.
 
-    Missing ``attribute_certainty`` entries retain legacy behavior through
-    ``certainty_for_attribute``. Only an explicit plausible/unproven annotation
-    relaxes an attribute-level constraint.
+    Missing ``attribute_certainty`` entries retain historical behavior exactly.
+    Only a key explicitly present in that map with plausible/unproven certainty
+    relaxes the corresponding attribute-level constraint.
     """
     observations = []
     changed = False
@@ -46,7 +46,8 @@ def _strict_claims_only(survey: ArchitecturalSurvey) -> ArchitecturalSurvey:
             key
             for key in keys
             if key in observation.attributes
-            and observation.certainty_for_attribute(key) is not Certainty.CERTAIN
+            and key in observation.attribute_certainty
+            and observation.attribute_certainty[key] is not Certainty.CERTAIN
         }
         if not remove:
             observations.append(observation)
@@ -87,10 +88,11 @@ def validate_scene_against_survey(
     """Validate fidelity without promoting uncertain properties or hidden geometry.
 
     Object existence and attribute certainty are independent. Strict historical
-    guards see only structural attributes that are actually certain. Certain
-    Platform/StairRun observations may also be omitted when hidden geometry would
-    otherwise have to be invented, but only when ``scene.notes`` names that exact
-    Survey object. Rendered primitives remain fully validated.
+    guards see only explicitly certain modern structural attributes, while legacy
+    Surveys keep their prior semantics. Certain Platform/StairRun observations
+    may also be omitted when hidden geometry would otherwise have to be invented,
+    but only when ``scene.notes`` names that exact Survey object. Rendered
+    primitives remain fully validated.
     """
     validation_survey = _strict_claims_only(survey)
     issues = list(_validate_scene_against_survey(validation_survey, scene))
