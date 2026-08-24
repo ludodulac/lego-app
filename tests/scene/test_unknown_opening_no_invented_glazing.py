@@ -25,7 +25,7 @@ def test_unknown_opening_survives_projection_without_becoming_window_or_door() -
     assert projected.type.value == "unknown"
 
 
-def test_unknown_opening_keeps_wall_void_but_emits_no_window_glazing() -> None:
+def test_unknown_opening_keeps_wall_void_but_is_not_fitted_as_window() -> None:
     scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
     building = project_scene_to_building(scene).building
     assert building is not None
@@ -35,6 +35,5 @@ def test_unknown_opening_keeps_wall_void_but_emits_no_window_glazing() -> None:
     left_wall = next(wall for wall in shell.walls if wall.facade.value == "left")
     assert any(item.id == "left_mid_opening" for item in left_wall.grid.openings)
 
-    placements, fitted = generate_window_assemblies(building, shell)
+    _, fitted = generate_window_assemblies(building, shell)
     assert "left_mid_opening" not in fitted
-    assert all(item.facade.value != "left" or item.category != "window_pane" or item.x_studs != 0 for item in placements if False)
