@@ -1,3 +1,5 @@
+import pytest
+
 from brickhouse.pipeline import run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene, project_scene_to_building
 
@@ -39,25 +41,24 @@ def test_scene_can_preserve_certain_gable_shape_without_fake_pitch() -> None:
     assert scene.roofs[0].pitch_degrees is None
 
 
-def test_incomplete_gable_remains_scene_only_during_projection() -> None:
+def test_incomplete_gable_blocks_projection_instead_of_creating_open_building() -> None:
     projection = project_scene_to_building(_scene(ridge_direction="depth", pitch_degrees=None))
-    assert projection.building is not None
-    assert projection.building.roofs == []
-    issues = {issue.code for issue in projection.issues}
-    assert "gable_geometry_incomplete" in issues
+    assert projection.building is None
+    assert projection.blocked
+    issue = next(issue for issue in projection.issues if issue.code == "gable_geometry_incomplete")
+    assert issue.severity.value == "blocker"
+    assert "open building" in issue.message
 
 
-def test_gable_with_unknown_ridge_and_pitch_does_not_need_fabricated_numbers() -> None:
+def test_gable_with_unknown_ridge_and_pitch_remains_scene_truth_without_fake_numbers() -> None:
     projection = project_scene_to_building(_scene())
-    assert projection.building is not None
-    assert projection.building.roofs == []
+    assert projection.building is None
+    assert projection.blocked
     issue = next(issue for issue in projection.issues if issue.code == "gable_geometry_incomplete")
     assert "ridge_direction" in issue.message
     assert "pitch_degrees" in issue.message
 
 
-def test_scene_pipeline_builds_conservative_open_top_and_reports_roof_loss() -> None:
-    bundle = run_m0_pipeline_scene(_scene(ridge_direction="depth", pitch_degrees=None), front_width_studs=48)
-    assert bundle.bom.total_parts > 0
-    assert any(issue.code == "gable_geometry_incomplete" for issue in bundle.fidelity_issues)
-    assert not any(part.component == "roof" for part in bundle.brick_model.parts)
+def test_scene_pipeline_refuses_open_top_for_incomplete_gable() -> None:
+    with pytest.raises(ValueError, match="open building"):
+        run_m0_pipeline_scene(_scene(ridge_direction="depth", pitch_degrees=None), front_width_studs=48)
