@@ -71,13 +71,9 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             issues.append(
                 ProjectionIssue(
                     code="roof_type_not_supported",
-                    severity=ProjectionSeverity.BLOCKER,
+                    severity=ProjectionSeverity.WARNING,
                     object_id=roof.id,
-                    message=(
-                        f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 "
-                        "cannot represent it. LEGO projection is blocked rather than producing an open building "
-                        "that would silently erase a known roof."
-                    ),
+                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
                 )
             )
         elif roof.type is SceneRoofType.GABLE and not _roof_is_building_model_representable(roof):
