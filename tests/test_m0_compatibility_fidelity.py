@@ -17,4 +17,5 @@ def test_window_fidelity_limit_is_explicit_before_build() -> None:
     })
     result = assess_m0_compatibility(building)
     assert result.buildable is True
-    assert any("vitrage LEGO réel" in warning for warning in result.warnings)
+    assert any("cadre + vitrage" in warning for warning in result.warnings)
+    assert any("sans inventer" in warning for warning in result.warnings)
