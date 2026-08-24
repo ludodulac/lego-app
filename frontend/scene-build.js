@@ -1,3 +1,5 @@
+import './benchmark-test.js';
+
 const buildButton = document.querySelector('#build-bricks');
 const apiInput = document.querySelector('#api-url');
 const studsInput = document.querySelector('#studs');
