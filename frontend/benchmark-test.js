@@ -8,6 +8,20 @@ const SLOT_BY_PHOTO_INDEX = new Map([
   [5, 'rear'],
 ]);
 
+function makeCaptureGuidance() {
+  const firstCard = document.querySelector('.simple-card');
+  if (!firstCard || document.querySelector('#capture-overlap-guidance')) return;
+
+  const guidance = document.createElement('div');
+  guidance.id = 'capture-overlap-guidance';
+  guidance.className = 'field';
+  guidance.innerHTML = `
+    <label>Conseil essentiel pour relier les vues</label>
+    <small><strong>Gardez toujours un élément reconnaissable d’une photo à la suivante.</strong> Par exemple : un angle de mur, une fenêtre, une terrasse, un garde-corps, une cheminée ou un morceau de toiture. Boldungo utilise ces éléments communs comme ancres pour comprendre que deux images montrent bien le même bâtiment et pour savoir si la caméra est restée sur le même côté ou a franchi un angle. Une vue partielle est utile si elle conserve une jonction claire avec une autre vue.</small>
+  `;
+  firstCard.querySelector('.simple-heading')?.insertAdjacentElement('afterend', guidance);
+}
+
 function makeButton() {
   const firstCard = document.querySelector('.simple-card');
   if (!firstCard || document.querySelector('#load-real-house-benchmark')) return;
@@ -17,9 +31,10 @@ function makeButton() {
   box.innerHTML = `
     <label>Test rapide du logiciel</label>
     <button id="load-real-house-benchmark" class="primary" type="button">Charger la maison test — 5 photos</button>
-    <small id="benchmark-load-status">Recharge les cinq photos de référence directement dans les zones ci-dessous. Les orientations restent de simples indices de capture, pas des vérités imposées à l’IA.</small>
+    <small id="benchmark-load-status">Recharge les cinq photos de référence directement dans les zones ci-dessous. Ordre du benchmark : 1 façade, 2 côté droit, 3 côté gauche, 4 seconde vue du côté gauche, 5 vue arrière / 3/4 arrière partielle. Les orientations restent de simples indices de capture, pas des vérités imposées à l’IA.</small>
   `;
-  firstCard.querySelector('.simple-heading')?.insertAdjacentElement('afterend', box);
+  const guidance = document.querySelector('#capture-overlap-guidance');
+  (guidance ?? firstCard.querySelector('.simple-heading'))?.insertAdjacentElement('afterend', box);
   box.querySelector('#load-real-house-benchmark')?.addEventListener('click', loadBenchmark);
 }
 
@@ -57,7 +72,7 @@ async function loadBenchmark() {
     const orientation = document.querySelector('#confirm-guided-orientations');
     if (orientation) orientation.checked = false;
 
-    status.textContent = `${manifest.title} chargée : 5 photos. Vous pouvez maintenant créer le PDF d’analyse ou lancer les outils avancés exactement comme avec des photos utilisateur.`;
+    status.textContent = `${manifest.title} chargée : 5 photos. Les vues se recouvrent par des éléments communs ; Boldungo doit utiliser ces ancres pour reconstruire la continuité sans inventer les zones cachées.`;
   } catch (error) {
     status.textContent = `Impossible de charger la maison test : ${error.message}. Le benchmark doit contenir les cinq JPEG originaux dans frontend/benchmarks/real-house-5/.`;
   } finally {
@@ -65,4 +80,5 @@ async function loadBenchmark() {
   }
 }
 
+makeCaptureGuidance();
 makeButton();

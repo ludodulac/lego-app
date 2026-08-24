@@ -117,13 +117,15 @@ def test_validated_scene_gate_builds_the_rich_scene_and_opens_viewer() -> None:
 def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> None:
     topology = read("brickhouse-topology-prompt.txt")
     survey = read("brickhouse-survey-prompt.txt")
-    assert "TOPOLOGIQUE v0.7" in topology
+    assert "TOPOLOGIQUE v0.8" in topology
     assert "execution_mode=single_turn_file_output" in topology
     assert "N’ENTRE PAS en mode conversationnel" in topology
     assert "slot_labels_are_user_confirmed" in topology
     assert "indices faibles" in topology
     assert "contrainte utilisateur forte" in topology
     assert "user_confirmed" in topology
+    assert "overlap_anchors" in topology
+    assert "une vue partielle peut être extrêmement utile" in topology
     assert "RELEVÉ ARCHITECTURAL v2.3" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
     assert '"kind":"front_width"' in survey
