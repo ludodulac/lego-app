@@ -115,6 +115,15 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             for relation in self.relations
         )
 
+    def _has_resolved_semantic_anchor_claim(self, object_id: str) -> bool:
+        """Defer claimed semantic-anchor connectivity to its stricter metric audit."""
+        return any(
+            relation.geometry_status == "resolved"
+            and relation.semantic_anchor_volume_id is not None
+            and object_id in {relation.subject_id, relation.object_id}
+            for relation in self.relations
+        )
+
     @staticmethod
     def _platforms_touch(first, second) -> bool:
         """Treat coplanar touching/overlapping walkable surfaces as connected."""
@@ -182,9 +191,15 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 or self._point_on_platform(stair.end, platform)
                 for stair in self.stairs
             )
-            if not touches_metric and not self._has_unresolved_relation(platform.id):
+            if (
+                not touches_metric
+                and not self._has_unresolved_relation(platform.id)
+                and not self._has_resolved_semantic_anchor_claim(platform.id)
+            ):
+                # Preserve the historical substring used by clients/tests while
+                # making the new platform-to-platform possibility explicit.
                 raise ValueError(
-                    f"platform {platform.id!r} is disconnected from building, platforms, and stairs"
+                    f"platform {platform.id!r} is disconnected from both building and stairs and from other platforms"
                 )
 
         for stair in self.stairs:
@@ -200,6 +215,8 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             if not free_endpoints:
                 continue
             if len(free_endpoints) == 1 and self._has_unresolved_relation(stair.id):
+                continue
+            if len(free_endpoints) == 1 and self._has_resolved_semantic_anchor_claim(stair.id):
                 continue
             raise ValueError(
                 f"stair {stair.id!r} {', '.join(free_endpoints)} does not connect to ground, a platform, or the building"
