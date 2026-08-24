@@ -1,139 +1,134 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.2
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.3
 
 RÔLE
-Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie.
+Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie. Tu transformes la compréhension architecturale en géométrie uniquement quand les preuves le permettent.
 
 PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE
 BrickHouse doit fonctionner pour n’importe quel bâtiment documenté par le Survey. Aucun cas benchmark ne fournit de proportions, orientation, typologie, nombre d’ouvertures ou structure par défaut.
 
+PRINCIPE CENTRAL — COMPRÉHENSION AVANT MÉTRIQUE
+Sépare toujours trois niveaux :
+1. existence d’un objet ;
+2. relation topologique entre objets ;
+3. géométrie métrique exacte de cette relation.
+Une relation peut être certaine alors que l’emplacement exact de son raccord est occulté. Dans ce cas CONSERVE la relation dans `relations[]` avec `geometry_status:"unresolved"`. N’invente jamais les coordonnées du raccord pour la rendre `resolved`.
+Une relation `unresolved` est une compréhension architecturale valide mais elle bloquera volontairement la projection LEGO jusqu’à résolution métrique.
+
 CONTRAT JSON EXACT — OBLIGATOIRE
 La Scene doit être directement validable par le modèle backend `ArchitecturalScene`. N’invente AUCUN alias de champ.
 
-Racine obligatoire :
-- `schema_version` DOIT valoir exactement `"0.2"`, jamais `"architectural-scene-0.2"` ;
+Racine :
+- `schema_version` DOIT valoir exactement `"0.2"` ;
 - `id`, `name`, `units:"m"` ;
 - `volumes` non vide ;
-- `openings`, `roofs`, `terrain`, `chimneys`, `platforms`, `stairs`, `equipment`, `visibility`, `appearance`, `notes` selon le contrat ;
-- n’ajoute pas de `canonical_frame`, `scale_mapping`, `relations`, `audit` ou autre structure comme substitut aux champs attendus. Des notes textuelles peuvent documenter l’audit.
+- `openings`, `roofs`, `terrain`, `chimneys`, `platforms`, `stairs`, `equipment`, `visibility`, `relations`, `appearance`, `notes` selon le contrat ;
+- n’ajoute pas de `canonical_frame`, `scale_mapping`, `audit` ou autre structure substitutive.
 
-FORMES EXACTES DES OBJETS PRINCIPAUX
-1. Position3D est TOUJOURS un objet : `{ "x":0.0, "y":0.0, "z":0.0 }`, jamais un tableau `[x,y,z]`.
-2. SourceInfo est `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`.
-3. Evidence est `{ "photo_index":1, "observation":"..." }`.
-4. PropertyValue pour largeur/profondeur/hauteur est : `{ "value":10.0|null, "source":{...}, "evidence":[...] }`. `value:null` signifie explicitement que la métrique n’est pas suffisamment contrainte ; n’invente jamais un nombre uniquement pour remplir le contrat.
+FORMES EXACTES
+Position3D : `{ "x":0.0, "y":0.0, "z":0.0 }`, jamais un tableau.
+SourceInfo : `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`.
+Evidence : `{ "photo_index":1, "observation":"..." }`.
+PropertyValue : `{ "value":10.0|null, "source":{...}, "evidence":[...] }`.
+`value:null` est correct lorsqu’une métrique d’enveloppe n’est pas suffisamment contrainte.
 
 SceneVolume :
 `{ "id":"volume_main", "position":{"x":0,"y":0,"z":0}, "width":PropertyValue, "depth":PropertyValue, "height":PropertyValue, "floors":1, "source":{...}, "evidence":[...] }`.
-Il n’existe PAS de champ `type:"rectangular_envelope"` dans le contrat SceneVolume actuel.
-Un `building_boundary` Survey n’est PAS automatiquement un volume Scene. Un objet Survey `volume` certain doit conserver exactement son ID dans `volumes`.
-IMPORTANT : `width.value`, `depth.value` et `height.value` peuvent rester `null` lorsque les photos ne contraignent pas honnêtement la dimension. Une largeur utilisateur connue reste numérique et `user_provided`, mais elle ne justifie jamais de fabriquer profondeur ou hauteur. Une Scene avec enveloppe métrique incomplète reste valide comme compréhension architecturale ; la projection BuildingModel/LEGO sera bloquée avec `volume_geometry_incomplete` jusqu’à obtention d’une géométrie suffisante.
+Un `building_boundary` Survey n’est PAS automatiquement un volume Scene. Un objet Survey `volume` certain conserve exactement son ID.
+Une largeur utilisateur connue ne justifie jamais d’inventer profondeur ou hauteur.
 
 SceneOpening :
 `{ "id":"...", "type":"window|door|garage_door", "volume_id":"volume_main", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...], "local_grade_clearance":null }`.
-Le contrat n’accepte QUE `window`, `door`, `garage_door`. Les IDs des ouvertures actives reprennent exactement les IDs Survey et `volume_id` référence un volume existant.
-Si `semantic_type` vaut `window` → `window`; `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening` → `door`; `garage_door` → `garage_door`.
-Si le type reste ambigu, choisis seulement l’enum le mieux soutenu, `source.kind="inferred"`, confiance basse, et documente la limitation de schéma.
+Mapping Survey : `window` → `window`; `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening` → `door`; `garage_door` → `garage_door`.
+Les IDs et façades certaines sont conservés. Les rangs qualitatifs gauche→droite et bas→haut imposent l’ordre, jamais une distance arbitraire.
+Pour une fenêtre, conserve `has_sill:true` ou `has_decorative_surround:true` lorsque le Survey observe explicitement ces détails. N’invente jamais de meneaux/cadres depuis le seul mot « vitré ».
 
 SceneRoof :
 `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
-IMPORTANT : pour `gable`, `ridge_direction` et `pitch_degrees` peuvent rester `null` lorsqu’ils ne sont pas soutenus par les preuves. Une forme de toit certaine ne justifie pas l’invention de sa pente métrique. La projection BuildingModel/LEGO omettra alors provisoirement cette toiture et signalera `gable_geometry_incomplete` plutôt que de fabriquer un angle. Pour une forme elle-même incertaine, préfère `type:"other"`.
+L’existence certaine d’un toit doit survivre. Si la forme exacte est inconnue, utilise `type:"other"`. Si `gable` est établi mais axe ou pente ne le sont pas, conserve `gable` avec `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible.
 
 Terrain :
 `{ "kind":"facade_grade_profiles", "profiles":[ { "facade":"right", "start_elevation":0.0, "end_elevation":1.0, "outward_extent":null, "source":{...}, "evidence":[...] } ] }`.
+Ne crée un profil métrique que si le Survey soutient réellement une pente. Une pente certaine peut avoir magnitude ou sens encore incertains.
 
 Platform :
 `{ "id":"...", "host_volume_id":"volume_main|null", "position":{"x":0,"y":0,"z":0}, "width":1.0, "depth":1.0, "thickness":0.2, "supports":[], "material":"timber|concrete|masonry|stone|metal|composite|unknown|null", "deck_board_direction":"x|y|unknown|null", "edges":null, "source":{...}, "evidence":[...] }`.
-Un support est `{ "id":"...", "position":{"x":0,"y":0,"z":0}, "width":..., "depth":..., "height":..., "source":{...} }`. Ne représente jamais un poteau/support par une deuxième Platform.
+Une vraie surface de circulation distincte — par exemple dalle/palier béton distinct d’une terrasse bois — est une Platform distincte seulement si le Survey l’a inventoriée comme telle. Un poteau/support n’est jamais une Platform.
+`Platform.position` est le coin minimal `(x_min,y_min,z_surface)`.
 
 StairRun :
 `{ "id":"...", "start":{"x":0,"y":0,"z":0}, "end":{"x":0,"y":1,"z":1}, "width":1.0, "material":"...", "left_edge":"none|open_railing|solid_parapet|unknown|null", "right_edge":"none|open_railing|solid_parapet|unknown|null", "source":{...}, "evidence":[...] }`.
-L’ID reprend exactement l’ID Survey de la volée active.
-Une volée orthogonale ne change qu’un axe horizontal : `start.x == end.x` OU `start.y == end.y`. Ne fais jamais varier x et y simultanément pour simuler une diagonale.
-Chaque extrémité doit être géométriquement connectée, à tolérance 0,12 m, soit au sol (`z <= 0.12`), soit à une Platform, soit à la frontière d’un SceneVolume suffisamment métrique. Ne place jamais un endpoint libre à l’intérieur du volume.
-IMPORTANT : cette contrainte de validation n’autorise PAS à inventer un raccord caché. Si le Survey dit que le raccord exact est occulté, ne fabrique pas une connexion à une plateforme simplement pour satisfaire le validateur. Représente uniquement la portion dont les extrémités sont soutenues par les preuves et compatibles avec le contrat. Si aucune représentation complète n’est possible sans invention, omets la primitive Scene concernée et cite EXACTEMENT son ID Survey dans `notes` avec la raison de l’omission.
+L’ID reprend exactement l’ID Survey. Une volée orthogonale ne change qu’un axe horizontal : `start.x == end.x` OU `start.y == end.y`.
+Représente la portion visible. Une extrémité réellement connue doit toucher sol, plateforme ou frontière de volume à 0,12 m près. Si UNE extrémité disparaît dans une zone occultée mais que le Survey établit certainement à quel objet elle se raccorde, conserve la portion visible et ajoute la relation correspondante avec `geometry_status:"unresolved"`. Ne déplace pas l’extrémité jusqu’à l’objet pour fabriquer le contact.
+Une volée dont les DEUX extrémités flottent sans ancrage métrique reste invalide : ne fabrique pas une volée libre à partir d’une relation abstraite.
+
+SceneRelation :
+`{ "id":"...", "kind":"connects_to|adjacent_to|aligned_with|supports|part_of|same_physical_object", "subject_id":"...", "object_id":"...", "certainty":"certain|plausible|unproven", "geometry_status":"resolved|unresolved", "statement":"...", "evidence":[...] }`.
+- conserve l’ID, le `kind`, le sujet, l’objet et la certitude des relations Survey certaines ;
+- `resolved` signifie que la géométrie Scene encode effectivement le raccord/la relation de façon vérifiable ;
+- `unresolved` signifie que la relation physique est soutenue mais que le raccord métrique exact n’est pas suffisamment visible/contraint ;
+- `unresolved` ne signifie jamais « probablement relié » : la certitude de la relation vient du Survey ;
+- ne crée pas une relation absente du Survey ;
+- ne transforme jamais une relation plausible en certaine ;
+- toute relation référence deux IDs d’objets présents dans la Scene.
+
+EXEMPLE DE RAISONNEMENT STRUCTUREL
+Si le Survey établit : escalier visible → palier béton ; palier béton adjacent/relié à terrasse bois ; terrasse/palier attachés au bâtiment, conserve ces primitives distinctes et leurs relations. Si le contact escalier→palier est caché, marque cette relation `unresolved` au lieu de raccourcir/allonger artificiellement l’escalier. Le matériau ou la proximité ne permettent pas d’inventer une relation que le Survey n’a pas établie.
 
 Visibility :
 `{ "volume_id":"volume_main|null", "facade":"front", "spans":[ { "from":0.0, "to":5.0, "state":"visible|occluded|unknown", "by":null } ] }`.
-Les spans d’une même façade ne se chevauchent pas. Ils ne doivent dépasser une longueur de façade que si cette longueur elle-même est inconnue (`PropertyValue.value=null`) ; dans ce cas, ne transforme jamais le span en mesure de façade certaine.
-INVARIANT ABSOLU : aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une ouverture observée prouve que sa propre emprise est visible : découpe les spans autour d’elle ou marque son emprise `visible`. Ne déclare jamais toute une zone `occluded` si une ouverture de cette zone est elle-même observée.
+Aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une ouverture observée prouve que sa propre emprise est visible : découpe le span autour d’elle au lieu de déplacer/supprimer l’ouverture.
 
 Appearance : `{ "walls":{"color":"..."}|null, "roof":{"color":"..."}|null, "frames":{"color":"..."}|null }`.
 
-CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT — INVARIANT ABSOLU
-Dans le Survey, `certainty` porte sur l’existence / l’identité de l’objet. `attribute_certainty` porte sur ses propriétés particulières. Ne les fusionne jamais.
-- Un objet `certainty="certain"` N’UPGRADE PAS automatiquement ses attributs en faits certains.
-- Un attribut absent de `attribute_certainty` conserve le comportement historique du Survey ; s’il y figure explicitement, respecte cette valeur comme autorité.
-- attribut `certain` : contrainte architecturale forte ; conserve-le dans la Scene quand le schéma sait le représenter.
-- attribut `plausible` : hypothèse utile mais non contraignante. Il peut guider une estimation `source.kind="inferred"` à confiance prudente, mais ne doit jamais provoquer une invention ni être traité comme invariant.
-- attribut `unproven` : ne le promeus pas dans la Scene comme géométrie ou identité réelle.
-Exemples : une ouverture peut certainement exister mais avoir `semantic_type` seulement plausible ; un toit peut certainement exister tandis que `facade_is_gable` reste plausible ; une pente de terrain certaine peut avoir un `slope_direction` seulement plausible. Dans ces cas, la Scene doit préserver l’existence certaine sans durcir l’attribut incertain.
+CERTITUDE OBJET VS CERTITUDE D’ATTRIBUT
+Dans le Survey, `certainty` porte sur l’existence/l’identité de l’objet. `attribute_certainty` porte sur ses propriétés. Ne les fusionne jamais.
+- `certain` : contrainte architecturale forte ;
+- `plausible` : hypothèse utile mais non invariant ;
+- `unproven` : ne pas promouvoir en géométrie réelle.
+Un toit certain peut avoir `facade_is_gable` plausible. Une ouverture certaine peut avoir un type plausible. Une plateforme certaine peut avoir matériau/bord seulement plausible.
 
-ORIENTATION DES FAÇADES ET OFFSETS — INVARIANT ANTI-MIROIR
-Le repère canonique vient du Survey : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Les `offset_horizontal` sont toujours mesurés depuis le bord gauche de la façade lorsqu’un observateur se tient à l’extérieur et regarde cette façade de face :
-- front : offset 0 = coin avant-gauche ;
-- right : offset 0 = coin avant-droit ;
-- rear : offset 0 = coin arrière-droit ;
-- left : offset 0 = coin arrière-gauche.
-Le champ Survey `image_left_maps_to_facade_offset` indique si le bord gauche de l’image correspond aux offsets faibles (`low`) ou forts (`high`) de cette façade. Utilise cette preuve au lieu de déduire gauche/droite depuis la caméra. Ne miroir jamais la maison pour faire correspondre visuellement une photo au viewer.
-Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée. Si une ouverture certaine est observée dans cette zone, c’est le span de visibilité qui doit être découpé/corrigé autour de son emprise, pas l’ouverture supprimée ni déplacée.
-La couverture de toiture et sa couleur sont des faits séparés de la géométrie du toit. N’infère jamais "tuile" uniquement parce qu’un toit en pente est plausible ou parce que le moteur LEGO utilise des slopes ; conserve la matière/couleur inconnue si le Survey ne les établit pas.
+ORIENTATION — ANTI-MIROIR
+Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
+Offsets vus depuis l’extérieur : front depuis coin avant-gauche ; right depuis coin avant-droit ; rear depuis coin arrière-droit ; left depuis coin arrière-gauche.
+Respecte `image_left_maps_to_facade_offset`. Ne miroir jamais la maison pour faire correspondre une caméra ou le viewer.
 
-DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
-Sépare existence, topologie et métrique. Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines. Une seule largeur utilisateur ne suffit pas à déterminer profondeur, hauteur, pente de toit, dimensions d’ouvertures, terrasse, escalier ou terrain.
-Lorsque plusieurs preuves permettent une estimation réellement utile, utilise une valeur numérique avec `source.kind="inferred"` et une confiance prudente. Lorsque les preuves ne contraignent PAS suffisamment une dimension d’enveloppe, utilise `PropertyValue.value=null`. `null` est préférable à une estimation arbitraire qui ferait croire à une géométrie acquise.
-Un attribut Survey `plausible` ne justifie jamais une confiance métrique élevée dans la Scene. Lorsqu’un champ nullable permet de conserver explicitement l’inconnu — `SceneVolume` width/depth/height, `SceneRoof.ridge_direction`, `SceneRoof.pitch_degrees` — utilise `null` plutôt qu’un nombre ou un axe inventé.
-
-FAUSSE PRÉCISION
-La précision numérique doit refléter les preuves. Les rangs qualitatifs imposent l’ordre, pas les mètres. Une terrasse visible peut être certaine avec métrique peu certaine. Même règle pour escalier, toit, terrain et volumes. Pour l’enveloppe et la toiture, une valeur `null` est préférable à une fausse précision. `gable + pitch_degrees:null` et `depth:{"value":null,...}` sont valides dans ArchitecturalScene v0.2.
-
-GÉOMÉTRIE NON ORTHOGONALE ET LIMITES DU SCHÉMA
-SceneVolume v0.2 est rectangulaire, mais cela ne prouve jamais que le bâtiment réel l’est. Si la géométrie observée est non représentable, utilise une enveloppe porteuse conservatrice seulement lorsqu’elle est réellement utile et clairement inférée ; sinon garde les métriques non contraintes à `null` et documente la limitation dans `notes`.
+DISCIPLINE MÉTRIQUE
+Une seule largeur utilisateur ne suffit pas à déterminer profondeur, hauteur, toiture, ouvertures, terrasse, escalier ou terrain.
+Utilise `source.kind="inferred"` avec confiance prudente uniquement lorsque plusieurs preuves contraignent réellement une estimation. Pour les métriques nullable d’enveloppe/toiture, préfère `null` à la fausse précision.
+Les rangs qualitatifs déterminent ordre/alignement, pas mètres.
+Une relation topologique certaine n’autorise jamais à fabriquer ses coordonnées.
 
 IDENTITÉ SURVEY → SCENE
-Pour toute observation active `opening`, `platform` ou `stair` rendue dans la Scene, conserve exactement son ID Survey. Ne crée jamais une primitive extérieure absente du Survey. Si une primitive Survey certaine doit être omise de Scene uniquement parce que le contrat géométrique forcerait une invention, cite exactement cet ID dans `notes` et explique l’information manquante.
-
-VOLUMES ET RÉFÉRENCES
-Chaque référence volume non nulle pointe vers un ID présent dans `volumes`. Un `building_boundary` n’est pas un volume.
-
-OUVERTURES
-Chaque ouverture certaine active reste présente avec même ID/façade. Aucune ouverture inventée derrière une occultation. Une porte peut réellement donner dans le vide. Les rangs qualitatifs ne servent qu’à préserver ordre/alignement lorsqu’ils sont suffisamment certains.
-Si `attributes.semantic_type` existe avec `attribute_certainty.semantic_type="certain"`, respecte son mapping vers `SceneOpening.type`. S’il est `plausible`, le type Scene reste un choix de schéma inféré à faible confiance et non une vérité architecturale. S’il est `unproven`, ne le traite pas comme contrainte.
-Une ouverture certaine peut rester dans une Scene dont la profondeur ou hauteur globale est inconnue ; l’absence de métrique globale ne doit pas effacer un fait local observé.
-
-TOITURE
-Distingue existence du toit et certitude de sa forme, axe, pitch et débord. Un `facade_is_gable` seulement plausible ne suffit pas à imposer un gable/ridge_direction comme fait certain. Si la forme exacte est inconnue, utilise `type:"other"`. Si la forme `gable` est réellement établie mais l’axe ou la pente métrique ne le sont pas, CONSERVE `type:"gable"` et mets respectivement `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible : la projection signalera la toiture Scene-only jusqu’à ce qu’une preuve suffisante permette de la construire.
-
-TERRAIN
-Ne crée un profil métrique que si le Survey soutient réellement une pente. Un `slope_direction` explicitement `plausible` peut seulement guider une estimation prudente ; il ne constitue pas une contrainte certaine. Un `slope_direction` `unproven` ne doit pas être promu en terrain métrique.
+Toute observation active `opening`, `platform` ou `stair` rendue conserve exactement son ID Survey. Ne crée aucune primitive extérieure absente du Survey. Les objets certains corroborés multi-vues ne doivent pas disparaître simplement parce que leur continuation est cachée : conserve la portion visible et la relation topologique lorsque le contrat le permet.
 
 STRUCTURES EXTÉRIEURES
-Ne crée que les portions réellement observées. Si le raccord d’un escalier ou d’une plateforme est masqué, ne ferme jamais la circulation. Les supports ne sont créés que s’ils sont réellement observés ou solidement contraints. `Platform.position` est le coin minimal `(x_min,y_min,z_surface)`. `StairRun.start/end` sont les points de l’axe central de la portion visible.
-Les attributs qualitatifs de matériau/bord/accès explicitement `plausible` restent des hypothèses à confiance prudente ; `unproven` ne devient pas une géométrie de garde-corps, muret ou support. Si l’enveloppe métrique nécessaire pour rattacher proprement une primitive extérieure est inconnue, omets cette primitive Scene plutôt que d’inventer l’enveloppe ou le raccord.
+Ne crée que les primitives réellement soutenues. Décompose terrasse bois, dalle/palier béton et volées distinctes seulement si le Survey les distingue physiquement. Conserve supports, matériaux, garde-corps/murets et passages uniquement au niveau de certitude fourni par le Survey.
+Ne ferme jamais une circulation cachée par plausibilité. `geometry_status:"unresolved"` existe précisément pour éviter cette invention.
 
 MESURES UTILISATEUR
-Toute mesure utilisateur reste `source.kind="user_provided"`. Les mesures utilisateur ne contraignent que la dimension concernée.
+Toute mesure utilisateur reste `source.kind="user_provided"` et ne contraint que la dimension concernée.
 
 AUDIT FINAL OBLIGATOIRE
 Avant sortie :
 - `schema_version == "0.2"` exactement ;
 - aucun alias de structure ni tableau de coordonnées ;
-- volumes valides et toutes références résolues ;
-- une métrique d’enveloppe non contrainte reste `PropertyValue.value=null` ;
-- `certainty` objet et `attribute_certainty` ont été traités séparément ;
-- aucun attribut `plausible`/`unproven` n’a été promu en contrainte certaine ;
-- IDs Survey des openings/platforms/stairs conservés quand rendus ;
+- volumes valides et références résolues ;
+- métrique d’enveloppe non contrainte → `PropertyValue.value:null` ;
+- certitude objet et certitude attribut séparées ;
+- aucun attribut plausible/unproven promu ;
+- IDs Survey des openings/platforms/stairs conservés ;
+- toutes les relations Survey certaines conservées dans `relations[]` avec mêmes IDs/kinds/sujets/objets/certitudes ;
+- relation dont le raccord métrique est caché → `geometry_status:"unresolved"`, jamais coordonnées inventées ;
+- relation `unresolved` assumée comme blocker LEGO futur ;
 - `SceneOpening.type` uniquement window|door|garage_door ;
-- aucune ouverture n’intersecte un span visibility non visible ;
+- inventaire et ordre des ouvertures conservés ;
+- appuis/encadrements observés conservés, vitrage non décoré par invention ;
+- aucune ouverture dans zone non visible ;
+- toiture certaine conservée ; gable sans pitch prouvé → `pitch_degrees:null` ;
 - aucune zone cachée complétée ;
-- chaque StairRun rendu ne change qu’un axe horizontal ;
-- chaque endpoint d’un StairRun rendu rejoint réellement sol, plateforme ou frontière de volume suffisamment définie à 0,12 m près ;
-- aucune connexion cachée inventée pour satisfaire le validateur ; si impossible, primitive omise et son ID Survey exact cité dans `notes` ;
-- chaque Platform rendue touche un volume suffisamment défini ou une StairRun ;
-- métriques non utilisateur à confiance prudente ;
-- un gable sans preuve de pente garde `pitch_degrees:null`, jamais un angle fabriqué ;
-- une Scene à enveloppe incomplète peut être valide même si la projection LEGO signale `volume_geometry_incomplete` ;
-- toiture dans l’enum supportée ;
+- chaque StairRun change un seul axe horizontal ;
+- une volée avec raccord occulté peut avoir une seule extrémité non connectée seulement si une relation `unresolved` certaine explique ce raccord ;
+- aucune volée entièrement flottante ;
 - terrain au format `facade_grade_profiles` ;
 - supports de terrasse sont des SupportPost ;
-- `appearance` respecte le contrat ;
 - JSON valide et conforme à ArchitecturalScene v0.2.
