@@ -7,6 +7,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 
 from brickhouse.building import BuildingModel, Metadata, Opening, Roof, RoofType, Volume, VolumeShape
+from brickhouse.survey import Certainty
 
 from .models import ArchitecturalScene, SceneRoofType
 
@@ -47,6 +48,20 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
 
     if scene.terrain and scene.terrain.profiles:
         issues.append(ProjectionIssue(code="terrain_not_supported", severity=ProjectionSeverity.WARNING, message="BuildingModel 0.1 uses a global flat ground plane; facade grade profiles are preserved only in scene data."))
+        for profile in scene.terrain.profiles:
+            if profile.start_elevation is None or profile.end_elevation is None:
+                issues.append(
+                    ProjectionIssue(
+                        code="terrain_geometry_incomplete",
+                        severity=ProjectionSeverity.WARNING,
+                        object_id=f"terrain:{profile.facade.value}",
+                        message=(
+                            f"Terrain grade on facade {profile.facade.value!r} is architecturally observed, "
+                            "but its metric endpoint elevations are incomplete. The rich Scene preserves the "
+                            "unknown value and the LEGO pipeline must not invent a grade amplitude."
+                        ),
+                    )
+                )
 
     if scene.visibility:
         issues.append(ProjectionIssue(code="visibility_not_supported", severity=ProjectionSeverity.WARNING, message="Facade visibility/occlusion spans constrain the ArchitecturalScene but are not represented in BuildingModel 0.1."))
@@ -119,6 +134,34 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             )
         if volume.floors > 3:
             issues.append(ProjectionIssue(code="building_model_floor_limit", severity=ProjectionSeverity.BLOCKER, object_id=volume.id, message="BuildingModel 0.1 supports at most three floors; projection will not silently clamp the scene value."))
+
+    # Topological certainty is part of the projection boundary, not merely a
+    # wrapper concern. Keeping this gate here prevents full-pipeline callers from
+    # bypassing a certain unresolved physical junction.
+    for relation in getattr(scene, "relations", []):
+        if relation.geometry_status != "unresolved":
+            continue
+        if relation.certainty is Certainty.CERTAIN:
+            severity = ProjectionSeverity.BLOCKER
+            message = (
+                f"La relation architecturale {relation.id!r} est certaine mais son raccord métrique "
+                "n'est pas encore résolu. La projection LEGO est bloquée plutôt que d'inventer la jonction."
+            )
+        else:
+            severity = ProjectionSeverity.WARNING
+            message = (
+                f"La relation architecturale {relation.id!r} reste {relation.certainty.value} et son raccord "
+                "métrique n'est pas résolu. Elle est conservée dans ArchitecturalScene sans bloquer à elle seule "
+                "la projection LEGO."
+            )
+        issues.append(
+            ProjectionIssue(
+                code="topological_relation_geometry_unresolved",
+                severity=severity,
+                object_id=relation.id,
+                message=message,
+            )
+        )
 
     if any(issue.severity is ProjectionSeverity.BLOCKER for issue in issues):
         return ProjectionResult(building=None, issues=issues)
