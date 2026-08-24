@@ -48,6 +48,12 @@ SceneRoof :
 L’existence certaine d’un toit doit survivre. Si la forme exacte est inconnue, utilise `type:"other"`. Si `gable` est établi mais axe ou pente ne le sont pas, conserve `gable` avec `ridge_direction:null` et/ou `pitch_degrees:null`. N’invente jamais un angle pour rendre le toit constructible : la projection signale `gable_geometry_incomplete`.
 La couverture de toiture et sa couleur sont des faits séparés de la géométrie. N’infère jamais "tuile" uniquement parce qu’un toit en pente est plausible ou parce que le moteur LEGO utilise des slopes.
 
+PENTE DE TOIT INFÉRÉE DEPUIS UN PIGNON VISIBLE
+Un `gable` certain ne doit pas rester avec `pitch_degrees:null` par simple excès de prudence si la géométrie visible permet une estimation défendable. Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet, et qu’une mesure réelle ou une autre ancre d’échelle contraint la portée correspondante, estime la pente depuis le rapport géométrique montée / demi-portée (`rise/run`, conceptuellement `atan(rise / half_span)`).
+Cette pente numérique est TOUJOURS `source.kind="inferred"`, avec confiance prudente, et son evidence doit citer la vue du pignon ainsi qu’une vue indépendante corroborant l’orientation/la continuité de toiture lorsque disponible. La forme `gable` ou l’axe peuvent être certains alors que la valeur de pente reste une estimation.
+N’utilise AUCUN angle par défaut et ne convertis jamais des adjectifs tels que « faible », « modérée » ou « forte » en degrés prédéfinis. Une typologie de maison, une convention constructive ou le besoin de satisfaire M0 ne sont jamais des preuves de pente.
+Conserve `pitch_degrees:null` lorsque le sommet, les égouts, la perspective ou l’échelle rendent réellement le rapport rise/run non défendable. L’objectif est d’éviter à la fois la pente inventée et la perte d’un pignon pourtant métriquement contraignable.
+
 Terrain :
 `{ "kind":"facade_grade_profiles", "profiles":[ { "facade":"right", "start_elevation":0.0|null, "end_elevation":1.0|null, "outward_extent":null, "source":{...}, "evidence":[...] } ] }`.
 Ne crée un profil que si le Survey soutient réellement une pente. Une pente certaine peut avoir magnitude ou sens encore incertains ; dans ce cas garde l’élévation inconnue à `null` plutôt que d’inventer une amplitude.
@@ -147,7 +153,7 @@ AUDIT FINAL OBLIGATOIRE
 - aucune paire d’ouvertures distinctes ne se chevauche sur une même façade ; vérifier les rectangles complets avec `offset_horizontal + width` et `offset_vertical + height` ;
 - appuis/encadrements observés conservés, vitrage non décoré par invention ;
 - aucune ouverture dans zone non visible ;
-- toiture certaine conservée ; gable sans pitch prouvé → `pitch_degrees:null` ;
+- toiture certaine conservée ; gable sans pitch réellement contraignable → `pitch_degrees:null` ; pignon lisible + ancre d’échelle → pente `inferred`, jamais angle par défaut ;
 - aucune zone cachée complétée ;
 - chaque StairRun change un seul axe horizontal ;
 - une volée avec raccord occulté peut avoir une seule extrémité non connectée seulement si une relation `unresolved` certaine explique ce raccord ;
