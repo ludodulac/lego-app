@@ -13,8 +13,8 @@ def test_survey_v25_prompt_forbids_legacy_external_shapes() -> None:
     assert '"z_direction":"bottom_to_top"' in source
     assert 'source` = `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`' in source
     assert 'Chaque `evidence[]` = `{ "photo_index":1, "observation":"..." }`' in source
-    assert "physical_objects" in source
     assert "N’invente AUCUN alias de champ" in source
+    assert "N’ajoute jamais de racine `physical_objects`" in source
 
 
 def test_survey_v25_prompt_requires_roof_and_exterior_multiview_audits() -> None:
