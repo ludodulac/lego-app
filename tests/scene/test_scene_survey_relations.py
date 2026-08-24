@@ -11,7 +11,10 @@ def _survey() -> ArchitecturalSurvey:
         "schema_version": "0.1",
         "id": "survey_relations",
         "name": "Relations",
-        "photos": [{"photo_index": 1, "facade": "left", "description": "left", "source": PHOTO_SOURCE}],
+        "photos": [
+            {"photo_index": 1, "facade": "left", "description": "left", "source": PHOTO_SOURCE},
+            {"photo_index": 2, "facade": "front", "description": "canonical front", "source": PHOTO_SOURCE},
+        ],
         "observations": [
             {"id": "stair_01", "kind": "stair", "facade": "left", "certainty": "certain", "statement": "volée", "evidence": [{"photo_index": 1, "observation": "visible"}]},
             {"id": "landing_01", "kind": "platform", "facade": "left", "certainty": "certain", "statement": "palier", "evidence": [{"photo_index": 1, "observation": "visible"}]},

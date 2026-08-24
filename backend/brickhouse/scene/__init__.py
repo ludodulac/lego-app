@@ -7,7 +7,7 @@ from .models import (
 )
 from .projection import ProjectionIssue, ProjectionResult, ProjectionSeverity, project_scene_to_building
 from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
-from .survey_structure_guard import validate_scene_against_survey
+from .fidelity_validation import validate_scene_against_survey
 __all__=[
     "ArchitecturalScene","Chimney","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial",
     "FacadeEquipment","FacadeVisibility","GradeProfile","Platform","PlatformEdge","PlatformEdges","ProjectionIssue","ProjectionResult",

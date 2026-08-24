@@ -63,7 +63,7 @@ def test_guided_capture_supports_base_views_plus_targeted_extras() -> None:
     assert "MAX_EXTRA_PHOTOS = 6" in simple
     assert "targeted_extra" in simple
     assert "few_high_value_views_plus_targeted_extras" in simple
-    assert "chaîne de circulation" in simple
+    assert "Une géométrie plausible ne devient pas certaine" in simple
     assert "réutiliser exactement l'id stable" in simple
 
 
@@ -129,7 +129,7 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert '"kind":"front_width"' in survey
     assert "subject_id" in survey
     assert "object_id" in survey
-    assert "une volée qui disparaît derrière un mur ne prouve PAS" in survey
+    assert "disparaît derrière un mur ne prouve PAS" in survey
     assert "IDENTITÉ STABLE DES PRIMITIVES" in survey
     assert "facade_horizontal_rank" in survey
     assert "facade_vertical_rank" in survey

@@ -33,7 +33,9 @@ def test_validate_scene_accepts_real_house_regression_fixture():
     assert "terrain_not_supported" in codes
     assert "chimney_not_supported" in codes
     assert "platform_not_supported" in codes
-    assert "stair_not_supported" in codes
+    # Hidden stair continuation is deliberately not encoded in the conservative
+    # regression Scene, so projection must not report a fabricated stair.
+    assert "stair_not_supported" not in codes
 
 
 def test_validate_scene_rejects_opening_inside_rear_occlusion():

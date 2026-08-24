@@ -40,7 +40,7 @@ def _scene():
             "source":{"kind":"inferred","confidence":.5},
         }],
         "stairs":[{
-            "id":"upper_stair","start":{"x":-2.35,"y":9.35,"z":1.25},
+            "id":"upper_stair","start":{"x":-2.35,"y":9.35,"z":0},
             "end":{"x":-1.2,"y":9.35,"z":2.45},"width":1.0,"material":"concrete",
             "left_edge":"solid_parapet","right_edge":"none",
             "source":{"kind":"inferred","confidence":.5},

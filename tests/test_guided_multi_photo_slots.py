@@ -25,10 +25,11 @@ def test_multi_photo_zone_metadata_stays_generic_and_does_not_override_image_evi
     simple = read("photo-simple.js")
 
     assert "Les intitulés des cases sont seulement des repères" in html
-    assert "ne force jamais une photo à correspondre à son libellé" in simple
-    assert "plusieurs photos peuvent volontairement montrer le même côté" in simple.lower()
+    assert "weak_capture_hints_recheck_from_images" in simple
+    assert "les libellés des cases sont seulement des repères de capture" in simple.lower()
     assert "guided_base_zones" in simple
     assert "slot_view_index: item.slot_view_index" in simple
+    assert "orientation_authority" in simple
 
 
 def test_total_photo_limit_rejects_overflow_instead_of_silently_truncating_handoff() -> None:

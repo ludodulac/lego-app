@@ -58,6 +58,16 @@ INVARIANT ABSOLU : aucune ouverture Scene ne peut intersecter un span `occluded`
 
 Appearance : `{ "walls":{"color":"..."}|null, "roof":{"color":"..."}|null, "frames":{"color":"..."}|null }`.
 
+ORIENTATION DES FAÇADES ET OFFSETS — INVARIANT ANTI-MIROIR
+Le repère canonique vient du Survey : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Les `offset_horizontal` sont toujours mesurés depuis le bord gauche de la façade lorsqu’un observateur se tient à l’extérieur et regarde cette façade de face :
+- front : offset 0 = coin avant-gauche ;
+- right : offset 0 = coin avant-droit ;
+- rear : offset 0 = coin arrière-droit ;
+- left : offset 0 = coin arrière-gauche.
+Le champ Survey `image_left_maps_to_facade_offset` indique si le bord gauche de l’image correspond aux offsets faibles (`low`) ou forts (`high`) de cette façade. Utilise cette preuve au lieu de déduire gauche/droite depuis la caméra. Ne miroir jamais la maison pour faire correspondre visuellement une photo au viewer.
+Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée. Si une ouverture certaine est observée dans cette zone, c’est le span de visibilité qui doit être découpé/corrigé autour de son emprise, pas l’ouverture supprimée ni déplacée.
+La couverture de toiture et sa couleur sont des faits séparés de la géométrie du toit. N’infère jamais "tuile" uniquement parce qu’un toit en pente est plausible ou parce que le moteur LEGO utilise des slopes ; conserve la matière/couleur inconnue si le Survey ne les établit pas.
+
 DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
 Sépare existence, topologie et métrique. Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines. Une seule largeur utilisateur ne suffit pas à déterminer profondeur, hauteur, pente de toit, dimensions d’ouvertures, terrasse, escalier ou terrain. Toute dimension non fournie ou non contrainte par plusieurs preuves indépendantes reste `source.kind="inferred"` avec confiance prudente.
 

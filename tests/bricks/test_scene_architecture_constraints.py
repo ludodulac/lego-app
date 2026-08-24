@@ -50,10 +50,13 @@ def _scene(*, platforms=None, stairs=None) -> ArchitecturalScene:
 
 
 def test_turning_stair_must_be_split_into_runs() -> None:
+    # Keep both endpoints valid under the Scene contract while still presenting
+    # a single run that changes x and y. The LEGO architecture layer must reject
+    # that diagonal/turning shortcut and require separate orthogonal runs.
     scene = _scene(stairs=[{
         "id": "stair",
         "start": {"x": -1, "y": 2, "z": 0},
-        "end": {"x": -2, "y": 4, "z": 2},
+        "end": {"x": 0, "y": 4, "z": 2},
         "width": 1,
         "source": {"kind": "inferred", "confidence": .5},
     }])
@@ -71,7 +74,7 @@ def test_platform_wrapping_corner_must_be_split() -> None:
         "supports": [],
         "source": {"kind": "inferred", "confidence": .5},
     }])
-    with pytest.raises(ValueError, match="wraps a building corner"):
+    with pytest.raises(ValueError, match="wraps a corner"):
         augment_brick_model_with_scene_architecture(_base_model(), scene, front_width_studs=48)
 
 
