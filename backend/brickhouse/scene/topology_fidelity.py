@@ -1,11 +1,51 @@
 """Fidelity checks for Survey relations preserved independently of metric geometry."""
 from __future__ import annotations
 
-from brickhouse.survey import ArchitecturalSurvey, Certainty
+from collections import Counter
+
+from brickhouse.survey import ArchitecturalSurvey, Certainty, ObservationKind
 
 from .opening_visual_fidelity import validate_scene_against_survey as _validate_existing
 from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .topology import ArchitecturalScene
+
+
+def _facade_opening_counts_match_by_survey_identity(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+) -> bool:
+    """Compare facade counts without assuming every primary opening stays on volume[0].
+
+    The historical count guard filters Survey openings by semantic ``host_object``
+    but filters Scene openings by ``scene.volumes[0]``. In a legitimate multi-volume
+    reconstruction, an opening can keep its exact Survey identity/facade while being
+    assigned to a secondary Scene volume; counting only the first volume then creates
+    a false ``facade_opening_count_drift``. Identity is the stable cross-layer key.
+    """
+    survey_openings = {
+        observation.id: observation
+        for observation in survey.observations
+        if observation.kind is ObservationKind.OPENING
+    }
+    expected = Counter(
+        observation.facade
+        for observation in survey_openings.values()
+        if observation.certainty is Certainty.CERTAIN
+        and observation.facade is not None
+        and not observation.attributes.get("host_object")
+    )
+    actual = Counter()
+    for opening in scene.openings:
+        observation = survey_openings.get(opening.id)
+        if (
+            observation is None
+            or observation.certainty is not Certainty.CERTAIN
+            or observation.facade is None
+            or observation.attributes.get("host_object")
+        ):
+            continue
+        actual[opening.facade] += 1
+    return actual == expected
 
 
 def validate_scene_against_survey(
@@ -67,11 +107,14 @@ def validate_scene_against_survey(
             )
 
     existing = list(_validate_existing(survey, scene))
+    counts_match_by_identity = _facade_opening_counts_match_by_survey_identity(survey, scene)
     for issue in existing:
         if (
             issue.code == "certain_connection_broken"
             and issue.object_id in unresolved_connection_subjects
         ):
+            continue
+        if issue.code == "facade_opening_count_drift" and counts_match_by_identity:
             continue
         issues.append(issue)
     return issues
