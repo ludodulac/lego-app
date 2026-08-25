@@ -38,18 +38,33 @@ def test_scene_accepts_shed_roof_without_fake_ridge() -> None:
     scene = _scene({"type": "shed", "pitch_degrees": 12})
     assert scene.roofs[0].type is SceneRoofType.SHED
     assert scene.roofs[0].ridge_direction is None
+    assert scene.roofs[0].down_slope_direction is None
 
 
-def test_projection_blocks_shed_roof_instead_of_producing_open_building() -> None:
+def test_projection_blocks_incomplete_shed_roof_instead_of_inventing_direction() -> None:
     scene = _scene({"type": "shed", "pitch_degrees": 12})
     result = project_scene_to_building(scene)
     assert result.building is None
     assert result.blocked
-    issues = [issue for issue in result.issues if issue.code == "shed_roof_not_supported"]
+    issues = [issue for issue in result.issues if issue.code == "shed_geometry_incomplete"]
     assert len(issues) == 1
     assert issues[0].object_id == "roof"
     assert issues[0].severity.value == "blocker"
-    assert "open building" in issues[0].message
+    assert "down_slope_direction" in issues[0].message
+
+
+def test_complete_shed_projects_with_direction_and_pitch_preserved() -> None:
+    scene = _scene({
+        "type": "shed",
+        "down_slope_direction": "rear",
+        "pitch_degrees": 12,
+    })
+    result = project_scene_to_building(scene)
+    assert result.building is not None
+    roof = result.building.roofs[0]
+    assert roof.type.value == "shed"
+    assert roof.down_slope_direction.value == "rear"
+    assert roof.pitch_degrees == 12
 
 
 def test_supported_gable_still_projects_normally() -> None:
