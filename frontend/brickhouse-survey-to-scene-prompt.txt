@@ -1,5 +1,5 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8
-Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.6` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.5` des contrats antérieurs. La version active et autoritative est v3.8.
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.9
+Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.6` des contrats antérieurs. La version active et autoritative est v3.9.
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire ni topologie. Tu transformes la compréhension architecturale en géométrie uniquement quand les preuves le permettent.
@@ -134,6 +134,14 @@ Une largeur utilisateur peut servir d’ancre d’échelle, sans devenir une pre
 Cette valeur ne devient jamais user_provided ni certaine : c’est une estimation géométrique nécessaire pour représenter l’enveloppe, avec une précision numérique compatible avec les preuves. Ne déduis jamais profondeur/hauteur d’une simple règle typologique, d’une seule photo ambiguë ou d’une convention de construction.
 Utilise `value:null` seulement lorsque la dimension reste réellement non contrainte après recoupement des vues. N’invente pas une profondeur ou hauteur uniquement pour satisfaire M0 ; mais ne laisse pas non plus `null` par excès de prudence lorsque les vues fournissent une estimation bornée et cohérente.
 
+PRÉFLIGHT M0 MULTI-VUES — OBLIGATOIRE AVANT SORTIE
+Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploiter toutes les contraintes déjà présentes avant de conclure qu’une métrique est inconnue.
+1. INVENTAIRE : pour chaque observation Survey active `platform` ou `stair` de certitude `certain`, vérifie qu’une primitive Scene de même ID existe. Une primitive visible ne peut pas disparaître parce que sa métrique est difficile. Si une portion cachée rend réellement la primitive non encodable sans invention, son ID exact doit être nommé dans `notes` avec la raison ; n’utilise jamais cette exception pour une surface de circulation ou une volée dont la portion visible est encodable.
+2. ENVELOPPE : si `front_width` est fourni et que le Survey contient des vues indépendantes de la façade avant ET d’au moins une façade latérale ou arrière, tente obligatoirement une estimation proportionnelle multi-vues de `depth` et `height` avant d’utiliser `null`. Une estimation défendable reste `inferred` à confiance faible/modérée ; elle n’est jamais promue en mesure. `null` n’est acceptable qu’après avoir constaté que perspective, occultation ou absence de repères empêche réellement de borner le rapport à l’ancre connue.
+3. RACCORDS : pour chaque relation Survey `connects_to` certaine, relis toutes ses `evidence`. Si le contact physique est explicitement visible, métrise conjointement les primitives et encode `geometry_status:"resolved"` lorsque le contact peut être représenté dans la tolérance backend. N’utilise `unresolved` que lorsque l’emplacement du raccord est réellement caché ou non contraignable ; le simple fait que les dimensions soient `inferred` n’interdit pas une résolution géométrique cohérente.
+4. COHÉRENCE : n’accepte pas une Scene qui attribue des dimensions/positions `inferred` à des ouvertures, plateformes, escaliers ou cheminées tout en laissant l’enveloppe principale `null` sans avoir effectué l’audit multi-vues ci-dessus. La prudence doit être cohérente entre objets.
+5. AUCUNE FABRICATION : ce préflight n’autorise ni typologie par défaut, ni dimension standard, ni contact caché, ni promotion de certitude. Si les preuves restent insuffisantes après l’audit, conserve `null`/`unresolved` et explique précisément la limite dans `notes`.
+
 FAUSSE PRÉCISION
 La précision numérique doit refléter les preuves. Les rangs qualitatifs imposent l’ordre, pas les mètres. Une terrasse visible peut être certaine avec métrique peu certaine. Même règle pour escalier, toit, terrain et volumes. Pour l’enveloppe et la toiture, une valeur `null` est préférable à une fausse précision seulement si la métrique est réellement non contrainte. Une estimation multi-vues bornée doit être conservée comme `inferred` à confiance prudente. `gable + pitch_degrees:null` et `depth:{"value":null,...}` restent valides quand aucune estimation défendable n’existe.
 
@@ -156,6 +164,8 @@ AUDIT FINAL OBLIGATOIRE
 - aucun alias de structure ni tableau de coordonnées ;
 - volumes valides et références résolues ;
 - largeur utilisateur seule ne propage aucune fausse mesure ; largeur + plusieurs vues réellement contraignantes peuvent produire profondeur/hauteur `inferred` à confiance prudente ;
+- préflight M0 multi-vues exécuté avant toute décision `null`/`unresolved` ;
+- chaque `platform`/`stair` certain du Survey est rendu avec le même ID ou son omission réellement non encodable est nommée explicitement dans `notes` ;
 - métrique d’enveloppe réellement non contrainte → `PropertyValue.value:null` ;
 - certitude objet et certitude attribut séparées ;
 - aucun attribut plausible promu en fait certain ; une hypothèse explicite `roof_type` plausible peut survivre comme `SceneRoof.type` inféré à confiance prudente ; attribut `unproven` non promu ;
