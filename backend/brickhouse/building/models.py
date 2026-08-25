@@ -90,6 +90,7 @@ class Opening(BaseModel):
 class RoofType(str, Enum):
     FLAT = "flat"
     GABLE = "gable"
+    SHED = "shed"
 
 
 class RidgeDirection(str, Enum):
@@ -103,11 +104,12 @@ class Roof(BaseModel):
     type: RoofType
     overhang: float = Field(ge=0)
     ridge_direction: RidgeDirection | None = None
+    down_slope_direction: Facade | None = None
     pitch_degrees: float | None = None
     source: SourceInfo
 
     @model_validator(mode="after")
-    def validate_type_specific_fields(self) -> Roof:
+    def validate_type_specific_fields(self) -> "Roof":
         if self.type is RoofType.GABLE:
             if self.ridge_direction is None:
                 raise ValueError("gable roof requires ridge_direction")
@@ -115,9 +117,24 @@ class Roof(BaseModel):
                 raise ValueError("gable roof requires pitch_degrees")
             if not 0 < self.pitch_degrees < 90:
                 raise ValueError("gable roof pitch_degrees must be > 0 and < 90")
+            if self.down_slope_direction is not None:
+                raise ValueError("gable roof must not define down_slope_direction")
+        elif self.type is RoofType.SHED:
+            if self.ridge_direction is not None:
+                raise ValueError("shed roof must not define ridge_direction")
+            if self.down_slope_direction is None:
+                raise ValueError("shed roof requires down_slope_direction")
+            if self.pitch_degrees is None:
+                raise ValueError("shed roof requires pitch_degrees")
+            if not 0 < self.pitch_degrees < 90:
+                raise ValueError("shed roof pitch_degrees must be > 0 and < 90")
         else:
-            if self.ridge_direction is not None or self.pitch_degrees is not None:
-                raise ValueError("flat roof must not define gable-only fields")
+            if (
+                self.ridge_direction is not None
+                or self.down_slope_direction is not None
+                or self.pitch_degrees is not None
+            ):
+                raise ValueError("flat roof must not define pitched-roof fields")
         return self
 
 
@@ -149,7 +166,7 @@ class BuildingModel(BaseModel):
     metadata: Metadata
 
     @model_validator(mode="after")
-    def validate_cross_object_rules(self) -> BuildingModel:
+    def validate_cross_object_rules(self) -> "BuildingModel":
         self._validate_ids()
         volumes = {volume.id: volume for volume in self.volumes}
         self._validate_references(volumes)
