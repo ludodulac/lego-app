@@ -4,6 +4,12 @@ Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.0` désigne le contra
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire, ni IDs, ni topologie certaine. Tu dois exploiter les preuves multi-vues avant de déclarer une métrique inconnue.
 
+AUTORITÉ DE L’ENTRÉE — AUCUN FICHIER SUPPLÉMENTAIRE
+Le fichier handoff Survey → Scene et le JSON ArchitecturalSurvey v0.1 qu’il contient constituent l’entrée complète, autoritative et SUFFISANTE de cette étape. Les champs `photos`, `observations`, `evidence`, `relations`, `known_measurements`, `attributes` et leurs descriptions textuelles sont précisément la représentation validée des preuves visuelles à utiliser ici.
+Tu N’AS PAS accès aux photos originales à cette étape et tu ne dois pas en avoir besoin. N’exige, ne réclame et ne suppose aucun PDF, JPEG, ZIP, image originale, ancien handoff ou autre conversation. L’absence des fichiers photo bruts n’est JAMAIS un motif pour refuser la reconstruction, produire une erreur `missing_required_photo_input`, vider la Scene, supprimer des objets certains ou ignorer les estimations multi-vues que le Survey permet.
+Tu ne dois pas réinterpréter les pixels ni recommencer l’analyse photo : cette étape commence APRÈS validation du Survey. Utilise exclusivement les preuves structurées et textuelles transportées par le Survey. Si une métrique reste réellement insuffisamment contrainte par CES preuves, utilise les `null`/`unresolved` autorisés ; cela n’autorise jamais à retourner une Scene vide lorsque le Survey décrit un bâtiment ou des primitives certaines.
+Si le Survey contient au moins une observation architecturale certaine ou plausible appartenant au bâtiment, `volumes` ne peut pas être vide. Si le Survey contient une `platform` ou `stair` certaine dont la portion visible est encodable d’après ses observations/evidence, la primitive correspondante ne peut pas être omise sous prétexte que les photos originales ne sont pas jointes.
+
 PORTÉE GÉNÉRIQUE — RÈGLE ABSOLUE
 Aucune dimension, typologie, pente, nombre d’étages, position ou raccord n’est hérité d’un benchmark. Une valeur numérique n’est autorisée que si elle est user_provided ou raisonnablement bornée par les preuves. Une valeur `null` reste préférable à une valeur inventée lorsque les preuves sont réellement insuffisantes.
 
@@ -100,4 +106,6 @@ AUDIT FINAL OBLIGATOIRE
 - toute hypothèse `facade_is_gable:true` de certitude `certain` ou `plausible` reste `type:"gable"` dans la Scene sans métrique inventée ;
 - aucun contact caché, aucune dimension standard, aucune typologie inventée ;
 - `volume_geometry_incomplete` et `gable_geometry_incomplete` restent des blockers légitimes uniquement après cet audit ;
+- aucune dépendance à des photos/PDF/fichiers externes n’a été introduite ;
+- si le Survey décrit un bâtiment, `volumes` n’est pas vide ;
 - JSON valide et conforme à ArchitecturalScene v0.2.
