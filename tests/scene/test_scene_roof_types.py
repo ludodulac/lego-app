@@ -40,12 +40,12 @@ def test_scene_accepts_shed_roof_without_fake_ridge() -> None:
     assert scene.roofs[0].ridge_direction is None
 
 
-def test_projection_blocks_unsupported_roof_instead_of_producing_open_building() -> None:
+def test_projection_blocks_shed_roof_instead_of_producing_open_building() -> None:
     scene = _scene({"type": "shed", "pitch_degrees": 12})
     result = project_scene_to_building(scene)
     assert result.building is None
     assert result.blocked
-    issues = [issue for issue in result.issues if issue.code == "roof_type_not_supported"]
+    issues = [issue for issue in result.issues if issue.code == "shed_roof_not_supported"]
     assert len(issues) == 1
     assert issues[0].object_id == "roof"
     assert issues[0].severity.value == "blocker"
