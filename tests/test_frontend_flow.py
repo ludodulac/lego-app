@@ -53,16 +53,17 @@ def test_external_json_import_extracts_first_complete_object() -> None:
     assert "value.slice(start, index + 1)" in photo
 
 
-def test_guided_capture_supports_base_views_plus_targeted_extras() -> None:
+def test_guided_capture_supports_cardinal_views_plus_targeted_details() -> None:
     html = read("photo.html")
     simple = read("photo-simple.js")
-    assert 'id="guided-extra-photos"' in html
-    assert "6 zones de base" in html
-    assert "Jusqu’à 6 vues supplémentaires" in html
-    assert "MAX_TOTAL_PHOTOS = 12" in simple
-    assert "MAX_EXTRA_PHOTOS = 6" in simple
-    assert "targeted_extra" in simple
-    assert "few_high_value_views_plus_targeted_extras" in simple
+    assert 'id="guided-photo-grid"' in html
+    assert 'id="detail-photo-grid"' in html
+    assert "4 orientations" in html
+    assert "6 groupes facultatifs" in html
+    assert "MAX_PHOTOS_PER_GROUP = 4" in simple
+    assert "MAX_TOTAL_PHOTOS = 40" in simple
+    assert "targeted_detail" in simple
+    assert "no_implicit_facade_orientation_use_images_and_user_note_only" in simple
     assert "Une géométrie plausible ne devient pas certaine" in simple
     assert "réutiliser exactement l'id stable" in simple
 
@@ -126,9 +127,12 @@ def test_topology_and_survey_prompts_match_single_turn_and_exact_contracts() -> 
     assert "user_confirmed" in topology
     assert "overlap_anchors" in topology
     assert "une vue partielle peut être extrêmement utile" in topology
-    assert "RELEVÉ ARCHITECTURAL v2.6" in survey
+    assert "RELEVÉ ARCHITECTURAL v2.8" in survey
     assert 'schema_version` DOIT valoir exactement `"0.1"' in survey
     assert '"kind":"front_width"' in survey
+    assert "capture_role" in survey
+    assert "targeted_detail" in survey
+    assert "facade:null" in survey
     assert "subject_id" in survey
     assert "object_id" in survey
     assert "disparaît derrière un mur ne prouve PAS" in survey
