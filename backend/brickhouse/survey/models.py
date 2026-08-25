@@ -184,6 +184,7 @@ _REPRESENTATION_POLICY_FIELDS = {
     "reproduce_weathering",
     "reproduce_temporary_objects",
 }
+_LEGACY_QUALITATIVE_RANKS = {"low": 1, "high": 2}
 
 
 class ArchitecturalSurvey(BaseModel):
@@ -206,9 +207,10 @@ class ArchitecturalSurvey(BaseModel):
         Some external models have returned ``representation_policy`` as a list
         of field names instead of the required object. Because that list carries
         no boolean values, the only non-fabricating interpretation is the
-        backend's safe default policy. Likewise, an opening whose semantic type
-        is literally ``opening`` and explicitly unproven means the subtype is
-        unknown; remove that unsupported placeholder rather than promoting it.
+        backend's safe default policy. An opening whose semantic type is literally
+        ``opening`` and explicitly unproven means the subtype is unknown, so the
+        unsupported placeholder is removed. Legacy low/high layout labels are
+        ordinal, not metric, and are normalized to ranks 1/2.
         """
         if not isinstance(value, dict):
             return value
@@ -232,16 +234,21 @@ class ArchitecturalSurvey(BaseModel):
                 repaired = dict(item)
                 attributes = repaired.get("attributes")
                 certainty_map = repaired.get("attribute_certainty")
-                if isinstance(attributes, dict) and attributes.get("semantic_type") == "opening":
-                    semantic_certainty = certainty_map.get("semantic_type") if isinstance(certainty_map, dict) else None
-                    if semantic_certainty == "unproven":
-                        new_attributes = dict(attributes)
-                        new_attributes.pop("semantic_type", None)
-                        repaired["attributes"] = new_attributes
-                        if isinstance(certainty_map, dict):
-                            new_certainty = dict(certainty_map)
-                            new_certainty.pop("semantic_type", None)
-                            repaired["attribute_certainty"] = new_certainty
+                if isinstance(attributes, dict):
+                    new_attributes = dict(attributes)
+                    if new_attributes.get("semantic_type") == "opening":
+                        semantic_certainty = certainty_map.get("semantic_type") if isinstance(certainty_map, dict) else None
+                        if semantic_certainty == "unproven":
+                            new_attributes.pop("semantic_type", None)
+                            if isinstance(certainty_map, dict):
+                                new_certainty = dict(certainty_map)
+                                new_certainty.pop("semantic_type", None)
+                                repaired["attribute_certainty"] = new_certainty
+                    for field in ("facade_horizontal_rank", "facade_vertical_rank"):
+                        rank = new_attributes.get(field)
+                        if isinstance(rank, str) and rank in _LEGACY_QUALITATIVE_RANKS:
+                            new_attributes[field] = _LEGACY_QUALITATIVE_RANKS[rank]
+                    repaired["attributes"] = new_attributes
                 repaired_observations.append(repaired)
             normalized["observations"] = repaired_observations
 
