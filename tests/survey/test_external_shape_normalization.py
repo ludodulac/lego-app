@@ -47,7 +47,7 @@ def test_legacy_representation_policy_list_normalizes_to_safe_defaults() -> None
     assert survey.representation_policy.reproduce_temporary_objects is False
 
 
-def test_unproven_opening_placeholder_is_removed_without_type_invention() -> None:
+def test_unproven_opening_placeholder_and_qualitative_ranks_are_normalized() -> None:
     payload = _base_payload()
     payload["representation_policy"] = ["preserve_nominal_materials"]
     payload["observations"] = [
@@ -58,7 +58,12 @@ def test_unproven_opening_placeholder_is_removed_without_type_invention() -> Non
             "certainty": "certain",
             "statement": "An opening is visible but its subtype is unknown.",
             "evidence": [{"photo_index": 1, "observation": "Visible opening."}],
-            "attributes": {"physical_object_count": 1, "semantic_type": "opening"},
+            "attributes": {
+                "physical_object_count": 1,
+                "semantic_type": "opening",
+                "facade_horizontal_rank": "low",
+                "facade_vertical_rank": "high",
+            },
             "attribute_certainty": {"semantic_type": "unproven"},
         }
     ]
@@ -69,6 +74,8 @@ def test_unproven_opening_placeholder_is_removed_without_type_invention() -> Non
     assert "semantic_type" not in opening.attributes
     assert "semantic_type" not in opening.attribute_certainty
     assert opening.attributes["physical_object_count"] == 1
+    assert opening.attributes["facade_horizontal_rank"] == 1
+    assert opening.attributes["facade_vertical_rank"] == 2
 
 
 def test_unknown_representation_policy_name_is_not_silently_repaired() -> None:
