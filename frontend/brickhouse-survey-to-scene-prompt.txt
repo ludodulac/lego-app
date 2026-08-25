@@ -31,7 +31,7 @@ DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
 Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines. Une seule largeur utilisateur ne suffit pas à déterminer automatiquement profondeur, hauteur, pente ou dimensions secondaires. Mais une largeur connue PEUT servir d’ancre d’échelle pour une estimation `source.kind="inferred"` lorsque plusieurs vues indépendantes contraignent un rapport géométrique.
 
 ENVELOPPE MÉTRIQUE MULTI-VUES
-Une largeur utilisateur peut servir d’ancre d’échelle sans devenir une preuve des autres dimensions. Une estimation issue des vues reste `source.kind="inferred"`, avec confiance prudente, et ne devient jamais user_provided. Si plusieurs vues cohérentes contraignent profondeur ou hauteur, conserve cette estimation au lieu de revenir à `null` par excès de prudence.
+Une largeur utilisateur peut servir d’ancre d’échelle sans devenir une preuve des autres dimensions. Si plusieurs vues cohérentes contraignent réellement profondeur ou hauteur, produis une estimation prudente `source.kind="inferred"`. Cette estimation ne devient jamais user_provided. N’invente pas une profondeur ou hauteur uniquement pour satisfaire M0 ; conserve `null` seulement si aucun intervalle défendable ne peut être établi après recoupement.
 
 PRÉFLIGHT M0 MULTI-VUES — OBLIGATOIRE AVANT SORTIE
 Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploiter toutes les contraintes déjà présentes avant de conclure qu’une métrique est inconnue.
@@ -44,25 +44,28 @@ Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploi
 7. FRONTIÈRE DU BÂTIMENT : lorsqu’une Platform, StairRun ou un volume secondaire touche visiblement l’enveloppe principale, conserve l’endpoint Survey `building_boundary`, encode le contact métrique avec `volume_main`, mets `geometry_status:"resolved"` et `semantic_anchor_volume_id:"volume_main"` si ce volume est sans ambiguïté.
 8. AUCUNE FABRICATION : ce préflight n’autorise ni typologie par défaut, ni dimension standard, ni contact caché. Si les preuves restent réellement insuffisantes après l’audit, conserve `null`/`unresolved` et documente la limite exacte dans `notes`.
 
+RÉSOLUTION MÉTRIQUE CONJOINTE DES RACCORDS MULTI-VUES
+Une relation certaine visible est une contrainte géométrique commune : estime positions et dimensions ensemble, pas objet par objet. Pour une relation vers un endpoint sémantique non rendu, notamment `building_boundary`, conserve cet endpoint. Si la primitive touche réellement un volume Scene non ambigu, encode le contact dans la géométrie, utilise `geometry_status:"resolved"` et renseigne `semantic_anchor_volume_id`; sinon garde `unresolved`.
+
 NON-CHEVAUCHEMENT DES OUVERTURES
-Deux ouvertures distinctes d’une même façade ne doivent jamais se chevaucher lorsqu’elles appartiennent au même volume et que leurs rectangles ont une aire commune positive. Les rangs qualitatifs imposent l’ordre, pas une distance. Ajuste uniquement des métriques `inferred` si nécessaire ; ne supprime ni ne fusionne d’ouverture. Avant sortie, vérifie qu’aucune paire d’ouvertures distinctes ne se chevauche sur une même façade.
+Deux ouvertures distinctes d’une même façade ne doivent jamais se chevaucher lorsqu’elles appartiennent au même volume. Compare les rectangles avec `offset_horizontal + width` et `offset_vertical + height`. Les rangs qualitatifs imposent l’ordre, pas une distance. Ajuste uniquement des métriques `inferred` si nécessaire ; ne supprime ni ne fusionne d’ouverture. Avant sortie, vérifie qu’aucune paire d’ouvertures distinctes ne se chevauche sur une même façade.
 
 TOITURE
 SceneRoof : `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
-Si `attributes.roof_type` n’est pas soutenu, utilise `type:"other"`. Si `gable` est établi ou explicitement plausible mais que l’axe ou la pente ne le sont pas, conserve l’hypothèse sans inventer. Un gable réellement non contraignable peut rester `gable + pitch_degrees:null`; `gable_geometry_incomplete` bloquera alors M0 plutôt que d’inventer.
+Si `attributes.roof_type` est explicitement fourni avec `attribute_certainty:"plausible"`, conserve l’hypothèse comme inférence prudente. Si `gable` est établi ou explicitement plausible mais que l’axe ou la pente ne le sont pas, conserve `ridge_direction:null` et/ou `pitch_degrees:null`. Un gable réellement non contraignable peut rester `gable + pitch_degrees:null`; `gable_geometry_incomplete` bloquera alors M0 plutôt que d’inventer.
 
 PENTE DE TOIT INFÉRÉE DEPUIS UN PIGNON VISIBLE
-Si une vue de pignon montre suffisamment clairement les égouts et le sommet/faîtage et qu’une ancre d’échelle permet un rise/run défendable, estime la pente comme `inferred` à confiance prudente. N’utilise aucun angle standard, aucune typologie ou convention constructive pour fabriquer la pente.
+Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet et qu’une ancre d’échelle permet un rise/run défendable, estime la pente comme `inferred` à confiance prudente. N’utilise aucun angle standard, aucune typologie ou convention constructive pour fabriquer la pente.
 
 STRUCTURES EXTÉRIEURES
 Platform et StairRun doivent représenter uniquement les portions visibles. chaque Platform rendue touche un volume suffisamment défini ou une StairRun, sauf relation explicitement et légitimement `unresolved`. Une connexion cachée inventée pour satisfaire le validateur est interdite. Pour une StairRun orthogonale : `start.x == end.x` OU `start.y == end.y`. Ne déplace pas l’extrémité jusqu’à l’objet pour fabriquer le contact ; inversement, si l’evidence montre réellement l’aboutissement, place l’extrémité sur le contact observé dans la tolérance 0,12 m.
 
 SupportPost :
 `{ "id":"...", "position":{"x":0.0,"y":0.0,"z":0.0}, "width":0.15, "depth":0.15, "height":2.4, "source":{...} }`.
-Ne représente jamais un poteau/support par une deuxième Platform. Chaque élément de `Platform.supports` est un objet SupportPost complet, jamais une chaîne.
+`Platform.supports` est TOUJOURS une liste d’objets SupportPost complets. Ne représente jamais un poteau/support par une deuxième Platform. Chaque élément de `Platform.supports` est un objet SupportPost complet, jamais une chaîne.
 
 ORIENTATION DES FAÇADES ET OFFSETS — INVARIANT ANTI-MIROIR
-Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut.
+Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Respecte `image_left_maps_to_facade_offset`.
 - front : offset 0 = coin avant-gauche ;
 - right : offset 0 = coin avant-droit ;
 - rear : offset 0 = coin arrière-droit ;
