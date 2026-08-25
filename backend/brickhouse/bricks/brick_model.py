@@ -42,7 +42,7 @@ class BrickModelPart(BaseModel):
     z_plates: int = Field(ge=0)
     rotation_quarter_turns: Literal[0, 1, 2, 3]
     facade: Facade | None = None
-    roof_side: Literal["negative", "positive", "ridge"] | None = None
+    roof_side: Literal["negative", "positive", "ridge", "slope"] | None = None
 
     @model_validator(mode="after")
     def validate_semantic_zone(self):
