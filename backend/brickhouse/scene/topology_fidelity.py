@@ -56,28 +56,73 @@ def _facade_opening_counts_match_by_survey_identity(
     return actual == expected
 
 
-def _relation_endpoints_match(survey_relation, scene_relation) -> bool:
-    """Compare relation endpoints according to the semantics of the relation kind.
+def _building_boundary_ids(survey: ArchitecturalSurvey) -> set[str]:
+    return {
+        observation.id
+        for observation in survey.observations
+        if observation.kind is ObservationKind.BUILDING_BOUNDARY
+    }
 
-    `connects_to`, `adjacent_to`, `aligned_with` and `same_physical_object` describe
-    undirected facts: A connects to B is the same fact as B connects to A. External
-    reconstruction models can legitimately serialize these endpoints in either order,
-    especially when one endpoint is a semantic building boundary represented through
-    `semantic_anchor_volume_id`. Direction remains strict for asymmetric relations
-    such as `supports` and `part_of`.
+
+def _endpoint_matches(
+    survey_id: str,
+    scene_id: str,
+    *,
+    building_boundary_ids: set[str],
+    scene_relation,
+) -> bool:
+    """Match one endpoint, allowing only the explicit anchored boundary alias.
+
+    A Survey keeps facade-specific semantic boundary observations such as
+    ``obs-building-boundary-left``. ArchitecturalScene deliberately does not render
+    those observations as primitives; external reconstruction may therefore serialize
+    the absent endpoint as the reserved token ``building_boundary`` and point
+    ``semantic_anchor_volume_id`` at the concrete Scene volume. This is an identity
+    bridge, not permission to rename arbitrary Survey objects.
     """
-    exact = (
-        scene_relation.subject_id == survey_relation.subject_id
-        and scene_relation.object_id == survey_relation.object_id
+    if scene_id == survey_id:
+        return True
+    return (
+        survey_id in building_boundary_ids
+        and scene_id == "building_boundary"
+        and scene_relation.semantic_anchor_volume_id is not None
     )
-    if exact:
+
+
+def _relation_endpoints_match(
+    survey_relation,
+    scene_relation,
+    *,
+    building_boundary_ids: set[str] | None = None,
+) -> bool:
+    """Compare relation endpoints according to relation semantics and boundary bridging.
+
+    ``connects_to``, ``adjacent_to``, ``aligned_with`` and ``same_physical_object``
+    describe undirected facts. ``supports`` and ``part_of`` remain directional.
+    Facade-specific Survey ``building_boundary`` observations may additionally be
+    represented by the reserved Scene alias ``building_boundary`` only when the
+    relation supplies a concrete ``semantic_anchor_volume_id``.
+    """
+    boundaries = building_boundary_ids or set()
+
+    def ordered_match(first_survey: str, second_survey: str) -> bool:
+        return _endpoint_matches(
+            first_survey,
+            scene_relation.subject_id,
+            building_boundary_ids=boundaries,
+            scene_relation=scene_relation,
+        ) and _endpoint_matches(
+            second_survey,
+            scene_relation.object_id,
+            building_boundary_ids=boundaries,
+            scene_relation=scene_relation,
+        )
+
+    if ordered_match(survey_relation.subject_id, survey_relation.object_id):
         return True
     if survey_relation.kind.value not in SYMMETRIC_RELATION_KINDS:
         return False
-    return (
-        scene_relation.subject_id == survey_relation.object_id
-        and scene_relation.object_id == survey_relation.subject_id
-    )
+    return ordered_match(survey_relation.object_id, survey_relation.subject_id)
 
 
 def validate_scene_against_survey(
@@ -91,6 +136,7 @@ def validate_scene_against_survey(
     geometric junction is resolved.
     """
     scene_relations = {relation.id: relation for relation in scene.relations}
+    boundary_ids = _building_boundary_ids(survey)
     unresolved_connection_subjects: set[str] = set()
     issues: list[SceneSurveyIssue] = []
 
@@ -110,7 +156,11 @@ def validate_scene_against_survey(
             continue
         if (
             candidate.kind is not relation.kind
-            or not _relation_endpoints_match(relation, candidate)
+            or not _relation_endpoints_match(
+                relation,
+                candidate,
+                building_boundary_ids=boundary_ids,
+            )
             or candidate.certainty is not Certainty.CERTAIN
         ):
             issues.append(
