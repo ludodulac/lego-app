@@ -18,6 +18,8 @@ from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
+from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
+from brickhouse.bricks.shed_roof import generate_spatial_shed_roof
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 from brickhouse.geometry import generate_building_geometry
@@ -52,18 +54,17 @@ def _translate_model(model: BrickModel, *, prefix: str, x: int, y: int, z: int):
     }) for part in model.parts]
 
 
-def _spatial_roof_or_block(roof, geometry, shell):
-    """Never let a represented roof disappear because LEGO integration is incomplete."""
-    if roof is None or roof.type is RoofType.FLAT:
-        return None
-    if roof.type is RoofType.GABLE:
-        return generate_spatial_gable_roof(geometry, shell)
-    if roof.type is RoofType.SHED:
-        raise ValueError(
-            "Architectural shed roof geometry is available, but complete LEGO shed integration "
-            "including wall infill is not enabled yet; build is blocked rather than omitting the roof."
-        )
-    raise ValueError(f"Unsupported roof type {roof.type!r}")
+def _build_local_model(building, geometry, shell, spatial_shell, roof, facade_details, window_parts):
+    if roof is not None and roof.type is RoofType.SHED:
+        base = generate_brick_model(spatial_shell, None, facade_details, window_parts)
+        shed_roof = generate_spatial_shed_roof(geometry, shell)
+        return augment_brick_model_with_shed_roof(base, spatial_shell, shed_roof)
+    spatial_roof = (
+        generate_spatial_gable_roof(geometry, shell)
+        if roof is not None and roof.type is RoofType.GABLE
+        else None
+    )
+    return generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
 
 
 def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: int) -> BrickExportBundle:
@@ -72,8 +73,7 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
     window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
     facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
     roof = building.roofs[0] if building.roofs else None
-    spatial_roof = _spatial_roof_or_block(roof, geometry, shell)
-    brick_model = generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
+    brick_model = _build_local_model(building, geometry, shell, spatial_shell, roof, facade_details, window_parts)
     _validate_generated_model(brick_model)
     bom = generate_bom(brick_model)
     assembly_plan = generate_assembly_plan(brick_model)
@@ -102,8 +102,7 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
         window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
         facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
         roof = roofs_by_volume.get(volume.id)
-        spatial_roof = _spatial_roof_or_block(roof, subgeometry, shell)
-        local_model = generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
+        local_model = _build_local_model(building, subgeometry, shell, spatial_shell, roof, facade_details, window_parts)
         x = round((volume.position.x - min_x) * studs_per_meter)
         y = round((volume.position.y - min_y) * studs_per_meter)
         z = round((volume.position.z - min_z) * plates_per_meter)
@@ -144,7 +143,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list
             if issue is not None:
                 issues.append(issue)
     for roof in scene.roofs:
-        if roof.type is not SceneRoofType.GABLE or roof.pitch_degrees is None:
+        if roof.type not in {SceneRoofType.GABLE, SceneRoofType.SHED} or roof.pitch_degrees is None:
             continue
         family = select_roof_slope_family(roof.pitch_degrees)
         delta = abs(family.pitch_degrees - roof.pitch_degrees)
