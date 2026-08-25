@@ -10,6 +10,14 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .topology import ArchitecturalScene
 
 
+SYMMETRIC_RELATION_KINDS = {
+    "connects_to",
+    "adjacent_to",
+    "aligned_with",
+    "same_physical_object",
+}
+
+
 def _facade_opening_counts_match_by_survey_identity(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
@@ -48,6 +56,30 @@ def _facade_opening_counts_match_by_survey_identity(
     return actual == expected
 
 
+def _relation_endpoints_match(survey_relation, scene_relation) -> bool:
+    """Compare relation endpoints according to the semantics of the relation kind.
+
+    `connects_to`, `adjacent_to`, `aligned_with` and `same_physical_object` describe
+    undirected facts: A connects to B is the same fact as B connects to A. External
+    reconstruction models can legitimately serialize these endpoints in either order,
+    especially when one endpoint is a semantic building boundary represented through
+    `semantic_anchor_volume_id`. Direction remains strict for asymmetric relations
+    such as `supports` and `part_of`.
+    """
+    exact = (
+        scene_relation.subject_id == survey_relation.subject_id
+        and scene_relation.object_id == survey_relation.object_id
+    )
+    if exact:
+        return True
+    if survey_relation.kind.value not in SYMMETRIC_RELATION_KINDS:
+        return False
+    return (
+        scene_relation.subject_id == survey_relation.object_id
+        and scene_relation.object_id == survey_relation.subject_id
+    )
+
+
 def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
@@ -78,8 +110,7 @@ def validate_scene_against_survey(
             continue
         if (
             candidate.kind is not relation.kind
-            or candidate.subject_id != relation.subject_id
-            or candidate.object_id != relation.object_id
+            or not _relation_endpoints_match(relation, candidate)
             or candidate.certainty is not Certainty.CERTAIN
         ):
             issues.append(
