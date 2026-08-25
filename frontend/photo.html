@@ -22,7 +22,7 @@
           <label class="guided-photo-slot" data-slot="left" data-label="Côté gauche"><strong>Côté gauche</strong><span>1 à 4 vues du côté gauche</span><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small class="guided-photo-name">Aucune photo</small><textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette orientation…"></textarea></label>
           <label class="guided-photo-slot" data-slot="rear" data-label="Arrière"><strong>Arrière</strong><span>1 à 4 vues arrière, même partielles</span><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small class="guided-photo-name">Aucune photo</small><textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette orientation…"></textarea></label>
         </div>
-        <p class="microcopy">Si une orientation manque, laissez-la vide. L’IA doit conserver ce manque comme incertitude et ne pas inventer la géométrie invisible.</p>
+        <p class="microcopy">Les intitulés des cases principales sont des repères de capture tant que vous ne confirmez pas leur orientation. Si une orientation manque, laissez-la vide : l’IA doit conserver ce manque comme incertitude et ne pas inventer la géométrie invisible.</p>
       </section>
 
       <section class="simple-card">
@@ -46,9 +46,9 @@
       </section>
 
       <section class="simple-card ai-handoff-card">
-        <div class="simple-heading"><div><p class="eyebrow">Sans connexion API</p><h2>4. Faire analyser avec une IA</h2><p>Boldungo prépare la commande complète et référence toutes les photos sélectionnées dans un ordre déterministe.</p></div></div>
-        <button id="download-ai-package" class="primary big-action" type="button">Créer la commande à envoyer à l’IA</button>
-        <p id="ai-package-status" class="helper-status">La commande contiendra les instructions, le manifeste de capture et l’ordre de toutes les photos.</p>
+        <div class="simple-heading"><div><p class="eyebrow">Sans connexion API</p><h2>4. Faire analyser avec une IA</h2><p>Boldungo crée un PDF Survey autonome contenant la commande et toutes les photos sélectionnées, dans un ordre déterministe. Ce PDF sert uniquement à produire l’ArchitecturalSurvey ; la Scene sera reconstruite après validation.</p></div></div>
+        <button id="download-ai-package" class="primary big-action" type="button">Créer le PDF unique à envoyer à l’IA</button>
+        <p id="ai-package-status" class="helper-status">Le fichier BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf contiendra les instructions puis les photos elles-mêmes.</p>
         <div class="handoff-arrow">↓</div>
         <div class="field"><label for="external-analysis-file">Remettre ici le fichier résultat donné par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Boldungo reconnaît un Survey, une Scene, ou le fichier résultat complet du pipeline.</small></div>
         <div class="field fallback-paste"><label for="external-analysis">Ou coller le résultat JSON</label><textarea id="external-analysis" rows="6" spellcheck="false" placeholder="Solution de secours si l’IA ne fournit pas de fichier à télécharger…"></textarea></div>
@@ -61,7 +61,7 @@
         <summary>Options avancées et outils de test</summary>
         <div id="vision-state" class="result-card warning"><strong>Vérification du moteur photo…</strong><p>Boldungo vérifie automatiquement si l’analyse visuelle est disponible sur le serveur.</p></div>
         <details class="result-card"><summary>Conseils détaillés pour les photos</summary><p>Prenez assez de recul pour voir les bords du mur, le sol, les ouvertures et le toit. Pour une zone complexe, prenez plusieurs vues depuis des angles réellement différents tout en gardant quelques objets communs visibles.</p></details>
-        <div class="field legacy-photo-field"><label for="photos">Sélection photo technique</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · 40 photos maximum · 12 Mo maximum par photo</small></div>
+        <div class="field legacy-photo-field"><label for="photos">Sélection photo technique</label><input id="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small id="photo-limits">JPEG, PNG ou WebP · limite selon la capacité de l’API · 12 Mo maximum par photo</small></div>
         <div id="photo-list" class="photo-list"></div>
         <details class="result-card external-ai"><summary>Prompts du pipeline séparés</summary><p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">Cartographie topologique ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">ArchitecturalSurvey ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Survey → Scene ↗</a></p></details>
         <div class="field"><label for="api-url">API Boldungo</label><input id="api-url" type="url" /></div>
