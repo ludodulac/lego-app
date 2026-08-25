@@ -81,17 +81,26 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
         issues.append(ProjectionIssue(code="stair_not_supported", severity=ProjectionSeverity.WARNING, object_id=stair.id, message="Exterior stairs are not representable in BuildingModel 0.1 and will be omitted."))
 
     for roof in scene.roofs:
-        if roof.type not in {SceneRoofType.FLAT, SceneRoofType.GABLE}:
+        if roof.type is SceneRoofType.SHED:
             issues.append(
                 ProjectionIssue(
-                    code="roof_type_not_supported",
+                    code="shed_roof_not_supported",
                     severity=ProjectionSeverity.BLOCKER,
                     object_id=roof.id,
                     message=(
-                        f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 "
-                        "cannot project that roof yet. LEGO projection is blocked rather than omitting the roof "
-                        "and producing an open building or converting it to a false gable/flat roof."
+                        "ArchitecturalScene preserves a shed roof, but BuildingModel 0.1 cannot project "
+                        "mono-pitch roof geometry yet. LEGO projection is blocked rather than omitting the "
+                        "roof and producing an open building or converting it to a false gable/flat roof."
                     ),
+                )
+            )
+        elif roof.type not in {SceneRoofType.FLAT, SceneRoofType.GABLE}:
+            issues.append(
+                ProjectionIssue(
+                    code="roof_type_not_supported",
+                    severity=ProjectionSeverity.WARNING,
+                    object_id=roof.id,
+                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
                 )
             )
         elif roof.type is SceneRoofType.GABLE and not _roof_is_building_model_representable(roof):
