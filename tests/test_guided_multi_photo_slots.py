@@ -8,34 +8,38 @@ def read(name: str) -> str:
     return (FRONTEND / name).read_text(encoding="utf-8")
 
 
-def test_guided_zones_accept_multiple_photos_without_collapsing_to_first_file() -> None:
+def test_cardinal_and_detail_groups_accept_multiple_photos_without_collapsing() -> None:
     html = read("photo.html")
     simple = read("photo-simple.js")
 
-    assert html.count('class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple') == 6
-    assert "slots.flatMap" in simple
-    assert "const files = [...(input?.files ?? [])]" in simple
-    assert "files.map((file, fileIndex)" in simple
+    assert html.count('class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple') == 4
+    assert html.count('class="detail-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple') == 6
+    assert "baseSlots.flatMap" in simple
+    assert "detailSlots.flatMap" in simple
+    assert ".slice(0, MAX_PHOTOS_PER_GROUP)" in simple
     assert "slot_view_index: fileIndex + 1" in simple
     assert "input?.files?.[0]" not in simple
 
 
-def test_multi_photo_zone_metadata_stays_generic_and_does_not_override_image_evidence() -> None:
+def test_detail_metadata_never_overrides_image_evidence_with_fake_facade() -> None:
     html = read("photo.html")
     simple = read("photo-simple.js")
 
-    assert "Les intitulés des cases sont seulement des repères" in html
+    assert "Un groupe de détail n’a aucune orientation de façade implicite" in html
     assert "weak_capture_hints_recheck_from_images" in simple
-    assert "les libellés des cases sont seulement des repères de capture" in simple.lower()
-    assert "guided_base_zones" in simple
-    assert "slot_view_index: item.slot_view_index" in simple
+    assert "no_implicit_facade_orientation_use_images_and_user_note_only" in simple
+    assert "targeted_detail" in simple
     assert "orientation_authority" in simple
+    assert ": 'none'" in simple
+    assert "targeted_detail_groups" in simple
+    assert "slot_view_index: item.slot_view_index" in simple
 
 
-def test_total_photo_limit_rejects_overflow_instead_of_silently_truncating_handoff() -> None:
+def test_structured_capture_has_explicit_group_and_total_limits() -> None:
     simple = read("photo-simple.js")
 
-    assert "const records = [...selectedSlotRecords(), ...selectedExtraRecords()]" in simple
+    assert "const MAX_PHOTOS_PER_GROUP = 4" in simple
+    assert "const MAX_TOTAL_PHOTOS = 40" in simple
+    assert "const records = selectedPhotoRecords()" in simple
     assert "if (records.length > MAX_TOTAL_PHOTOS)" in simple
-    assert "Vous en avez sélectionné ${records.length}" in simple
     assert "downloadTextFile(INSTRUCTION_FILENAME" in simple

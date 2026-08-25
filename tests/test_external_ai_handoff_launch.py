@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SIMPLE = ROOT / "frontend" / "photo-simple.js"
+PHOTO_HTML = ROOT / "frontend" / "photo.html"
 
 
 def test_external_ai_handoff_has_explicit_single_turn_launch_instruction() -> None:
@@ -18,7 +19,7 @@ def test_external_ai_handoff_has_explicit_single_turn_launch_instruction() -> No
 def test_primary_handoff_is_direct_text_not_zip_dependent() -> None:
     source = SIMPLE.read_text(encoding="utf-8")
     assert "00-BRICKHOUSE-COMMANDE-A-ENVOYER.txt" in source
-    assert "HANDOFF_SCHEMA_VERSION = 'handoff-0.6'" in source
+    assert "HANDOFF_SCHEMA_VERSION = 'handoff-0.7-structured-capture'" in source
     assert "execution_mode: 'single_turn_file_output'" in source
     assert "combinedInstruction" in source
     assert "ÉTAPE 1 — TOPOLOGIE MULTI-VUES" in source
@@ -27,7 +28,6 @@ def test_primary_handoff_is_direct_text_not_zip_dependent() -> None:
     assert "text/plain;charset=utf-8" in source
     assert "downloadTextFile" in source
     assert "createZip" not in source
-    assert "brickhouse-photos-a-analyser.zip" not in source
 
 
 def test_handoff_forbids_old_result_as_input_and_conversation_detours() -> None:
@@ -40,16 +40,26 @@ def test_handoff_forbids_old_result_as_input_and_conversation_detours() -> None:
     assert "La réponse de chat finale doit être minimale" in source
 
 
-def test_handoff_distinguishes_capture_hints_from_confirmed_orientations() -> None:
+def test_handoff_distinguishes_base_orientations_from_targeted_details() -> None:
     source = SIMPLE.read_text(encoding="utf-8")
-    assert "confirm-guided-orientations" in source
-    assert "orientation_semantics" in source
-    assert "slot_labels_are_user_confirmed" in source
+    html = PHOTO_HTML.read_text(encoding="utf-8")
+    assert source.count("'front'") >= 1
+    assert "base_slots: ['front', 'right', 'left', 'rear']" in source
+    assert "targeted_detail" in source
     assert "orientation_authority" in source
-    assert "user_confirmed" in source
-    assert "capture_hint" in source
-    assert "ORIENTATION CONFIRMÉE PAR L’UTILISATEUR" in source
-    assert "ORIENTATION NON CONFIRMÉE" in source
+    assert "'none'" in source
+    assert "no_implicit_facade_orientation_use_images_and_user_note_only" in source
+    assert html.count('class="guided-photo-slot"') == 4
+    assert html.count('class="detail-photo-slot"') == 6
+
+
+def test_each_capture_group_is_limited_to_four_photos() -> None:
+    source = SIMPLE.read_text(encoding="utf-8")
+    assert "MAX_PHOTOS_PER_GROUP = 4" in source
+    assert "MAX_TOTAL_PHOTOS = 40" in source
+    assert ".slice(0, MAX_PHOTOS_PER_GROUP)" in source
+    assert "max_photos_per_group: MAX_PHOTOS_PER_GROUP" in source
+    assert "max_total_photos: MAX_TOTAL_PHOTOS" in source
 
 
 def test_handoff_keeps_building_generic() -> None:
@@ -57,4 +67,5 @@ def test_handoff_keeps_building_generic() -> None:
     assert "Le bâtiment peut être non rectangulaire, multi-volume ou atypique" in source
     assert "ne pas imposer la maison benchmark comme modèle général" in source
     assert "guided_base_zones" in source
+    assert "targeted_detail_groups" in source
     assert "slot_view_index" in source

@@ -4,9 +4,11 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 
 
-def test_guided_photo_workflow_keeps_required_legacy_hooks() -> None:
+def test_guided_photo_workflow_keeps_required_product_hooks() -> None:
     html = (FRONTEND / "photo.html").read_text(encoding="utf-8")
-    for slot in ("front", "front_left", "left", "rear", "right", "front_right"):
+    for slot in ("front", "right", "left", "rear"):
+        assert f'data-slot="{slot}"' in html
+    for slot in ("detail_1", "detail_2", "detail_3", "detail_4", "detail_5", "detail_6"):
         assert f'data-slot="{slot}"' in html
     for element_id in (
         "photos",
@@ -26,15 +28,14 @@ def test_guided_photo_workflow_keeps_required_legacy_hooks() -> None:
     assert "external-bundle-import.js" in html
 
 
-def test_external_handoff_is_one_pdf_package_and_one_result_file() -> None:
-    source = (FRONTEND / "brickhouse-single-package.js").read_text(encoding="utf-8")
-    assert "BRICKHOUSE-ANALYSE-COMPLETE.pdf" in source
-    assert "brickhouse-external-result.json" in source
+def test_external_handoff_active_pdf_package_and_result_file() -> None:
+    source = (FRONTEND / "brickhouse-survey-package-v04.js").read_text(encoding="utf-8")
+    assert "BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf" in source
+    assert "brickhouse-survey-result.json" in source
     assert "brickhouse-topology-prompt.txt" in source
     assert "brickhouse-survey-prompt.txt" in source
-    assert "brickhouse-survey-to-scene-prompt.txt" in source
-    assert "makePhotoPage" in source
-    assert "pdfFromCanvases" in source
+    assert "makePhotoImage" in source
+    assert "pdfFromImages" in source
 
 
 def test_external_result_bundle_reuses_existing_scene_gate() -> None:

@@ -85,10 +85,29 @@ class CanonicalFrame(BaseModel):
 
 class PhotoView(BaseModel):
     photo_index: int = Field(ge=1)
-    facade: Facade
+    # A targeted detail can be a soffit, roof junction, terrace underside, etc.
+    # Such evidence has no honest facade coordinate. Keep legacy facade views as
+    # the default, but allow detail photos to explicitly carry no facade.
+    capture_role: Literal["facade_view", "targeted_detail"] = "facade_view"
+    facade: Facade | None = None
     description: str = Field(min_length=1)
     source: SourceInfo
-    image_left_maps_to_facade_offset: Literal["low", "high"] = "low"
+    image_left_maps_to_facade_offset: Literal["low", "high"] | None = "low"
+    user_note: str | None = None
+
+    @model_validator(mode="after")
+    def validate_capture_role(self) -> "PhotoView":
+        if self.capture_role == "targeted_detail":
+            if self.facade is not None or self.image_left_maps_to_facade_offset is not None:
+                raise ValueError(
+                    "targeted_detail photos must not invent facade coordinates or image offset mapping"
+                )
+        else:
+            if self.facade is None:
+                raise ValueError("facade_view photos require facade")
+            if self.image_left_maps_to_facade_offset is None:
+                raise ValueError("facade_view photos require image_left_maps_to_facade_offset")
+        return self
 
 
 class KnownMeasurement(BaseModel):
