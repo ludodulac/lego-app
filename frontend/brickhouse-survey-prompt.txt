@@ -1,5 +1,5 @@
-BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.7
-Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.6` désigne le contrat précédent ; `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.5`, v2.4 et v2.3 des contrats antérieurs ; la version active est v2.7.
+BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.8
+Historique : `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.7` désigne le contrat précédent ; `BRICKHOUSE — PROMPT DE RELEVÉ ARCHITECTURAL v2.6`, v2.5, v2.4 et v2.3 des contrats antérieurs ; la version active est v2.8.
 
 RÔLE
 Tu observes un bâtiment cible déjà orienté par la topologie BrickHouse. Tu inventories ce qui est réellement visible, sans reconstruction métrique et sans LEGO.
@@ -17,8 +17,10 @@ La racine JSON utilise uniquement le contrat ArchitecturalSurvey : `schema_versi
 - `canonical_frame` doit utiliser exactement :
   `{ "front_facade":"front", "x_direction":"front_view_left_to_right", "y_direction":"front_to_rear", "z_direction":"bottom_to_top" }`.
   N’utilise jamais les anciens champs `x`, `y`, `z`, `orientation_source` ou `statement` dans `canonical_frame`.
-- Chaque `photos[]` doit utiliser exactement : `photo_index`, `facade`, `description`, `source`, `image_left_maps_to_facade_offset`.
-- `facade` ∈ front | rear | left | right.
+- Chaque `photos[]` utilise : `photo_index`, `capture_role`, `facade`, `description`, `source`, `image_left_maps_to_facade_offset`, `user_note` éventuel.
+- `capture_role` vaut exactement `facade_view` ou `targeted_detail`.
+- Pour `capture_role:"facade_view"` : `facade` ∈ front | rear | left | right et `image_left_maps_to_facade_offset` vaut `low` ou `high`.
+- Pour `capture_role:"targeted_detail"` : `facade:null` et `image_left_maps_to_facade_offset:null`. Une vue de dessous, dessus, toiture, terrasse, escalier ou jonction locale ne reçoit JAMAIS une façade inventée pour satisfaire le contrat. Conserve `user_note` lorsqu’une note utilisateur accompagne le groupe.
 - `source` = `{ "kind":"user_provided|observed|inferred|generated_default", "confidence":0..1 }`. N’utilise jamais une simple chaîne de nom de fichier comme valeur de `source`.
 - `known_measurements[]` accepte actuellement uniquement la largeur avant utilisateur avec exactement :
   `{ "kind":"front_width", "value": <mètres>, "units":"m", "source": {...} }`.
@@ -46,7 +48,7 @@ DENSITÉ DE COUVERTURE
 La quantité de photos ne change jamais les faits : elle change seulement la quantité de preuves et la confiance. Une observation certaine vue dans deux bonnes photos reste certaine si elle est hors champ ailleurs. Dix vues similaires ne transforment pas une zone cachée en fait certain.
 
 INVENTAIRE PHOTO PAR PHOTO
-Avant fusion, liste mentalement ouvertures, limites, plateformes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain, voisins et occultations réellement visibles.
+Avant fusion, liste mentalement ouvertures, limites, plateformes, escaliers, paliers, garde-corps, murets, dalles, poteaux, matériaux, toiture, cheminées, équipements, terrain, voisins et occultations réellement visibles. Une photo `targeted_detail` peut contribuer à n’importe laquelle de ces observations sans être transformée en façade.
 
 IDENTITÉ PHYSIQUE MULTI-VUES
 Affecte chaque occurrence au bon objet/pan. Pour dire que deux occurrences sont le même objet, croise au moins deux indices spatiaux stables.
@@ -117,6 +119,8 @@ AUDIT FINAL
 - racine conforme exactement à `ArchitecturalSurvey`, sans `physical_objects` ni `architectural_survey_version` ;
 - `canonical_frame` utilise les quatre champs backend exacts, sans anciens alias `x/y/z` ;
 - `photos[].source` et `known_measurements[].source` sont des objets SourceInfo, jamais des chaînes ;
+- chaque photo `facade_view` possède `facade` + `image_left_maps_to_facade_offset` ; chaque `targeted_detail` possède ces deux champs à null et ne reçoit aucune façade inventée ;
+- `user_note` d’un groupe ciblé est conservée lorsqu’elle est fournie ;
 - chaque `evidence[]` est un objet PhotoEvidence avec `photo_index` + `observation`, jamais une chaîne ;
 - champs conformes au contrat ci-dessus, aucun alias inventé ;
 - au moins une photo `facade="front"` ;
