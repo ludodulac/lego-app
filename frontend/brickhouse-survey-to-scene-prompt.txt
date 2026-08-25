@@ -60,6 +60,7 @@ La précision numérique doit refléter les preuves. `source.kind="inferred"` av
 AUDIT FINAL OBLIGATOIRE
 - `schema_version == "0.2"` ;
 - IDs Survey conservés ;
+- chaque `platform`/`stair` certain du Survey est rendu avec le même ID ou son omission réellement non encodable est nommée explicitement dans `notes` ;
 - aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown` ;
 - aucun chevauchement d’ouvertures ;
 - préflight M0 multi-vues exécuté avant toute décision `null`/`unresolved` ;
