@@ -137,6 +137,40 @@ class ArchitecturalScene(_MetricArchitecturalScene):
         y_gap = max(0.0, max(ay0, by0) - min(ay1, by1))
         return x_gap <= CONNECTIVITY_TOLERANCE_M and y_gap <= CONNECTIVITY_TOLERANCE_M
 
+    @staticmethod
+    def _volumes_touch(first, second) -> bool:
+        """Accept a secondary Scene volume as the metric endpoint of a semantic building boundary."""
+        if any(
+            value is None
+            for value in (
+                first.width.value,
+                first.depth.value,
+                first.height.value,
+                second.width.value,
+                second.depth.value,
+                second.height.value,
+            )
+        ):
+            return False
+        ax0, ax1 = first.position.x, first.position.x + first.width.value
+        ay0, ay1 = first.position.y, first.position.y + first.depth.value
+        az0, az1 = first.position.z, first.position.z + first.height.value
+        bx0, bx1 = second.position.x, second.position.x + second.width.value
+        by0, by1 = second.position.y, second.position.y + second.depth.value
+        bz0, bz1 = second.position.z, second.position.z + second.height.value
+
+        x_overlap = min(ax1, bx1) >= max(ax0, bx0) - CONNECTIVITY_TOLERANCE_M
+        y_overlap = min(ay1, by1) >= max(ay0, by0) - CONNECTIVITY_TOLERANCE_M
+        z_overlap = min(az1, bz1) >= max(az0, bz0) - CONNECTIVITY_TOLERANCE_M
+        x_boundary = min(abs(ax0 - bx1), abs(ax1 - bx0)) <= CONNECTIVITY_TOLERANCE_M
+        y_boundary = min(abs(ay0 - by1), abs(ay1 - by0)) <= CONNECTIVITY_TOLERANCE_M
+        z_boundary = min(abs(az0 - bz1), abs(az1 - bz0)) <= CONNECTIVITY_TOLERANCE_M
+        return (
+            (x_boundary and y_overlap and z_overlap)
+            or (y_boundary and x_overlap and z_overlap)
+            or (z_boundary and x_overlap and y_overlap)
+        )
+
     def _validate_resolved_semantic_anchors(self) -> None:
         """Require a claimed semantic-boundary resolution to exist in metric geometry."""
         platforms = {item.id: item for item in self.platforms}
@@ -151,10 +185,10 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 raise ValueError(
                     f"scene relation {relation.id!r} may use semantic_anchor_volume_id only for connects_to"
                 )
-            present_id = (
-                relation.subject_id
-                if relation.subject_id in platforms or relation.subject_id in stairs
-                else relation.object_id
+            scene_endpoint_ids = {relation.subject_id, relation.object_id}
+            present_id = next(
+                (item_id for item_id in scene_endpoint_ids if item_id in platforms or item_id in stairs or item_id in volumes),
+                None,
             )
             volume = volumes[anchor_id]
             if present_id in platforms:
@@ -164,10 +198,12 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 holds = self._point_on_volume_boundary(stair.start, volume) or self._point_on_volume_boundary(
                     stair.end, volume
                 )
+            elif present_id in volumes:
+                holds = present_id != anchor_id and self._volumes_touch(volumes[present_id], volume)
             else:
                 raise ValueError(
-                    f"resolved semantic-anchor relation {relation.id!r} must expose a Platform or StairRun "
-                    "as its Scene endpoint"
+                    f"resolved semantic-anchor relation {relation.id!r} must expose a Platform, StairRun, "
+                    "or secondary Scene volume as its Scene endpoint"
                 )
             if not holds:
                 raise ValueError(
@@ -177,6 +213,7 @@ class ArchitecturalScene(_MetricArchitecturalScene):
 
     def _validate_external_connectivity(self):
         """Allow evidenced hidden junctions but verify all claimed metric resolutions."""
+        self._validate_resolved_semantic_anchors()
         if not self.platforms and not self.stairs:
             return
 
@@ -221,5 +258,3 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             raise ValueError(
                 f"stair {stair.id!r} {', '.join(free_endpoints)} does not connect to ground, a platform, or the building"
             )
-
-        self._validate_resolved_semantic_anchors()
