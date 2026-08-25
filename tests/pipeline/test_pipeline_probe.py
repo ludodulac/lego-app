@@ -98,14 +98,14 @@ def test_complete_shed_contract_projects_without_false_roof_conversion() -> None
     assert projection.building.roofs[0].pitch_degrees == 12.0
 
 
-def test_probe_moves_complete_shed_to_the_next_real_m0_break() -> None:
+def test_probe_complete_shed_reaches_valid_m0_export() -> None:
     report = probe_pipeline(_survey(), _scene(direction="rear", pitch=12.0))
-    assert report["first_blocking_stage"] == "m0_pipeline"
-    assert report["m0_error"] is not None
+    assert report["first_blocking_stage"] == "none"
+    assert report["m0_error"] is None
 
 
 def test_probe_does_not_convert_shed_to_false_gable_or_flat() -> None:
     scene = _scene(direction="rear", pitch=12.0)
     report = probe_pipeline(_survey(), scene)
     assert scene.roofs[0].type.value == "shed"
-    assert report["first_blocking_stage"] == "m0_pipeline"
+    assert report["first_blocking_stage"] == "none"
