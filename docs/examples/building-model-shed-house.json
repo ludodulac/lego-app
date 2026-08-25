@@ -33,5 +33,5 @@
     "walls": {"color": "off_white"},
     "roof": {"color": "dark_gray"}
   },
-  "metadata": {"created_from": "synthetic_reference"}
+  "metadata": {"created_from": "synthetic"}
 }
