@@ -122,6 +122,25 @@ def _certain_roof_existence_issues(
     ]
 
 
+def _rank_increases_with_facade_offset(survey: ArchitecturalSurvey, facade):
+    """Return how image left-to-right rank maps to canonical facade offsets.
+
+    Horizontal ranks are image-order observations. Canonical facade offsets may run
+    in the opposite direction on views whose ``image_left_maps_to_facade_offset`` is
+    ``high``. Enforce order only when all documented views of that facade agree.
+    """
+    mappings = {
+        photo.image_left_maps_to_facade_offset
+        for photo in survey.photos
+        if photo.facade is facade
+    }
+    if mappings == {"low"}:
+        return True
+    if mappings == {"high"}:
+        return False
+    return None
+
+
 def _opening_layout_order_issues(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
@@ -146,8 +165,10 @@ def _opening_layout_order_issues(
 
         horizontal_first = first.attributes.get("facade_horizontal_rank")
         horizontal_second = second.attributes.get("facade_horizontal_rank")
+        rank_increases_with_offset = _rank_increases_with_facade_offset(survey, first.facade)
         if (
-            isinstance(horizontal_first, int)
+            rank_increases_with_offset is not None
+            and isinstance(horizontal_first, int)
             and not isinstance(horizontal_first, bool)
             and isinstance(horizontal_second, int)
             and not isinstance(horizontal_second, bool)
@@ -155,10 +176,12 @@ def _opening_layout_order_issues(
         ):
             first_center = first_scene.offset_horizontal + first_scene.width / 2
             second_center = second_scene.offset_horizontal + second_scene.width / 2
+            ranks_ascending = horizontal_first < horizontal_second
+            offsets_ascending = first_center < second_center
             order_holds = (
-                first_center < second_center
-                if horizontal_first < horizontal_second
-                else first_center > second_center
+                offsets_ascending == ranks_ascending
+                if rank_increases_with_offset
+                else offsets_ascending != ranks_ascending
             )
             if not order_holds:
                 issues.append(
@@ -169,7 +192,7 @@ def _opening_layout_order_issues(
                         message=(
                             f"Les ouvertures {first.id!r} et {second.id!r} ont inversé leur ordre horizontal "
                             f"certain sur la façade {first.facade.value}. Les rangs qualitatifs imposent "
-                            "l'ordre gauche→droite, pas une distance métrique."
+                            "l'ordre visuel observé, après conversion vers le sens canonique des offsets, pas une distance métrique."
                         ),
                     )
                 )
@@ -207,6 +230,59 @@ def _opening_layout_order_issues(
     return issues
 
 
+def _lower_horizontal_order_issue_is_orientation_unsafe(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+    issue: SceneSurveyIssue,
+) -> bool:
+    if issue.code != "opening_horizontal_order_drift" or issue.object_id is None:
+        return False
+    opening = next((item for item in scene.openings if item.id == issue.object_id), None)
+    if opening is None:
+        return False
+    # The lower historical guard assumes rank 1 always means a lower canonical
+    # offset. That assumption is valid only when image-left maps to low offset.
+    return _rank_increases_with_facade_offset(survey, opening.facade) is not True
+
+
+def _unresolved_grade_profile_supported_by_certain_terrain(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+    issue: SceneSurveyIssue,
+) -> bool:
+    """Keep certain grade existence when direction/amplitude remain uncertain.
+
+    A terrain observation may certainly establish that grade varies while its
+    ``slope_direction`` attribute is only plausible. After strict-claim filtering,
+    the lower guard cannot see that attribute and historically reports
+    ``scene_grade_not_in_survey``. A fully unresolved profile (both endpoint
+    elevations null) asserts no metric direction or amplitude, so preserving it is
+    faithful to the certain object-level observation rather than a promotion.
+    """
+    if issue.code != "scene_grade_not_in_survey" or not issue.object_id:
+        return False
+    prefix = "terrain:"
+    if not issue.object_id.startswith(prefix):
+        return False
+    facade_value = issue.object_id[len(prefix):]
+    profile = next(
+        (
+            item
+            for item in (scene.terrain.profiles if scene.terrain else [])
+            if item.facade.value == facade_value
+        ),
+        None,
+    )
+    if profile is None or profile.start_elevation is not None or profile.end_elevation is not None:
+        return False
+    return any(
+        observation.kind is ObservationKind.TERRAIN
+        and observation.certainty is Certainty.CERTAIN
+        and observation.facade is profile.facade
+        for observation in survey.observations
+    )
+
+
 def _omission_is_documented(scene: ArchitecturalScene, object_id: str | None) -> bool:
     """Require an explicit object-level audit trail before relaxing a missing primitive."""
     if not object_id or not scene.notes:
@@ -232,6 +308,12 @@ def validate_scene_against_survey(
     """
     validation_survey = _strict_claims_only(survey)
     issues = list(_validate_scene_against_survey(validation_survey, scene))
+    issues = [
+        issue
+        for issue in issues
+        if not _lower_horizontal_order_issue_is_orientation_unsafe(survey, scene, issue)
+        and not _unresolved_grade_profile_supported_by_certain_terrain(survey, scene, issue)
+    ]
     issues.extend(_certain_roof_existence_issues(validation_survey, scene))
     issues.extend(_opening_layout_order_issues(validation_survey, scene))
     result: list[SceneSurveyIssue] = []

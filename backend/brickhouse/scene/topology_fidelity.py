@@ -64,6 +64,10 @@ def _building_boundary_ids(survey: ArchitecturalSurvey) -> set[str]:
     }
 
 
+def _observation_kinds(survey: ArchitecturalSurvey) -> dict[str, ObservationKind]:
+    return {observation.id: observation.kind for observation in survey.observations}
+
+
 def _endpoint_matches(
     survey_id: str,
     scene_id: str,
@@ -125,6 +129,32 @@ def _relation_endpoints_match(
     return ordered_match(survey_relation.object_id, survey_relation.subject_id)
 
 
+def _implicit_boundary_part_of_holds(
+    survey: ArchitecturalSurvey,
+    scene: ArchitecturalScene,
+    relation,
+) -> bool:
+    """Recognize Scene ownership as the executable form of ``part_of building_boundary``.
+
+    ArchitecturalScene v0.2 already represents opening/roof ownership through
+    ``volume_id``. Requiring a second SceneRelation for the same directional fact is
+    impossible to resolve faithfully today because ``building_boundary`` is semantic,
+    not a rendered Scene primitive. Accept the relation only when the Survey object is
+    explicitly a building boundary and the Scene subject is owned by an existing Scene
+    volume. This does not rename the Survey endpoint or invent geometry.
+    """
+    if relation.kind.value != "part_of":
+        return False
+    if relation.object_id not in _building_boundary_ids(survey):
+        return False
+    volume_ids = {volume.id for volume in scene.volumes}
+    owned = {
+        item.id: item.volume_id
+        for item in [*scene.openings, *scene.roofs]
+    }
+    return owned.get(relation.subject_id) in volume_ids
+
+
 def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
@@ -133,10 +163,14 @@ def validate_scene_against_survey(
 
     A certain relation may remain metrically unresolved. In that case the Scene is a
     faithful understanding artifact, but projection will remain blocked until the
-    geometric junction is resolved.
+    geometric junction is resolved. Relations involving Survey ``context`` objects are
+    reported as representational warnings because ArchitecturalScene v0.2 has no
+    context primitive and therefore cannot serialize both endpoints without inventing
+    target geometry.
     """
     scene_relations = {relation.id: relation for relation in scene.relations}
     boundary_ids = _building_boundary_ids(survey)
+    kinds = _observation_kinds(survey)
     unresolved_connection_subjects: set[str] = set()
     issues: list[SceneSurveyIssue] = []
 
@@ -145,6 +179,25 @@ def validate_scene_against_survey(
             continue
         candidate = scene_relations.get(relation.id)
         if candidate is None:
+            if _implicit_boundary_part_of_holds(survey, scene, relation):
+                continue
+            if ObservationKind.CONTEXT in {
+                kinds.get(relation.subject_id),
+                kinds.get(relation.object_id),
+            }:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="certain_context_relation_scene_unrepresentable",
+                        severity=SceneSurveySeverity.WARNING,
+                        object_id=relation.subject_id,
+                        message=(
+                            f"La relation certaine {relation.id!r} implique un objet de contexte du Survey. "
+                            "ArchitecturalScene v0.2 ne possède pas de primitive de contexte; la relation reste "
+                            "autoritative dans le Survey au lieu d'être transformée en géométrie cible inventée."
+                        ),
+                    )
+                )
+                continue
             issues.append(
                 SceneSurveyIssue(
                     code="certain_relation_missing",
