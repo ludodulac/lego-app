@@ -3,21 +3,20 @@ const status = document.querySelector('#ai-package-status');
 const knownWidth = document.querySelector('#known-width');
 const studs = document.querySelector('#studs');
 const notes = document.querySelector('#notes');
-const extraPhotos = document.querySelector('#guided-extra-photos');
 
-const SLOT_ORDER = ['front', 'right', 'left', 'rear', 'front_left', 'front_right'];
+const SLOT_ORDER = ['front', 'right', 'left', 'rear'];
 const SLOT_LABELS = {
   front: 'Façade avant',
   right: 'Côté droit',
   left: 'Côté gauche',
   rear: 'Arrière',
-  front_left: '3/4 avant gauche',
-  front_right: '3/4 avant droit',
 };
+const DETAIL_ORDER = ['detail_1', 'detail_2', 'detail_3', 'detail_4', 'detail_5', 'detail_6'];
+const MAX_PHOTOS_PER_GROUP = 4;
 
 const PDF_HANDOFF_VERSION = 'pdf-handoff-0.4';
 const PACKAGE_FILENAME = 'BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf';
-const MAX_PHOTOS = 12;
+const MAX_PHOTOS = 40;
 // Smaller raster pages materially reduce Safari/iOS canvas pressure while remaining easy to read.
 const PAGE_W = 960;
 const PAGE_H = 1358;
@@ -39,24 +38,32 @@ function photoRecords() {
     const slot = document.querySelector(`.guided-photo-slot[data-slot="${slotName}"]`);
     const input = slot?.querySelector('.guided-photo-input');
     const note = slot?.querySelector('.guided-photo-note')?.value.trim() || '';
-    [...(input?.files || [])].forEach((file, index) => records.push({
+    [...(input?.files || [])].slice(0, MAX_PHOTOS_PER_GROUP).forEach((file, index) => records.push({
       file,
       slot: slotName,
       label: SLOT_LABELS[slotName] || slotName,
       note,
       slotViewIndex: index + 1,
+      captureRole: 'facade_view',
       orientationAuthority: orientationConfirmed() ? 'user_confirmed' : 'capture_hint',
     }));
   }
-  [...(extraPhotos?.files || [])].forEach((file, index) => records.push({
-    file,
-    slot: `extra_${index + 1}`,
-    label: `Vue supplémentaire ${index + 1}`,
-    note: '',
-    slotViewIndex: 1,
-    orientationAuthority: 'capture_hint',
-  }));
-  return records.slice(0, MAX_PHOTOS);
+  for (const slotName of DETAIL_ORDER) {
+    const slot = document.querySelector(`.detail-photo-slot[data-slot="${slotName}"]`);
+    const input = slot?.querySelector('.detail-photo-input');
+    const note = slot?.querySelector('.detail-photo-note')?.value.trim() || '';
+    [...(input?.files || [])].slice(0, MAX_PHOTOS_PER_GROUP).forEach((file, index) => records.push({
+      file,
+      slot: slotName,
+      label: slot?.dataset.label || slotName,
+      note,
+      slotViewIndex: index + 1,
+      captureRole: 'targeted_detail',
+      orientationAuthority: 'none',
+    }));
+  }
+  if (records.length > MAX_PHOTOS) throw new Error(`Maximum ${MAX_PHOTOS} photos pour ce handoff.`);
+  return records;
 }
 
 async function fetchText(path) {
@@ -73,13 +80,13 @@ function commandText(records, topology, survey) {
     `${index + 1}. ${record.file.name} — ${record.label}` +
     `${record.slotViewIndex > 1 ? ` (vue ${record.slotViewIndex})` : ''}` +
     `${record.note ? ` — note utilisateur: ${record.note}` : ''}` +
-    ` — orientation_authority=${record.orientationAuthority}`
+    ` — capture_role=${record.captureRole} — orientation_authority=${record.orientationAuthority}`
   ).join('\n');
   const orientationRule = confirmed
-    ? 'Les orientations Avant / Droite / Gauche / Arrière ont été confirmées par l’utilisateur et sont des contraintes fortes.'
-    : 'Les libellés des cases sont des indices de capture seulement. Vérifie-les par recoupement multi-vues.';
+    ? 'Les orientations Avant / Droite / Gauche / Arrière ont été confirmées par l’utilisateur et sont des contraintes fortes. Les groupes targeted_detail n’ont aucune façade implicite.'
+    : 'Les libellés des quatre cases de façade sont des indices de capture seulement. Vérifie-les par recoupement multi-vues. Les groupes targeted_detail n’ont aucune façade implicite.';
 
-  return `BRICKHOUSE — HANDOFF PHOTOS -> SURVEY\nHANDOFF_VERSION=${PDF_HANDOFF_VERSION}\n\nOBJECTIF UNIQUE\nAnalyse les pages photo de CE PDF, exécute la topologie comme raisonnement intermédiaire, puis produis UNIQUEMENT un ArchitecturalSurvey v0.1 complet. NE CONSTRUIS PAS DE SCENE dans ce tour. La Scene sera reconstruite seulement après validation du Survey par Boldungo.\n\nINTERDIT\n- ne demande aucune confirmation ni information supplémentaire ;\n- ne produis ni Scene, ni BuildingModel, ni LEGO ;\n- ne réponds pas par une synthèse ;\n- ne complète jamais une zone cachée par plausibilité ;\n- ne remplace jamais une inconnue par null dans un champ dont le contrat exige une valeur ;\n- ne transforme jamais la maison benchmark en règle générale.\n\n${orientationRule}\n\nPHOTOS, DANS L’ORDRE DU PDF\n${photoLines}\n\nFAITS UTILISATEUR\n- largeur réelle de façade avant: ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- largeur cible future de maquette: ${targetStuds} tenons (information de contexte seulement, sans effet sur le Survey)\n- notes: ${notes?.value.trim() || 'aucune'}\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-survey-result.json. Le fichier doit contenir UNIQUEMENT l’objet ArchitecturalSurvey v0.1 à la racine. Aucun wrapper, aucune clé survey, aucune Scene.\n\nAUDIT DE CONTRAT OBLIGATOIRE AVANT SORTIE\n- schema_version vaut exactement \"0.1\" ;\n- id et name sont présents et non vides ;\n- canonical_frame est présent ;\n- photos est non vide ; chaque photo possède photo_index, facade, description, source et image_left_maps_to_facade_offset ;\n- image_left_maps_to_facade_offset vaut exactement \"low\" ou \"high\", jamais null ;\n- observations et relations sont des tableaux ;\n- toute observation opening représente un seul objet physique et possède attributes.physical_object_count=1 ;\n- attributes.semantic_type, s’il est présent, vaut uniquement window, door, door_or_glazed_door, glazed_door_or_large_glazed_opening ou garage_door ; sinon OMETS semantic_type ; n’écris jamais semantic_type:\"opening\" ;\n- chaque relation contient id, kind, subject_id, object_id, certainty, statement et evidence ;\n- chaque relation référence deux IDs d’observations existantes ;\n- known_measurements transporte la largeur utilisateur seulement au format du contrat ;\n- JSON valide, sans commentaire ni texte avant/après.\n\nLa réponse finale du chat doit seulement annoncer ou joindre brickhouse-survey-result.json.\n\n================ TOPOLOGIE — RAISONNEMENT INTERMÉDIAIRE ================\n${topology}\n\n================ ARCHITECTURAL SURVEY — CONTRAT AUTORITATIF ================\n${survey}\n`;
+  return `BRICKHOUSE — HANDOFF PHOTOS -> SURVEY\nHANDOFF_VERSION=${PDF_HANDOFF_VERSION}\n\nOBJECTIF UNIQUE\nAnalyse les pages photo de CE PDF, exécute la topologie comme raisonnement intermédiaire, puis produis UNIQUEMENT un ArchitecturalSurvey v0.1 complet. NE CONSTRUIS PAS DE SCENE dans ce tour. La Scene sera reconstruite seulement après validation du Survey par Boldungo.\n\nINTERDIT\n- ne demande aucune confirmation ni information supplémentaire ;\n- ne produis ni Scene, ni BuildingModel, ni LEGO ;\n- ne réponds pas par une synthèse ;\n- ne complète jamais une zone cachée par plausibilité ;\n- ne transforme jamais un groupe targeted_detail en façade pour satisfaire un schéma ;\n- ne transforme jamais la maison benchmark en règle générale.\n\n${orientationRule}\n\nPHOTOS, DANS L’ORDRE DU PDF\n${photoLines}\n\nFAITS UTILISATEUR\n- largeur réelle de façade avant: ${Number.isFinite(width) && width > 0 ? `${width} m` : 'inconnue'}\n- largeur cible future de maquette: ${targetStuds} tenons (information de contexte seulement, sans effet sur le Survey)\n- notes: ${notes?.value.trim() || 'aucune'}\n\nSORTIE OBLIGATOIRE\nCrée un fichier téléchargeable nommé exactement brickhouse-survey-result.json. Le fichier doit contenir UNIQUEMENT l’objet ArchitecturalSurvey v0.1 à la racine. Aucun wrapper, aucune clé survey, aucune Scene.\n\nAUDIT DE CONTRAT OBLIGATOIRE AVANT SORTIE\n- schema_version vaut exactement \"0.1\" ;\n- id et name sont présents et non vides ;\n- canonical_frame est présent ;\n- photos est non vide ;\n- pour une photo capture_role=facade_view : facade vaut front|rear|left|right et image_left_maps_to_facade_offset vaut low|high ;\n- pour une photo capture_role=targeted_detail : facade=null et image_left_maps_to_facade_offset=null ; conserve user_note lorsqu’il est fourni ;\n- ne fabrique jamais une façade pour une vue de dessous, dessus, terrasse, toiture ou autre détail local ;\n- observations et relations sont des tableaux ;\n- toute observation opening représente un seul objet physique et possède attributes.physical_object_count=1 ;\n- attributes.semantic_type, s’il est présent, vaut uniquement window, door, door_or_glazed_door, glazed_door_or_large_glazed_opening ou garage_door ; sinon OMETS semantic_type ; n’écris jamais semantic_type:\"opening\" ;\n- chaque relation contient id, kind, subject_id, object_id, certainty, statement et evidence ;\n- chaque relation référence deux IDs d’observations existantes ;\n- known_measurements transporte la largeur utilisateur seulement au format du contrat ;\n- JSON valide, sans commentaire ni texte avant/après.\n\nLa réponse finale du chat doit seulement annoncer ou joindre brickhouse-survey-result.json.\n\n================ TOPOLOGIE — RAISONNEMENT INTERMÉDIAIRE ================\n${topology}\n\n================ ARCHITECTURAL SURVEY — CONTRAT AUTORITATIF ================\n${survey}\n`;
 }
 
 function ascii(text) {
@@ -128,8 +135,6 @@ function newPageCanvas() {
 function assertCanvasHealthy(canvas, label) {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error(`${label}: canvas inaccessible.`);
-  // Every generated page deliberately has a white frame. If Safari has evicted the canvas,
-  // these corner samples come back black/transparent instead of white.
   const points = [[4, 4], [PAGE_W - 5, 4], [4, PAGE_H - 5], [PAGE_W - 5, PAGE_H - 5]];
   for (const [x, y] of points) {
     const pixel = ctx.getImageData(x, y, 1, 1).data;
@@ -153,7 +158,6 @@ function canvasJpegBytes(canvas, label, quality = 0.86) {
 }
 
 function releaseCanvas(canvas) {
-  // Setting a tiny backing store is the most reliable way to release canvas memory on iOS Safari.
   canvas.width = 1;
   canvas.height = 1;
 }
@@ -216,7 +220,7 @@ async function makePhotoImage(record, index) {
     ctx.fillText(`PHOTO ${index + 1} — ${ascii(record.label)}`, MARGIN, 42);
     ctx.font = '16px sans-serif';
     ctx.fillText(ascii(record.file.name), MARGIN, 76);
-    ctx.fillText(`orientation_authority=${record.orientationAuthority}`, MARGIN, 102);
+    ctx.fillText(`capture_role=${record.captureRole} · orientation_authority=${record.orientationAuthority}`, MARGIN, 102);
     if (record.note) ctx.fillText(`note: ${ascii(record.note).slice(0, 100)}`, MARGIN, 128);
 
     const top = 164;
@@ -229,7 +233,6 @@ async function makePhotoImage(record, index) {
     return encodeCanvasPage(canvas, `photo ${index + 1}`);
   } finally {
     image.src = '';
-    // encodeCanvasPage already releases the canvas on success; release again is harmless after failure.
     if (canvas.width !== 1 || canvas.height !== 1) releaseCanvas(canvas);
   }
 }
@@ -330,12 +333,10 @@ button?.addEventListener('click', async event => {
       fetchText('./brickhouse-survey-prompt.txt'),
     ]);
 
-    // Encode each canvas immediately. We never keep a stack of full-size canvases alive.
     const images = makeTextImages(commandText(records, topology, survey));
     for (let index = 0; index < records.length; index++) {
       status.textContent = `Handoff ${PDF_HANDOFF_VERSION} · Encodage photo ${index + 1}/${records.length}…`;
       images.push(await makePhotoImage(records[index], index));
-      // Yield to mobile browsers so decoded image/canvas memory can be reclaimed between pages.
       await new Promise(resolve => setTimeout(resolve, 0));
     }
 
