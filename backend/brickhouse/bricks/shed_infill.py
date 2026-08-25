@@ -81,6 +81,12 @@ def augment_brick_model_with_shed_roof(
             )
             wall_index += 1
 
+    orientation = {
+        Facade.LEFT: 0,
+        Facade.REAR: 1,
+        Facade.RIGHT: 2,
+        Facade.FRONT: 3,
+    }[roof.down_slope_direction]
     catalog = create_m0_roof_catalog()
     for index, placement in enumerate(roof.placements, start=1):
         definition = catalog.get(placement.part_id)
@@ -95,7 +101,7 @@ def augment_brick_model_with_shed_roof(
                 x_studs=placement.x_studs,
                 y_studs=placement.y_studs,
                 z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
+                rotation_quarter_turns=orientation,
                 roof_side="slope",
             )
         )
