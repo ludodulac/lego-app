@@ -51,6 +51,35 @@ jobs:
       - name: Verify export exists
         run: test -s /tmp/brickhouse-house-export.json
 
+      - name: Generate generic shed viewer reference
+        run: >-
+          brickhouse-m0
+          docs/examples/building-model-shed-house.json
+          /tmp/brickhouse-shed-viewer-export.json
+          --front-width-studs 48
+
+      - name: Verify shed viewer reference
+        run: |
+          test -s /tmp/brickhouse-shed-viewer-export.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/brickhouse-shed-viewer-export.json').read_text())
+          parts = data['brick_model']['parts']
+          assert any(part.get('roof_side') == 'slope' for part in parts)
+          assert not any(part.get('category') == 'ridge_tile' for part in parts)
+          assert any(part['placement_id'].startswith('shed-wall-') for part in parts)
+          assert data['bom']['total_parts'] == len(parts)
+          PY
+
+      - name: Upload shed viewer reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: brickhouse-shed-viewer-export
+          path: /tmp/brickhouse-shed-viewer-export.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Run rich ArchitecturalScene pipeline smoke test
         run: |
           python - <<'PY'

@@ -1,0 +1,37 @@
+{
+  "schema_version": "0.1",
+  "id": "generic-shed-viewer-reference",
+  "name": "Generic shed viewer reference",
+  "building_type": "house",
+  "units": "m",
+  "volumes": [
+    {
+      "id": "main",
+      "shape": "rectangular_prism",
+      "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+      "width": 10.0,
+      "depth": 8.0,
+      "height": 5.0,
+      "floors": 2,
+      "source": {"kind": "user_provided", "confidence": 1.0}
+    }
+  ],
+  "openings": [],
+  "roofs": [
+    {
+      "id": "roof",
+      "volume_id": "main",
+      "type": "shed",
+      "overhang": 0.0,
+      "ridge_direction": null,
+      "down_slope_direction": "rear",
+      "pitch_degrees": 33.0,
+      "source": {"kind": "user_provided", "confidence": 1.0}
+    }
+  ],
+  "appearance": {
+    "walls": {"color": "off_white"},
+    "roof": {"color": "dark_gray"}
+  },
+  "metadata": {"created_from": "synthetic"}
+}
