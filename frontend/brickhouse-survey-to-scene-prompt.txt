@@ -31,7 +31,7 @@ DISCIPLINE MÉTRIQUE — RÈGLE ABSOLUE
 Une existence certaine n’autorise jamais à rendre ses dimensions métriques certaines. Une seule largeur utilisateur ne suffit pas à déterminer automatiquement profondeur, hauteur, pente ou dimensions secondaires. Mais une largeur connue PEUT servir d’ancre d’échelle pour une estimation `source.kind="inferred"` lorsque plusieurs vues indépendantes contraignent un rapport géométrique.
 
 ENVELOPPE MÉTRIQUE MULTI-VUES
-Une largeur utilisateur peut servir d’ancre d’échelle sans devenir une preuve des autres dimensions. Si plusieurs vues cohérentes contraignent réellement profondeur ou hauteur, produis une estimation prudente `source.kind="inferred"`. Cette estimation ne devient jamais user_provided. N’invente pas une profondeur ou hauteur uniquement pour satisfaire M0 ; conserve `null` seulement si aucun intervalle défendable ne peut être établi après recoupement.
+Une largeur utilisateur peut servir d’ancre d’échelle sans devenir une preuve des autres dimensions. Si plusieurs vues cohérentes contraignent réellement profondeur ou hauteur, produis une estimation prudente `source.kind="inferred"`. Cette estimation ne devient jamais user_provided. N’invente pas une profondeur ou hauteur uniquement pour satisfaire M0 ; utilise `value:null` seulement si aucun intervalle défendable ne peut être établi après recoupement.
 
 PRÉFLIGHT M0 MULTI-VUES — OBLIGATOIRE AVANT SORTIE
 Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploiter toutes les contraintes déjà présentes avant de conclure qu’une métrique est inconnue.
@@ -40,29 +40,33 @@ Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploi
 3. VOLUMES SECONDAIRES : un volume certain vu sur plusieurs vues et raccordé au bâtiment ne doit pas rester entièrement `width/depth/height:null` si ces mêmes vues permettent de borner ses proportions relativement à l’enveloppe principale, une ouverture, une plateforme ou un escalier déjà métrisé. Estime conjointement les dimensions `inferred` à confiance prudente. Ne crée aucun volume standard.
 4. COHÉRENCE DE PRUDENCE : n’accepte pas une Scene qui attribue des dimensions/positions `inferred` à des ouvertures, plateformes, escaliers ou cheminées tout en laissant l’enveloppe principale ou un volume certain multi-vues entièrement `null` sans audit proportionnel explicite. La prudence doit être cohérente entre objets.
 5. RACCORDS VISIBLES : pour CHAQUE relation physique certaine (`connects_to` ou `adjacent_to`), relis son `statement` et toutes ses `evidence`. Si elles disent que le contact, raccord, aboutissement, continuité, jonction ou proximité directe est VISUELLEMENT établi, métrise conjointement les objets pour que la géométrie encode ce fait dans la tolérance 0,12 m et mets `geometry_status:"resolved"`. le simple fait que les dimensions soient `inferred` n’interdit pas une résolution géométrique cohérente.
-6. RACCORDS CACHÉS : `geometry_status:"unresolved"` est réservé à un raccord dont la localisation métrique est réellement cachée, ambiguë ou impossible à borner. Une phrase d’evidence telle que « contact visible », « rejoint visiblement », « arrive contre », « continuité visible » ou équivalent INTERDIT `unresolved` sauf contradiction explicite entre vues.
+6. RACCORDS CACHÉS : `geometry_status:"unresolved"` est réservé à un raccord dont la localisation métrique est réellement cachée, ambiguë ou impossible à borner. Une phrase d’evidence telle que « contact visible », « rejoint visiblement », « arrive contre », « continuité visible » ou équivalent INTERDIT `unresolved` sauf contradiction explicite entre vues. Au moins un endpoint d’une relation `unresolved` doit être un objet Scene présent.
 7. FRONTIÈRE DU BÂTIMENT : lorsqu’une Platform, StairRun ou un volume secondaire touche visiblement l’enveloppe principale, conserve l’endpoint Survey `building_boundary`, encode le contact métrique avec `volume_main`, mets `geometry_status:"resolved"` et `semantic_anchor_volume_id:"volume_main"` si ce volume est sans ambiguïté.
 8. AUCUNE FABRICATION : ce préflight n’autorise ni typologie par défaut, ni dimension standard, ni contact caché. Si les preuves restent réellement insuffisantes après l’audit, conserve `null`/`unresolved` et documente la limite exacte dans `notes`.
 
 RÉSOLUTION MÉTRIQUE CONJOINTE DES RACCORDS MULTI-VUES
-Une relation certaine visible est une contrainte géométrique commune : estime positions et dimensions ensemble, pas objet par objet. Pour une relation vers un endpoint sémantique non rendu, notamment `building_boundary`, conserve cet endpoint. Si la primitive touche réellement un volume Scene non ambigu, encode le contact dans la géométrie, utilise `geometry_status:"resolved"` et renseigne `semantic_anchor_volume_id`; sinon garde `unresolved`.
+Une relation certaine visible est une contrainte géométrique commune : estime positions et dimensions ensemble, pas objet par objet.
+- escalier→plateforme : si l’aboutissement est visible, un endpoint de StairRun doit toucher la surface de la Platform dans la tolérance backend ;
+- plateforme→plateforme : une jonction visible doit être encodée par des empreintes et niveaux cohérents ;
+- plateforme→bâtiment et escalier→bâtiment : conserve `building_boundary`; si la primitive touche réellement un volume Scene non ambigu, encode le contact dans la géométrie, utilise `geometry_status:"resolved"` et renseigne `semantic_anchor_volume_id`.
+Pour une relation vers un endpoint sémantique non rendu, notamment `building_boundary`, conserve cet endpoint. Sinon, lorsque le raccord est réellement caché, garde `unresolved`.
 
 NON-CHEVAUCHEMENT DES OUVERTURES
-Deux ouvertures distinctes d’une même façade ne doivent jamais se chevaucher lorsqu’elles appartiennent au même volume. Compare les rectangles avec `offset_horizontal + width` et `offset_vertical + height`. Les rangs qualitatifs imposent l’ordre, pas une distance. Ajuste uniquement des métriques `inferred` si nécessaire ; ne supprime ni ne fusionne d’ouverture. Avant sortie, vérifie qu’aucune paire d’ouvertures distinctes ne se chevauche sur une même façade.
+Deux ouvertures distinctes d’une même façade ne doivent jamais se chevaucher lorsqu’elles appartiennent au même volume. Compare les rectangles avec `offset_horizontal + width` et `offset_vertical + height`. Si les seules valeurs en conflit sont inférées, réduis la précision métrique en restant dans les preuves plutôt que de fusionner, supprimer ou réordonner les ouvertures. Les rangs qualitatifs imposent l’ordre, pas une distance. Avant sortie, vérifie qu’aucune paire d’ouvertures distinctes ne se chevauche sur une même façade.
 
 TOITURE
 SceneRoof : `{ "id":"...", "volume_id":"volume_main", "type":"flat|gable|hip|shed|mansard|gambrel|butterfly|other", "overhang":0.0, "ridge_direction":"width|depth|null", "pitch_degrees":null, "source":{...}, "evidence":[...] }`.
-Si `attributes.roof_type` est explicitement fourni avec `attribute_certainty:"plausible"`, conserve l’hypothèse comme inférence prudente. Si `gable` est établi ou explicitement plausible mais que l’axe ou la pente ne le sont pas, conserve `ridge_direction:null` et/ou `pitch_degrees:null`. Un gable réellement non contraignable peut rester `gable + pitch_degrees:null`; `gable_geometry_incomplete` bloquera alors M0 plutôt que d’inventer.
+Si aucune forme n’est soutenue, utilise `type:"other"`. Si `attributes.roof_type` est explicitement fourni avec `attribute_certainty:"plausible"`, conserve l’hypothèse comme inférence prudente et ne la transforme jamais en fait certain. Si `gable` est établi ou explicitement plausible mais que l’axe ou la pente ne le sont pas, conserve `ridge_direction:null` et/ou `pitch_degrees:null`. Un `gable` certain ou explicitement plausible ne doit pas recevoir de métrique inventée simplement pour satisfaire M0. Un gable réellement non contraignable peut rester `gable + pitch_degrees:null`; `gable_geometry_incomplete` bloquera alors M0 plutôt que d’inventer.
 
 PENTE DE TOIT INFÉRÉE DEPUIS UN PIGNON VISIBLE
-Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet et qu’une ancre d’échelle permet un rise/run défendable, estime la pente comme `inferred` à confiance prudente. N’utilise aucun angle standard, aucune typologie ou convention constructive pour fabriquer la pente.
+Si une vue de pignon montre suffisamment clairement les deux égouts et le faîtage/sommet et qu’une ancre d’échelle permet un rise/run défendable, estime la pente comme `inferred` à confiance prudente. N’utilise AUCUN angle par défaut, aucune typologie ou convention constructive pour fabriquer la pente.
 
 STRUCTURES EXTÉRIEURES
 Platform et StairRun doivent représenter uniquement les portions visibles. chaque Platform rendue touche un volume suffisamment défini ou une StairRun, sauf relation explicitement et légitimement `unresolved`. Une connexion cachée inventée pour satisfaire le validateur est interdite. Pour une StairRun orthogonale : `start.x == end.x` OU `start.y == end.y`. Ne déplace pas l’extrémité jusqu’à l’objet pour fabriquer le contact ; inversement, si l’evidence montre réellement l’aboutissement, place l’extrémité sur le contact observé dans la tolérance 0,12 m.
 
 SupportPost :
 `{ "id":"...", "position":{"x":0.0,"y":0.0,"z":0.0}, "width":0.15, "depth":0.15, "height":2.4, "source":{...} }`.
-`Platform.supports` est TOUJOURS une liste d’objets SupportPost complets. Ne représente jamais un poteau/support par une deuxième Platform. Chaque élément de `Platform.supports` est un objet SupportPost complet, jamais une chaîne.
+`Platform.supports` est TOUJOURS une liste d’objets SupportPost complets. N’écris jamais une chaîne comme `"post"`, `"vertical_posts"` ou `"diagonal_bracing"` dans `supports`. Ne représente jamais un poteau/support par une deuxième Platform. Chaque élément de `Platform.supports` est un objet SupportPost complet, jamais une chaîne.
 
 ORIENTATION DES FAÇADES ET OFFSETS — INVARIANT ANTI-MIROIR
 Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→haut. Respecte `image_left_maps_to_facade_offset`.
@@ -73,7 +77,7 @@ Repère canonique : x=gauche→droite vu de face, y=avant→arrière, z=bas→ha
 Ne miroir jamais la maison pour compenser le viewer.
 
 VISIBILITÉ
-Aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une zone cachée ne reçoit aucune ouverture inventée.
+Aucune ouverture Scene ne peut intersecter un span `occluded` ou `unknown`. Une zone `unknown` ou `occluded` ne reçoit AUCUNE ouverture inventée.
 
 FAUSSE PRÉCISION
 La précision numérique doit refléter les preuves. `source.kind="inferred"` avec faible confiance est la bonne représentation d’une estimation multi-vues approximative. Ne remplace pas une estimation bornée par `null` uniquement parce qu’elle n’est pas exacte. Inversement, n’invente jamais une valeur pour supprimer `volume_geometry_incomplete`.
