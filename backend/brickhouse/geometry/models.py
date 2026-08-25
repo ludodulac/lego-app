@@ -36,8 +36,9 @@ class RoofPlaneGeometry(BaseModel):
     roof_id: str
     volume_id: str
     roof_type: RoofType
-    side: Literal["flat", "negative", "positive"]
+    side: Literal["flat", "negative", "positive", "slope"]
     ridge_direction: RidgeDirection | None = None
+    down_slope_direction: Facade | None = None
     corners: list[Point3D] = Field(min_length=4, max_length=4)
 
 
