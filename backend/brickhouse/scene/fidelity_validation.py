@@ -22,10 +22,6 @@ _OMITTABLE_CERTAIN_GEOMETRY = {
     "certain_stair_missing": "certain_stair_not_geometrically_encoded",
 }
 
-# These attributes historically inherited the observation-level certainty. They
-# directly drive topology/type/layout constraints in Scene validation, so when a
-# modern Survey explicitly marks one as plausible/unproven it must not be
-# promoted back to a certain fact by a legacy validator.
 _STRUCTURAL_ATTRIBUTE_KEYS = {
     ObservationKind.OPENING: (
         "semantic_type",
@@ -38,12 +34,6 @@ _STRUCTURAL_ATTRIBUTE_KEYS = {
 
 
 def _strict_claims_only(survey: ArchitecturalSurvey) -> ArchitecturalSurvey:
-    """Hide explicitly non-certain structural attributes from strict validators.
-
-    Missing ``attribute_certainty`` entries retain historical behavior exactly.
-    Only a key explicitly present in that map with plausible/unproven certainty
-    relaxes the corresponding attribute-level constraint.
-    """
     observations = []
     changed = False
     for observation in survey.observations:
@@ -93,7 +83,6 @@ def _certain_roof_existence_issues(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """A certainly observed roof must survive into Scene even if its shape is unknown."""
     if scene.roofs:
         return []
 
@@ -123,12 +112,6 @@ def _certain_roof_existence_issues(
 
 
 def _rank_increases_with_facade_offset(survey: ArchitecturalSurvey, facade):
-    """Return how image left-to-right rank maps to canonical facade offsets.
-
-    Horizontal ranks are image-order observations. Canonical facade offsets may run
-    in the opposite direction on views whose ``image_left_maps_to_facade_offset`` is
-    ``high``. Enforce order only when all documented views of that facade agree.
-    """
     mappings = {
         photo.image_left_maps_to_facade_offset
         for photo in survey.photos
@@ -145,7 +128,6 @@ def _opening_layout_order_issues(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Preserve certain qualitative opening order without inventing metric spacing."""
     scene_openings = {opening.id: opening for opening in scene.openings}
     observations = [
         observation
@@ -162,6 +144,8 @@ def _opening_layout_order_issues(
             continue
         first_scene = scene_openings[first.id]
         second_scene = scene_openings[second.id]
+        if first_scene.volume_id != second_scene.volume_id:
+            continue
 
         horizontal_first = first.attributes.get("facade_horizontal_rank")
         horizontal_second = second.attributes.get("facade_horizontal_rank")
@@ -240,8 +224,6 @@ def _lower_horizontal_order_issue_is_orientation_unsafe(
     opening = next((item for item in scene.openings if item.id == issue.object_id), None)
     if opening is None:
         return False
-    # The lower historical guard assumes rank 1 always means a lower canonical
-    # offset. That assumption is valid only when image-left maps to low offset.
     return _rank_increases_with_facade_offset(survey, opening.facade) is not True
 
 
@@ -250,15 +232,6 @@ def _unresolved_grade_profile_supported_by_certain_terrain(
     scene: ArchitecturalScene,
     issue: SceneSurveyIssue,
 ) -> bool:
-    """Keep certain grade existence when direction/amplitude remain uncertain.
-
-    A terrain observation may certainly establish that grade varies while its
-    ``slope_direction`` attribute is only plausible. After strict-claim filtering,
-    the lower guard cannot see that attribute and historically reports
-    ``scene_grade_not_in_survey``. A fully unresolved profile (both endpoint
-    elevations null) asserts no metric direction or amplitude, so preserving it is
-    faithful to the certain object-level observation rather than a promotion.
-    """
     if issue.code != "scene_grade_not_in_survey" or not issue.object_id:
         return False
     prefix = "terrain:"
@@ -284,7 +257,6 @@ def _unresolved_grade_profile_supported_by_certain_terrain(
 
 
 def _omission_is_documented(scene: ArchitecturalScene, object_id: str | None) -> bool:
-    """Require an explicit object-level audit trail before relaxing a missing primitive."""
     if not object_id or not scene.notes:
         return False
     return object_id.casefold() in scene.notes.casefold()
@@ -294,18 +266,6 @@ def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Validate fidelity without promoting uncertain properties or hidden geometry.
-
-    Object existence and attribute certainty are independent. Strict historical
-    guards see only explicitly certain modern structural attributes, while legacy
-    Surveys keep their prior semantics. Certain Platform/StairRun observations
-    may also be omitted when hidden geometry would otherwise have to be invented,
-    but only when ``scene.notes`` names that exact Survey object. Rendered
-    primitives remain fully validated. A certainly observed roof is never
-    omittable: Scene can preserve it with unknown geometry, but cannot erase it.
-    Certain qualitative opening ranks preserve ordering while remaining entirely
-    non-metric.
-    """
     validation_survey = _strict_claims_only(survey)
     issues = list(_validate_scene_against_survey(validation_survey, scene))
     issues = [
