@@ -28,11 +28,15 @@ def test_initial_pdf_requests_only_architectural_survey() -> None:
     assert "brickhouse-survey-to-scene-prompt.txt" not in source
 
 
-def test_survey_first_pdf_audits_known_external_ai_failures() -> None:
+def test_survey_first_pdf_audits_facade_and_targeted_detail_photos_separately() -> None:
     source = implementation_source()
     assert "id et name sont présents et non vides" in source
-    assert "image_left_maps_to_facade_offset vaut exactement" in source
-    assert "jamais null" in source
+    assert "capture_role=facade_view" in source
+    assert "image_left_maps_to_facade_offset vaut low|high" in source
+    assert "capture_role=targeted_detail" in source
+    assert "facade=null" in source
+    assert "image_left_maps_to_facade_offset=null" in source
+    assert "ne fabrique jamais une façade" in source
     assert 'semantic_type:\\"opening\\"' in source
     assert "chaque relation référence deux IDs d’observations existantes" in source
 
