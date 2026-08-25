@@ -1,4 +1,4 @@
-from brickhouse.survey import ArchitecturalSurvey
+from brickhouse.survey import ArchitecturalSurvey, validate_survey_semantics
 
 
 def _base_payload() -> dict:
@@ -76,6 +76,7 @@ def test_unproven_opening_placeholder_and_qualitative_ranks_are_normalized() -> 
     assert opening.attributes["physical_object_count"] == 1
     assert opening.attributes["facade_horizontal_rank"] == 1
     assert opening.attributes["facade_vertical_rank"] == 2
+    assert validate_survey_semantics(survey) == []
 
 
 def test_unknown_representation_policy_name_is_not_silently_repaired() -> None:
