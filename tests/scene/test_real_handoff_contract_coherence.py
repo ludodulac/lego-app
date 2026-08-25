@@ -23,13 +23,16 @@ def test_high_image_mapping_preserves_canonical_left_facade_order() -> None:
         "schema_version": "0.1",
         "id": "left-order",
         "name": "left order",
-        "photos": [{
-            "photo_index": 1,
-            "facade": "left",
-            "description": "left",
-            "source": USER,
-            "image_left_maps_to_facade_offset": "high",
-        }],
+        "photos": [
+            {
+                "photo_index": 1,
+                "facade": "left",
+                "description": "left",
+                "source": USER,
+                "image_left_maps_to_facade_offset": "high",
+            },
+            {"photo_index": 2, "facade": "front", "description": "front", "source": USER},
+        ],
         "observations": [
             {
                 "id": "image_left",
@@ -92,12 +95,10 @@ def test_certain_grade_can_remain_metric_unresolved_when_direction_is_only_plaus
         "schema_version": "0.1",
         "id": "terrain-certainty",
         "name": "terrain certainty",
-        "photos": [{
-            "photo_index": 1,
-            "facade": "right",
-            "description": "right",
-            "source": USER,
-        }],
+        "photos": [
+            {"photo_index": 1, "facade": "right", "description": "right", "source": USER},
+            {"photo_index": 2, "facade": "front", "description": "front", "source": USER},
+        ],
         "observations": [{
             "id": "terrain_right",
             "kind": "terrain",
@@ -194,7 +195,10 @@ def test_context_adjacency_is_warning_not_invented_target_geometry() -> None:
         "schema_version": "0.1",
         "id": "context-relation",
         "name": "context relation",
-        "photos": [{"photo_index": 1, "facade": "left", "description": "left", "source": USER}],
+        "photos": [
+            {"photo_index": 1, "facade": "left", "description": "left", "source": USER},
+            {"photo_index": 2, "facade": "front", "description": "front", "source": USER},
+        ],
         "observations": [
             {
                 "id": "building_main",
