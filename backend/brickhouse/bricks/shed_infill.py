@@ -110,9 +110,11 @@ def augment_brick_model_with_shed_roof(
         placement.z_plates + catalog.get(placement.part_id).height_plates
         for placement in roof.placements
     )
-    return model.model_copy(
-        update={
-            "height_plates": max(model.height_plates, roof_top),
-            "parts": [*model.parts, *additions],
-        }
+    return BrickModel(
+        building_id=model.building_id,
+        volume_id=model.volume_id,
+        width_studs=model.width_studs,
+        depth_studs=model.depth_studs,
+        height_plates=max(model.height_plates, roof_top),
+        parts=[*model.parts, *additions],
     )
