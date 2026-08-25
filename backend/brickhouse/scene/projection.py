@@ -37,6 +37,8 @@ def _roof_is_building_model_representable(roof) -> bool:
         return True
     if roof.type is SceneRoofType.GABLE:
         return roof.ridge_direction is not None and roof.pitch_degrees is not None
+    if roof.type is SceneRoofType.SHED:
+        return roof.down_slope_direction is not None and roof.pitch_degrees is not None
     return False
 
 
@@ -81,26 +83,32 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
         issues.append(ProjectionIssue(code="stair_not_supported", severity=ProjectionSeverity.WARNING, object_id=stair.id, message="Exterior stairs are not representable in BuildingModel 0.1 and will be omitted."))
 
     for roof in scene.roofs:
-        if roof.type is SceneRoofType.SHED:
+        if roof.type is SceneRoofType.SHED and not _roof_is_building_model_representable(roof):
+            missing = []
+            if roof.down_slope_direction is None:
+                missing.append("down_slope_direction")
+            if roof.pitch_degrees is None:
+                missing.append("pitch_degrees")
             issues.append(
                 ProjectionIssue(
-                    code="shed_roof_not_supported",
+                    code="shed_geometry_incomplete",
                     severity=ProjectionSeverity.BLOCKER,
                     object_id=roof.id,
                     message=(
-                        "ArchitecturalScene preserves a shed roof, but BuildingModel 0.1 cannot project "
-                        "mono-pitch roof geometry yet. LEGO projection is blocked rather than omitting the "
-                        "roof and producing an open building or converting it to a false gable/flat roof."
+                        "ArchitecturalScene preserves a shed roof but does not know "
+                        f"{', '.join(missing)}. BuildingModel 0.1 can now represent a mono-pitch roof only "
+                        "when its fall direction and numeric pitch are known, so projection is blocked rather "
+                        "than inventing either value or converting the roof to a false gable/flat roof."
                     ),
                 )
             )
-        elif roof.type not in {SceneRoofType.FLAT, SceneRoofType.GABLE}:
+        elif roof.type not in {SceneRoofType.FLAT, SceneRoofType.GABLE, SceneRoofType.SHED}:
             issues.append(
                 ProjectionIssue(
                     code="roof_type_not_supported",
                     severity=ProjectionSeverity.WARNING,
                     object_id=roof.id,
-                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 can only project flat/gable roofs; this roof will remain Scene-only instead of being converted to a false gable/flat roof.",
+                    message=f"ArchitecturalScene preserves roof type {roof.type.value!r}, but BuildingModel 0.1 cannot represent this roof; it will remain Scene-only instead of being converted to a false gable/flat roof.",
                 )
             )
         elif roof.type is SceneRoofType.GABLE and not _roof_is_building_model_representable(roof):
@@ -161,6 +169,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
             type=RoofType(roof.type.value),
             overhang=roof.overhang,
             ridge_direction=roof.ridge_direction,
+            down_slope_direction=roof.down_slope_direction,
             pitch_degrees=roof.pitch_degrees,
             source=roof.source,
         )

@@ -23,6 +23,12 @@ def assess_m0_compatibility(building: BuildingModel) -> M0Compatibility:
             "les jonctions entre volumes ne sont pas encore optimisées comme une seule maçonnerie continue."
         )
 
+    if any(roof.type is RoofType.SHED for roof in building.roofs):
+        blockers.append(
+            "M0 does not yet generate mono-pitch roof coverage. Keep the complete shed roof in "
+            "BuildingModel and stop before brick generation rather than omitting or changing it."
+        )
+
     flat_roofs = [roof for roof in building.roofs if roof.type == RoofType.FLAT]
     if flat_roofs:
         warnings.append(

@@ -82,6 +82,10 @@ class SceneRoof(BaseModel):
     type: SceneRoofType
     overhang: float = Field(ge=0)
     ridge_direction: RidgeDirection | None = None
+    # For a mono-pitch roof this is the facade toward which the roof plane falls.
+    # It is deliberately nullable in ArchitecturalScene: visual evidence can prove
+    # roof existence/type without proving orientation or a numeric pitch.
+    down_slope_direction: Facade | None = None
     pitch_degrees: float | None = None
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
@@ -91,15 +95,21 @@ class SceneRoof(BaseModel):
         if self.pitch_degrees is not None and not 0 < self.pitch_degrees < 90:
             raise ValueError("roof pitch_degrees must be > 0 and < 90 when provided")
         # ArchitecturalScene is an understanding layer, not a construction
-        # solver. A gable can be visually certain while ridge direction or pitch
-        # remain unknown. Keep those fields nullable here; projection/build gates
-        # decide whether enough metric information exists to construct the roof.
+        # solver. A pitched roof can be visually certain while orientation or
+        # pitch remain unknown. Keep those fields nullable here; projection/build
+        # gates decide whether enough metric information exists to construct it.
         if self.type is SceneRoofType.FLAT:
-            if self.ridge_direction is not None or self.pitch_degrees is not None:
+            if (
+                self.ridge_direction is not None
+                or self.down_slope_direction is not None
+                or self.pitch_degrees is not None
+            ):
                 raise ValueError("flat roof must not define pitched-roof fields")
         elif self.type is SceneRoofType.SHED:
             if self.ridge_direction is not None:
                 raise ValueError("shed roof must not define ridge_direction")
+        elif self.down_slope_direction is not None:
+            raise ValueError("down_slope_direction may only be defined for shed roofs")
         return self
 
 

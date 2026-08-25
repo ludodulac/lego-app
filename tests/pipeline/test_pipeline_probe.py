@@ -1,5 +1,5 @@
 from brickhouse.pipeline_probe import probe_pipeline
-from brickhouse.scene import ArchitecturalScene
+from brickhouse.scene import ArchitecturalScene, project_scene_to_building
 from brickhouse.survey import ArchitecturalSurvey
 
 
@@ -45,7 +45,7 @@ def _survey() -> ArchitecturalSurvey:
     })
 
 
-def _scene() -> ArchitecturalScene:
+def _scene(*, direction=None, pitch=None) -> ArchitecturalScene:
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "generic-shed-scene",
@@ -66,7 +66,8 @@ def _scene() -> ArchitecturalScene:
             "type": "shed",
             "overhang": 0.2,
             "ridge_direction": None,
-            "pitch_degrees": None,
+            "down_slope_direction": direction,
+            "pitch_degrees": pitch,
             "source": INFERRED,
             "evidence": [{"photo_index": 1, "observation": "mono-pitch hypothesis"}],
         }],
@@ -74,15 +75,37 @@ def _scene() -> ArchitecturalScene:
     })
 
 
-def test_probe_reports_first_real_shed_break_at_scene_projection() -> None:
+def test_probe_reports_incomplete_shed_geometry_at_scene_projection() -> None:
     report = probe_pipeline(_survey(), _scene())
     assert report["first_blocking_stage"] == "scene_to_building_projection"
-    assert "shed_roof_not_supported" in report["projection_issue_codes"]
+    assert "shed_geometry_incomplete" in report["projection_issue_codes"]
     assert report["m0_error"] is None
 
 
+def test_direction_without_numeric_pitch_remains_honestly_blocked() -> None:
+    report = probe_pipeline(_survey(), _scene(direction="rear"))
+    assert report["first_blocking_stage"] == "scene_to_building_projection"
+    assert "shed_geometry_incomplete" in report["projection_issue_codes"]
+
+
+def test_complete_shed_contract_projects_without_false_roof_conversion() -> None:
+    scene = _scene(direction="rear", pitch=12.0)
+    projection = project_scene_to_building(scene)
+    assert projection.building is not None
+    assert not projection.blocked
+    assert projection.building.roofs[0].type.value == "shed"
+    assert projection.building.roofs[0].down_slope_direction.value == "rear"
+    assert projection.building.roofs[0].pitch_degrees == 12.0
+
+
+def test_probe_moves_complete_shed_to_the_next_real_m0_break() -> None:
+    report = probe_pipeline(_survey(), _scene(direction="rear", pitch=12.0))
+    assert report["first_blocking_stage"] == "m0_pipeline"
+    assert report["m0_error"] is not None
+
+
 def test_probe_does_not_convert_shed_to_false_gable_or_flat() -> None:
-    scene = _scene()
+    scene = _scene(direction="rear", pitch=12.0)
     report = probe_pipeline(_survey(), scene)
     assert scene.roofs[0].type.value == "shed"
-    assert report["first_blocking_stage"] == "scene_to_building_projection"
+    assert report["first_blocking_stage"] == "m0_pipeline"
