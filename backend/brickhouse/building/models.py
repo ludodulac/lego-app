@@ -98,6 +98,17 @@ class RidgeDirection(str, Enum):
     DEPTH = "depth"
 
 
+class PitchRange(BaseModel):
+    min_degrees: float = Field(gt=0, lt=90)
+    max_degrees: float = Field(gt=0, lt=90)
+
+    @model_validator(mode="after")
+    def validate_order(self) -> "PitchRange":
+        if self.min_degrees > self.max_degrees:
+            raise ValueError("pitch range min_degrees must be <= max_degrees")
+        return self
+
+
 class Roof(BaseModel):
     id: str
     volume_id: str
@@ -106,16 +117,19 @@ class Roof(BaseModel):
     ridge_direction: RidgeDirection | None = None
     down_slope_direction: Facade | None = None
     pitch_degrees: float | None = None
+    pitch_range_degrees: PitchRange | None = None
     source: SourceInfo
 
     @model_validator(mode="after")
     def validate_type_specific_fields(self) -> "Roof":
+        if self.pitch_degrees is not None and self.pitch_range_degrees is not None:
+            raise ValueError("roof must define either exact pitch_degrees or pitch_range_degrees, not both")
         if self.type is RoofType.GABLE:
             if self.ridge_direction is None:
                 raise ValueError("gable roof requires ridge_direction")
-            if self.pitch_degrees is None:
-                raise ValueError("gable roof requires pitch_degrees")
-            if not 0 < self.pitch_degrees < 90:
+            if self.pitch_degrees is None and self.pitch_range_degrees is None:
+                raise ValueError("gable roof requires an exact or bounded pitch")
+            if self.pitch_degrees is not None and not 0 < self.pitch_degrees < 90:
                 raise ValueError("gable roof pitch_degrees must be > 0 and < 90")
             if self.down_slope_direction is not None:
                 raise ValueError("gable roof must not define down_slope_direction")
@@ -124,15 +138,16 @@ class Roof(BaseModel):
                 raise ValueError("shed roof must not define ridge_direction")
             if self.down_slope_direction is None:
                 raise ValueError("shed roof requires down_slope_direction")
-            if self.pitch_degrees is None:
-                raise ValueError("shed roof requires pitch_degrees")
-            if not 0 < self.pitch_degrees < 90:
+            if self.pitch_degrees is None and self.pitch_range_degrees is None:
+                raise ValueError("shed roof requires an exact or bounded pitch")
+            if self.pitch_degrees is not None and not 0 < self.pitch_degrees < 90:
                 raise ValueError("shed roof pitch_degrees must be > 0 and < 90")
         else:
             if (
                 self.ridge_direction is not None
                 or self.down_slope_direction is not None
                 or self.pitch_degrees is not None
+                or self.pitch_range_degrees is not None
             ):
                 raise ValueError("flat roof must not define pitched-roof fields")
         return self
