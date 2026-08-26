@@ -57,10 +57,13 @@ function renderRequiredInputs() {
     panel.className = 'required-inputs-panel';
     confirmationCard.appendChild(panel);
   }
-  panel.innerHTML = `<h4>Ce qu’il manque pour continuer</h4><ul>${items.map(item => `<li>${escapeHtml(describeRequiredInput(item))}</li>`).join('')}</ul>`;
+  if (payload.scene?.schema_version === '0.2') {
+    localStorage.setItem('brickhouse.previewArchitecturalScene', JSON.stringify(payload.scene));
+  }
+  panel.innerHTML = `<h4>Ce qu’il manque pour continuer</h4><ul>${items.map(item => `<li>${escapeHtml(describeRequiredInput(item))}</li>`).join('')}</ul><p><a class="file-button" href="./scene-viewer.html">Voir la reconstruction 3D actuelle →</a></p>`;
 
   if (items.length === 1 && items[0]?.reason === 'shed_construction_requires_exact_pitch') {
-    statusEl.textContent = 'La reconstruction est comprise. Il manque seulement la pente exacte du toit pour générer la maquette.';
+    statusEl.textContent = 'La reconstruction est comprise. Il manque seulement la pente exacte du toit pour générer la maquette. Vous pouvez déjà ouvrir l’aperçu 3D architectural.';
   }
 }
 
