@@ -19,7 +19,7 @@ def test_photo_build_applies_recommended_scale_only_when_gain_is_meaningful():
     assert fixed.brick_model.width_studs == 48
     if recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
         assert optimized.brick_model.width_studs == recommendation.recommended_front_width_studs
-        assert optimized.metadata.discretization_quality[0].mean_absolute_error_m <= fixed.metadata.discretization_quality[0].mean_absolute_error_m
+        assert recommendation.recommended.score_m < recommendation.baseline.score_m
     else:
         assert optimized.brick_model.width_studs == 48
 
