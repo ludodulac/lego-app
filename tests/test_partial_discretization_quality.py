@@ -1,29 +1,14 @@
-import json
 from pathlib import Path
 
 from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
-from brickhouse.scene.models import ArchitecturalScene
+from brickhouse.scene_cli import load_architectural_scene
 
 
 FIXTURE = Path("tests/fixtures/brickhouse_scene_current.json")
 
 
-def _current_scene() -> ArchitecturalScene:
-    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    # This legacy reference fixture intentionally predates a few current Scene fields.
-    # Terrain is omitted from the conservative core-shell build, so neutralizing the
-    # unmeasured grade only lets the current schema exercise the same five-photo house.
-    for profile in (data.get("terrain") or {}).get("profiles", []):
-        if profile.get("start_elevation") is None:
-            profile["start_elevation"] = 0.0
-        if profile.get("end_elevation") is None:
-            profile["end_elevation"] = 0.0
-    data.setdefault("relations", [])
-    return ArchitecturalScene.model_validate(data)
-
-
 def test_current_five_photo_partial_build_exports_grid_rounding_quality():
-    scene = _current_scene()
+    scene = load_architectural_scene(FIXTURE)
     bundle = run_partial_scene_pipeline(scene, front_width_studs=48)
 
     reports = bundle.metadata.discretization_quality
