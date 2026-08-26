@@ -38,7 +38,7 @@ def test_window_frame_and_pane_form_subassembly_before_facade_details():
     )
     plan = generate_assembly_plan(model)
     assert [step.title for step in plan.steps] == [
-        "Murs — niveau 0 plates",
+        "Murs — façade avant — niveau 0 plates",
         "Assembler la fenêtre 1",
         "Détails de façade — niveau 6 plates",
     ]
