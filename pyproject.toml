@@ -23,6 +23,7 @@ dev = [
 
 [project.scripts]
 brickhouse-m0 = "brickhouse.pipeline:main"
+brickhouse-scene-build = "brickhouse.scene_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "backend"}
