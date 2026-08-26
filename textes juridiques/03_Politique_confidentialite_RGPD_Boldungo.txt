@@ -1,0 +1,104 @@
+POLITIQUE DE CONFIDENTIALITÉ — BOLDUNGO
+
+Dernière mise à jour : 26 août 2026
+
+Cette politique explique comment BOLDUNGO traite les données à caractère personnel. Elle devra être ajustée aux traitements effectivement mis en production.
+
+1. Responsable du traitement
+
+[DÉNOMINATION SOCIALE]
+[ADRESSE]
+Contact données personnelles : [EMAIL]
+Délégué à la protection des données, le cas échéant : [DPO].
+
+2. Données susceptibles d’être traitées
+
+Selon les fonctionnalités utilisées :
+- données de compte : nom ou pseudonyme, adresse email, identifiants techniques ;
+- données de facturation et transaction, les données de carte étant normalement traitées directement par [PRESTATAIRE DE PAIEMENT] ;
+- photographies transmises par l’utilisateur ;
+- informations visibles dans les photographies : façade, environnement et, accidentellement, personnes, plaques ou autres éléments identifiants ;
+- caractéristiques du bâtiment fournies ou déduites : dimensions approximatives, ouvertures, toiture et autres éléments architecturaux ;
+- données de projet et résultats générés ;
+- données techniques : adresse IP, journaux de sécurité, appareil, navigateur ;
+- métadonnées de fichiers, qui peuvent contenir des informations de date ou de géolocalisation.
+
+BOLDUNGO entend appliquer un principe de minimisation. Les métadonnées EXIF/GPS non nécessaires devraient être supprimées dès que possible.
+
+3. Finalités et bases juridiques
+
+Création et gestion du compte : exécution du contrat ou mesures précontractuelles.
+
+Analyse des photographies et génération des résultats demandés : exécution du contrat.
+
+Paiement et facturation : exécution du contrat et obligations légales.
+
+Sécurité, prévention des abus et journalisation proportionnée : intérêt légitime de BOLDUNGO à protéger le service, sous réserve des droits et libertés des personnes.
+
+Respect des obligations légales et traitement des demandes d’autorités compétentes : obligation légale.
+
+Communications commerciales électroniques : [CONSENTEMENT OU AUTRE BASE APPLICABLE À PRÉCISER].
+
+Cookies/traceurs non strictement nécessaires : consentement lorsque celui-ci est requis.
+
+Entraînement ou amélioration de modèles IA à partir des contenus utilisateurs : [NE PAS ACTIVER AVANT D’AVOIR DÉFINI UNE FINALITÉ, UNE BASE JURIDIQUE ET UNE INFORMATION ADAPTÉES. RECOMMANDATION DE TRAVAIL : OPT-IN DISTINCT SI CET USAGE EST ENVISAGÉ].
+
+4. Traitement des photographies
+
+Les photographies sont utilisées pour comprendre les caractéristiques du bâtiment et générer les résultats demandés.
+
+BOLDUNGO devrait mettre en œuvre, lorsque techniquement raisonnable, des mécanismes destinés à limiter la conservation d’informations non nécessaires, notamment le retrait des métadonnées de géolocalisation et le floutage ou la suppression d’éléments identifiants lorsqu’ils ne sont pas nécessaires au service.
+
+Durée cible des photographies originales : [DURÉE À DÉFINIR — ex. suppression après traitement + courte période permettant la reprise du projet].
+
+Durée des représentations structurées et projets : [DURÉE].
+
+5. Destinataires et sous-traitants
+
+Les données sont accessibles aux seules personnes habilitées et aux prestataires nécessaires au fonctionnement du service, notamment :
+- hébergement/cloud : [PRESTATAIRE] ;
+- analyse d’images / IA : [PRESTATAIRE] ;
+- paiement : [PRESTATAIRE] ;
+- email/support : [PRESTATAIRE] ;
+- mesure d’audience : [PRESTATAIRE].
+
+La liste devra être actualisée avant publication.
+
+6. Transferts hors Espace économique européen
+
+[INDIQUER SI DES DONNÉES SONT TRANSFÉRÉES HORS EEE, LES PAYS CONCERNÉS ET LE MÉCANISME JURIDIQUE UTILISÉ : DÉCISION D’ADÉQUATION, CLAUSES CONTRACTUELLES TYPES, ETC.]
+
+7. Durées de conservation
+
+Les données sont conservées pendant une durée n’excédant pas celle nécessaire à leurs finalités, sous réserve des obligations légales.
+
+Compte : [DURÉE].
+Photographies originales : [DURÉE].
+Projets/résultats : [DURÉE].
+Factures et pièces comptables : [DURÉE LÉGALE APPLICABLE].
+Journaux de sécurité : [DURÉE].
+Demandes d’exercice de droits : [DURÉE].
+
+8. Droits des personnes
+
+Dans les conditions prévues par le RGPD et la loi applicable, les personnes peuvent disposer de droits d’accès, rectification, effacement, limitation, opposition et portabilité, ainsi que du droit de retirer leur consentement lorsque le traitement repose sur celui-ci.
+
+Les demandes peuvent être adressées à [EMAIL CONFIDENTIALITÉ]. Une vérification d’identité proportionnée peut être demandée en cas de doute raisonnable.
+
+Une réclamation peut également être adressée à la CNIL.
+
+9. Personnes apparaissant accidentellement sur une photographie
+
+Une personne qui estime apparaître dans une photographie traitée par BOLDUNGO peut contacter [EMAIL CONFIDENTIALITÉ] en fournissant les éléments permettant d’identifier le projet ou le contenu concerné. BOLDUNGO examinera la demande et les obligations applicables.
+
+10. Sécurité
+
+BOLDUNGO met en œuvre des mesures techniques et organisationnelles proportionnées aux risques : contrôle des accès, chiffrement approprié, journalisation de sécurité, sauvegardes et procédures de gestion des incidents. Les mesures exactes évoluent avec le service.
+
+11. Cookies
+
+Voir la Politique relative aux cookies.
+
+12. Modifications
+
+Cette politique peut être actualisée. Les changements substantiels sont signalés lorsque cela est requis.
