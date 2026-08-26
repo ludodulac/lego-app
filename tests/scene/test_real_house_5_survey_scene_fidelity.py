@@ -14,10 +14,16 @@ def test_scene_preserves_certain_survey_relation_without_benchmark_geometry() ->
             "photos": [
                 {
                     "photo_index": 1,
+                    "facade": "front",
+                    "description": "canonical front",
+                    "source": SOURCE,
+                },
+                {
+                    "photo_index": 2,
                     "facade": "left",
                     "description": "connection view",
                     "source": SOURCE,
-                }
+                },
             ],
             "observations": [
                 {
@@ -26,7 +32,7 @@ def test_scene_preserves_certain_survey_relation_without_benchmark_geometry() ->
                     "facade": "left",
                     "certainty": "certain",
                     "statement": "annex exists",
-                    "evidence": [{"photo_index": 1, "observation": "annex visible"}],
+                    "evidence": [{"photo_index": 2, "observation": "annex visible"}],
                 },
                 {
                     "id": "main-boundary",
@@ -34,7 +40,7 @@ def test_scene_preserves_certain_survey_relation_without_benchmark_geometry() ->
                     "facade": "left",
                     "certainty": "certain",
                     "statement": "main boundary visible",
-                    "evidence": [{"photo_index": 1, "observation": "boundary visible"}],
+                    "evidence": [{"photo_index": 2, "observation": "boundary visible"}],
                 },
             ],
             "relations": [
@@ -45,7 +51,7 @@ def test_scene_preserves_certain_survey_relation_without_benchmark_geometry() ->
                     "object_id": "main-boundary",
                     "certainty": "certain",
                     "statement": "annex connects to main boundary",
-                    "evidence": [{"photo_index": 1, "observation": "contact visible"}],
+                    "evidence": [{"photo_index": 2, "observation": "contact visible"}],
                 }
             ],
         }
@@ -86,7 +92,7 @@ def test_scene_preserves_certain_survey_relation_without_benchmark_geometry() ->
                     "geometry_status": "resolved",
                     "semantic_anchor_volume_id": "main",
                     "statement": "annex connects to main boundary",
-                    "evidence": [{"photo_index": 1, "observation": "contact visible"}],
+                    "evidence": [{"photo_index": 2, "observation": "contact visible"}],
                 }
             ],
             "appearance": {},
