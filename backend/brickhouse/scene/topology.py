@@ -9,6 +9,7 @@ from brickhouse.survey import Certainty, RelationKind
 
 from .models import ArchitecturalScene as _MetricArchitecturalScene
 from .models import CONNECTIVITY_TOLERANCE_M, Evidence
+from .platform_structure import PlatformStructureObservation
 from .terrain_uncertainty import Terrain
 
 
@@ -45,10 +46,12 @@ class ArchitecturalScene(_MetricArchitecturalScene):
     """ArchitecturalScene v0.2 plus non-metric structural relations.
 
     This stays schema-version compatible and append-only. Existing Scene JSON remains
-    valid because ``relations`` defaults to an empty list.
+    valid because ``relations`` and ``platform_structure_observations`` default to
+    empty lists.
     """
 
     relations: list[SceneRelation] = Field(default_factory=list)
+    platform_structure_observations: list[PlatformStructureObservation] = Field(default_factory=list)
     terrain: Terrain | None = None
 
     @field_validator("terrain", mode="before")
@@ -74,6 +77,19 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 *self.equipment,
             ]
         }
+        platform_ids = {platform.id for platform in self.platforms}
+        structure_ids = [item.id for item in self.platform_structure_observations]
+        if len(structure_ids) != len(set(structure_ids)):
+            raise ValueError("platform structure observation IDs must be unique")
+        if object_ids.intersection(structure_ids):
+            raise ValueError("platform structure observation IDs must not collide with Scene object IDs")
+        for observation in self.platform_structure_observations:
+            if observation.platform_id not in platform_ids:
+                raise ValueError(
+                    f"platform structure observation {observation.id!r} references unknown platform "
+                    f"{observation.platform_id!r}"
+                )
+
         volume_ids = {volume.id for volume in self.volumes}
         relation_ids = [relation.id for relation in self.relations]
         if len(relation_ids) != len(set(relation_ids)):
