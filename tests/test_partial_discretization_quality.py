@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
@@ -7,8 +8,21 @@ from brickhouse.scene.models import ArchitecturalScene
 FIXTURE = Path("tests/fixtures/brickhouse_scene_current.json")
 
 
+def _current_scene() -> ArchitecturalScene:
+    data = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    # This legacy reference fixture intentionally stores the unmeasured grade as null.
+    # Terrain is omitted from the conservative core-shell build, so neutralizing those
+    # two legacy fields here only lets the current schema validate the same photo scene.
+    for profile in (data.get("terrain") or {}).get("profiles", []):
+        if profile.get("start_elevation") is None:
+            profile["start_elevation"] = 0.0
+        if profile.get("end_elevation") is None:
+            profile["end_elevation"] = 0.0
+    return ArchitecturalScene.model_validate(data)
+
+
 def test_current_five_photo_partial_build_exports_grid_rounding_quality():
-    scene = ArchitecturalScene.model_validate_json(FIXTURE.read_text(encoding="utf-8"))
+    scene = _current_scene()
     bundle = run_partial_scene_pipeline(scene, front_width_studs=48)
 
     reports = bundle.metadata.discretization_quality
