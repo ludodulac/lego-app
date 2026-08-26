@@ -32,7 +32,11 @@ def test_validate_scene_reports_exact_missing_roof_pitch() -> None:
     response = client.post("/api/v1/validate-scene", json=_scene())
     assert response.status_code == 200
     payload = response.json()
-    assert payload["projection"]["blocked"] is True
+    blockers = [
+        issue for issue in payload["projection"]["issues"]
+        if issue["severity"] == "blocker"
+    ]
+    assert [issue["code"] for issue in blockers] == ["shed_geometry_incomplete"]
     assert payload["required_inputs"] == expected_missing_pitch()
 
 
