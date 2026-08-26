@@ -13,21 +13,24 @@ from brickhouse.scene.models import ArchitecturalScene
 from brickhouse.scene.topology_projection import project_scene_to_building
 
 
-def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
-    """Project only metric envelope/opening facts that are already resolved."""
-    resolved = [
-        volume
-        for volume in scene.volumes
-        if volume.width.value is not None
+def _is_resolved_volume(volume) -> bool:
+    return (
+        volume.width.value is not None
         and volume.depth.value is not None
         and volume.height.value is not None
         and volume.floors <= 3
-    ]
-    if not resolved:
+    )
+
+
+def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
+    """Project only metric envelope/opening facts that are already resolved."""
+    primary = scene.volumes[0]
+    if not _is_resolved_volume(primary):
         raise ValueError(
-            "Partial LEGO preview still needs at least one volume with resolved width, depth and height."
+            "Partial LEGO preview still needs the primary volume with resolved width, depth and height."
         )
 
+    resolved = [volume for volume in scene.volumes if _is_resolved_volume(volume)]
     resolved_ids = {volume.id for volume in resolved}
     volumes = [
         Volume(
