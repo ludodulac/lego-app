@@ -20,6 +20,7 @@ def test_walls_are_before_roof_and_levels_are_bottom_up():
     p=generate_assembly_plan(_model())
     assert [(s.component,s.z_plates) for s in p.steps]==[("wall",0),("wall",3),("roof",6),("roof",9)]
     assert [s.phase for s in p.steps]==["Structure","Structure","Toiture","Toiture"]
+    assert [s.view for s in p.steps]==["front","front","perspective","perspective"]
     assert p.total_bags==2
 
 
@@ -55,6 +56,7 @@ def test_same_wall_course_is_split_by_facade_for_stable_instruction_views():
         ["rear-a"],
         ["left-a"],
     ]
+    assert [step.view for step in plan.steps] == ["front", "right", "rear", "left"]
     assert [step.title for step in plan.steps] == [
         "Murs — façade avant — niveau 0 plates",
         "Murs — façade droite — niveau 0 plates",
@@ -76,6 +78,7 @@ def test_frame_and_pane_become_a_window_subassembly():
     assert step.instruction_kind=="subassembly"
     assert step.focus=="closeup"
     assert step.phase=="Fenêtres"
+    assert step.view=="front"
     assert step.placement_ids==["frame-1","pane-1"]
 
 
@@ -89,5 +92,6 @@ def test_scene_terrain_and_exterior_structures_get_distinct_build_phases():
     model=BrickModel(building_id="scene",volume_id="v1",width_studs=8,depth_studs=6,height_plates=12,parts=parts)
     plan=generate_assembly_plan(model)
     assert [step.phase for step in plan.steps]==["Terrain","Structure","Structures extérieures","Structures extérieures"]
+    assert [step.view for step in plan.steps]==["right","front","left","left"]
     assert plan.total_bags==3
     assert plan.steps[0].title.startswith("Terrain")
