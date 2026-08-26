@@ -1,0 +1,76 @@
+CONDITIONS GÉNÉRALES D’UTILISATION — BOLDUNGO
+
+Dernière mise à jour : 26 août 2026
+
+1. Objet
+
+Les présentes Conditions générales d’utilisation (« CGU ») régissent l’accès et l’utilisation de BOLDUNGO, service permettant notamment de transmettre des informations et photographies relatives à un bâtiment afin de produire des représentations structurées, visualisations, modèles numériques, nomenclatures de pièces et, selon les fonctionnalités disponibles, des instructions ou documents associés.
+
+2. Acceptation
+
+L’utilisation du service implique l’acceptation des présentes CGU. Lorsqu’un compte est requis, l’utilisateur doit fournir des informations exactes et protéger ses identifiants.
+
+3. Âge et capacité
+
+L’utilisateur déclare disposer de la capacité juridique nécessaire. Si le service est ouvert aux mineurs, les règles et mécanismes d’autorisation applicables devront être précisés ici : [POLITIQUE RELATIVE AUX MINEURS].
+
+4. Photographies et bâtiments
+
+L’utilisateur s’engage à ne transmettre que des contenus qu’il est autorisé à photographier et à utiliser dans le cadre du service.
+
+Il s’interdit notamment :
+- de pénétrer sans autorisation dans une propriété ou un espace privé pour obtenir des images ;
+- de photographier volontairement l’intérieur d’un lieu privé ou des personnes dans des conditions portant atteinte à leur vie privée ;
+- de transmettre des images obtenues illicitement ;
+- d’utiliser BOLDUNGO pour surveiller, harceler, localiser ou porter atteinte à une personne ;
+- de transmettre sciemment des contenus illicites.
+
+BOLDUNGO recommande de cadrer le bâtiment et d’éviter les personnes, plaques d’immatriculation, documents, écrans, systèmes de sécurité et autres informations privées.
+
+5. Licence nécessaire au fonctionnement
+
+L’utilisateur conserve les droits qu’il détient sur ses contenus. Il accorde à [ENTREPRISE] une licence non exclusive, mondiale et limitée à la durée nécessaire au service, permettant d’héberger, reproduire, convertir, analyser et transformer techniquement les contenus uniquement afin de fournir, sécuriser, maintenir et améliorer le service dans les conditions décrites dans la Politique de confidentialité.
+
+Cette clause ne transfère pas la propriété des photographies à BOLDUNGO.
+
+Toute utilisation des contenus pour entraîner ou améliorer des modèles d’intelligence artificielle au-delà de ce qui est strictement nécessaire à la fourniture du service doit faire l’objet de la politique suivante : [À DÉFINIR : PAS D’ENTRAÎNEMENT / OPT-IN EXPLICITE / AUTRE].
+
+6. Résultats générés
+
+Les modèles, dimensions, quantités, visualisations, nomenclatures et instructions produits par BOLDUNGO peuvent contenir des approximations ou erreurs, notamment lorsque certaines parties du bâtiment sont invisibles sur les photographies.
+
+L’utilisateur doit vérifier les résultats avant toute utilisation matérielle. BOLDUNGO n’est pas un service d’architecture, de diagnostic immobilier, d’ingénierie structurelle ou de relevé géométrique certifié.
+
+Les résultats ne doivent pas servir à prendre des décisions relatives à la sécurité d’un bâtiment ou de personnes.
+
+7. Usages interdits
+
+Il est interdit d’utiliser le service pour une activité illicite, frauduleuse, portant atteinte aux droits de tiers, visant à contourner la sécurité du service, à extraire massivement ses données ou à perturber son fonctionnement.
+
+8. Disponibilité
+
+BOLDUNGO peut évoluer, être interrompu temporairement pour maintenance ou faire l’objet de modifications. [ENTREPRISE] met en œuvre des moyens raisonnables pour assurer sa disponibilité sans garantir une disponibilité permanente.
+
+9. Suspension
+
+Un compte ou contenu peut être limité ou suspendu lorsqu’il existe des raisons raisonnables de penser qu’il enfreint les présentes CGU, compromet la sécurité du service ou viole la loi. Lorsque la loi ou les circonstances le permettent, l’utilisateur en est informé.
+
+10. Responsabilité
+
+Les limitations de responsabilité prévues par les présentes CGU ne privent pas un consommateur des droits impératifs dont il bénéficie et ne s’appliquent pas lorsqu’une limitation est interdite par la loi.
+
+11. Données personnelles
+
+Les traitements de données personnelles sont décrits dans la Politique de confidentialité.
+
+12. Modification des CGU
+
+BOLDUNGO peut modifier les CGU pour tenir compte d’évolutions du service, techniques ou juridiques. Les changements substantiels sont portés à la connaissance des utilisateurs dans un délai raisonnable lorsque cela est requis.
+
+13. Droit applicable
+
+Sous réserve des dispositions impératives protégeant les consommateurs, les présentes CGU sont soumises au droit français.
+
+14. Contact
+
+[EMAIL DE CONTACT]
