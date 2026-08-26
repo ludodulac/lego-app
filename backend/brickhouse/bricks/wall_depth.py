@@ -69,7 +69,7 @@ def augment_brick_model_with_wall_depth(
     studs_per_meter = front_width_studs / primary_width
     profiles = [
         profile
-        for profile in scene.wall_profile_observations
+        for profile in getattr(scene, "wall_profile_observations", [])
         if profile.volume_id == scene.volumes[0].id
     ]
     if not profiles:
