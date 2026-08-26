@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boldungo — Reconstruction 3D</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"}}</script>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="panel">
+      <div><p class="eyebrow">Boldungo · ArchitecturalScene</p><h1>Reconstruction 3D</h1><p class="intro">Cette vue montre ce que Boldungo comprend déjà de la maison avant de choisir les pièces LEGO. Les zones incertaines restent explicitement incertaines.</p></div>
+      <section class="controls">
+        <a class="file-button" href="./photo.html">← Retour aux photos</a>
+        <button id="reset-view" type="button">Vue perspective</button>
+        <div class="assembly-buttons"><button id="view-front" type="button">Avant</button><button id="view-rear" type="button">Arrière</button></div>
+        <div class="assembly-buttons"><button id="view-left" type="button">Gauche</button><button id="view-right" type="button">Droite</button></div>
+      </section>
+      <section class="status-card"><h2>Reconstruction</h2><dl id="scene-summary"><div><dt>Projet</dt><dd>—</dd></div><div><dt>Volumes</dt><dd>—</dd></div><div><dt>Ouvertures</dt><dd>—</dd></div><div><dt>Toiture</dt><dd>—</dd></div></dl></section>
+      <section class="status-card"><h2>Lecture de la toiture</h2><p id="roof-note" class="intro">—</p></section>
+      <p id="message" class="message" role="status"></p>
+    </aside>
+    <section class="viewer-wrap"><canvas id="viewer" aria-label="Reconstruction architecturale 3D"></canvas><div class="viewer-hint">Aperçu architectural, pas encore une maquette LEGO · glisser pour tourner · molette/pincer pour zoomer</div></section>
+  </main>
+  <script type="module" src="./scene-viewer.js"></script>
+</body>
+</html>
