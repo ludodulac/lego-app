@@ -16,6 +16,13 @@ from .models import (
     SurveyObservation,
     SurveyRelation,
 )
+from .reasoning import (
+    QuestionImpact,
+    SurveyHypothesis,
+    SurveyOpenQuestion,
+    SurveyReasoningState,
+    rank_questions_for_user_input,
+)
 from .roof_guard import validate_multiview_roof_hypotheses
 from .validation import (
     SurveyValidationIssue,
@@ -58,12 +65,17 @@ __all__ = [
     "OpeningVisualDescription",
     "PhotoEvidence",
     "PhotoView",
+    "QuestionImpact",
     "RelationKind",
     "RepresentationPolicy",
     "SurfaceAppearance",
+    "SurveyHypothesis",
     "SurveyObservation",
+    "SurveyOpenQuestion",
+    "SurveyReasoningState",
     "SurveyRelation",
     "SurveyValidationIssue",
+    "rank_questions_for_user_input",
     "validate_survey_extension",
     "validate_survey_semantics",
     "validate_multiview_roof_hypotheses",
