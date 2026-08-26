@@ -21,6 +21,7 @@ def test_walls_are_before_roof_and_levels_are_bottom_up():
     assert [(s.component,s.z_plates) for s in p.steps]==[("wall",0),("wall",3),("roof",6),("roof",9)]
     assert [s.phase for s in p.steps]==["Structure","Structure","Toiture","Toiture"]
     assert p.total_bags==2
+    assert [s.view for s in p.steps]==["front","front","perspective","perspective"]
 
 
 def test_step_ids_sequences_and_part_order_are_deterministic():
@@ -38,6 +39,25 @@ def test_dense_level_is_split_into_short_practical_actions():
     assert plan.steps[1].title.endswith("partie 2/2")
 
 
+def test_same_course_is_split_by_facade_and_keeps_local_spatial_order():
+    parts=[
+        BrickModelPart(placement_id="front-right",part_id="BRICK_1X1",category="brick",component="wall",x_studs=6,y_studs=0,z_plates=0,rotation_quarter_turns=0,facade="front"),
+        BrickModelPart(placement_id="right-rear",part_id="BRICK_1X1",category="brick",component="wall",x_studs=7,y_studs=5,z_plates=0,rotation_quarter_turns=0,facade="right"),
+        BrickModelPart(placement_id="front-left",part_id="BRICK_1X1",category="brick",component="wall",x_studs=0,y_studs=0,z_plates=0,rotation_quarter_turns=0,facade="front"),
+        BrickModelPart(placement_id="right-front",part_id="BRICK_1X1",category="brick",component="wall",x_studs=7,y_studs=1,z_plates=0,rotation_quarter_turns=0,facade="right"),
+    ]
+    model=BrickModel(building_id="facades",volume_id="v1",width_studs=8,depth_studs=6,height_plates=3,parts=parts)
+    plan=generate_assembly_plan(model)
+
+    assert plan.total_steps==2
+    assert plan.steps[0].placement_ids==["front-left","front-right"]
+    assert plan.steps[0].view=="front"
+    assert "façade avant" in plan.steps[0].title
+    assert plan.steps[1].placement_ids==["right-front","right-rear"]
+    assert plan.steps[1].view=="right"
+    assert "côté droit" in plan.steps[1].title
+
+
 def test_frame_and_pane_become_a_window_subassembly():
     parts=[
         BrickModelPart(placement_id="frame-1",part_id="WINDOW_1X2X2_60592",category="window_frame",component="facade_detail",x_studs=2,y_studs=0,z_plates=3,rotation_quarter_turns=1,facade="front"),
@@ -51,6 +71,7 @@ def test_frame_and_pane_become_a_window_subassembly():
     assert step.instruction_kind=="subassembly"
     assert step.focus=="closeup"
     assert step.phase=="Fenêtres"
+    assert step.view=="front"
     assert step.placement_ids==["frame-1","pane-1"]
 
 
@@ -66,3 +87,4 @@ def test_scene_terrain_and_exterior_structures_get_distinct_build_phases():
     assert [step.phase for step in plan.steps]==["Terrain","Structure","Structures extérieures","Structures extérieures"]
     assert plan.total_bags==3
     assert plan.steps[0].title.startswith("Terrain")
+    assert [step.view for step in plan.steps]==["right","front","left","left"]
