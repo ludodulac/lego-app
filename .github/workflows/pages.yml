@@ -54,6 +54,7 @@ jobs:
           frontend/brickhouse-partial-export.json
           --front-width-studs 48
           --allow-partial
+          --optimize-scale
 
       - name: Verify first-bricks export
         run: |
@@ -70,6 +71,14 @@ jobs:
           assert data['assembly_plan']['total_parts'] == len(parts)
           assert data['assembly_plan']['total_steps'] > 0
           assert any(issue['code'] == 'partial_preview_roof_omitted' for issue in data['fidelity_issues'])
+          metadata = data['metadata']
+          assert metadata['discretization_quality']
+          recommendation = metadata['scale_recommendation']
+          assert recommendation['preferred_front_width_studs'] == 48
+          if recommendation['improvement_fraction'] >= 0.10:
+              assert data['brick_model']['width_studs'] == recommendation['recommended_front_width_studs']
+          else:
+              assert data['brick_model']['width_studs'] == 48
           PY
 
       - name: Configure Pages
