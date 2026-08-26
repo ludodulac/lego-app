@@ -10,14 +10,15 @@ FIXTURE = Path("tests/fixtures/brickhouse_scene_current.json")
 
 def _current_scene() -> ArchitecturalScene:
     data = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    # This legacy reference fixture intentionally stores the unmeasured grade as null.
-    # Terrain is omitted from the conservative core-shell build, so neutralizing those
-    # two legacy fields here only lets the current schema validate the same photo scene.
+    # This legacy reference fixture intentionally predates a few current Scene fields.
+    # Terrain is omitted from the conservative core-shell build, so neutralizing the
+    # unmeasured grade only lets the current schema exercise the same five-photo house.
     for profile in (data.get("terrain") or {}).get("profiles", []):
         if profile.get("start_elevation") is None:
             profile["start_elevation"] = 0.0
         if profile.get("end_elevation") is None:
             profile["end_elevation"] = 0.0
+    data.setdefault("relations", [])
     return ArchitecturalScene.model_validate(data)
 
 
