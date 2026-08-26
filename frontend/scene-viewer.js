@@ -41,6 +41,7 @@ const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1a202c, transparent:
 let currentScene = null;
 
 function metric(value) { return Number(value?.value ?? value); }
+function knownNumber(value) { return value !== null && value !== undefined && Number.isFinite(Number(value)); }
 function addEdges(mesh) { mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edgeMaterial)); }
 function exteriorMaterial(kind) {
   if (kind === 'timber') return timberMaterial;
@@ -112,16 +113,11 @@ function renderStairs() {
     const start = stair.start, end = stair.end;
     const width = Number(stair.width);
     if (!start || !end || ![Number(start.x), Number(start.y), Number(start.z), Number(end.x), Number(end.y), Number(end.z), width].every(Number.isFinite)) continue;
-
     const from = new THREE.Vector3(Number(start.x), Number(start.z), Number(start.y));
     const to = new THREE.Vector3(Number(end.x), Number(end.z), Number(end.y));
     const delta = to.clone().sub(from);
     const length = delta.length();
     if (!(length > 0)) continue;
-
-    // ArchitecturalScene currently gives the stair endpoints and width, not a step
-    // count/riser geometry. Render only that known inclined envelope instead of
-    // inventing individual steps.
     const thickness = 0.16;
     const geometry = new THREE.BoxGeometry(width, thickness, length);
     const mesh = new THREE.Mesh(geometry, exteriorMaterial(stair.material));
@@ -135,7 +131,7 @@ function renderStairs() {
 
 function shedRoofPlane(volume, roof, degrees, material) {
   const width = metric(volume.width), depth = metric(volume.depth), height = metric(volume.height);
-  if (![width, depth, height, degrees].every(Number.isFinite)) return null;
+  if (![width, depth, height, degrees].every(Number.isFinite) || !roof.down_slope_direction) return null;
   const direction = roof.down_slope_direction;
   const alongDepth = direction === 'front' || direction === 'rear';
   const run = alongDepth ? depth : width;
@@ -176,21 +172,24 @@ function renderRoofs() {
       notes.push(`${roof.id} : type ${roof.type}, aperçu détaillé pas encore pris en charge.`);
       continue;
     }
-    if (Number.isFinite(Number(roof.pitch_degrees))) {
+    if (knownNumber(roof.pitch_degrees) && roof.down_slope_direction) {
       const mesh = shedRoofPlane(volume, roof, Number(roof.pitch_degrees), exactRoofMaterial);
       if (mesh) group.add(mesh);
       notes.push(`${roof.id} : pente ${roof.pitch_degrees}° vers ${roof.down_slope_direction}.`);
       continue;
     }
     const range = roof.pitch_range_degrees;
-    if (range && Number.isFinite(Number(range.min_degrees)) && Number.isFinite(Number(range.max_degrees))) {
+    if (range && knownNumber(range.min_degrees) && knownNumber(range.max_degrees) && roof.down_slope_direction) {
       const minMesh = shedRoofPlane(volume, roof, Number(range.min_degrees), uncertainRoofMaterial);
       const maxMesh = shedRoofPlane(volume, roof, Number(range.max_degrees), uncertainRoofMaterial);
       if (minMesh) group.add(minMesh);
       if (maxMesh) group.add(maxMesh);
       notes.push(`${roof.id} : pente encore incertaine entre ${range.min_degrees}° et ${range.max_degrees}, descente vers ${roof.down_slope_direction}. Les deux plans transparents montrent les limites, pas un angle choisi.`);
     } else {
-      notes.push(`${roof.id} : pente inconnue, aucun plan de toiture arbitraire n’est dessiné.`);
+      const unknowns = [];
+      if (!knownNumber(roof.pitch_degrees) && !range) unknowns.push('pente');
+      if (!roof.down_slope_direction) unknowns.push('direction de descente');
+      notes.push(`${roof.id} : ${unknowns.join(' et ') || 'géométrie'} inconnue, aucun plan de toiture arbitraire n’est dessiné.`);
     }
   }
   roofNote.textContent = notes.join(' ') || 'Aucune toiture décrite.';
@@ -212,7 +211,7 @@ function frame(view = 'perspective') {
 
 function updateSummary() {
   const roof = currentScene.roofs?.[0];
-  const roofLabel = roof?.pitch_degrees != null ? `${roof.type} · ${roof.pitch_degrees}°` : roof?.pitch_range_degrees ? `${roof.type} · ${roof.pitch_range_degrees.min_degrees}–${roof.pitch_range_degrees.max_degrees}°` : roof?.type ?? '—';
+  const roofLabel = knownNumber(roof?.pitch_degrees) ? `${roof.type} · ${roof.pitch_degrees}°` : roof?.pitch_range_degrees ? `${roof.type} · ${roof.pitch_range_degrees.min_degrees}–${roof.pitch_range_degrees.max_degrees}°` : roof?.type ?? '—';
   const values = [currentScene.name ?? currentScene.id ?? '—', String(currentScene.volumes?.length ?? 0), String(currentScene.openings?.length ?? 0), roofLabel];
   [...summary.querySelectorAll('dd')].forEach((node, index) => { node.textContent = values[index] ?? '—'; });
 }
