@@ -99,6 +99,13 @@ _PHASE_ORDER = {
     "Façades": 5,
     "Toiture": 6,
 }
+_FACADE_ORDER = {"front": 0, "right": 1, "rear": 2, "left": 3}
+_FACADE_LABEL = {
+    "front": "avant",
+    "right": "droite",
+    "rear": "arrière",
+    "left": "gauche",
+}
 
 
 def _bag_for_phase(phase: str) -> int:
@@ -112,6 +119,16 @@ def _append_grouped_steps(pending: list[dict], parts: list, *, phase: str, title
     for z in sorted(groups):
         for chunk in _chunks(sorted(groups[z])):
             pending.append(dict(component="facade_detail", z=z, title=f"{title} — niveau {z} plates", ids=chunk, phase=phase, kind="placement", focus=focus))
+
+
+def _wall_sort_key(part) -> tuple[int, int, str]:
+    """Keep each instruction action spatially local and deterministic."""
+    facade = part.facade.value
+    along = part.x_studs if facade in {"front", "rear"} else part.y_studs
+    # Build opposite facades in the same canonical left-to-right walking direction.
+    if facade in {"rear", "left"}:
+        along = -along
+    return (_FACADE_ORDER[facade], along, part.placement_id)
 
 
 def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
@@ -128,15 +145,20 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
         focus="normal",
     )
 
-    # Main structural shell: bottom-up, split dense wall levels into manageable actions.
-    wall_groups: dict[int, list[str]] = defaultdict(list)
+    # Main structural shell: bottom-up. Within each course, keep one facade per
+    # action so the viewer/notice camera can stay on a stable, readable side.
+    wall_groups: dict[tuple[int, str], list] = defaultdict(list)
     for part in model.parts:
         if part.component == "wall":
-            wall_groups[part.z_plates].append(part.placement_id)
-    for z in sorted(wall_groups):
-        chunks = _chunks(sorted(wall_groups[z]))
+            wall_groups[(part.z_plates, part.facade.value)].append(part)
+    for z, facade in sorted(
+        wall_groups,
+        key=lambda key: (key[0], _FACADE_ORDER[key[1]]),
+    ):
+        ordered = sorted(wall_groups[(z, facade)], key=_wall_sort_key)
+        chunks = _chunks([part.placement_id for part in ordered])
         for idx, chunk in enumerate(chunks, start=1):
-            title = f"Murs — niveau {z} plates"
+            title = f"Murs — façade {_FACADE_LABEL[facade]} — niveau {z} plates"
             if len(chunks) > 1:
                 title += f" · partie {idx}/{len(chunks)}"
             pending.append(dict(component="wall", z=z, title=title, ids=chunk, phase="Structure", kind="placement", focus="normal"))
