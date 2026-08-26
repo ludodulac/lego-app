@@ -33,12 +33,20 @@ const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xd9d2c3, roughness
 const openingMaterial = new THREE.MeshStandardMaterial({ color: 0x243447, roughness: 0.3 });
 const exactRoofMaterial = new THREE.MeshStandardMaterial({ color: 0x5f646b, roughness: 0.65, side: THREE.DoubleSide });
 const uncertainRoofMaterial = new THREE.MeshStandardMaterial({ color: 0xd59a55, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
+const timberMaterial = new THREE.MeshStandardMaterial({ color: 0x9b7045, roughness: 0.72 });
+const concreteMaterial = new THREE.MeshStandardMaterial({ color: 0xa9aaa5, roughness: 0.78 });
+const genericExteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x8f918d, roughness: 0.74 });
 const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1a202c, transparent: true, opacity: 0.45 });
 
 let currentScene = null;
 
 function metric(value) { return Number(value?.value ?? value); }
 function addEdges(mesh) { mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), edgeMaterial)); }
+function exteriorMaterial(kind) {
+  if (kind === 'timber') return timberMaterial;
+  if (kind === 'concrete') return concreteMaterial;
+  return genericExteriorMaterial;
+}
 
 function volumeById(id) { return currentScene?.volumes?.find(item => item.id === id) ?? null; }
 
@@ -79,6 +87,48 @@ function renderOpenings() {
     }
     const mesh = new THREE.Mesh(geometry, openingMaterial);
     mesh.position.set(x, y, z);
+    group.add(mesh);
+  }
+}
+
+function renderPlatforms() {
+  for (const platform of currentScene.platforms ?? []) {
+    const p = platform.position;
+    const width = Number(platform.width), depth = Number(platform.depth), thickness = Number(platform.thickness);
+    if (!p || ![Number(p.x), Number(p.y), Number(p.z), width, depth, thickness].every(Number.isFinite)) continue;
+    const geometry = new THREE.BoxGeometry(width, thickness, depth);
+    const mesh = new THREE.Mesh(geometry, exteriorMaterial(platform.material));
+    addEdges(mesh);
+    mesh.position.set(Number(p.x) + width / 2, Number(p.z) + thickness / 2, Number(p.y) + depth / 2);
+    mesh.userData.architecturalObjectId = platform.id;
+    group.add(mesh);
+    // edge_treatment may say that a railing exists, but without explicit edge geometry
+    // the preview intentionally does not guess which sides receive posts or rails.
+  }
+}
+
+function renderStairs() {
+  for (const stair of currentScene.stairs ?? []) {
+    const start = stair.start, end = stair.end;
+    const width = Number(stair.width);
+    if (!start || !end || ![Number(start.x), Number(start.y), Number(start.z), Number(end.x), Number(end.y), Number(end.z), width].every(Number.isFinite)) continue;
+
+    const from = new THREE.Vector3(Number(start.x), Number(start.z), Number(start.y));
+    const to = new THREE.Vector3(Number(end.x), Number(end.z), Number(end.y));
+    const delta = to.clone().sub(from);
+    const length = delta.length();
+    if (!(length > 0)) continue;
+
+    // ArchitecturalScene currently gives the stair endpoints and width, not a step
+    // count/riser geometry. Render only that known inclined envelope instead of
+    // inventing individual steps.
+    const thickness = 0.16;
+    const geometry = new THREE.BoxGeometry(width, thickness, length);
+    const mesh = new THREE.Mesh(geometry, exteriorMaterial(stair.material));
+    addEdges(mesh);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), delta.clone().normalize());
+    mesh.position.copy(from).add(to).multiplyScalar(0.5);
+    mesh.userData.architecturalObjectId = stair.id;
     group.add(mesh);
   }
 }
@@ -184,8 +234,11 @@ currentScene = loadScene();
 if (!currentScene) {
   messageEl.textContent = 'Aucune ArchitecturalScene disponible. Revenez au parcours Photos et validez d’abord la reconstruction.';
 } else {
-  renderVolumes(); renderOpenings(); renderRoofs(); updateSummary(); frame();
-  messageEl.textContent = 'Aperçu architectural chargé. Cette vue ne remplace pas la validation nécessaire avant la construction LEGO.';
+  renderVolumes(); renderOpenings(); renderPlatforms(); renderStairs(); renderRoofs(); updateSummary(); frame();
+  const exteriorCount = (currentScene.platforms?.length ?? 0) + (currentScene.stairs?.length ?? 0);
+  messageEl.textContent = exteriorCount
+    ? `Aperçu architectural chargé, avec ${exteriorCount} élément(s) extérieur(s) métriquement défini(s). Les détails non mesurés ne sont pas inventés.`
+    : 'Aperçu architectural chargé. Cette vue ne remplace pas la validation nécessaire avant la construction LEGO.';
 }
 
 resetButton.addEventListener('click', () => frame('perspective'));

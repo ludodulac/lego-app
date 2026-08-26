@@ -21,3 +21,14 @@ def test_scene_preview_page_loads_dedicated_renderer() -> None:
     html = Path("frontend/scene-viewer.html").read_text(encoding="utf-8")
     assert "scene-viewer.js" in html
     assert "Aperçu architectural, pas encore une maquette LEGO" in html
+
+
+def test_scene_preview_renders_known_exterior_elements() -> None:
+    source = Path("frontend/scene-viewer.js").read_text(encoding="utf-8")
+    assert "function renderPlatforms()" in source
+    assert "function renderStairs()" in source
+    assert "currentScene.platforms" in source
+    assert "currentScene.stairs" in source
+    assert "does not guess which sides receive posts or rails" in source
+    assert "inventing individual steps" in source
+    assert "Les détails non mesurés ne sont pas inventés." in source
