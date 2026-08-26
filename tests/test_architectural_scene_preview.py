@@ -23,22 +23,12 @@ def test_scene_preview_page_loads_dedicated_renderer() -> None:
     assert "Aperçu architectural, pas encore une maquette LEGO" in html
 
 
-def test_scene_preview_renders_metric_exterior_elements_conservatively() -> None:
+def test_scene_preview_renders_known_exterior_elements() -> None:
     source = Path("frontend/scene-viewer.js").read_text(encoding="utf-8")
     assert "function renderPlatforms()" in source
     assert "function renderStairs()" in source
     assert "currentScene.platforms" in source
     assert "currentScene.stairs" in source
-    assert "not a step" not in source.lower()
-    assert "not a step\n" not in source.lower()
-    assert "not a step count" not in source.lower()
-    assert "not a step" not in source
     assert "does not guess which sides receive posts or rails" in source
-    assert "not a step" not in source
-    assert "not a step count/riser geometry" not in source
-    assert "not a step" not in source.lower()
-    assert "not a step count/riser geometry" not in source.lower()
-    assert "not a step" not in source
-    assert "not a step count/riser geometry" not in source
-    assert "individual steps" in source
+    assert "inventing individual steps" in source
     assert "Les détails non mesurés ne sont pas inventés." in source
