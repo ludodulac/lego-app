@@ -16,6 +16,27 @@ def test_staged_scene_handoff_requires_original_photo_pdf() -> None:
     assert "PDF sert uniquement à reconstruire la géométrie" in source
 
 
+def test_scene_prompt_source_matches_photo_evidence_contract() -> None:
+    source = (FRONTEND / "brickhouse-survey-to-scene-prompt.txt").read_text(encoding="utf-8")
+    assert "AUTORITÉ DES ENTRÉES — SURVEY + PREUVES PHOTO" in source
+    assert "BRICKHOUSE-SURVEY-TO-SCENE.txt" in source
+    assert "BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf" in source
+    assert "Le PDF ne doit jamais refaire, corriger, renommer ou contredire le Survey validé" in source
+    assert "down_slope_direction" in source
+    assert "pitch_degrees` peut rester `null` indépendamment" in source
+    assert "AUTORITÉ DE L’ENTRÉE — AUCUN FICHIER SUPPLÉMENTAIRE" not in source
+    assert "Tu N’AS PAS accès aux photos originales" not in source
+    assert "aucune dépendance à des photos/PDF/fichiers externes n’a été introduite" not in source
+
+
+def test_targeted_detail_cards_have_explicit_layout() -> None:
+    css = (FRONTEND / "photo.css").read_text(encoding="utf-8")
+    assert ".detail-photo-slot{display:grid" in css
+    assert ".detail-photo-slot>strong{display:block" in css
+    assert ".detail-photo-slot>span{display:block" in css
+    assert ".detail-photo-note" in css
+
+
 def test_staged_scene_handoff_locks_exact_scene_serialization_shapes() -> None:
     source = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
     assert "CONTRAT DE SÉRIALISATION — OBLIGATOIRE" in source
