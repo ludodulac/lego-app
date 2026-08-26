@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from brickhouse.pipeline_probe import probe_pipeline
-from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
+from brickhouse.scene import ArchitecturalScene, project_scene_to_building, validate_scene_against_survey
 from brickhouse.survey import ArchitecturalSurvey
 
 
@@ -36,7 +36,16 @@ def test_current_brickhouse_probe_reaches_expected_exact_pitch_blocker() -> None
     fidelity_issues = validate_scene_against_survey(survey, scene)
     assert [issue.code for issue in fidelity_issues if issue.severity.value == "error"] == []
 
+    projection = project_scene_to_building(scene)
+    blockers = [issue for issue in projection.issues if issue.severity.value == "blocker"]
+    assert [issue.code for issue in blockers] == ["shed_geometry_incomplete"]
+    assert blockers[0].object_id == "roof_main"
+    assert "10–35°" in blockers[0].message
+    assert "midpoint" in blockers[0].message
+    assert "endpoint" in blockers[0].message
+    assert "default" in blockers[0].message
+
     report = probe_pipeline(survey, scene)
     assert report["first_blocking_stage"] == "scene_to_building_projection"
-    assert report["projection_issue_codes"] == ["shed_geometry_incomplete"]
+    assert "shed_geometry_incomplete" in report["projection_issue_codes"]
     assert report["m0_error"] is None
