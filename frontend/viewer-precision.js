@@ -16,13 +16,16 @@ function renderPrecision(){
   card.hidden=false;
   summaryEl.textContent=`Arrondi de la grille LEGO : erreur moyenne ${formatCentimeters(summary.mean_error_m)}, pire écart ${formatCentimeters(summary.worst_error_m)}. Ces valeurs mesurent uniquement l'arrondi LEGO, pas l'incertitude des photos.`;
 
+  const applied=summary.applied_front_width_studs;
   const preferred=summary.preferred_front_width_studs;
   const recommended=summary.recommended_front_width_studs;
   const improvement=summary.improvement_fraction;
-  if(preferred&&recommended&&improvement!==null&&recommended!==preferred&&improvement>=0.01){
-    guidanceEl.textContent=`Échelle actuelle : ${preferred} tenons en façade. Une largeur de ${recommended} tenons réduirait le score d'erreur de grille d'environ ${(improvement*100).toFixed(0)} %.`;
-  }else if(preferred&&recommended){
-    guidanceEl.textContent=`L'échelle actuelle de ${preferred} tenons est déjà la meilleure dans la plage testée autour de cette taille.`;
+  if(applied&&preferred&&recommended&&applied===recommended&&recommended!==preferred){
+    guidanceEl.textContent=`Échelle optimisée automatiquement : ${applied} tenons en façade au lieu de ${preferred}, pour réduire le score d'erreur de grille d'environ ${(improvement*100).toFixed(0)} %.`;
+  }else if(applied&&preferred&&recommended&&recommended!==preferred&&improvement!==null&&improvement>=0.01){
+    guidanceEl.textContent=`Échelle actuelle : ${applied} tenons en façade. Une largeur de ${recommended} tenons réduirait le score d'erreur de grille d'environ ${(improvement*100).toFixed(0)} %.`;
+  }else if(applied){
+    guidanceEl.textContent=`L'échelle actuelle de ${applied} tenons en façade est déjà la meilleure dans la plage testée autour de cette taille.`;
   }else{
     guidanceEl.textContent='Aucune recommandation d’échelle n’est attachée à cet export.';
   }

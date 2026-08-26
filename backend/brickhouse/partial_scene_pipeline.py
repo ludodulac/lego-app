@@ -17,6 +17,7 @@ from brickhouse.scene.topology_projection import project_scene_to_building
 
 SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
 LOW_CONFIDENCE_WARNING = 0.65
+AUTO_SCALE_MIN_IMPROVEMENT = 0.10
 
 
 def _is_resolved_volume(volume) -> bool:
@@ -218,18 +219,23 @@ def run_partial_scene_pipeline(
     scene: ArchitecturalScene,
     *,
     front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS,
+    optimize_scale: bool = False,
 ) -> BrickExportBundle:
     """Build the useful known subset while exposing every provisional metric as such."""
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
     building = _resolved_core_building(scene)
-    bundle = run_m0_pipeline_model(building, front_width_studs=front_width_studs)
-    quality = build_discretization_quality(building, front_width_studs=front_width_studs)
     recommendation = recommend_front_width_studs(
         building,
         preferred_front_width_studs=front_width_studs,
         search_radius_studs=6,
     )
+    selected_width = front_width_studs
+    if optimize_scale and recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
+        selected_width = recommendation.recommended_front_width_studs
+
+    bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    quality = build_discretization_quality(building, front_width_studs=selected_width)
     metadata = bundle.metadata.model_copy(update={
         "discretization_quality": quality,
         "scale_recommendation": recommendation,

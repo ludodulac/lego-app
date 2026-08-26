@@ -15,6 +15,7 @@ function precisionSummary(bundle){
   return{
     mean_error_m:mean,
     worst_error_m:worst,
+    applied_front_width_studs:finiteNumber(bundle?.brick_model?.width_studs),
     preferred_front_width_studs:finiteNumber(recommendation?.preferred_front_width_studs),
     recommended_front_width_studs:finiteNumber(recommendation?.recommended_front_width_studs),
     improvement_fraction:finiteNumber(recommendation?.improvement_fraction),
