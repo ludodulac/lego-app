@@ -19,18 +19,22 @@ def _scene() -> ArchitecturalScene:
     return ArchitecturalScene.model_validate(json.loads(SCENE.read_text(encoding="utf-8")))
 
 
-def test_current_brickhouse_preserves_bounded_shed_without_inventing_pitch() -> None:
-    scene = _scene()
-    roof = next(item for item in scene.roofs if item.id == "roof_main")
+def expected_roof_inputs() -> list[dict]:
+    return [
+        {"object_id": "roof_main", "field": "down_slope_direction", "kind": "categorical_geometry", "reason": "shed_construction_requires_fall_direction"},
+        {"object_id": "roof_main", "field": "pitch_degrees", "kind": "exact_metric", "reason": "shed_construction_requires_exact_pitch"},
+    ]
+
+
+def test_current_brickhouse_preserves_unresolved_shed_without_inventing_geometry() -> None:
+    roof = next(item for item in _scene().roofs if item.id == "roof_main")
     assert roof.type.value == "shed"
-    assert roof.down_slope_direction.value == "rear"
+    assert roof.down_slope_direction is None
     assert roof.pitch_degrees is None
-    assert roof.pitch_range_degrees is not None
-    assert roof.pitch_range_degrees.min_degrees == 10
-    assert roof.pitch_range_degrees.max_degrees == 35
+    assert roof.pitch_range_degrees is None
 
 
-def test_current_brickhouse_probe_reaches_expected_exact_pitch_blocker() -> None:
+def test_current_brickhouse_probe_reports_all_known_projection_blockers() -> None:
     survey = _survey()
     scene = _scene()
     fidelity_issues = validate_scene_against_survey(survey, scene)
@@ -38,21 +42,18 @@ def test_current_brickhouse_probe_reaches_expected_exact_pitch_blocker() -> None
 
     projection = project_scene_to_building(scene)
     blockers = [issue for issue in projection.issues if issue.severity.value == "blocker"]
-    assert [issue.code for issue in blockers] == ["shed_geometry_incomplete"]
-    assert blockers[0].object_id == "roof_main"
-    assert "10–35°" in blockers[0].message
-    assert "midpoint" in blockers[0].message
-    assert "endpoint" in blockers[0].message
-    assert "default" in blockers[0].message
+    assert [issue.code for issue in blockers].count("shed_geometry_incomplete") == 1
+    assert [issue.code for issue in blockers].count("topological_relation_geometry_unresolved") == 2
+    roof_blocker = next(issue for issue in blockers if issue.code == "shed_geometry_incomplete")
+    assert roof_blocker.object_id == "roof_main"
+    assert "down_slope_direction" in roof_blocker.message
+    assert "pitch_degrees" in roof_blocker.message
+    assert "rather than inventing" in roof_blocker.message
+    assert "10–35°" not in roof_blocker.message
 
     report = probe_pipeline(survey, scene)
     assert report["first_blocking_stage"] == "scene_to_building_projection"
     assert "shed_geometry_incomplete" in report["projection_issue_codes"]
-    assert report["required_inputs"] == [{
-        "object_id": "roof_main",
-        "field": "pitch_degrees",
-        "kind": "exact_metric",
-        "reason": "shed_construction_requires_exact_pitch",
-        "known_range_degrees": {"min": 10.0, "max": 35.0},
-    }]
+    assert report["projection_issue_codes"].count("topological_relation_geometry_unresolved") == 2
+    assert report["required_inputs"] == expected_roof_inputs()
     assert report["m0_error"] is None
