@@ -2,6 +2,7 @@ import { instructionFidelitySummary } from './instruction-fidelity.js';
 
 const stepsRoot=document.querySelector('#steps');
 let applying=false;
+const VIEW_LABELS={front:'Façade avant',rear:'Façade arrière',left:'Côté gauche',right:'Côté droit',perspective:'Vue perspective'};
 
 function currentBundle(){
   try{return JSON.parse(localStorage.getItem('brickhouse.currentExport')||'null');}catch{return null;}
@@ -59,11 +60,17 @@ function enhance(){
         banner.innerHTML=`<div class="bag-number">${step.bag}</div><div><p>Sachet ${step.bag} / ${bundle.assembly_plan.total_bags}</p><h2>${step.phase}</h2><span>Préparez les pièces des étapes ${r.first} à ${r.last}.</span></div>`;
         card.before(banner);previousKey=key;
       }
-      card.querySelectorAll('.instruction-kind-cue,.closeup-cue').forEach(el=>el.remove());
+      card.querySelectorAll('.instruction-kind-cue,.closeup-cue,.recommended-view-cue').forEach(el=>el.remove());
       if(step.instruction_kind==='subassembly'){
         const cue=document.createElement('div');cue.className='instruction-kind-cue';
         cue.innerHTML='<strong>Mini-construction</strong><span>Assemblez ces pièces ensemble avant d’insérer l’ensemble dans la maison.</span>';
         card.querySelector('.parts-tray')?.before(cue);
+      }
+      if(step.view&&VIEW_LABELS[step.view]){
+        const cue=document.createElement('div');cue.className='recommended-view-cue';
+        cue.textContent=`◉ Orientation recommandée — ${VIEW_LABELS[step.view]}`;
+        card.querySelector('.visual-slot')?.before(cue);
+        card.dataset.recommendedView=step.view;
       }
       if(step.focus==='closeup'){
         const cue=document.createElement('div');cue.className='closeup-cue';cue.textContent='⌕ Vue rapprochée — vérifiez précisément le point de fixation';

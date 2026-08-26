@@ -11,6 +11,7 @@ from .brick_model import BrickModel, PartComponent
 
 MAX_PARTS_PER_STEP = 12
 InstructionKind = Literal["placement", "subassembly"]
+InstructionView = Literal["front", "rear", "left", "right", "perspective"]
 
 
 class AssemblyStep(BaseModel):
@@ -24,6 +25,7 @@ class AssemblyStep(BaseModel):
     bag: int = Field(gt=0)
     instruction_kind: InstructionKind = "placement"
     focus: Literal["normal", "closeup"] = "normal"
+    view: InstructionView = "perspective"
 
 
 class AssemblyPlan(BaseModel):
@@ -131,6 +133,22 @@ def _wall_sort_key(part) -> tuple[int, int, str]:
     return (_FACADE_ORDER[facade], along, part.placement_id)
 
 
+def _instruction_view(placement_ids: list[str], parts_by_id: dict) -> InstructionView:
+    """Derive a stable camera side from the actual placements in a step."""
+    counts = {facade: 0 for facade in _FACADE_ORDER}
+    for placement_id in placement_ids:
+        facade = parts_by_id[placement_id].facade
+        if facade is not None:
+            counts[facade.value] += 1
+    maximum = max(counts.values())
+    if maximum == 0:
+        return "perspective"
+    return min(
+        (facade for facade, count in counts.items() if count == maximum),
+        key=lambda facade: _FACADE_ORDER[facade],
+    )
+
+
 def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
     """Generate short steps, mini-build windows and semantic construction phases."""
     parts_by_id = {part.placement_id: part for part in model.parts}
@@ -217,6 +235,7 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
             component=item["component"], z_plates=item["z"], title=item["title"],
             placement_ids=item["ids"], phase=phase, bag=_bag_for_phase(phase),
             instruction_kind=item["kind"], focus=item["focus"],
+            view=_instruction_view(item["ids"], parts_by_id),
         ))
 
     all_model_ids = {part.placement_id for part in model.parts}
