@@ -8,11 +8,14 @@ photo-derived metrics visibly separate from measured fact.
 from __future__ import annotations
 
 from brickhouse.building.models import BuildingModel, Metadata, Opening, Volume, VolumeShape
+from brickhouse.bricks.assembly import generate_assembly_plan
+from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.wall_depth import augment_brick_model_with_wall_depth
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
-from brickhouse.scene.models import ArchitecturalScene
+from brickhouse.scene import ArchitecturalScene
 from brickhouse.scene.topology_projection import project_scene_to_building
 
 SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
@@ -235,6 +238,18 @@ def run_partial_scene_pipeline(
         selected_width = recommendation.recommended_front_width_studs
 
     bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    enriched = augment_brick_model_with_wall_depth(
+        bundle.brick_model,
+        scene,
+        front_width_studs=selected_width,
+    )
+    if enriched is not bundle.brick_model:
+        bundle = bundle.model_copy(update={
+            "brick_model": enriched,
+            "bom": generate_bom(enriched),
+            "assembly_plan": generate_assembly_plan(enriched),
+        })
+
     quality = build_discretization_quality(building, front_width_studs=selected_width)
     metadata = bundle.metadata.model_copy(update={
         "discretization_quality": quality,
