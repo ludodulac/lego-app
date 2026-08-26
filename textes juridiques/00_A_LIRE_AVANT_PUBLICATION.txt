@@ -1,0 +1,37 @@
+BOLDUNGO — À LIRE AVANT PUBLICATION
+
+Version de travail — 26 août 2026
+
+Ces modèles sont préparés pour un service français/UE nommé BOLDUNGO permettant notamment à un utilisateur de transmettre des photographies d’un bâtiment afin de générer une représentation numérique et/ou un modèle constructible en briques.
+
+IMPORTANT : les champs entre crochets doivent être complétés avant publication. Ces documents ne remplacent pas la validation d’un avocat ou juriste, en particulier lorsque seront arrêtés : la forme juridique de l’entreprise, l’adresse du siège, l’hébergeur, les sous-traitants IA/cloud, les modalités de paiement, les abonnements, les délais de conservation et le médiateur de la consommation.
+
+À compléter impérativement :
+- [DÉNOMINATION SOCIALE / NOM DE L’ENTREPRISE]
+- [FORME JURIDIQUE]
+- [CAPITAL SOCIAL]
+- [ADRESSE DU SIÈGE]
+- [SIREN / SIRET]
+- [RCS / RNE]
+- [TVA INTRACOMMUNAUTAIRE, SI APPLICABLE]
+- [EMAIL DE CONTACT]
+- [TÉLÉPHONE]
+- [DIRECTEUR DE LA PUBLICATION]
+- [HÉBERGEUR : NOM, ADRESSE, TÉLÉPHONE]
+- [CONTACT DONNÉES PERSONNELLES / DPO, SI APPLICABLE]
+- [LISTE DES PRESTATAIRES CLOUD, IA, PAIEMENT, EMAIL, ANALYTICS]
+- [DURÉES DE CONSERVATION DÉFINITIVES]
+- [MÉDIATEUR DE LA CONSOMMATION]
+- [PRIX / ABONNEMENTS / CONDITIONS DE PAIEMENT]
+- [DÉLAIS D’EXÉCUTION]
+- [PAYS DE STOCKAGE ET TRANSFERTS HORS EEE, LE CAS ÉCHÉANT]
+
+Fichiers fournis :
+1. Mentions légales
+2. Conditions générales d’utilisation (CGU)
+3. Politique de confidentialité / RGPD
+4. Politique relative aux photographies et bâtiments
+5. Politique cookies
+6. Conditions générales de vente (CGV) — modèle à finaliser avant vente
+7. Règles de contenu et signalement
+8. Formulaire type de rétractation
