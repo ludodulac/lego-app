@@ -24,3 +24,12 @@ def test_platform_railing_status_does_not_guess_edges() -> None:
     assert "garde-corps ouvert observé" in source
     assert "côtés et interruptions exacts ne sont pas résolus" in source
     assert "Aucun garde-corps 3D arbitraire n’est ajouté." in source
+
+
+def test_stair_parapet_status_preserves_unmetered_detail() -> None:
+    source = Path("frontend/scene-platform-structure-status.js").read_text(encoding="utf-8")
+    assert "stair.left_edge === 'solid_parapet'" in source
+    assert "stair.right_edge === 'solid_parapet'" in source
+    assert "parapet plein observé" in source
+    assert "hauteur, son épaisseur et son profil exacts ne sont pas métrés" in source
+    assert "Aucun parapet 3D arbitraire n’est ajouté." in source
