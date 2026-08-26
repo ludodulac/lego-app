@@ -20,18 +20,8 @@ def _survey() -> dict:
 
 def expected_missing_roof_geometry() -> list[dict]:
     return [
-        {
-            "object_id": "roof_main",
-            "field": "down_slope_direction",
-            "kind": "categorical_geometry",
-            "reason": "shed_construction_requires_fall_direction",
-        },
-        {
-            "object_id": "roof_main",
-            "field": "pitch_degrees",
-            "kind": "exact_metric",
-            "reason": "shed_construction_requires_exact_pitch",
-        },
+        {"object_id": "roof_main", "field": "down_slope_direction", "kind": "categorical_geometry", "reason": "shed_construction_requires_fall_direction"},
+        {"object_id": "roof_main", "field": "pitch_degrees", "kind": "exact_metric", "reason": "shed_construction_requires_exact_pitch"},
     ]
 
 
@@ -39,11 +29,10 @@ def test_validate_scene_reports_missing_roof_geometry_without_invented_range() -
     response = client.post("/api/v1/validate-scene", json=_scene())
     assert response.status_code == 200
     payload = response.json()
-    blockers = [
-        issue for issue in payload["projection"]["issues"]
-        if issue["severity"] == "blocker"
-    ]
-    assert [issue["code"] for issue in blockers] == ["shed_geometry_incomplete"]
+    blockers = [issue for issue in payload["projection"]["issues"] if issue["severity"] == "blocker"]
+    codes = [issue["code"] for issue in blockers]
+    assert codes.count("shed_geometry_incomplete") == 1
+    assert codes.count("topological_relation_geometry_unresolved") == 2
     assert payload["required_inputs"] == expected_missing_roof_geometry()
 
 
