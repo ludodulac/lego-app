@@ -1,3 +1,5 @@
+import { instructionFidelitySummary } from './instruction-fidelity.js';
+
 const stepsRoot=document.querySelector('#steps');
 let applying=false;
 
@@ -21,6 +23,20 @@ function rotationLabel(part){
   return q===1?'Tourner de 90°':q===2?'Tourner de 180°':'Tourner de 270°';
 }
 
+function renderFidelityNotice(bundle){
+  const documentRoot=document.querySelector('#document');
+  documentRoot?.querySelector('.partial-fidelity-notice')?.remove();
+  const summary=instructionFidelitySummary(bundle);
+  if(!summary||!documentRoot)return;
+
+  const cover=documentRoot.querySelector('.cover');
+  const notice=document.createElement('section');
+  notice.className='partial-fidelity-notice';
+  const items=summary.omitted.map(item=>`<li><strong>${item.object_id}</strong> — ${item.message}</li>`).join('');
+  notice.innerHTML=`<p class="partial-kicker">BrickHouse · fidélité architecturale</p><h2>${summary.title}</h2><p>${summary.message}</p><ul>${items}</ul><p class="partial-next">Ces éléments seront ajoutés à la notice dès que leurs contraintes géométriques seront suffisamment résolues.</p>`;
+  cover?.after(notice);
+}
+
 function enhance(){
   if(applying)return;
   const bundle=currentBundle();
@@ -29,6 +45,7 @@ function enhance(){
   if(cards.length!==bundle.assembly_plan.steps.length)return;
   applying=true;
   try{
+    renderFidelityNotice(bundle);
     stepsRoot.querySelectorAll('.phase-banner').forEach(el=>el.remove());
     const parts=new Map(bundle.brick_model.parts.map(p=>[p.placement_id,p]));
     const ranges=phaseRanges(bundle.assembly_plan);
