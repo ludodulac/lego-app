@@ -18,6 +18,16 @@ def test_scene_preview_does_not_coerce_null_roof_geometry_to_zero() -> None:
     assert "aucun plan de toiture arbitraire n’est dessiné" in source
 
 
+def test_scene_preview_marks_observed_unmetered_terrain_without_fake_slope() -> None:
+    source = Path("frontend/scene-viewer.js").read_text(encoding="utf-8")
+    assert "function renderTerrain()" in source
+    assert "profile.start_elevation, profile.end_elevation, profile.outward_extent" in source
+    assert "terrainGradeStatus = 'observed-unmetered'" in source
+    assert "pente observée mais non métrée" in source
+    assert "sans inventer d’angle ni d’amplitude" in source
+    assert "renderTerrain(); renderRoofs()" in source
+
+
 def test_blocked_scene_links_to_architectural_preview() -> None:
     source = Path("frontend/scene-required-inputs.js").read_text(encoding="utf-8")
     assert "brickhouse.previewArchitecturalScene" in source

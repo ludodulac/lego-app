@@ -37,8 +37,10 @@ const timberMaterial = new THREE.MeshStandardMaterial({ color: 0x9b7045, roughne
 const concreteMaterial = new THREE.MeshStandardMaterial({ color: 0xa9aaa5, roughness: 0.78 });
 const genericExteriorMaterial = new THREE.MeshStandardMaterial({ color: 0x8f918d, roughness: 0.74 });
 const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x1a202c, transparent: true, opacity: 0.45 });
+const observedTerrainMaterial = new THREE.LineDashedMaterial({ color: 0xe4c468, dashSize: 0.28, gapSize: 0.18, transparent: true, opacity: 0.9 });
 
 let currentScene = null;
+const terrainNotes = [];
 
 function metric(value) { return Number(value?.value ?? value); }
 function knownNumber(value) { return value !== null && value !== undefined && Number.isFinite(Number(value)); }
@@ -126,6 +128,41 @@ function renderStairs() {
     mesh.position.copy(from).add(to).multiplyScalar(0.5);
     mesh.userData.architecturalObjectId = stair.id;
     group.add(mesh);
+  }
+}
+
+function facadeGroundEndpoints(volume, facade) {
+  const width = metric(volume.width), depth = metric(volume.depth);
+  if (![width, depth].every(Number.isFinite)) return null;
+  const p = volume.position ?? { x: 0, y: 0, z: 0 };
+  const x = Number(p.x), y = Number(p.y), z = Number(p.z) + 0.035;
+  if (![x, y, z].every(Number.isFinite)) return null;
+  if (facade === 'right') return [new THREE.Vector3(x + width + 0.06, z, y), new THREE.Vector3(x + width + 0.06, z, y + depth)];
+  if (facade === 'left') return [new THREE.Vector3(x - 0.06, z, y), new THREE.Vector3(x - 0.06, z, y + depth)];
+  if (facade === 'front') return [new THREE.Vector3(x, z, y - 0.06), new THREE.Vector3(x + width, z, y - 0.06)];
+  if (facade === 'rear') return [new THREE.Vector3(x, z, y + depth + 0.06), new THREE.Vector3(x + width, z, y + depth + 0.06)];
+  return null;
+}
+
+function renderTerrain() {
+  const profiles = currentScene.terrain?.profiles ?? [];
+  const host = currentScene.volumes?.[0];
+  if (!host) return;
+  for (const profile of profiles) {
+    const hasMetricProfile = [profile.start_elevation, profile.end_elevation, profile.outward_extent].every(knownNumber);
+    if (hasMetricProfile) {
+      terrainNotes.push(`Terrain ${profile.facade} : profil métrique disponible ; surface détaillée pas encore rendue dans cet aperçu.`);
+      continue;
+    }
+    const endpoints = facadeGroundEndpoints(host, profile.facade);
+    if (!endpoints) continue;
+    const geometry = new THREE.BufferGeometry().setFromPoints(endpoints);
+    const marker = new THREE.Line(geometry, observedTerrainMaterial);
+    marker.computeLineDistances();
+    marker.userData.terrainGradeStatus = 'observed-unmetered';
+    marker.userData.facade = profile.facade;
+    group.add(marker);
+    terrainNotes.push(`Terrain ${profile.facade} : pente observée mais non métrée ; le trait pointillé localise seulement la façade concernée, sans inventer d’angle ni d’amplitude.`);
   }
 }
 
@@ -233,11 +270,12 @@ currentScene = loadScene();
 if (!currentScene) {
   messageEl.textContent = 'Aucune ArchitecturalScene disponible. Revenez au parcours Photos et validez d’abord la reconstruction.';
 } else {
-  renderVolumes(); renderOpenings(); renderPlatforms(); renderStairs(); renderRoofs(); updateSummary(); frame();
+  renderVolumes(); renderOpenings(); renderPlatforms(); renderStairs(); renderTerrain(); renderRoofs(); updateSummary(); frame();
   const exteriorCount = (currentScene.platforms?.length ?? 0) + (currentScene.stairs?.length ?? 0);
-  messageEl.textContent = exteriorCount
+  const baseMessage = exteriorCount
     ? `Aperçu architectural chargé, avec ${exteriorCount} élément(s) extérieur(s) métriquement défini(s). Les détails non mesurés ne sont pas inventés.`
     : 'Aperçu architectural chargé. Cette vue ne remplace pas la validation nécessaire avant la construction LEGO.';
+  messageEl.textContent = [baseMessage, ...terrainNotes].join(' ');
 }
 
 resetButton.addEventListener('click', () => frame('perspective'));
