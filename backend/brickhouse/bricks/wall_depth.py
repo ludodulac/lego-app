@@ -51,26 +51,27 @@ def augment_brick_model_with_wall_depth(
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Thicken resolved facade walls and recess glazing without guessing unknown depth.
+    """Thicken one resolved Scene volume and recess its glazing without guessing depth.
 
-    This first construction slice deliberately supports a single modeled volume.
-    It duplicates the already-rasterized exterior wall courses inward, so opening
-    cuts remain clear through every added wall layer. Numeric wall/reveal values
-    are used only when user-provided or sufficiently confident; an observation
-    that merely says "recessed" never invents a LEGO depth.
+    The model may come from a Scene containing additional unresolved volumes, as in
+    the conservative first-bricks path. Composite multi-volume BrickModels are left
+    unchanged until their per-volume translations are exposed explicitly.
     """
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
-    if len(scene.volumes) != 1 or model.volume_id == "composite":
+    if model.volume_id == "composite":
         return model
     primary_width = scene.volumes[0].width.value
     if primary_width is None or primary_width <= 0:
+        return model
+    target_volume = next((volume for volume in scene.volumes if volume.id == model.volume_id), None)
+    if target_volume is None:
         return model
     studs_per_meter = front_width_studs / primary_width
     profiles = [
         profile
         for profile in getattr(scene, "wall_profile_observations", [])
-        if profile.volume_id == scene.volumes[0].id
+        if profile.volume_id == target_volume.id
     ]
     if not profiles:
         return model
