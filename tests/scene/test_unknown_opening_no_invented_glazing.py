@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-
 from brickhouse.scene import ArchitecturalScene
 from brickhouse.scene.projection import project_scene_to_building
 from brickhouse.geometry.generator import generate_building_geometry
@@ -8,27 +5,55 @@ from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.windows import generate_window_assemblies
 
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "architectural_scene_real_house_5_v02.json"
+SOURCE = {"kind": "inferred", "confidence": 0.6}
 
 
-def _primary_building():
-    scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
-    building = project_scene_to_building(scene).building
-    assert building is not None
-    main = next(volume for volume in building.volumes if volume.id == "volume_main")
-    return building.model_copy(
-        update={
-            "volumes": [main],
-            "openings": [item for item in building.openings if item.volume_id == "volume_main"],
-            "roofs": [item for item in building.roofs if item.volume_id == "volume_main"],
-        },
-        deep=True,
+def _scene() -> ArchitecturalScene:
+    return ArchitecturalScene.model_validate(
+        {
+            "schema_version": "0.2",
+            "id": "generic-unknown-opening",
+            "name": "Generic unknown opening",
+            "units": "m",
+            "volumes": [
+                {
+                    "id": "main",
+                    "position": {"x": 0, "y": 0, "z": 0},
+                    "width": {"value": 10, "source": SOURCE},
+                    "depth": {"value": 8, "source": SOURCE},
+                    "height": {"value": 6, "source": SOURCE},
+                    "floors": 2,
+                    "source": SOURCE,
+                }
+            ],
+            "openings": [
+                {
+                    "id": "unknown-left-opening",
+                    "type": "unknown",
+                    "volume_id": "main",
+                    "facade": "left",
+                    "offset_horizontal": 3.0,
+                    "offset_vertical": 1.2,
+                    "width": 1.4,
+                    "height": 1.5,
+                    "source": SOURCE,
+                    "evidence": [{"photo_index": 1, "observation": "physical opening visible, semantic type unknown"}],
+                }
+            ],
+            "appearance": {},
+        }
     )
 
 
+def _primary_building():
+    building = project_scene_to_building(_scene()).building
+    assert building is not None
+    return building
+
+
 def test_unknown_opening_survives_projection_without_becoming_window_or_door() -> None:
-    scene = ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
-    opening = next(item for item in scene.openings if item.id == "left_mid_opening")
+    scene = _scene()
+    opening = scene.openings[0]
     assert opening.type.value == "unknown"
     assert opening.window_style is None
     assert opening.has_sill is None
@@ -36,7 +61,8 @@ def test_unknown_opening_survives_projection_without_becoming_window_or_door() -
 
     result = project_scene_to_building(scene)
     assert result.building is not None
-    projected = next(item for item in result.building.openings if item.id == "left_mid_opening")
+    projected = result.building.openings[0]
+    assert projected.id == "unknown-left-opening"
     assert projected.type.value == "unknown"
 
 
@@ -46,7 +72,7 @@ def test_unknown_opening_keeps_wall_void_but_is_not_fitted_as_window() -> None:
     shell = generate_building_brick_shell(geometry, front_width_studs=48)
 
     left_wall = next(wall for wall in shell.walls if wall.facade.value == "left")
-    assert any(item.id == "left_mid_opening" for item in left_wall.grid.openings)
+    assert any(item.id == "unknown-left-opening" for item in left_wall.grid.openings)
 
     _, fitted = generate_window_assemblies(building, shell)
-    assert "left_mid_opening" not in fitted
+    assert "unknown-left-opening" not in fitted
