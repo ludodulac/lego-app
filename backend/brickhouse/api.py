@@ -15,6 +15,7 @@ from brickhouse.pipeline import (
     run_m0_pipeline_model,
     run_m0_pipeline_scene,
 )
+from brickhouse.pipeline_probe import _required_inputs_for_projection
 from brickhouse.scene import (
     ArchitecturalScene,
     ProjectionIssue,
@@ -77,6 +78,7 @@ class SurveyExtensionValidationRequest(BaseModel):
 class SceneValidationResponse(BaseModel):
     scene: ArchitecturalScene
     projection: ProjectionResult
+    required_inputs: list[dict] = Field(default_factory=list)
     m0_compatibility: M0Compatibility | None = None
 
 
@@ -97,6 +99,7 @@ class SceneSurveyValidationResponse(BaseModel):
     issues: list[SceneSurveyIssueModel] = Field(default_factory=list)
     valid_for_projection: bool
     projection: ProjectionResult | None = None
+    required_inputs: list[dict] = Field(default_factory=list)
     m0_compatibility: M0Compatibility | None = None
 
 
@@ -269,6 +272,7 @@ def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationRe
     return SceneValidationResponse(
         scene=scene,
         projection=projection,
+        required_inputs=_required_inputs_for_projection(scene, projection),
         m0_compatibility=compatibility,
     )
 
@@ -315,6 +319,7 @@ def validate_architectural_scene_against_survey(
         issues=issues,
         valid_for_projection=not projection.blocked,
         projection=projection,
+        required_inputs=_required_inputs_for_projection(request.scene, projection),
         m0_compatibility=compatibility,
     )
 
