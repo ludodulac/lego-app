@@ -27,6 +27,11 @@ function platformStructureNotes(scene) {
     const suffix = unresolved.length ? ` (${unresolved.join(', ')})` : '';
     notes.push(`Terrasse ${observation.platform_id} : ${labels.join(' et ')}${suffix}. Aucun support 3D arbitraire n’est ajouté.`);
   }
+  for (const platform of scene?.platforms ?? []) {
+    if (platform.edge_treatment === 'open_railing' && !platform.edges) {
+      notes.push(`Terrasse ${platform.id} : garde-corps ouvert observé, mais les côtés et interruptions exacts ne sont pas résolus. Aucun garde-corps 3D arbitraire n’est ajouté.`);
+    }
+  }
   return notes;
 }
 
