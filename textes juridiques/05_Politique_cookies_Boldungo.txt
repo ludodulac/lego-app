@@ -1,0 +1,33 @@
+POLITIQUE RELATIVE AUX COOKIES — BOLDUNGO
+
+Dernière mise à jour : 26 août 2026
+
+1. Définition
+
+BOLDUNGO peut utiliser des cookies ou technologies similaires afin de faire fonctionner le service, sécuriser les sessions, mémoriser certains choix et, si l’utilisateur y consent lorsque cela est requis, mesurer l’audience ou activer d’autres fonctionnalités.
+
+2. Cookies strictement nécessaires
+
+Ces traceurs sont utilisés lorsqu’ils sont indispensables au fonctionnement ou à la sécurité du service, par exemple pour l’authentification, l’équilibrage de charge, la prévention des abus ou la mémorisation du choix relatif aux cookies.
+
+Liste à compléter : [NOM] — [FINALITÉ] — [DURÉE] — [ÉMETTEUR].
+
+3. Mesure d’audience et autres traceurs
+
+Les traceurs non strictement nécessaires ne sont déposés ou lus qu’après recueil du consentement lorsque la réglementation l’exige.
+
+Liste à compléter : [NOM] — [FOURNISSEUR] — [FINALITÉ] — [DURÉE].
+
+4. Choix de l’utilisateur
+
+L’utilisateur peut accepter ou refuser les catégories non nécessaires avec le même niveau de facilité et modifier ultérieurement son choix via [LIEN « GÉRER MES COOKIES »].
+
+Le refus des cookies non nécessaires ne doit pas empêcher l’accès aux fonctions essentielles du service.
+
+5. Durée et preuve du choix
+
+Les durées de vie des traceurs et de conservation du choix de l’utilisateur seront configurées conformément aux règles applicables et documentées dans le gestionnaire de consentement.
+
+6. Contact
+
+[EMAIL CONFIDENTIALITÉ]
