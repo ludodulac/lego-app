@@ -48,4 +48,11 @@ def test_current_brickhouse_probe_reaches_expected_exact_pitch_blocker() -> None
     report = probe_pipeline(survey, scene)
     assert report["first_blocking_stage"] == "scene_to_building_projection"
     assert "shed_geometry_incomplete" in report["projection_issue_codes"]
+    assert report["required_inputs"] == [{
+        "object_id": "roof_main",
+        "field": "pitch_degrees",
+        "kind": "exact_metric",
+        "reason": "shed_construction_requires_exact_pitch",
+        "known_range_degrees": {"min": 10.0, "max": 35.0},
+    }]
     assert report["m0_error"] is None
