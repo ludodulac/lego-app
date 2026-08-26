@@ -78,7 +78,11 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
     _validate_generated_model(brick_model)
     bom = generate_bom(brick_model)
     assembly_plan = generate_assembly_plan(brick_model)
-    return create_export_bundle(brick_model, bom, assembly_plan, appearance=building.appearance)
+    quality = [shell.discretization_quality] if shell.discretization_quality is not None else []
+    return create_export_bundle(
+        brick_model, bom, assembly_plan, appearance=building.appearance,
+        discretization_quality=quality,
+    )
 
 
 def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
@@ -95,10 +99,13 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
     min_z = min(volume.position.z for volume in building.volumes)
     roofs_by_volume = {roof.volume_id: roof for roof in building.roofs}
     all_parts = []
+    quality_reports = []
     max_x = max_y = max_z = 1
     for volume in building.volumes:
         subgeometry = _volume_geometry(geometry, volume.id)
         shell = generate_building_brick_shell(subgeometry, studs_per_meter=studs_per_meter)
+        if shell.discretization_quality is not None:
+            quality_reports.append(shell.discretization_quality)
         spatial_shell = generate_spatial_brick_shell(shell)
         window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
         facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
@@ -115,7 +122,10 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
     _validate_generated_model(brick_model)
     bom = generate_bom(brick_model)
     assembly_plan = generate_assembly_plan(brick_model)
-    return create_export_bundle(brick_model, bom, assembly_plan, appearance=building.appearance)
+    return create_export_bundle(
+        brick_model, bom, assembly_plan, appearance=building.appearance,
+        discretization_quality=quality_reports,
+    )
 
 
 def _source_confidence_issue(kind: str, obj) -> BrickExportFidelityIssue | None:
@@ -183,7 +193,11 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
         return base.model_copy(update={"fidelity_issues": fidelity_issues})
     bom = generate_bom(enriched)
     assembly_plan = generate_assembly_plan(enriched)
-    return create_export_bundle(enriched, bom, assembly_plan, appearance=projection.building.appearance, fidelity_issues=fidelity_issues)
+    return create_export_bundle(
+        enriched, bom, assembly_plan, appearance=projection.building.appearance,
+        fidelity_issues=fidelity_issues,
+        discretization_quality=base.metadata.discretization_quality,
+    )
 
 
 def run_m0_pipeline(input_path: str | Path, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
