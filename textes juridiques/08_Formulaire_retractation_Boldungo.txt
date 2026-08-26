@@ -1,0 +1,33 @@
+FORMULAIRE TYPE DE RÉTRACTATION — BOLDUNGO
+
+À utiliser uniquement si vous souhaitez vous rétracter d’un contrat lorsque le droit de rétractation est applicable.
+
+À l’attention de :
+
+[DÉNOMINATION SOCIALE]
+[ADRESSE POSTALE]
+[EMAIL]
+
+Je vous notifie par la présente ma rétractation du contrat portant sur la vente du bien / la prestation de services / le contenu ou service numérique suivant :
+
+[DESCRIPTION]
+
+Commandé le / contrat conclu le :
+
+[DATE]
+
+Nom du consommateur :
+
+[NOM]
+
+Adresse du consommateur :
+
+[ADRESSE]
+
+Signature du consommateur (uniquement en cas de notification sur papier) :
+
+[SIGNATURE]
+
+Date :
+
+[DATE]
