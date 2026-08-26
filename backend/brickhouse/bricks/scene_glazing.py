@@ -4,11 +4,13 @@ from __future__ import annotations
 import unicodedata
 
 from brickhouse.building.models import Facade, OpeningType
-from brickhouse.scene.models import ArchitecturalScene, SceneOpening
+from brickhouse.scene import ArchitecturalScene
+from brickhouse.scene.models import SceneOpening
 from .brick_model import BrickModel, BrickModelPart
 from .scaling import COURSES_PER_STUD_RATIO
 from .scene_architecture import _round_half_up, _scene_bounds
 from .scene_chimneys import augment_brick_model_with_scene_chimneys
+from .wall_depth import augment_brick_model_with_wall_depth
 
 
 def _normalized(value: str) -> str:
@@ -102,25 +104,32 @@ def augment_brick_model_with_scene_glazing(model: BrickModel, scene: Architectur
     )
 
     targets = [opening for opening in scene.openings if _is_glass_block(opening) or _is_glazed_door(opening)]
-    if not targets:
-        return model
-    main = scene.volumes[0]
-    studs_per_meter = front_width_studs / main.width.value
-    origin_x, origin_y, origin_z = _scene_bounds(scene)
-    extra: list[BrickModelPart] = []
-    for opening in targets:
-        extra.extend(_opening_parts(opening, scene, origin_x=origin_x, origin_y=origin_y, origin_z=origin_z, studs_per_meter=studs_per_meter))
-    if not extra:
-        return model
+    if targets:
+        main = scene.volumes[0]
+        studs_per_meter = front_width_studs / main.width.value
+        origin_x, origin_y, origin_z = _scene_bounds(scene)
+        extra: list[BrickModelPart] = []
+        for opening in targets:
+            extra.extend(_opening_parts(opening, scene, origin_x=origin_x, origin_y=origin_y, origin_z=origin_z, studs_per_meter=studs_per_meter))
+        if extra:
+            target_cells = {(part.x_studs, part.y_studs, part.z_plates, part.facade) for part in extra}
+            replaceable_categories = {"brick", "facade_detail", "window_frame", "window_pane"}
+            kept = [
+                part for part in model.parts
+                if not (
+                    part.component == "facade_detail"
+                    and part.category in replaceable_categories
+                    and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells
+                )
+            ]
+            model = model.model_copy(update={"parts": [*kept, *extra]})
 
-    target_cells = {(part.x_studs, part.y_studs, part.z_plates, part.facade) for part in extra}
-    replaceable_categories = {"brick", "facade_detail", "window_frame", "window_pane"}
-    kept = [
-        part for part in model.parts
-        if not (
-            part.component == "facade_detail"
-            and part.category in replaceable_categories
-            and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells
-        )
-    ]
-    return model.model_copy(update={"parts": [*kept, *extra]})
+    # Wall thickness/reveal observations are applied last so every glazing path,
+    # including Scene-only glass blocks and glazed doors, moves to the same
+    # evidence-backed recessed plane. Unknown or low-confidence metric depth is
+    # intentionally ignored by the wall-depth projector.
+    return augment_brick_model_with_wall_depth(
+        model,
+        scene,
+        front_width_studs=front_width_studs,
+    )
