@@ -47,6 +47,31 @@ jobs:
       - name: Publish current BrickHouse architectural reference
         run: cp tests/fixtures/brickhouse_scene_current.json frontend/brickhouse-scene-current.json
 
+      - name: Generate current five-photo first-bricks export
+        run: >-
+          brickhouse-scene-build
+          tests/fixtures/brickhouse_scene_current.json
+          frontend/brickhouse-partial-export.json
+          --front-width-studs 48
+          --allow-partial
+
+      - name: Verify first-bricks export
+        run: |
+          test -s frontend/brickhouse-partial-export.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('frontend/brickhouse-partial-export.json').read_text())
+          parts = data['brick_model']['parts']
+          assert parts
+          assert any(part['component'] == 'wall' for part in parts)
+          assert not any(part['component'] == 'roof' for part in parts)
+          assert data['bom']['total_parts'] == len(parts)
+          assert data['assembly_plan']['total_parts'] == len(parts)
+          assert data['assembly_plan']['total_steps'] > 0
+          assert any(issue['code'] == 'partial_preview_roof_omitted' for issue in data['fidelity_issues'])
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
