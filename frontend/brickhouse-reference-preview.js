@@ -1,11 +1,5 @@
 const message = document.querySelector('#message');
 
-async function loadJson(path) {
-  const response = await fetch(path, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-  return response.json();
-}
-
 function applyIndependentStructureEvidence(scene, analysis) {
   const expected = analysis?.regression_expectations ?? {};
   const hasDeck = scene?.platforms?.some(platform => platform.id === 'timber_deck');
@@ -31,10 +25,12 @@ function applyIndependentStructureEvidence(scene, analysis) {
 
 async function loadReference() {
   try {
-    const [rawScene, analysis] = await Promise.all([
-      loadJson('./brickhouse-scene-current.json'),
-      loadJson('./brickhouse-independent-analysis.json'),
-    ]);
+    const response = await fetch('./brickhouse-scene-current.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rawScene = await response.json();
+    const analysisResponse = await fetch('./brickhouse-independent-analysis.json', { cache: 'no-store' });
+    if (!analysisResponse.ok) throw new Error(`evidence: HTTP ${analysisResponse.status}`);
+    const analysis = await analysisResponse.json();
     if (rawScene?.schema_version !== '0.2' || !Array.isArray(rawScene?.volumes)) {
       throw new Error('référence ArchitecturalScene invalide');
     }
