@@ -11,6 +11,7 @@ from .brick_model import BrickModel, PartComponent
 
 MAX_PARTS_PER_STEP = 12
 InstructionKind = Literal["placement", "subassembly"]
+InstructionView = Literal["front", "rear", "left", "right", "perspective"]
 
 
 class AssemblyStep(BaseModel):
@@ -24,6 +25,7 @@ class AssemblyStep(BaseModel):
     bag: int = Field(gt=0)
     instruction_kind: InstructionKind = "placement"
     focus: Literal["normal", "closeup"] = "normal"
+    view: InstructionView = "perspective"
 
 
 class AssemblyPlan(BaseModel):
@@ -99,23 +101,63 @@ _PHASE_ORDER = {
     "Façades": 5,
     "Toiture": 6,
 }
+_FACADE_ORDER = {"front": 1, "right": 2, "rear": 3, "left": 4}
+_FACADE_LABEL = {
+    "front": "façade avant",
+    "rear": "façade arrière",
+    "left": "côté gauche",
+    "right": "côté droit",
+}
 
 
 def _bag_for_phase(phase: str) -> int:
     return _PHASE_ORDER[phase]
 
 
+def _facade_value(part) -> str | None:
+    facade = getattr(part, "facade", None)
+    return facade.value if hasattr(facade, "value") else facade
+
+
+def _spatial_part_key(part) -> tuple:
+    """Order placements along the facade so a notice step reads as one local action."""
+    facade = _facade_value(part)
+    if facade in {"front", "rear"}:
+        along = part.x_studs
+    elif facade in {"left", "right"}:
+        along = part.y_studs
+    else:
+        along = part.x_studs
+    return (along, part.y_studs, part.x_studs, part.placement_id)
+
+
+def _view_for_ids(ids: list[str], parts_by_id: dict) -> InstructionView:
+    counts = {name: 0 for name in _FACADE_ORDER}
+    for placement_id in ids:
+        facade = _facade_value(parts_by_id[placement_id])
+        if facade in counts:
+            counts[facade] += 1
+    maximum = max(counts.values(), default=0)
+    if maximum == 0:
+        return "perspective"
+    return min(
+        (name for name, count in counts.items() if count == maximum),
+        key=lambda name: _FACADE_ORDER[name],
+    )
+
+
 def _append_grouped_steps(pending: list[dict], parts: list, *, phase: str, title: str, focus: str = "closeup") -> None:
-    groups: dict[int, list[str]] = defaultdict(list)
+    groups: dict[int, list] = defaultdict(list)
     for part in parts:
-        groups[part.z_plates].append(part.placement_id)
+        groups[part.z_plates].append(part)
     for z in sorted(groups):
-        for chunk in _chunks(sorted(groups[z])):
+        ordered_ids = [part.placement_id for part in sorted(groups[z], key=_spatial_part_key)]
+        for chunk in _chunks(ordered_ids):
             pending.append(dict(component="facade_detail", z=z, title=f"{title} — niveau {z} plates", ids=chunk, phase=phase, kind="placement", focus=focus))
 
 
 def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
-    """Generate short steps, mini-build windows and semantic construction phases."""
+    """Generate short, spatially coherent steps with deterministic notice views."""
     parts_by_id = {part.placement_id: part for part in model.parts}
     pending: list[dict] = []
 
@@ -128,15 +170,21 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
         focus="normal",
     )
 
-    # Main structural shell: bottom-up, split dense wall levels into manageable actions.
-    wall_groups: dict[int, list[str]] = defaultdict(list)
+    # Main structural shell: bottom-up. At each course, keep facades separate so
+    # an instruction never asks the builder to jump between unrelated sides.
+    wall_groups: dict[tuple[int, str], list] = defaultdict(list)
     for part in model.parts:
         if part.component == "wall":
-            wall_groups[part.z_plates].append(part.placement_id)
-    for z in sorted(wall_groups):
-        chunks = _chunks(sorted(wall_groups[z]))
+            wall_groups[(part.z_plates, _facade_value(part) or "front")].append(part)
+    for z, facade in sorted(
+        wall_groups,
+        key=lambda item: (item[0], _FACADE_ORDER.get(item[1], 99), item[1]),
+    ):
+        parts = sorted(wall_groups[(z, facade)], key=_spatial_part_key)
+        chunks = _chunks([part.placement_id for part in parts])
+        facade_label = _FACADE_LABEL.get(facade, facade)
         for idx, chunk in enumerate(chunks, start=1):
-            title = f"Murs — niveau {z} plates"
+            title = f"Murs — {facade_label} — niveau {z} plates"
             if len(chunks) > 1:
                 title += f" · partie {idx}/{len(chunks)}"
             pending.append(dict(component="wall", z=z, title=title, ids=chunk, phase="Structure", kind="placement", focus="normal"))
@@ -157,30 +205,33 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
 
     # Unpaired window parts remain valid individual placement steps.
     for category, label in (("window_frame", "Cadres de fenêtres"), ("window_pane", "Vitrages")):
-        groups: dict[int, list[str]] = defaultdict(list)
+        groups: dict[int, list] = defaultdict(list)
         for part in model.parts:
             if part.category == category and part.placement_id not in used_window_ids:
-                groups[part.z_plates].append(part.placement_id)
+                groups[part.z_plates].append(part)
         for z in sorted(groups):
-            for chunk in _chunks(sorted(groups[z])):
+            ordered_ids = [part.placement_id for part in sorted(groups[z], key=_spatial_part_key)]
+            for chunk in _chunks(ordered_ids):
                 pending.append(dict(component="facade_detail", z=z, title=f"{label} — niveau {z} plates", ids=chunk, phase="Fenêtres", kind="placement", focus="closeup"))
 
     # Other facade details, excluding site/exterior parts already scheduled above.
-    detail_groups: dict[int, list[str]] = defaultdict(list)
+    detail_groups: dict[int, list] = defaultdict(list)
     for part in model.parts:
         if part.component == "facade_detail" and _phase_for_part(part) == "Façades":
-            detail_groups[part.z_plates].append(part.placement_id)
+            detail_groups[part.z_plates].append(part)
     for z in sorted(detail_groups):
-        for chunk in _chunks(sorted(detail_groups[z])):
+        ordered_ids = [part.placement_id for part in sorted(detail_groups[z], key=_spatial_part_key)]
+        for chunk in _chunks(ordered_ids):
             pending.append(dict(component="facade_detail", z=z, title=f"Détails de façade — niveau {z} plates", ids=chunk, phase="Façades", kind="placement", focus="closeup"))
 
     # Roof last, bottom-up.
-    roof_groups: dict[int, list[str]] = defaultdict(list)
+    roof_groups: dict[int, list] = defaultdict(list)
     for part in model.parts:
         if part.component == "roof":
-            roof_groups[part.z_plates].append(part.placement_id)
+            roof_groups[part.z_plates].append(part)
     for z in sorted(roof_groups):
-        chunks = _chunks(sorted(roof_groups[z]))
+        ordered = sorted(roof_groups[z], key=lambda part: (part.y_studs, part.x_studs, part.placement_id))
+        chunks = _chunks([part.placement_id for part in ordered])
         for idx, chunk in enumerate(chunks, start=1):
             title = f"Toiture — niveau {z} plates"
             if len(chunks) > 1:
@@ -195,6 +246,7 @@ def generate_assembly_plan(model: BrickModel) -> AssemblyPlan:
             component=item["component"], z_plates=item["z"], title=item["title"],
             placement_ids=item["ids"], phase=phase, bag=_bag_for_phase(phase),
             instruction_kind=item["kind"], focus=item["focus"],
+            view=_view_for_ids(item["ids"], parts_by_id),
         ))
 
     all_model_ids = {part.placement_id for part in model.parts}
