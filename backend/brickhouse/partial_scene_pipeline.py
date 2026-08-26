@@ -10,6 +10,7 @@ from __future__ import annotations
 from brickhouse.building.models import BuildingModel, Metadata, Opening, Volume, VolumeShape
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
+from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene.models import ArchitecturalScene
 from brickhouse.scene.topology_projection import project_scene_to_building
@@ -224,7 +225,15 @@ def run_partial_scene_pipeline(
     building = _resolved_core_building(scene)
     bundle = run_m0_pipeline_model(building, front_width_studs=front_width_studs)
     quality = build_discretization_quality(building, front_width_studs=front_width_studs)
-    metadata = bundle.metadata.model_copy(update={"discretization_quality": quality})
+    recommendation = recommend_front_width_studs(
+        building,
+        preferred_front_width_studs=front_width_studs,
+        search_radius_studs=6,
+    )
+    metadata = bundle.metadata.model_copy(update={
+        "discretization_quality": quality,
+        "scale_recommendation": recommendation,
+    })
     return bundle.model_copy(update={
         "metadata": metadata,
         "fidelity_issues": _partial_fidelity_issues(scene),
