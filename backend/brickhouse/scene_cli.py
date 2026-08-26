@@ -21,12 +21,21 @@ def write_scene_export(
     *,
     front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS,
     allow_partial: bool = False,
+    optimize_scale: bool = False,
 ) -> BrickExportBundle:
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
+    if optimize_scale and not allow_partial:
+        raise ValueError("optimize_scale currently requires allow_partial")
     scene = load_architectural_scene(input_path)
-    builder = run_partial_scene_pipeline if allow_partial else run_m0_pipeline_scene
-    bundle = builder(scene, front_width_studs=front_width_studs)
+    if allow_partial:
+        bundle = run_partial_scene_pipeline(
+            scene,
+            front_width_studs=front_width_studs,
+            optimize_scale=optimize_scale,
+        )
+    else:
+        bundle = run_m0_pipeline_scene(scene, front_width_studs=front_width_studs)
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(export_bundle_json(bundle) + "\n", encoding="utf-8")
@@ -47,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--front-width-studs",
         type=int,
         default=DEFAULT_FRONT_WIDTH_STUDS,
-        help=f"target front facade width in studs (default: {DEFAULT_FRONT_WIDTH_STUDS})",
+        help=f"preferred front facade width in studs (default: {DEFAULT_FRONT_WIDTH_STUDS})",
     )
     parser.add_argument(
         "--allow-partial",
@@ -55,6 +64,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "build only resolved envelope/opening geometry when roof or exterior junctions remain unknown; "
             "unknown geometry is omitted and reported instead of guessed"
+        ),
+    )
+    parser.add_argument(
+        "--optimize-scale",
+        action="store_true",
+        help=(
+            "with --allow-partial, test nearby LEGO scales and apply the recommendation only when "
+            "the measured grid-error score improves by at least 10 percent"
         ),
     )
     return parser
@@ -67,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         args.output,
         front_width_studs=args.front_width_studs,
         allow_partial=args.allow_partial,
+        optimize_scale=args.optimize_scale,
     )
     print(
         f"Generated {args.output}: {bundle.bom.total_parts} parts, "
