@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from brickhouse.building.models import BuildingModel
 from brickhouse.bricks.export import BrickExportBundle
 from brickhouse.bricks.scene_architecture import _validate_exterior_primitives
+from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
 from brickhouse.pipeline import (
     DEFAULT_FRONT_WIDTH_STUDS,
     run_m0_pipeline_model,
@@ -55,6 +56,7 @@ class BuildRequest(BaseModel):
 class SceneBuildRequest(BaseModel):
     scene: ArchitecturalScene
     front_width_studs: int = Field(default=DEFAULT_FRONT_WIDTH_STUDS, gt=0, le=256)
+    allow_partial: bool = False
 
 
 class SurveyValidationIssueModel(BaseModel):
@@ -167,7 +169,7 @@ def _with_scene_build_preflight(
 
 app = FastAPI(
     title="BrickHouse Engine API",
-    version="0.17.0",
+    version="0.18.0",
     description=(
         "Photos, ArchitecturalSurvey, ArchitecturalScene, external AI analysis or "
         "BuildingModel → architectural proposal → constructible BrickModel/BOM/AssemblyPlan"
@@ -342,7 +344,18 @@ def build(request: BuildRequest) -> BrickExportBundle:
 
 @app.post("/api/v1/build-scene", response_model=BrickExportBundle)
 def build_scene(request: SceneBuildRequest) -> BrickExportBundle:
-    """Build the rich Scene so terraces/stairs/terrain survive projection."""
+    """Build a strict rich Scene or an explicitly requested conservative partial preview."""
+    if request.allow_partial:
+        try:
+            bundle = run_partial_scene_pipeline(
+                request.scene,
+                front_width_studs=request.front_width_studs,
+            )
+            bundle.metadata.engine_revision = _engine_revision()
+            return bundle
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     projection = _with_scene_build_preflight(
         request.scene,
         project_scene_to_building(request.scene),

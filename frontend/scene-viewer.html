@@ -14,6 +14,7 @@
       <section class="controls">
         <a class="file-button" href="./photo.html">← Retour aux photos</a>
         <a class="file-button" href="./brickhouse-reference-preview.html">Charger la référence BrickHouse</a>
+        <button id="build-partial-lego" type="button">Voir les premières briques LEGO</button>
         <button id="reset-view" type="button">Vue perspective</button>
         <div class="assembly-buttons"><button id="view-front" type="button">Avant</button><button id="view-rear" type="button">Arrière</button></div>
         <div class="assembly-buttons"><button id="view-left" type="button">Gauche</button><button id="view-right" type="button">Droite</button></div>
@@ -22,9 +23,10 @@
       <section class="status-card"><h2>Lecture de la toiture</h2><p id="roof-note" class="intro">—</p></section>
       <p id="message" class="message" role="status"></p>
     </aside>
-    <section class="viewer-wrap"><canvas id="viewer" aria-label="Reconstruction architecturale 3D"></canvas><div class="viewer-hint">Aperçu architectural, pas encore une maquette LEGO · glisser pour tourner · molette/pincer pour zoomer</div></section>
+    <section class="viewer-wrap"><canvas id="viewer" aria-label="Reconstruction architecturale 3D"></canvas><div class="viewer-hint">Aperçu architectural, pas encore une maquette LEGO · les zones inconnues restent absentes de la première maquette · glisser pour tourner · molette/pincer pour zoomer</div></section>
   </main>
   <script type="module" src="./scene-viewer.js"></script>
   <script type="module" src="./scene-platform-structure-status.js"></script>
+  <script type="module" src="./scene-partial-build.js"></script>
 </body>
 </html>
