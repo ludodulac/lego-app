@@ -38,6 +38,31 @@ def test_dense_level_is_split_into_short_practical_actions():
     assert plan.steps[1].title.endswith("partie 2/2")
 
 
+def test_same_wall_course_is_split_by_facade_for_stable_instruction_views():
+    parts=[
+        BrickModelPart(placement_id="front-b",part_id="BRICK_1X1",category="brick",component="wall",x_studs=3,y_studs=0,z_plates=0,rotation_quarter_turns=0,facade="front"),
+        BrickModelPart(placement_id="right-a",part_id="BRICK_1X1",category="brick",component="wall",x_studs=7,y_studs=1,z_plates=0,rotation_quarter_turns=0,facade="right"),
+        BrickModelPart(placement_id="front-a",part_id="BRICK_1X1",category="brick",component="wall",x_studs=1,y_studs=0,z_plates=0,rotation_quarter_turns=0,facade="front"),
+        BrickModelPart(placement_id="left-a",part_id="BRICK_1X1",category="brick",component="wall",x_studs=0,y_studs=4,z_plates=0,rotation_quarter_turns=0,facade="left"),
+        BrickModelPart(placement_id="rear-a",part_id="BRICK_1X1",category="brick",component="wall",x_studs=6,y_studs=5,z_plates=0,rotation_quarter_turns=0,facade="rear"),
+    ]
+    model=BrickModel(building_id="facades",volume_id="v1",width_studs=8,depth_studs=6,height_plates=3,parts=parts)
+    plan=generate_assembly_plan(model)
+
+    assert [step.placement_ids for step in plan.steps] == [
+        ["front-a", "front-b"],
+        ["right-a"],
+        ["rear-a"],
+        ["left-a"],
+    ]
+    assert [step.title for step in plan.steps] == [
+        "Murs — façade avant — niveau 0 plates",
+        "Murs — façade droite — niveau 0 plates",
+        "Murs — façade arrière — niveau 0 plates",
+        "Murs — façade gauche — niveau 0 plates",
+    ]
+
+
 def test_frame_and_pane_become_a_window_subassembly():
     parts=[
         BrickModelPart(placement_id="frame-1",part_id="WINDOW_1X2X2_60592",category="window_frame",component="facade_detail",x_studs=2,y_studs=0,z_plates=3,rotation_quarter_turns=1,facade="front"),
