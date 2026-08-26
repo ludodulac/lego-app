@@ -9,16 +9,61 @@ from brickhouse.survey import Certainty
 
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
-OLD_SCENE = FIXTURES / "architectural_scene_real_house_5_v02.json"
 CURRENT_SCENE = FIXTURES / "architectural_scene_real_house_5_v25.json"
+SOURCE = {"kind": "inferred", "confidence": 0.6}
 
 
 def _load(path: Path) -> ArchitecturalScene:
     return ArchitecturalScene.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
 
+def _certain_unresolved_scene() -> ArchitecturalScene:
+    return ArchitecturalScene.model_validate(
+        {
+            "schema_version": "0.2",
+            "id": "generic-certain-unresolved-relation",
+            "name": "Generic certain unresolved relation",
+            "units": "m",
+            "volumes": [
+                {
+                    "id": "main",
+                    "position": {"x": 0, "y": 0, "z": 0},
+                    "width": {"value": 10, "source": SOURCE},
+                    "depth": {"value": 8, "source": SOURCE},
+                    "height": {"value": 6, "source": SOURCE},
+                    "floors": 2,
+                    "source": SOURCE,
+                },
+                {
+                    "id": "annex",
+                    "position": {"x": 12, "y": 0, "z": 0},
+                    "width": {"value": 2, "source": SOURCE},
+                    "depth": {"value": 2, "source": SOURCE},
+                    "height": {"value": 2, "source": SOURCE},
+                    "floors": 1,
+                    "source": SOURCE,
+                },
+            ],
+            "relations": [
+                {
+                    "id": "certain-unresolved",
+                    "kind": "connects_to",
+                    "subject_id": "annex",
+                    "object_id": "main",
+                    "certainty": "certain",
+                    "geometry_status": "unresolved",
+                    "semantic_anchor_volume_id": None,
+                    "statement": "Connection is certain but its metric location is unresolved.",
+                    "evidence": [{"photo_index": 1, "observation": "connection known without metric location"}],
+                }
+            ],
+            "appearance": {},
+        }
+    )
+
+
 def test_certain_unresolved_relation_still_blocks_projection() -> None:
-    scene = _load(OLD_SCENE)
+    scene = _certain_unresolved_scene()
 
     result = project_scene_to_building(scene)
 
@@ -38,7 +83,7 @@ def test_certain_unresolved_relation_still_blocks_projection() -> None:
 
 
 def test_full_pipeline_cannot_bypass_certain_unresolved_relation() -> None:
-    scene = _load(OLD_SCENE)
+    scene = _certain_unresolved_scene()
 
     with pytest.raises(ValueError, match="raccord métrique"):
         run_m0_pipeline_scene(scene, front_width_studs=48)
