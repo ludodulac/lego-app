@@ -16,3 +16,11 @@ def test_platform_structure_status_preserves_non_metric_observation() -> None:
     assert "Aucun support 3D arbitraire n’est ajouté." in source
     assert "BoxGeometry" not in source
     assert "Mesh(" not in source
+
+
+def test_platform_railing_status_does_not_guess_edges() -> None:
+    source = Path("frontend/scene-platform-structure-status.js").read_text(encoding="utf-8")
+    assert "platform.edge_treatment === 'open_railing' && !platform.edges" in source
+    assert "garde-corps ouvert observé" in source
+    assert "côtés et interruptions exacts ne sont pas résolus" in source
+    assert "Aucun garde-corps 3D arbitraire n’est ajouté." in source
