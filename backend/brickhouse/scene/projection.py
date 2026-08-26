@@ -89,6 +89,14 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                 missing.append("down_slope_direction")
             if roof.pitch_degrees is None:
                 missing.append("pitch_degrees")
+            bounded = ""
+            if roof.pitch_range_degrees is not None:
+                bounded = (
+                    f" ArchitecturalScene does bound the pitch to "
+                    f"{roof.pitch_range_degrees.min_degrees:g}–{roof.pitch_range_degrees.max_degrees:g}°, "
+                    "but BuildingModel 0.1 requires one exact construction angle. Projection must not choose "
+                    "the midpoint, an endpoint, or any default from that interval."
+                )
             issues.append(
                 ProjectionIssue(
                     code="shed_geometry_incomplete",
@@ -99,6 +107,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                         f"{', '.join(missing)}. BuildingModel 0.1 can now represent a mono-pitch roof only "
                         "when its fall direction and numeric pitch are known, so projection is blocked rather "
                         "than inventing either value or converting the roof to a false gable/flat roof."
+                        f"{bounded}"
                     ),
                 )
             )
@@ -117,6 +126,14 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                 missing.append("ridge_direction")
             if roof.pitch_degrees is None:
                 missing.append("pitch_degrees")
+            bounded = ""
+            if roof.pitch_range_degrees is not None:
+                bounded = (
+                    f" ArchitecturalScene does bound the pitch to "
+                    f"{roof.pitch_range_degrees.min_degrees:g}–{roof.pitch_range_degrees.max_degrees:g}°, "
+                    "but BuildingModel 0.1 requires one exact construction angle and projection must not "
+                    "select one silently from that interval."
+                )
             issues.append(
                 ProjectionIssue(
                     code="gable_geometry_incomplete",
@@ -126,6 +143,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
                         "ArchitecturalScene preserves a gable roof but does not know "
                         f"{', '.join(missing)}. BuildingModel 0.1 requires those fields, so LEGO projection "
                         "is blocked rather than inventing metric roof geometry or producing an open building."
+                        f"{bounded}"
                     ),
                 )
             )

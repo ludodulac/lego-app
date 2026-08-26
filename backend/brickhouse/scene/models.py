@@ -76,6 +76,21 @@ class SceneRoofType(str, Enum):
     OTHER = "other"
 
 
+class RoofPitchRange(BaseModel):
+    """Evidence-backed interval when photos constrain pitch without proving one exact angle."""
+
+    min_degrees: float = Field(gt=0, lt=90)
+    max_degrees: float = Field(gt=0, lt=90)
+    source: SourceInfo
+    evidence: list[Evidence] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_bounds(self):
+        if self.max_degrees <= self.min_degrees:
+            raise ValueError("roof pitch range max_degrees must be greater than min_degrees")
+        return self
+
+
 class SceneRoof(BaseModel):
     id: str
     volume_id: str
@@ -87,6 +102,10 @@ class SceneRoof(BaseModel):
     # roof existence/type without proving orientation or a numeric pitch.
     down_slope_direction: Facade | None = None
     pitch_degrees: float | None = None
+    # A range records what the evidence bounds without pretending that one angle
+    # inside that interval has been observed. BuildingModel still requires an exact
+    # construction metric and must never silently choose a midpoint/default.
+    pitch_range_degrees: RoofPitchRange | None = None
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
 
@@ -94,6 +113,8 @@ class SceneRoof(BaseModel):
     def validate_roof(self):
         if self.pitch_degrees is not None and not 0 < self.pitch_degrees < 90:
             raise ValueError("roof pitch_degrees must be > 0 and < 90 when provided")
+        if self.pitch_degrees is not None and self.pitch_range_degrees is not None:
+            raise ValueError("roof must not define both exact pitch_degrees and pitch_range_degrees")
         # ArchitecturalScene is an understanding layer, not a construction
         # solver. A pitched roof can be visually certain while orientation or
         # pitch remain unknown. Keep those fields nullable here; projection/build
@@ -103,6 +124,7 @@ class SceneRoof(BaseModel):
                 self.ridge_direction is not None
                 or self.down_slope_direction is not None
                 or self.pitch_degrees is not None
+                or self.pitch_range_degrees is not None
             ):
                 raise ValueError("flat roof must not define pitched-roof fields")
         elif self.type is SceneRoofType.SHED:
