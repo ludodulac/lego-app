@@ -8,6 +8,7 @@ photo-derived metrics visibly separate from measured fact.
 from __future__ import annotations
 
 from brickhouse.building.models import BuildingModel, Metadata, Opening, Volume, VolumeShape
+from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene.models import ArchitecturalScene
@@ -222,4 +223,9 @@ def run_partial_scene_pipeline(
         raise ValueError("front_width_studs must be positive")
     building = _resolved_core_building(scene)
     bundle = run_m0_pipeline_model(building, front_width_studs=front_width_studs)
-    return bundle.model_copy(update={"fidelity_issues": _partial_fidelity_issues(scene)})
+    quality = build_discretization_quality(building, front_width_studs=front_width_studs)
+    metadata = bundle.metadata.model_copy(update={"discretization_quality": quality})
+    return bundle.model_copy(update={
+        "metadata": metadata,
+        "fidelity_issues": _partial_fidelity_issues(scene),
+    })
