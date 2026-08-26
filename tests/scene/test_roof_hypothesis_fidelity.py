@@ -1,11 +1,8 @@
-import json
-from pathlib import Path
-
 from brickhouse.scene import ArchitecturalScene, SceneRoofType, validate_scene_against_survey
 from brickhouse.survey import ArchitecturalSurvey
 
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "architectural_scene_real_house_5_v02.json"
+SOURCE = {"kind": "inferred", "confidence": 0.6}
 
 
 def _survey_with_facade_gable(certainty: str = "plausible") -> ArchitecturalSurvey:
@@ -50,7 +47,38 @@ def _survey_with_facade_gable(certainty: str = "plausible") -> ArchitecturalSurv
 
 
 def _scene() -> ArchitecturalScene:
-    return ArchitecturalScene.model_validate(json.loads(FIXTURE.read_text(encoding="utf-8")))
+    return ArchitecturalScene.model_validate(
+        {
+            "schema_version": "0.2",
+            "id": "generic-roof-fidelity",
+            "name": "Generic roof fidelity",
+            "units": "m",
+            "volumes": [
+                {
+                    "id": "main",
+                    "position": {"x": 0, "y": 0, "z": 0},
+                    "width": {"value": 10, "source": SOURCE},
+                    "depth": {"value": 8, "source": SOURCE},
+                    "height": {"value": 6, "source": SOURCE},
+                    "floors": 2,
+                    "source": SOURCE,
+                }
+            ],
+            "roofs": [
+                {
+                    "id": "roof",
+                    "volume_id": "main",
+                    "type": "gable",
+                    "overhang": 0.2,
+                    "ridge_direction": None,
+                    "pitch_degrees": None,
+                    "source": SOURCE,
+                    "evidence": [{"photo_index": 1, "observation": "gable hypothesis visible"}],
+                }
+            ],
+            "appearance": {},
+        }
+    )
 
 
 def _codes(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> set[str]:
@@ -69,6 +97,8 @@ def test_plausible_facade_gable_is_preserved_by_gable_scene_without_forcing_metr
     scene = _scene()
 
     assert scene.roofs[0].type is SceneRoofType.GABLE
+    assert scene.roofs[0].ridge_direction is None
+    assert scene.roofs[0].pitch_degrees is None
     assert "survey_gable_hypothesis_lost" not in _codes(_survey_with_facade_gable(), scene)
 
 
