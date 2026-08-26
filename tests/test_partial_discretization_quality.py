@@ -1,14 +1,14 @@
 from pathlib import Path
 
 from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
-from brickhouse.scene.validation import load_architectural_scene
+from brickhouse.scene.models import ArchitecturalScene
 
 
 FIXTURE = Path("tests/fixtures/brickhouse_scene_current.json")
 
 
 def test_current_five_photo_partial_build_exports_grid_rounding_quality():
-    scene = load_architectural_scene(FIXTURE)
+    scene = ArchitecturalScene.model_validate_json(FIXTURE.read_text(encoding="utf-8"))
     bundle = run_partial_scene_pipeline(scene, front_width_studs=48)
 
     reports = bundle.metadata.discretization_quality
