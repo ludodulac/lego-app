@@ -32,6 +32,14 @@ function platformStructureNotes(scene) {
       notes.push(`Terrasse ${platform.id} : garde-corps ouvert observé, mais les côtés et interruptions exacts ne sont pas résolus. Aucun garde-corps 3D arbitraire n’est ajouté.`);
     }
   }
+  for (const stair of scene?.stairs ?? []) {
+    const hasSolidParapet = stair.left_edge === 'solid_parapet' || stair.right_edge === 'solid_parapet';
+    if (!hasSolidParapet) continue;
+    const sides = [];
+    if (stair.left_edge === 'solid_parapet') sides.push('gauche');
+    if (stair.right_edge === 'solid_parapet') sides.push('droite');
+    notes.push(`Escalier ${stair.id} : parapet plein observé côté ${sides.join(' et ')}, mais sa hauteur, son épaisseur et son profil exacts ne sont pas métrés. Aucun parapet 3D arbitraire n’est ajouté.`);
+  }
   return notes;
 }
 
