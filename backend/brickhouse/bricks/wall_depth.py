@@ -45,33 +45,47 @@ def _wall_cells(part: BrickModelPart) -> set[tuple[int, int, int]]:
     }
 
 
+def _belongs_to_volume(part: BrickModelPart, volume_id: str, scene: ArchitecturalScene, *, composite: bool) -> bool:
+    if not composite:
+        return True
+    if part.placement_id.startswith(f"{volume_id}:"):
+        return True
+    if part.placement_id.startswith("scene-glazing:"):
+        return any(
+            opening.volume_id == volume_id
+            and part.placement_id.startswith(f"scene-glazing:{opening.id}:")
+            for opening in scene.openings
+        )
+    return False
+
+
 def augment_brick_model_with_wall_depth(
     model: BrickModel,
     scene: ArchitecturalScene,
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Thicken one resolved Scene volume and recess its glazing without guessing depth.
+    """Thicken resolved Scene facades and recess their glazing without guessed depth.
 
-    The model may come from a Scene containing additional unresolved volumes, as in
-    the conservative first-bricks path. Composite multi-volume BrickModels are left
-    unchanged until their per-volume translations are exposed explicitly.
+    Composite models retain the per-volume placement prefixes created by the M0
+    pipeline. Those prefixes let this pass move each facade inward in global LEGO
+    coordinates while keeping adjacent volumes collision-safe.
     """
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
-    if model.volume_id == "composite":
-        return model
     primary_width = scene.volumes[0].width.value
     if primary_width is None or primary_width <= 0:
         return model
-    target_volume = next((volume for volume in scene.volumes if volume.id == model.volume_id), None)
-    if target_volume is None:
+    composite = model.volume_id == "composite"
+    volume_ids = {volume.id for volume in scene.volumes}
+    if not composite and model.volume_id not in volume_ids:
         return model
     studs_per_meter = front_width_studs / primary_width
     profiles = [
         profile
         for profile in getattr(scene, "wall_profile_observations", [])
-        if profile.volume_id == target_volume.id
+        if profile.volume_id in volume_ids
+        and (composite or profile.volume_id == model.volume_id)
     ]
     if not profiles:
         return model
@@ -87,7 +101,9 @@ def augment_brick_model_with_wall_depth(
         source_wall_parts = [
             part
             for part in model.parts
-            if part.component == "wall" and part.facade is profile.facade
+            if part.component == "wall"
+            and part.facade is profile.facade
+            and _belongs_to_volume(part, profile.volume_id, scene, composite=composite)
         ]
         for layer in range(1, thickness_studs):
             for part in source_wall_parts:
@@ -113,7 +129,11 @@ def augment_brick_model_with_wall_depth(
         if reveal_studs <= 0:
             continue
         for index, part in enumerate(parts):
-            if part.facade is not profile.facade or part.category not in {"window_frame", "window_pane"}:
+            if (
+                part.facade is not profile.facade
+                or part.category not in {"window_frame", "window_pane"}
+                or not _belongs_to_volume(part, profile.volume_id, scene, composite=composite)
+            ):
                 continue
             moved = part.model_copy(update=_shift_inward(part, profile.facade, reveal_studs))
             if _within_model(model, moved):
