@@ -11,6 +11,7 @@ from brickhouse.building.models import Appearance
 from .assembly import AssemblyPlan
 from .bom import BillOfMaterials
 from .brick_model import BrickModel
+from .building_layout import BuildingDiscretizationQuality
 
 
 class BrickExportMetadata(BaseModel):
@@ -18,6 +19,7 @@ class BrickExportMetadata(BaseModel):
     coordinate_system: Literal["stud-grid"] = "stud-grid"
     vertical_unit: Literal["plate"] = "plate"
     engine_revision: str | None = None
+    discretization_quality: list[BuildingDiscretizationQuality] = Field(default_factory=list)
 
 
 class BrickExportFidelityIssue(BaseModel):
@@ -68,11 +70,13 @@ def create_export_bundle(
     assembly_plan: AssemblyPlan | None = None,
     appearance: Appearance | None = None,
     fidelity_issues: list[BrickExportFidelityIssue] | None = None,
+    discretization_quality: list[BuildingDiscretizationQuality] | None = None,
 ) -> BrickExportBundle:
     """Create the viewer/export bundle without hiding known architectural losses."""
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
+        metadata=BrickExportMetadata(discretization_quality=discretization_quality or []),
         appearance=appearance,
         brick_model=model,
         bom=bom,

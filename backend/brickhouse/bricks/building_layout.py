@@ -10,7 +10,7 @@ from brickhouse.building.models import Facade
 from brickhouse.geometry.models import BuildingGeometry, WallGeometry
 
 from .placement import WallBrickLayout, generate_wall_layout_with_openings
-from .scaling import WallGridSpec, _wall_metric_size, discretize_wall_geometry_at_scale
+from .scaling import WallGridSpec, WallDiscretizationQuality, _wall_metric_size, discretize_wall_geometry_at_scale
 
 
 class BuildingWallLayout(BaseModel):
@@ -18,6 +18,15 @@ class BuildingWallLayout(BaseModel):
     facade: Facade
     grid: WallGridSpec
     layout: WallBrickLayout
+
+
+class BuildingDiscretizationQuality(BaseModel):
+    volume_id: str
+    studs_per_meter: float = Field(gt=0)
+    walls: list[WallDiscretizationQuality]
+    mean_absolute_error_m: float = Field(ge=0)
+    worst_absolute_error_m: float = Field(ge=0)
+    worst_wall_id: str | None = None
 
 
 class BuildingBrickShell(BaseModel):
@@ -28,6 +37,7 @@ class BuildingBrickShell(BaseModel):
     reference_width_studs: int = Field(gt=0)
     studs_per_meter: float = Field(gt=0)
     walls: list[BuildingWallLayout] = Field(min_length=4, max_length=4)
+    discretization_quality: BuildingDiscretizationQuality | None = None
 
 
 def _validate_single_rectangular_shell(geometry: BuildingGeometry) -> dict[Facade, WallGeometry]:
@@ -63,6 +73,20 @@ def _validate_single_rectangular_shell(geometry: BuildingGeometry) -> dict[Facad
         raise ValueError("all four walls must have equal metric height")
 
     return by_facade
+
+
+def _quality_for_shell(volume_id: str, studs_per_meter: float, wall_records: list[BuildingWallLayout]) -> BuildingDiscretizationQuality:
+    wall_quality = [record.grid.discretization_quality for record in wall_records if record.grid.discretization_quality is not None]
+    errors = [error for quality in wall_quality for error in quality.errors]
+    worst = max(wall_quality, key=lambda quality: quality.worst_absolute_error_m) if wall_quality else None
+    return BuildingDiscretizationQuality(
+        volume_id=volume_id,
+        studs_per_meter=studs_per_meter,
+        walls=wall_quality,
+        mean_absolute_error_m=(sum(error.absolute_error_m for error in errors) / len(errors)) if errors else 0.0,
+        worst_absolute_error_m=max((error.absolute_error_m for error in errors), default=0.0),
+        worst_wall_id=worst.wall_id if worst else None,
+    )
 
 
 def generate_building_brick_shell(
@@ -108,10 +132,12 @@ def generate_building_brick_shell(
     if len(heights) != 1:
         raise RuntimeError("shared scale produced inconsistent wall heights")
 
+    volume_id = geometry.walls[0].volume_id
     return BuildingBrickShell(
         building_id=geometry.building_id,
-        volume_id=geometry.walls[0].volume_id,
+        volume_id=volume_id,
         reference_width_studs=reference_width_studs,
         studs_per_meter=selected_scale,
         walls=wall_records,
+        discretization_quality=_quality_for_shell(volume_id, selected_scale, wall_records),
     )
