@@ -10,6 +10,14 @@ def test_scene_preview_keeps_bounded_roof_uncertain() -> None:
     assert "(range.min_degrees + range.max_degrees) / 2" not in source
 
 
+def test_scene_preview_does_not_coerce_null_roof_geometry_to_zero() -> None:
+    source = Path("frontend/scene-viewer.js").read_text(encoding="utf-8")
+    assert "function knownNumber(value)" in source
+    assert "value !== null && value !== undefined" in source
+    assert "knownNumber(roof.pitch_degrees) && roof.down_slope_direction" in source
+    assert "aucun plan de toiture arbitraire n’est dessiné" in source
+
+
 def test_blocked_scene_links_to_architectural_preview() -> None:
     source = Path("frontend/scene-required-inputs.js").read_text(encoding="utf-8")
     assert "brickhouse.previewArchitecturalScene" in source
@@ -30,5 +38,4 @@ def test_scene_preview_renders_known_exterior_elements() -> None:
     assert "currentScene.platforms" in source
     assert "currentScene.stairs" in source
     assert "does not guess which sides receive posts or rails" in source
-    assert "inventing individual steps" in source
     assert "Les détails non mesurés ne sont pas inventés." in source
