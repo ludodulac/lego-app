@@ -16,6 +16,7 @@ from brickhouse.bricks.piece_capabilities import create_current_engine_capabilit
 from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slope_family
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
+from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
 from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
@@ -174,6 +175,7 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
     fidelity_issues = _scene_export_fidelity_issues(scene, projection)
     base = run_m0_pipeline_model(projection.building, front_width_studs=front_width_studs)
     enriched = augment_brick_model_with_scene_architecture(base.brick_model, scene, front_width_studs=front_width_studs)
+    enriched = augment_brick_model_with_scene_chimneys(enriched, scene, front_width_studs=front_width_studs)
     enriched = apply_scene_part_categories(enriched, scene)
     enriched = augment_brick_model_with_scene_glazing(enriched, scene, front_width_studs=front_width_studs)
     _validate_generated_model(enriched)
