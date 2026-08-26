@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 
 from brickhouse.bricks.export import BrickExportBundle, export_bundle_json
+from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene
 
@@ -19,11 +20,13 @@ def write_scene_export(
     output_path: str | Path,
     *,
     front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS,
+    allow_partial: bool = False,
 ) -> BrickExportBundle:
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
     scene = load_architectural_scene(input_path)
-    bundle = run_m0_pipeline_scene(scene, front_width_studs=front_width_studs)
+    builder = run_partial_scene_pipeline if allow_partial else run_m0_pipeline_scene
+    bundle = builder(scene, front_width_studs=front_width_studs)
     destination = Path(output_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(export_bundle_json(bundle) + "\n", encoding="utf-8")
@@ -34,8 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="brickhouse-scene-build",
         description=(
-            "Generate BrickModel/BOM/AssemblyPlan JSON directly from an ArchitecturalScene v0.2 "
-            "without discarding supported scene-native exterior elements."
+            "Generate BrickModel/BOM/AssemblyPlan JSON directly from an ArchitecturalScene v0.2. "
+            "Strict mode is the default; --allow-partial emits only trustworthy resolved geometry."
         ),
     )
     parser.add_argument("input", type=Path, help="ArchitecturalScene v0.2 JSON input")
@@ -46,6 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_FRONT_WIDTH_STUDS,
         help=f"target front facade width in studs (default: {DEFAULT_FRONT_WIDTH_STUDS})",
     )
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help=(
+            "build only resolved envelope/opening geometry when roof or exterior junctions remain unknown; "
+            "unknown geometry is omitted and reported instead of guessed"
+        ),
+    )
     return parser
 
 
@@ -55,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         args.input,
         args.output,
         front_width_studs=args.front_width_studs,
+        allow_partial=args.allow_partial,
     )
     print(
         f"Generated {args.output}: {bundle.bom.total_parts} parts, "
