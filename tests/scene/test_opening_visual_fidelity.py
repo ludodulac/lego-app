@@ -23,6 +23,10 @@ def _survey() -> ArchitecturalSurvey:
             "evidence": [{"photo_index": 1, "observation": "Surround and sill visible"}],
             "attributes": {"semantic_type": "window", "physical_object_count": 1},
             "opening_visual": {
+                "frame_color": "dark_brown",
+                "leaf_count": 2,
+                "mullion_count": 1,
+                "glazing": "clear",
                 "sill": "projecting",
                 "surround_material": "stone_like",
                 "surround_color": "light_beige",
@@ -31,7 +35,7 @@ def _survey() -> ArchitecturalSurvey:
     })
 
 
-def _scene(*, has_sill=None, has_decorative_surround=None) -> ArchitecturalScene:
+def _scene(*, has_sill=None, has_decorative_surround=None, opening_visual=None) -> ArchitecturalScene:
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "opening_visual_scene",
@@ -58,6 +62,7 @@ def _scene(*, has_sill=None, has_decorative_surround=None) -> ArchitecturalScene
             "source": {"kind": "inferred", "confidence": 0.6},
             "has_sill": has_sill,
             "has_decorative_surround": has_decorative_surround,
+            "opening_visual": opening_visual,
         }],
         "appearance": {"walls": {"color": "off_white"}},
     })
@@ -69,13 +74,24 @@ def test_observed_sill_and_surround_cannot_disappear_in_scene() -> None:
     assert "opening_surround_lost" in codes
 
 
-def test_observed_sill_and_surround_are_preserved_when_scene_marks_them() -> None:
+def test_observed_composition_cannot_disappear_in_scene() -> None:
+    issues = validate_scene_against_survey(_survey(), _scene(has_sill=True, has_decorative_surround=True))
+    assert any(issue.code == "opening_visual_detail_lost" for issue in issues)
+
+
+def test_observed_sill_surround_and_composition_are_preserved_exactly() -> None:
+    visual = _survey().observations[0].opening_visual.model_dump(mode="json")
     codes = {
         issue.code
         for issue in validate_scene_against_survey(
             _survey(),
-            _scene(has_sill=True, has_decorative_surround=True),
+            _scene(
+                has_sill=True,
+                has_decorative_surround=True,
+                opening_visual=visual,
+            ),
         )
     }
     assert "opening_sill_lost" not in codes
     assert "opening_surround_lost" not in codes
+    assert "opening_visual_detail_lost" not in codes
