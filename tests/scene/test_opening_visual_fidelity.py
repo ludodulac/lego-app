@@ -19,17 +19,21 @@ def _survey() -> ArchitecturalSurvey:
             "kind": "opening",
             "facade": "front",
             "certainty": "certain",
-            "statement": "Window with visible stone surround and projecting sill",
-            "evidence": [{"photo_index": 1, "observation": "Surround and sill visible"}],
+            "statement": "Window with visible stone surround, sill and shutters",
+            "evidence": [{"photo_index": 1, "observation": "Surround, sill and shutters visible"}],
             "attributes": {"semantic_type": "window", "physical_object_count": 1},
             "opening_visual": {
                 "frame_color": "dark_brown",
                 "leaf_count": 2,
+                "pane_count": 4,
                 "mullion_count": 1,
                 "glazing": "clear",
                 "sill": "projecting",
                 "surround_material": "stone_like",
                 "surround_color": "light_beige",
+                "shutter_count": 2,
+                "shutter_style": "folding",
+                "shutter_color": "white",
             },
         }],
     })
@@ -74,9 +78,28 @@ def test_observed_sill_and_surround_cannot_disappear_in_scene() -> None:
     assert "opening_surround_lost" in codes
 
 
-def test_observed_composition_cannot_disappear_in_scene() -> None:
-    issues = validate_scene_against_survey(_survey(), _scene(has_sill=True, has_decorative_surround=True))
-    assert any(issue.code == "opening_visual_detail_lost" for issue in issues)
+def test_observed_pane_and_shutter_composition_cannot_disappear_in_scene() -> None:
+    partial = {
+        "frame_color": "dark_brown",
+        "leaf_count": 2,
+        "mullion_count": 1,
+        "glazing": "clear",
+        "sill": "projecting",
+        "surround_material": "stone_like",
+        "surround_color": "light_beige",
+    }
+    issues = validate_scene_against_survey(
+        _survey(),
+        _scene(has_sill=True, has_decorative_surround=True, opening_visual=partial),
+    )
+    assert any(
+        issue.code == "opening_visual_detail_lost" and "pane_count" in issue.message
+        for issue in issues
+    )
+    assert any(
+        issue.code == "opening_visual_detail_lost" and "shutter_count" in issue.message
+        for issue in issues
+    )
 
 
 def test_observed_sill_surround_and_composition_are_preserved_exactly() -> None:
