@@ -27,19 +27,85 @@ def _is_glass_block(opening: SceneOpening) -> bool:
     return any(token in text for token in ("paves de verre", "pave de verre", "glass block", "glass-block"))
 
 
+def _structured_glazing_state(opening: SceneOpening) -> bool | None:
+    """Return a structured glazing decision, or None when no such evidence exists.
+
+    A populated ``opening_visual.glazing`` field is authoritative. Explicitly
+    negative or unknown values therefore suppress the legacy prose heuristic
+    rather than allowing unrelated evidence text to re-invent glazing.
+    """
+    if opening.opening_visual is None or opening.opening_visual.glazing is None:
+        return None
+    value = _normalized(opening.opening_visual.glazing)
+    if not value:
+        return False
+
+    negative = (
+        "none",
+        "no glazing",
+        "no glass",
+        "not glazed",
+        "unglazed",
+        "sans vitrage",
+        "sans verre",
+        "non vitree",
+        "non-vitree",
+        "opaque",
+        "solid",
+        "unknown",
+        "inconnu",
+        "indetermine",
+    )
+    if any(token in value for token in negative):
+        return False
+
+    # This field describes glazing rather than generic opening appearance. Once
+    # it contains a non-negative observed descriptor (e.g. clear, glass,
+    # translucent, double), the presence of glazing itself is established even
+    # if the descriptor does not literally contain the word "glass".
+    return True
+
+
 def _is_glazed_door(opening: SceneOpening) -> bool:
     if opening.type is not OpeningType.DOOR:
         return False
+
+    structured = _structured_glazing_state(opening)
+    if structured is not None:
+        return structured
+
     text = _opening_text(opening)
-    # Negative evidence wins. A phrase such as "non vitrée" still contains the
-    # substring "vitrée" and must not be accidentally converted into glazing.
+    # Legacy fallback for scenes created before structured opening composition.
+    # Negative evidence wins because a phrase such as "non vitrée" still
+    # contains the substring "vitrée".
     if any(token in text for token in ("non vitree", "non-vitree", "sans vitrage", "not glazed", "unglazed")):
         return False
     return any(token in text for token in ("porte-fenetre", "porte fenetre", "glazed", "vitree", "vitrage"))
 
 
-def _part(placement_id: str, *, x: int, y: int, z: int, facade: Facade, category: str, rotation: int) -> BrickModelPart:
-    return BrickModelPart(placement_id=placement_id, part_id="BRICK_1X1", category=category, component="facade_detail", x_studs=max(0, x), y_studs=max(0, y), z_plates=max(0, z), rotation_quarter_turns=rotation, facade=facade)
+def _part(
+    placement_id: str,
+    *,
+    x: int,
+    y: int,
+    z: int,
+    facade: Facade,
+    category: str,
+    rotation: int,
+    opening_id: str,
+) -> BrickModelPart:
+    return BrickModelPart(
+        placement_id=placement_id,
+        part_id="BRICK_1X1",
+        category=category,
+        component="facade_detail",
+        x_studs=max(0, x),
+        y_studs=max(0, y),
+        z_plates=max(0, z),
+        rotation_quarter_turns=rotation,
+        facade=facade,
+        opening_id=opening_id,
+    )
 
 
 def _opening_grid(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x: float, origin_y: float, origin_z: float, studs_per_meter: float) -> tuple[int, int, int, int, int, int, int, int]:
@@ -78,13 +144,23 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
     index = 1
     for dx in range(width):
         for dz in range(height):
-            # A text label such as "glazed door" proves glazing, not the exact
-            # thickness/layout of a surrounding frame. Until Scene has explicit
-            # door-frame geometry, render only the glazing cells here rather than
-            # inventing a perimeter frame.
+            # Explicit glazing proves glazing, not the exact thickness/layout of
+            # a surrounding frame. Until Scene has explicit door-frame geometry,
+            # render only glazing cells rather than inventing a perimeter frame.
             category = "window_pane"
             gx, gy, gz, rotation = _global_cell(opening.facade, house_x=house_x, house_y=house_y, house_width=house_width, house_depth=house_depth, local_x=local + dx, z_course=z0 + dz)
-            parts.append(_part(f"scene-glazing:{opening.id}:{index:05d}", x=gx, y=gy, z=gz, facade=opening.facade, category=category, rotation=rotation))
+            parts.append(
+                _part(
+                    f"scene-glazing:{opening.id}:{index:05d}",
+                    x=gx,
+                    y=gy,
+                    z=gz,
+                    facade=opening.facade,
+                    category=category,
+                    rotation=rotation,
+                    opening_id=opening.id,
+                )
+            )
             index += 1
     return parts
 
