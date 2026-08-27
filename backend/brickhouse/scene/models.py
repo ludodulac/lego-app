@@ -8,6 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building import Appearance, Facade, OpeningType, Position3D, RidgeDirection, SourceInfo, WindowStyle
+from brickhouse.building.models import OpeningVisualDescription
 
 EPSILON = 1e-9
 CONNECTIVITY_TOLERANCE_M = 0.12
@@ -53,6 +54,7 @@ class SceneOpening(BaseModel):
     window_style: WindowStyle | None = None
     has_sill: bool | None = None
     has_decorative_surround: bool | None = None
+    opening_visual: OpeningVisualDescription | None = None
 
     @model_validator(mode="after")
     def validate_window_metadata(self):
