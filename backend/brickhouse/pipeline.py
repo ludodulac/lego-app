@@ -19,6 +19,7 @@ from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
+from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
 from brickhouse.bricks.shed_roof import generate_spatial_shed_roof
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
@@ -188,6 +189,7 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
     enriched = augment_brick_model_with_scene_chimneys(enriched, scene, front_width_studs=front_width_studs)
     enriched = apply_scene_part_categories(enriched, scene)
     enriched = augment_brick_model_with_scene_glazing(enriched, scene, front_width_studs=front_width_studs)
+    enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=front_width_studs)
     _validate_generated_model(enriched)
     if enriched is base.brick_model:
         return base.model_copy(update={"fidelity_issues": fidelity_issues})
