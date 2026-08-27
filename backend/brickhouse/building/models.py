@@ -80,6 +80,7 @@ class OpeningVisualDescription(BaseModel):
     shutter_count: int | None = Field(default=None, ge=0, le=8)
     shutter_style: str | None = None
     shutter_color: str | None = None
+    shutter_state: str | None = None
     notes: str | None = None
 
 
