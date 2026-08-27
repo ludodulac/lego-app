@@ -18,7 +18,8 @@
           <button id="reset-view" type="button">Vue perspective</button>
           <div class="assembly-buttons" aria-label="Vues architecturales canoniques"><button id="view-front" type="button">Avant</button><button id="view-rear" type="button">Arrière</button></div>
           <div class="assembly-buttons"><button id="view-left" type="button">Gauche</button><button id="view-right" type="button">Droite</button></div>
-          <button id="load-sample" type="button">Charger l’exemple</button>
+          <button id="load-reference-house" type="button">Charger la maison des 5 photos</button>
+          <button id="load-sample" type="button">Charger l’exemple générique</button>
           <a class="file-button" href="./instructions.html">Ouvrir la notice</a><button id="download-bom" type="button">Télécharger la liste des pièces</button>
         </section>
         <section class="status-card"><h2>Maquette</h2><dl id="model-summary"><div><dt>Projet</dt><dd>—</dd></div><div><dt>Pièces</dt><dd>—</dd></div><div><dt>Types</dt><dd>—</dd></div><div><dt>Taille</dt><dd>—</dd></div></dl></section>
@@ -32,5 +33,6 @@
     </main>
     <script type="module" src="./viewer.js"></script>
     <script type="module" src="./viewer-precision.js"></script>
+    <script type="module" src="./reference-loader.js"></script>
   </body>
 </html>
