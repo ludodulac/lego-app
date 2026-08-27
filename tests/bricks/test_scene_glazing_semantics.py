@@ -1,5 +1,8 @@
 from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
-from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
+from brickhouse.bricks.scene_glazing import (
+    FOUR_PANE_TALL_OVER_SQUARER,
+    augment_brick_model_with_scene_glazing,
+)
 from brickhouse.scene import ArchitecturalScene
 
 
@@ -8,8 +11,10 @@ def _scene(
     evidence: str,
     glazing=None,
     width: float = 1.2,
+    height: float = 2,
     leaf_count: int | None = None,
     pane_count: int | None = None,
+    pane_layout: str | None = None,
 ) -> ArchitecturalScene:
     opening = {
         "id": "service_door",
@@ -19,7 +24,7 @@ def _scene(
         "offset_horizontal": 2,
         "offset_vertical": 0,
         "width": width,
-        "height": 2,
+        "height": height,
         "source": {"kind": "inferred", "confidence": .7},
         "evidence": [{"photo_index": 1, "observation": evidence}],
     }
@@ -30,6 +35,8 @@ def _scene(
         visual["leaf_count"] = leaf_count
     if pane_count is not None:
         visual["pane_count"] = pane_count
+    if pane_layout is not None:
+        visual["pane_layout"] = pane_layout
     if visual:
         opening["opening_visual"] = visual
     return ArchitecturalScene.model_validate({
@@ -156,3 +163,61 @@ def test_pane_count_does_not_invent_horizontal_or_vertical_dividers():
     )
     assert generated
     assert {part.category for part in generated} == {"window_pane"}
+
+
+def test_reference_like_four_pane_layout_gets_shape_constrained_cross() -> None:
+    generated = _generated(
+        _scene(
+            evidence="Deux vantaux, deux vitrages hauts rectangulaires et deux bas plus carrés.",
+            glazing="clear",
+            width=1.9,
+            height=2.25,
+            leaf_count=2,
+            pane_count=4,
+            pane_layout=FOUR_PANE_TALL_OVER_SQUARER,
+        )
+    )
+    frames = [part for part in generated if part.category == "window_frame"]
+    panes = [part for part in generated if part.category == "window_pane"]
+
+    # 1.9 m at 48 studs / 10 m -> 9 stud columns. 2.25 m -> 9 courses.
+    assert len(generated) == 81
+    assert len(frames) == 17  # 9-cell center stile + 9-cell cross rail - intersection
+    assert len(panes) == 64
+
+    frame_columns = {}
+    for part in frames:
+        frame_columns.setdefault(part.y_studs, set()).add(part.z_plates)
+    center_y = max(frame_columns, key=lambda y: len(frame_columns[y]))
+    assert len(frame_columns[center_y]) == 9
+
+    frame_rows = {}
+    for part in frames:
+        frame_rows.setdefault(part.z_plates, set()).add(part.y_studs)
+    divider_z = max(frame_rows, key=lambda z: len(frame_rows[z]))
+    assert len(frame_rows[divider_z]) == 9
+
+    lower_rows = {part.z_plates for part in panes if part.z_plates < divider_z}
+    upper_rows = {part.z_plates for part in panes if part.z_plates > divider_z}
+    assert len(lower_rows) == 3
+    assert len(upper_rows) == 5
+
+
+def test_four_pane_layout_stays_without_cross_rail_when_shape_constraints_fail() -> None:
+    generated = _generated(
+        _scene(
+            evidence="Deux vantaux et quatre vitrages, proportions non résolues à cette échelle.",
+            glazing="clear",
+            width=1.0,
+            height=1.2,
+            leaf_count=2,
+            pane_count=4,
+            pane_layout=FOUR_PANE_TALL_OVER_SQUARER,
+        )
+    )
+    frames = [part for part in generated if part.category == "window_frame"]
+
+    # The exact vertical leaf meeting line remains valid, but the shallow opening
+    # cannot satisfy lower-near-square + distinctly-taller-upper constraints.
+    assert frames
+    assert len({part.y_studs for part in frames}) == 1
