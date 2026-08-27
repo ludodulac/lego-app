@@ -131,11 +131,15 @@ class OpeningVisualDescription(BaseModel):
     frame_color: str | None = None
     frame_material: str | None = None
     leaf_count: int | None = Field(default=None, ge=1, le=8)
+    pane_count: int | None = Field(default=None, ge=1, le=32)
     mullion_count: int | None = Field(default=None, ge=0, le=16)
     glazing: str | None = None
     sill: str | None = None
     surround_material: str | None = None
     surround_color: str | None = None
+    shutter_count: int | None = Field(default=None, ge=0, le=8)
+    shutter_style: str | None = None
+    shutter_color: str | None = None
     notes: str | None = None
 
 
