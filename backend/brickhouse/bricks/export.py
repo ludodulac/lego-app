@@ -66,6 +66,47 @@ class BrickExportBundle(BaseModel):
         return self
 
 
+def _semantic_color_fidelity_issues(model: BrickModel) -> list[BrickExportFidelityIssue]:
+    """Expose preserved architectural colors whose LEGO availability is unresolved.
+
+    BrickHouse currently validates deterministic placement capabilities, not the
+    availability of every approved part in every LEGO color. A semantic color is
+    therefore useful evidence but must never be presented as a validated physical
+    procurement choice until a separate part/color capability registry exists.
+    """
+    combinations = sorted({
+        (part.category, part.semantic_color)
+        for part in model.parts
+        if part.semantic_color is not None
+    })
+    return [
+        BrickExportFidelityIssue(
+            code="lego_color_availability_unvalidated",
+            severity="info",
+            message=(
+                f"Architectural color {semantic_color!r} is preserved for {category} parts, "
+                "but BrickHouse has not yet validated that the generated LEGO part/color combinations are physically available."
+            ),
+        )
+        for category, semantic_color in combinations
+    ]
+
+
+def _merge_fidelity_issues(
+    supplied: list[BrickExportFidelityIssue] | None,
+    generated: list[BrickExportFidelityIssue],
+) -> list[BrickExportFidelityIssue]:
+    merged: list[BrickExportFidelityIssue] = []
+    seen: set[tuple[str, str | None, str]] = set()
+    for issue in [*(supplied or []), *generated]:
+        key = (issue.code, issue.object_id, issue.message)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(issue)
+    return merged
+
+
 def create_export_bundle(
     model: BrickModel,
     bom: BillOfMaterials,
@@ -76,6 +117,10 @@ def create_export_bundle(
     scale_recommendation: ScaleRecommendation | None = None,
 ) -> BrickExportBundle:
     """Create the viewer/export bundle without hiding known architectural losses."""
+    resolved_fidelity_issues = _merge_fidelity_issues(
+        fidelity_issues,
+        _semantic_color_fidelity_issues(model),
+    )
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
@@ -87,7 +132,7 @@ def create_export_bundle(
         brick_model=model,
         bom=bom,
         assembly_plan=assembly_plan,
-        fidelity_issues=fidelity_issues or [],
+        fidelity_issues=resolved_fidelity_issues,
     )
 
 
