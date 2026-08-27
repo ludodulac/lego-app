@@ -13,6 +13,9 @@ from .scene_chimneys import augment_brick_model_with_scene_chimneys
 from .wall_depth import augment_brick_model_with_wall_depth
 
 
+FOUR_PANE_TALL_OVER_SQUARER = "two_over_two_upper_rectangular_lower_squarer"
+
+
 def _normalized(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").lower().split())
 
@@ -134,6 +137,54 @@ def _global_cell(facade: Facade, *, house_x: int, house_y: int, house_width: int
     return house_x, house_y + house_depth - local_x - 1, z, 0
 
 
+def _qualitative_horizontal_divider_dz(
+    opening: SceneOpening,
+    *,
+    glazed_door: bool,
+    width: int,
+    height: int,
+    centerline_dx: int | None,
+) -> int | None:
+    """Resolve a horizontal divider only when qualitative shape evidence converges.
+
+    ``lower squarer`` does not provide a metric height. It does constrain a LEGO
+    discretization, however: after reserving the exact central meeting stile, a
+    lower pane should be close to square in physical LEGO proportions while the
+    upper pane should remain distinctly taller. The closest discrete lower height
+    to a square is accepted only when both constraints are satisfied. Otherwise
+    the divider remains unresolved.
+    """
+    visual = opening.opening_visual
+    if (
+        not glazed_door
+        or visual is None
+        or centerline_dx is None
+        or visual.leaf_count != 2
+        or visual.pane_count != 4
+        or visual.pane_layout != FOUR_PANE_TALL_OVER_SQUARER
+    ):
+        return None
+
+    pane_width_studs = centerline_dx
+    if pane_width_studs < 2 or height < 5:
+        return None
+
+    ideal_square_courses = pane_width_studs * COURSES_PER_STUD_RATIO
+    lower_courses = _round_half_up(ideal_square_courses)
+    upper_courses = height - lower_courses - 1  # reserve one course for the divider
+    if lower_courses < 1 or upper_courses <= lower_courses:
+        return None
+
+    lower_ratio = lower_courses / ideal_square_courses
+    upper_ratio = upper_courses / ideal_square_courses
+    if not 0.8 <= lower_ratio <= 1.2:
+        return None
+    if upper_ratio < 1.25:
+        return None
+
+    return lower_courses
+
+
 def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x: float, origin_y: float, origin_z: float, studs_per_meter: float) -> list[BrickModelPart]:
     glass_blocks = _is_glass_block(opening)
     glazed_door = _is_glazed_door(opening)
@@ -160,16 +211,23 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
         and width % 2 == 1
     )
     centerline_dx = width // 2 if has_exact_two_leaf_centerline else None
+    horizontal_divider_dz = _qualitative_horizontal_divider_dz(
+        opening,
+        glazed_door=glazed_door,
+        width=width,
+        height=height,
+        centerline_dx=centerline_dx,
+    )
 
     parts: list[BrickModelPart] = []
     index = 1
     for dx in range(width):
         for dz in range(height):
-            # Structured leaf count can justify the exact central meeting stile;
-            # it still does not justify a perimeter frame or horizontal pane
-            # divider. pane_count remains semantic until metric pane proportions
-            # are known.
-            category = "window_frame" if dx == centerline_dx else "window_pane"
+            # A structured two-leaf/four-pane topology can justify internal
+            # meeting members when their discrete location is constrained. It
+            # still does not justify a perimeter frame.
+            is_internal_frame = dx == centerline_dx or dz == horizontal_divider_dz
+            category = "window_frame" if is_internal_frame else "window_pane"
             gx, gy, gz, rotation = _global_cell(
                 opening.facade,
                 house_x=house_x,
