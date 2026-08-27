@@ -65,6 +65,20 @@ class WindowStyle(str, Enum):
     BAY = "bay"
 
 
+class OpeningVisualDescription(BaseModel):
+    """Observed opening composition preserved without implying LEGO geometry."""
+
+    frame_color: str | None = None
+    frame_material: str | None = None
+    leaf_count: int | None = Field(default=None, ge=1, le=8)
+    mullion_count: int | None = Field(default=None, ge=0, le=16)
+    glazing: str | None = None
+    sill: str | None = None
+    surround_material: str | None = None
+    surround_color: str | None = None
+    notes: str | None = None
+
+
 class Opening(BaseModel):
     id: str
     type: OpeningType
@@ -78,6 +92,7 @@ class Opening(BaseModel):
     window_style: WindowStyle | None = None
     has_sill: bool | None = None
     has_decorative_surround: bool | None = None
+    opening_visual: OpeningVisualDescription | None = None
 
     @model_validator(mode="after")
     def validate_window_metadata(self) -> "Opening":
