@@ -28,6 +28,7 @@ class FacadeDetailPlacement(BaseModel):
     rotation_quarter_turns: Literal[0, 1, 2, 3] = 0
     opening_id: str | None = None
     trim_role: TrimRole | None = None
+    semantic_color: str | None = Field(default=None, min_length=1)
 
 
 _CANONICAL_TRIM_SPANS: tuple[tuple[int, str], ...] = (
@@ -69,6 +70,15 @@ def _surround_category(opening) -> FacadeDetailCategory:
     if any(token in material for token in ("masonry", "mineral", "stone_like", "rendered")):
         return "masonry"
     return "facade_detail"
+
+
+def _surround_semantic_color(opening) -> str | None:
+    """Return explicit observed surround color without mapping it to LEGO IDs."""
+    visual = opening.opening_visual
+    if visual is None or visual.surround_color is None:
+        return None
+    value = visual.surround_color.strip()
+    return value or None
 
 
 def _to_global(
@@ -126,6 +136,7 @@ def _append_cell(
     opening_id,
     trim_role,
     category: FacadeDetailCategory = "facade_detail",
+    semantic_color: str | None = None,
 ) -> None:
     if not (0 <= local_x < wall_width and 0 <= course < wall_height):
         return
@@ -144,6 +155,7 @@ def _append_cell(
             z_plates=z,
             opening_id=opening_id,
             trim_role=trim_role,
+            semantic_color=semantic_color,
         )
     )
 
@@ -163,6 +175,7 @@ def _append_horizontal_run(
     opening_id,
     trim_role,
     category: FacadeDetailCategory = "facade_detail",
+    semantic_color: str | None = None,
 ) -> None:
     """Compact an exact horizontal cell run into longest canonical 1xN bricks."""
     start = max(0, start_local_x)
@@ -178,9 +191,6 @@ def _append_horizontal_run(
                 continue
             cells = [(facade, local_x, course) for local_x in range(cursor, cursor + span)]
             if any(cell in seen for cell in cells):
-                # Existing semantic trim owns at least one cell. Fall back to a
-                # single cell so overlap handling remains identical to the old
-                # 1x1 implementation instead of spanning across owned geometry.
                 span, part_id = 1, "BRICK_1X1"
                 cells = [(facade, cursor, course)]
             if cells[0] in seen:
@@ -207,6 +217,7 @@ def _append_horizontal_run(
                     rotation_quarter_turns=rotation if span > 1 else 0,
                     opening_id=opening_id,
                     trim_role=trim_role,
+                    semantic_color=semantic_color,
                 )
             )
             cursor += span
@@ -227,9 +238,9 @@ def generate_window_surrounds(
     around the vertical axis; using a 1xN brick across courses would invent an
     unvalidated sideways-building technique.
 
-    Explicit surround material is carried only by surround roles. A sill stays
-    generic unless its own material is observed separately; surround material is
-    not silently reused as sill material.
+    Explicit surround material and semantic color are carried only by surround
+    roles. A sill stays generic and uncolored unless its own evidence is added by
+    a future contract; surround evidence is never silently reused as sill data.
     """
     _ = skip_opening_ids
     openings = {opening.id: opening for opening in building.openings}
@@ -239,7 +250,7 @@ def generate_window_surrounds(
     placements: list[FacadeDetailPlacement] = []
     seen: set[tuple[Facade, int, int]] = set()
 
-    def add(facade, raster, local_x, course, role, wall, category="facade_detail"):
+    def add(facade, raster, local_x, course, role, wall, category="facade_detail", semantic_color=None):
         _append_cell(
             placements,
             seen,
@@ -253,9 +264,10 @@ def generate_window_surrounds(
             opening_id=raster.id,
             trim_role=role,
             category=category,
+            semantic_color=semantic_color,
         )
 
-    def add_run(facade, raster, start, end, course, role, wall, category="facade_detail"):
+    def add_run(facade, raster, start, end, course, role, wall, category="facade_detail", semantic_color=None):
         _append_horizontal_run(
             placements,
             seen,
@@ -270,6 +282,7 @@ def generate_window_surrounds(
             opening_id=raster.id,
             trim_role=role,
             category=category,
+            semantic_color=semantic_color,
         )
 
     for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
@@ -285,10 +298,11 @@ def generate_window_surrounds(
             bottom = raster.z_bricks - 1
             top = raster.z_bricks + raster.height_bricks
             surround_category = _surround_category(opening)
+            surround_color = _surround_semantic_color(opening)
             if opening.has_decorative_surround:
                 for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks):
-                    add(facade, raster, left, course, "left_jamb", wall, surround_category)
-                    add(facade, raster, right, course, "right_jamb", wall, surround_category)
+                    add(facade, raster, left, course, "left_jamb", wall, surround_category, surround_color)
+                    add(facade, raster, right, course, "right_jamb", wall, surround_category, surround_color)
                 add_run(
                     facade,
                     raster,
@@ -298,6 +312,7 @@ def generate_window_surrounds(
                     "head",
                     wall,
                     surround_category,
+                    surround_color,
                 )
                 if not opening.has_sill:
                     add_run(
@@ -309,6 +324,7 @@ def generate_window_surrounds(
                         "surround_base",
                         wall,
                         surround_category,
+                        surround_color,
                     )
             if opening.has_sill:
                 add_run(
