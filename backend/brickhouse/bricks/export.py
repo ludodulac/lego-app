@@ -15,6 +15,17 @@ from .building_layout import BuildingDiscretizationQuality
 from .scale_optimizer import ScaleRecommendation
 
 
+class PhysicalModelSummary(BaseModel):
+    """Approximate real-world size of the generated LEGO model."""
+
+    stud_pitch_mm: float = 8.0
+    plate_height_mm: float = 3.2
+    width_mm: float = Field(gt=0)
+    depth_mm: float = Field(gt=0)
+    height_mm: float = Field(gt=0)
+    approximate_scale_denominator: float | None = Field(default=None, gt=0)
+
+
 class BrickExportMetadata(BaseModel):
     generator: Literal["brickhouse-engine"] = "brickhouse-engine"
     coordinate_system: Literal["stud-grid"] = "stud-grid"
@@ -22,6 +33,7 @@ class BrickExportMetadata(BaseModel):
     engine_revision: str | None = None
     discretization_quality: list[BuildingDiscretizationQuality] = Field(default_factory=list)
     scale_recommendation: ScaleRecommendation | None = None
+    physical_model: PhysicalModelSummary | None = None
 
 
 class BrickExportFidelityIssue(BaseModel):
@@ -107,6 +119,25 @@ def _merge_fidelity_issues(
     return merged
 
 
+def _physical_model_summary(
+    model: BrickModel,
+    discretization_quality: list[BuildingDiscretizationQuality],
+) -> PhysicalModelSummary:
+    """Compute physical LEGO dimensions without inventing an architectural scale."""
+    scales = {round(report.studs_per_meter, 9) for report in discretization_quality}
+    scale_denominator = None
+    if len(scales) == 1:
+        studs_per_meter = next(iter(scales))
+        # One real metre becomes ``studs_per_meter * 8 mm`` in the model.
+        scale_denominator = 1000.0 / (studs_per_meter * 8.0)
+    return PhysicalModelSummary(
+        width_mm=model.width_studs * 8.0,
+        depth_mm=model.depth_studs * 8.0,
+        height_mm=model.height_plates * 3.2,
+        approximate_scale_denominator=scale_denominator,
+    )
+
+
 def create_export_bundle(
     model: BrickModel,
     bom: BillOfMaterials,
@@ -117,6 +148,7 @@ def create_export_bundle(
     scale_recommendation: ScaleRecommendation | None = None,
 ) -> BrickExportBundle:
     """Create the viewer/export bundle without hiding known architectural losses."""
+    resolved_quality = discretization_quality or []
     resolved_fidelity_issues = _merge_fidelity_issues(
         fidelity_issues,
         _semantic_color_fidelity_issues(model),
@@ -125,8 +157,9 @@ def create_export_bundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
         metadata=BrickExportMetadata(
-            discretization_quality=discretization_quality or [],
+            discretization_quality=resolved_quality,
             scale_recommendation=scale_recommendation,
+            physical_model=_physical_model_summary(model, resolved_quality),
         ),
         appearance=appearance,
         brick_model=model,
