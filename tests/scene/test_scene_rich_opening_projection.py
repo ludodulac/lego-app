@@ -32,11 +32,15 @@ def test_window_metadata_survives_scene_projection():
                 "frame_color": "dark_brown",
                 "frame_material": "wood",
                 "leaf_count": 2,
+                "pane_count": 4,
                 "mullion_count": 1,
                 "glazing": "clear",
                 "sill": "projecting",
                 "surround_material": "stone_like",
                 "surround_color": "light_beige",
+                "shutter_count": 2,
+                "shutter_style": "folding",
+                "shutter_color": "white",
             },
             "source": {"kind": "inferred", "confidence": .7},
         }],
@@ -54,8 +58,12 @@ def test_window_metadata_survives_scene_projection():
     assert opening.has_decorative_surround is True
     assert opening.opening_visual is not None
     assert opening.opening_visual.leaf_count == 2
+    assert opening.opening_visual.pane_count == 4
     assert opening.opening_visual.mullion_count == 1
     assert opening.opening_visual.surround_material == "stone_like"
+    assert opening.opening_visual.shutter_count == 2
+    assert opening.opening_visual.shutter_style == "folding"
+    assert opening.opening_visual.shutter_color == "white"
 
 
 def test_door_composition_survives_without_window_only_metadata():
@@ -85,6 +93,7 @@ def test_door_composition_survives_without_window_only_metadata():
             "opening_visual": {
                 "frame_color": "dark_brown",
                 "leaf_count": 2,
+                "pane_count": 4,
                 "mullion_count": 1,
                 "glazing": "clear",
             },
@@ -97,5 +106,6 @@ def test_door_composition_survives_without_window_only_metadata():
     opening = result.building.openings[0]
     assert opening.type.value == "door"
     assert opening.opening_visual.leaf_count == 2
+    assert opening.opening_visual.pane_count == 4
     assert opening.opening_visual.glazing == "clear"
     assert opening.window_style is None

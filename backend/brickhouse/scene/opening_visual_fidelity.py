@@ -13,11 +13,15 @@ _VISUAL_FIELDS = (
     "frame_color",
     "frame_material",
     "leaf_count",
+    "pane_count",
     "mullion_count",
     "glazing",
     "sill",
     "surround_material",
     "surround_color",
+    "shutter_count",
+    "shutter_style",
+    "shutter_color",
 )
 
 
