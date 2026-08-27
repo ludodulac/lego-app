@@ -1,6 +1,7 @@
 import pytest
 from brickhouse.bricks.bom import generate_bom
-from brickhouse.bricks.brick_model import generate_brick_model
+from brickhouse.bricks.brick_model import BrickModelPart, generate_brick_model
+from brickhouse.bricks.facade_details import FacadeDetailPlacement
 from brickhouse.bricks.roof import GlobalRoofPlacement, SpatialRoof
 from brickhouse.bricks.spatial import GlobalBrickPlacement, SpatialBrickShell
 from brickhouse.building.models import Facade, RidgeDirection
@@ -37,6 +38,42 @@ def test_brick_model_generates_stable_unique_ids_and_metadata():
     assert ids[3]=="gable-000001"; assert ids[-3:]==["roof-000001","roof-000002","roof-000003"]
     assert len(ids)==len(set(ids)); assert model.parts[0].facade is Facade.FRONT
     assert model.parts[-1].roof_side=="ridge"; assert model.parts[-1].category=="ridge_tile"
+
+def test_facade_trim_provenance_survives_brick_model_conversion():
+    detail = FacadeDetailPlacement(
+        part_id="BRICK_1X4",
+        facade=Facade.FRONT,
+        x_studs=2,
+        y_studs=0,
+        z_plates=6,
+        rotation_quarter_turns=1,
+        opening_id="window-front-1",
+        trim_role="head",
+    )
+    model = generate_brick_model(_shell(), None, facade_details=[detail])
+    generated = next(part for part in model.parts if part.placement_id == "detail-000001")
+
+    assert generated.opening_id == "window-front-1"
+    assert generated.trim_role == "head"
+    assert generated.model_dump(mode="json")["opening_id"] == "window-front-1"
+    assert generated.model_dump(mode="json")["trim_role"] == "head"
+
+
+def test_trim_role_requires_facade_detail_opening_provenance():
+    with pytest.raises(ValueError, match="trim_role requires opening_id"):
+        BrickModelPart(
+            placement_id="detail-test",
+            part_id="BRICK_1X1",
+            category="facade_detail",
+            component="facade_detail",
+            x_studs=0,
+            y_studs=0,
+            z_plates=0,
+            rotation_quarter_turns=0,
+            facade=Facade.FRONT,
+            trim_role="sill",
+        )
+
 
 def test_brick_model_rejects_building_mismatch():
     with pytest.raises(ValueError,match="same building"): generate_brick_model(_shell(),_roof(building_id="other"))
