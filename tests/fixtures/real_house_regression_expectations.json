@@ -15,7 +15,11 @@
     },
     "front": {
       "low_left_opening": "window",
-      "low_right_opening": "door_or_glazed_door"
+      "low_right_opening": "door_or_glazed_door",
+      "glazed_door_leaf_count": 2,
+      "glazed_door_pane_count": 4,
+      "glazed_door_pane_layout": "two_over_two_upper_rectangular_lower_squarer",
+      "glazed_door_horizontal_divider_height_is_metric_unknown": true
     },
     "right": {
       "workshop_window_near_local_grade": true,
@@ -50,6 +54,7 @@
     "rear openings invented inside occluded span",
     "right workshop window raised because local road grade was ignored",
     "opening assigned beyond the actual right-side building boundary",
-    "visible chimney silently omitted from the architectural scene"
+    "visible chimney silently omitted from the architectural scene",
+    "four-pane front glazed door given an arbitrary metric horizontal divider"
   ]
 }
