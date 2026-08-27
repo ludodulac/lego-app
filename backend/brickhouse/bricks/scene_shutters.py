@@ -12,7 +12,7 @@ from brickhouse.building.models import Facade, OpeningType
 from brickhouse.scene import ArchitecturalScene
 from brickhouse.scene.models import SceneOpening
 
-from .brick_model import BrickModel, BrickModelPart
+from .brick_model import BrickModel, BrickModelPart, EXTERIOR_MATERIAL_CATEGORIES
 from .scene_architecture import _scene_bounds
 from .scene_glazing import _global_cell, _opening_grid
 
@@ -33,10 +33,11 @@ def _renderable_open_shutters(opening: SceneOpening) -> bool:
     # Count and style establish that the observed objects are a paired folding
     # shutter assembly. Pose remains an independent fact and must match the
     # canonical state exactly; prose such as "open" is intentionally not enough.
+    style = _normalized(visual.shutter_style)
     return (
         visual.shutter_count == 2
-        and visual.shutter_style is not None
-        and "fold" in _normalized(visual.shutter_style)
+        and style is not None
+        and "fold" in style
         and _normalized(visual.shutter_state) == _OPEN_FOLDED_STATE
     )
 
@@ -58,7 +59,6 @@ def _shutter_parts(
         origin_z=origin_z,
         studs_per_meter=studs_per_meter,
     )
-    volume = next(item for item in scene.volumes if item.id == opening.volume_id)
     wall_width = house_width if opening.facade in {Facade.FRONT, Facade.REAR} else house_depth
     # A folded shutter is represented by one vertical 1-stud strip beside each
     # jamb. This is deliberately simple, placement-approved, and outside the
@@ -136,17 +136,19 @@ def augment_brick_model_with_scene_shutters(
     if not extra:
         return model
 
-    # Shutters live outside the opening void. Replace only an existing generic
-    # facade detail occupying the exact same cell (for example surround masonry),
-    # never glazing or wall structure. The shutter is the visible exterior detail
-    # at that cell while preserving the opening's semantic provenance.
+    # A folded shutter sits on top of the surround/wall face beside the opening.
+    # When semantic surround detail already owns that exact facade-detail cell,
+    # the shutter becomes the visible exterior detail there. Glazing and wall
+    # structure are never removed.
     target_cells = {(p.x_studs, p.y_studs, p.z_plates, p.facade) for p in extra}
+    replaceable_detail_categories = {"facade_detail", *EXTERIOR_MATERIAL_CATEGORIES}
     kept = [
         part
         for part in model.parts
         if not (
             part.component == "facade_detail"
-            and part.category == "facade_detail"
+            and part.category in replaceable_detail_categories
+            and part.opening_id is not None
             and (part.x_studs, part.y_studs, part.z_plates, part.facade) in target_cells
         )
     ]
