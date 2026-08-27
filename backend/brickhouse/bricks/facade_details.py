@@ -15,11 +15,12 @@ from brickhouse.building.models import BuildingModel, Facade, OpeningType
 from .building_layout import BuildingBrickShell
 
 TrimRole = Literal["sill", "left_jamb", "right_jamb", "head", "surround_base"]
+FacadeDetailCategory = Literal["facade_detail", "masonry", "stone"]
 
 
 class FacadeDetailPlacement(BaseModel):
     part_id: str
-    category: Literal["facade_detail"] = "facade_detail"
+    category: FacadeDetailCategory = "facade_detail"
     facade: Facade
     x_studs: int = Field(ge=0)
     y_studs: int = Field(ge=0)
@@ -37,6 +38,37 @@ _CANONICAL_TRIM_SPANS: tuple[tuple[int, str], ...] = (
     (2, "BRICK_1X2"),
     (1, "BRICK_1X1"),
 )
+
+
+def _normalized_material(value: str) -> str:
+    return "_".join(value.strip().lower().replace("-", "_").split())
+
+
+def _surround_category(opening) -> FacadeDetailCategory:
+    """Translate only explicit surround material evidence into a LEGO category.
+
+    A descriptor such as ``stone_like`` describes appearance, not geological
+    certainty, so it remains the conservative masonry family. Only descriptors
+    that explicitly assert stone are classified as stone. Unknown descriptors
+    stay generic instead of being guessed from surround color or facade style.
+    """
+    visual = opening.opening_visual
+    if visual is None or visual.surround_material is None:
+        return "facade_detail"
+
+    material = _normalized_material(visual.surround_material)
+    explicit_stone = {
+        "stone",
+        "natural_stone",
+        "cut_stone",
+        "dressed_stone",
+        "masonry_stone",
+    }
+    if material in explicit_stone:
+        return "stone"
+    if any(token in material for token in ("masonry", "mineral", "stone_like", "rendered")):
+        return "masonry"
+    return "facade_detail"
 
 
 def _to_global(
@@ -93,6 +125,7 @@ def _append_cell(
     depth,
     opening_id,
     trim_role,
+    category: FacadeDetailCategory = "facade_detail",
 ) -> None:
     if not (0 <= local_x < wall_width and 0 <= course < wall_height):
         return
@@ -104,6 +137,7 @@ def _append_cell(
     placements.append(
         FacadeDetailPlacement(
             part_id="BRICK_1X1",
+            category=category,
             facade=facade,
             x_studs=x,
             y_studs=y,
@@ -128,6 +162,7 @@ def _append_horizontal_run(
     depth,
     opening_id,
     trim_role,
+    category: FacadeDetailCategory = "facade_detail",
 ) -> None:
     """Compact an exact horizontal cell run into longest canonical 1xN bricks."""
     start = max(0, start_local_x)
@@ -164,6 +199,7 @@ def _append_horizontal_run(
             placements.append(
                 FacadeDetailPlacement(
                     part_id=part_id,
+                    category=category,
                     facade=facade,
                     x_studs=x,
                     y_studs=y,
@@ -190,6 +226,10 @@ def generate_window_surrounds(
     1x1-per-course because the current placement model supports only rotations
     around the vertical axis; using a 1xN brick across courses would invent an
     unvalidated sideways-building technique.
+
+    Explicit surround material is carried only by surround roles. A sill stays
+    generic unless its own material is observed separately; surround material is
+    not silently reused as sill material.
     """
     _ = skip_opening_ids
     openings = {opening.id: opening for opening in building.openings}
@@ -199,7 +239,7 @@ def generate_window_surrounds(
     placements: list[FacadeDetailPlacement] = []
     seen: set[tuple[Facade, int, int]] = set()
 
-    def add(facade, raster, local_x, course, role, wall):
+    def add(facade, raster, local_x, course, role, wall, category="facade_detail"):
         _append_cell(
             placements,
             seen,
@@ -212,9 +252,10 @@ def generate_window_surrounds(
             depth=depth,
             opening_id=raster.id,
             trim_role=role,
+            category=category,
         )
 
-    def add_run(facade, raster, start, end, course, role, wall):
+    def add_run(facade, raster, start, end, course, role, wall, category="facade_detail"):
         _append_horizontal_run(
             placements,
             seen,
@@ -228,6 +269,7 @@ def generate_window_surrounds(
             depth=depth,
             opening_id=raster.id,
             trim_role=role,
+            category=category,
         )
 
     for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
@@ -242,10 +284,11 @@ def generate_window_surrounds(
             right = raster.x_studs + raster.width_studs
             bottom = raster.z_bricks - 1
             top = raster.z_bricks + raster.height_bricks
+            surround_category = _surround_category(opening)
             if opening.has_decorative_surround:
                 for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks):
-                    add(facade, raster, left, course, "left_jamb", wall)
-                    add(facade, raster, right, course, "right_jamb", wall)
+                    add(facade, raster, left, course, "left_jamb", wall, surround_category)
+                    add(facade, raster, right, course, "right_jamb", wall, surround_category)
                 add_run(
                     facade,
                     raster,
@@ -254,6 +297,7 @@ def generate_window_surrounds(
                     top,
                     "head",
                     wall,
+                    surround_category,
                 )
                 if not opening.has_sill:
                     add_run(
@@ -264,6 +308,7 @@ def generate_window_surrounds(
                         bottom,
                         "surround_base",
                         wall,
+                        surround_category,
                     )
             if opening.has_sill:
                 add_run(

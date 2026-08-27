@@ -7,7 +7,23 @@ from brickhouse.building.models import BuildingModel
 from brickhouse.geometry import generate_building_geometry
 
 
-def _building(*, decorative=True, sill=True):
+def _building(*, decorative=True, sill=True, surround_material=None):
+    opening = {
+        "id":"w1",
+        "type":"window",
+        "volume_id":"main",
+        "facade":"front",
+        "offset_horizontal":2,
+        "offset_vertical":2,
+        "width":2,
+        "height":2.4,
+        "window_style":"simple",
+        "has_sill":sill,
+        "has_decorative_surround":decorative,
+        "source":{"kind":"observed","confidence":.95},
+    }
+    if surround_material is not None:
+        opening["opening_visual"] = {"surround_material": surround_material}
     return BuildingModel.model_validate({
         "schema_version":"0.1",
         "id":"house",
@@ -21,20 +37,7 @@ def _building(*, decorative=True, sill=True):
             "width":8,"depth":6,"height":6,"floors":2,
             "source":{"kind":"inferred","confidence":.8},
         }],
-        "openings":[{
-            "id":"w1",
-            "type":"window",
-            "volume_id":"main",
-            "facade":"front",
-            "offset_horizontal":2,
-            "offset_vertical":2,
-            "width":2,
-            "height":2.4,
-            "window_style":"simple",
-            "has_sill":sill,
-            "has_decorative_surround":decorative,
-            "source":{"kind":"observed","confidence":.95},
-        }],
+        "openings":[opening],
         "roofs":[],
         "appearance":{
             "walls":{"color":"off_white"},
@@ -152,3 +155,32 @@ def test_no_surround_metadata_produces_no_generic_window_border():
     building=_building(decorative=False,sill=False)
     shell=_shell(building)
     assert generate_window_surrounds(building,shell)==[]
+
+
+def test_stone_like_surround_is_conservatively_masonry_but_sill_stays_generic():
+    building = _building(surround_material="stone_like")
+    details = generate_window_surrounds(building, _shell(building))
+
+    surround = [p for p in details if p.trim_role in {"left_jamb", "right_jamb", "head", "surround_base"}]
+    sill = [p for p in details if p.trim_role == "sill"]
+    assert surround
+    assert {p.category for p in surround} == {"masonry"}
+    assert sill
+    assert {p.category for p in sill} == {"facade_detail"}
+
+
+def test_explicit_stone_surround_uses_stone_category():
+    building = _building(sill=False, surround_material="natural stone")
+    details = generate_window_surrounds(building, _shell(building))
+
+    assert details
+    assert {p.category for p in details} == {"stone"}
+    assert {p.trim_role for p in details} >= {"left_jamb", "right_jamb", "head", "surround_base"}
+
+
+def test_unknown_surround_material_remains_generic_instead_of_guessing():
+    building = _building(sill=False, surround_material="decorative_unknown_finish")
+    details = generate_window_surrounds(building, _shell(building))
+
+    assert details
+    assert {p.category for p in details} == {"facade_detail"}
