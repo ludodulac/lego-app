@@ -178,7 +178,7 @@ def project_scene_to_building(scene: ArchitecturalScene) -> ProjectionResult:
 
     volumes = [Volume(id=volume.id, shape=VolumeShape.RECTANGULAR_PRISM, position=volume.position, width=volume.width.value, depth=volume.depth.value, height=volume.height.value, floors=volume.floors, source=volume.source) for volume in scene.volumes]
 
-    openings = [Opening(id=opening.id, type=opening.type, volume_id=opening.volume_id, facade=opening.facade, offset_horizontal=opening.offset_horizontal, offset_vertical=opening.offset_vertical, width=opening.width, height=opening.height, source=opening.source, window_style=opening.window_style, has_sill=opening.has_sill, has_decorative_surround=opening.has_decorative_surround) for opening in scene.openings]
+    openings = [Opening(id=opening.id, type=opening.type, volume_id=opening.volume_id, facade=opening.facade, offset_horizontal=opening.offset_horizontal, offset_vertical=opening.offset_vertical, width=opening.width, height=opening.height, source=opening.source, window_style=opening.window_style, has_sill=opening.has_sill, has_decorative_surround=opening.has_decorative_surround, opening_visual=opening.opening_visual) for opening in scene.openings]
 
     roofs = [
         Roof(
