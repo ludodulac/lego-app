@@ -14,6 +14,7 @@ from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
 from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slope_family
+from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
@@ -30,6 +31,7 @@ from brickhouse.scene.topology_projection import project_scene_to_building
 from brickhouse.vision.compatibility import assess_m0_compatibility
 
 DEFAULT_FRONT_WIDTH_STUDS = 48
+_SCALE_RECOMMENDATION_RADIUS_STUDS = 6
 _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION = {
     "terrain_not_supported", "local_grade_clearance_not_supported", "platform_not_supported",
     "stair_not_supported", "chimney_not_supported",
@@ -69,7 +71,12 @@ def _build_local_model(building, geometry, shell, spatial_shell, roof, facade_de
     return generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
 
 
-def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: int) -> BrickExportBundle:
+def _single_volume_bundle(
+    building: BuildingModel,
+    geometry,
+    front_width_studs: int,
+    scale_recommendation: ScaleRecommendation,
+) -> BrickExportBundle:
     shell = generate_building_brick_shell(geometry, front_width_studs)
     spatial_shell = generate_spatial_brick_shell(shell)
     window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
@@ -83,15 +90,24 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
     return create_export_bundle(
         brick_model, bom, assembly_plan, appearance=building.appearance,
         discretization_quality=quality,
+        scale_recommendation=scale_recommendation,
     )
 
 
 def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
+    # The caller's requested scale remains authoritative for construction. The
+    # optimizer is advisory only and measures whether a nearby grid would reduce
+    # architectural discretization loss, especially around openings.
+    scale_recommendation = recommend_front_width_studs(
+        building,
+        preferred_front_width_studs=front_width_studs,
+        search_radius_studs=_SCALE_RECOMMENDATION_RADIUS_STUDS,
+    )
     geometry = generate_building_geometry(building)
     if len(building.volumes) == 1:
-        return _single_volume_bundle(building, geometry, front_width_studs)
+        return _single_volume_bundle(building, geometry, front_width_studs, scale_recommendation)
     primary = building.volumes[0]
     studs_per_meter = front_width_studs / primary.width
     plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
@@ -126,6 +142,7 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
     return create_export_bundle(
         brick_model, bom, assembly_plan, appearance=building.appearance,
         discretization_quality=quality_reports,
+        scale_recommendation=scale_recommendation,
     )
 
 
@@ -199,6 +216,7 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
         enriched, bom, assembly_plan, appearance=projection.building.appearance,
         fidelity_issues=fidelity_issues,
         discretization_quality=base.metadata.discretization_quality,
+        scale_recommendation=base.metadata.scale_recommendation,
     )
 
 
