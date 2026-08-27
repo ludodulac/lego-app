@@ -139,16 +139,46 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
     glazed_door = _is_glazed_door(opening)
     if not glass_blocks and not glazed_door:
         return []
-    house_x, house_y, house_width, house_depth, local, z0, width, height = _opening_grid(opening, scene, origin_x=origin_x, origin_y=origin_y, origin_z=origin_z, studs_per_meter=studs_per_meter)
+    house_x, house_y, house_width, house_depth, local, z0, width, height = _opening_grid(
+        opening,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        origin_z=origin_z,
+        studs_per_meter=studs_per_meter,
+    )
+
+    # A two-leaf observation proves a vertical meeting line, but only place it
+    # when the LEGO raster contains one exact central stud column. Even widths
+    # have their geometric center between studs; shifting the divider would be a
+    # fabricated joinery decision, so those openings remain fully glazed.
+    has_exact_two_leaf_centerline = (
+        glazed_door
+        and opening.opening_visual is not None
+        and opening.opening_visual.leaf_count == 2
+        and width >= 3
+        and width % 2 == 1
+    )
+    centerline_dx = width // 2 if has_exact_two_leaf_centerline else None
+
     parts: list[BrickModelPart] = []
     index = 1
     for dx in range(width):
         for dz in range(height):
-            # Explicit glazing proves glazing, not the exact thickness/layout of
-            # a surrounding frame. Until Scene has explicit door-frame geometry,
-            # render only glazing cells rather than inventing a perimeter frame.
-            category = "window_pane"
-            gx, gy, gz, rotation = _global_cell(opening.facade, house_x=house_x, house_y=house_y, house_width=house_width, house_depth=house_depth, local_x=local + dx, z_course=z0 + dz)
+            # Structured leaf count can justify the exact central meeting stile;
+            # it still does not justify a perimeter frame or horizontal pane
+            # divider. pane_count remains semantic until metric pane proportions
+            # are known.
+            category = "window_frame" if dx == centerline_dx else "window_pane"
+            gx, gy, gz, rotation = _global_cell(
+                opening.facade,
+                house_x=house_x,
+                house_y=house_y,
+                house_width=house_width,
+                house_depth=house_depth,
+                local_x=local + dx,
+                z_course=z0 + dz,
+            )
             parts.append(
                 _part(
                     f"scene-glazing:{opening.id}:{index:05d}",
@@ -186,7 +216,16 @@ def augment_brick_model_with_scene_glazing(model: BrickModel, scene: Architectur
         origin_x, origin_y, origin_z = _scene_bounds(scene)
         extra: list[BrickModelPart] = []
         for opening in targets:
-            extra.extend(_opening_parts(opening, scene, origin_x=origin_x, origin_y=origin_y, origin_z=origin_z, studs_per_meter=studs_per_meter))
+            extra.extend(
+                _opening_parts(
+                    opening,
+                    scene,
+                    origin_x=origin_x,
+                    origin_y=origin_y,
+                    origin_z=origin_z,
+                    studs_per_meter=studs_per_meter,
+                )
+            )
         if extra:
             target_cells = {(part.x_studs, part.y_studs, part.z_plates, part.facade) for part in extra}
             replaceable_categories = {"brick", "facade_detail", "window_frame", "window_pane"}
