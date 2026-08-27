@@ -22,6 +22,7 @@ _VISUAL_FIELDS = (
     "shutter_count",
     "shutter_style",
     "shutter_color",
+    "shutter_state",
 )
 
 
