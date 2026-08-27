@@ -13,7 +13,7 @@ from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
-from brickhouse.bricks.wall_depth import augment_brick_model_with_wall_depth
+from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene import ArchitecturalScene
 from brickhouse.scene.topology_projection import project_scene_to_building
@@ -164,6 +164,30 @@ def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFid
                 message=(
                     f"Opening {opening.id!r} is kept as a real wall cut, but its current rectangle is photo-derived "
                     f"at confidence {opening.source.confidence:.2f}; later cross-view constraints may move or resize it."
+                ),
+            )
+        )
+
+    for profile in getattr(scene, "wall_profile_observations", []):
+        if profile.volume_id not in included_ids or profile.openings_recessed is not True:
+            continue
+        reveal = profile.reveal_depth
+        reveal_resolved = (
+            reveal is not None
+            and reveal.value is not None
+            and (reveal.source.kind == "user_provided" or reveal.source.confidence >= MIN_GEOMETRY_CONFIDENCE)
+        )
+        if reveal_resolved:
+            continue
+        issues.append(
+            BrickExportFidelityIssue(
+                code="observed_recess_depth_unresolved",
+                severity="info",
+                object_id=profile.id,
+                message=(
+                    f"Openings on {profile.facade.value} facade of volume {profile.volume_id!r} are visibly recessed, "
+                    "but the recess depth is not resolved strongly enough to move the LEGO frame inward. "
+                    "The first-bricks preview keeps this fact explicit instead of inventing a depth."
                 ),
             )
         )
