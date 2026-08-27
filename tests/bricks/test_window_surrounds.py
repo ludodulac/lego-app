@@ -7,7 +7,7 @@ from brickhouse.building.models import BuildingModel
 from brickhouse.geometry import generate_building_geometry
 
 
-def _building(*, decorative=True, sill=True, surround_material=None):
+def _building(*, decorative=True, sill=True, surround_material=None, surround_color=None):
     opening = {
         "id":"w1",
         "type":"window",
@@ -22,8 +22,13 @@ def _building(*, decorative=True, sill=True, surround_material=None):
         "has_decorative_surround":decorative,
         "source":{"kind":"observed","confidence":.95},
     }
+    visual = {}
     if surround_material is not None:
-        opening["opening_visual"] = {"surround_material": surround_material}
+        visual["surround_material"] = surround_material
+    if surround_color is not None:
+        visual["surround_color"] = surround_color
+    if visual:
+        opening["opening_visual"] = visual
     return BuildingModel.model_validate({
         "schema_version":"0.1",
         "id":"house",
@@ -184,3 +189,28 @@ def test_unknown_surround_material_remains_generic_instead_of_guessing():
 
     assert details
     assert {p.category for p in details} == {"facade_detail"}
+
+
+def test_observed_surround_color_is_carried_only_by_surround_roles():
+    building = _building(
+        sill=True,
+        surround_material="stone_like",
+        surround_color="slightly darker beige",
+    )
+    details = generate_window_surrounds(building, _shell(building))
+
+    surround = [p for p in details if p.trim_role in {"left_jamb", "right_jamb", "head", "surround_base"}]
+    sill = [p for p in details if p.trim_role == "sill"]
+    assert surround
+    assert {p.semantic_color for p in surround} == {"slightly darker beige"}
+    assert sill
+    assert {p.semantic_color for p in sill} == {None}
+
+
+def test_surround_color_does_not_imply_material_category():
+    building = _building(sill=False, surround_color="gray")
+    details = generate_window_surrounds(building, _shell(building))
+
+    assert details
+    assert {p.category for p in details} == {"facade_detail"}
+    assert {p.semantic_color for p in details} == {"gray"}

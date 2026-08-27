@@ -1,6 +1,6 @@
 import pytest
 from brickhouse.bricks.bom import generate_bom
-from brickhouse.bricks.brick_model import BrickModelPart, generate_brick_model
+from brickhouse.bricks.brick_model import BrickModel, BrickModelPart, generate_brick_model
 from brickhouse.bricks.facade_details import FacadeDetailPlacement
 from brickhouse.bricks.roof import GlobalRoofPlacement, SpatialRoof
 from brickhouse.bricks.spatial import GlobalBrickPlacement, SpatialBrickShell
@@ -26,9 +26,6 @@ def test_gables_use_long_bricks_align_and_reach_roof_connection_zone():
     front=[p for p in gables if p.facade is Facade.FRONT]; rear=[p for p in gables if p.facade is Facade.REAR]
     assert front and rear
     assert {p.y_studs for p in front}=={0}; assert {p.y_studs for p in rear}=={7}
-    # 45-degree roof courses advance one stud. The first gable course must
-    # therefore reach x=1 and x=8, directly below the overlapping slope pieces,
-    # rather than leaving the old black staircase gap at x=1/8.
     assert min(p.x_studs for p in front)==1
     assert max(p.x_studs for p in front)<=8
 
@@ -39,9 +36,10 @@ def test_brick_model_generates_stable_unique_ids_and_metadata():
     assert len(ids)==len(set(ids)); assert model.parts[0].facade is Facade.FRONT
     assert model.parts[-1].roof_side=="ridge"; assert model.parts[-1].category=="ridge_tile"
 
-def test_facade_trim_provenance_survives_brick_model_conversion():
+def test_facade_trim_provenance_and_semantic_color_survive_brick_model_conversion():
     detail = FacadeDetailPlacement(
         part_id="BRICK_1X4",
+        category="masonry",
         facade=Facade.FRONT,
         x_studs=2,
         y_studs=0,
@@ -49,14 +47,19 @@ def test_facade_trim_provenance_survives_brick_model_conversion():
         rotation_quarter_turns=1,
         opening_id="window-front-1",
         trim_role="head",
+        semantic_color="slightly darker beige",
     )
     model = generate_brick_model(_shell(), None, facade_details=[detail])
     generated = next(part for part in model.parts if part.placement_id == "detail-000001")
 
     assert generated.opening_id == "window-front-1"
     assert generated.trim_role == "head"
-    assert generated.model_dump(mode="json")["opening_id"] == "window-front-1"
-    assert generated.model_dump(mode="json")["trim_role"] == "head"
+    assert generated.category == "masonry"
+    assert generated.semantic_color == "slightly darker beige"
+    dumped = generated.model_dump(mode="json")
+    assert dumped["opening_id"] == "window-front-1"
+    assert dumped["trim_role"] == "head"
+    assert dumped["semantic_color"] == "slightly darker beige"
 
 
 def test_trim_role_requires_facade_detail_opening_provenance():
@@ -75,6 +78,22 @@ def test_trim_role_requires_facade_detail_opening_provenance():
         )
 
 
+def test_semantic_color_is_rejected_outside_facade_detail_evidence_zone():
+    with pytest.raises(ValueError, match="semantic_color"):
+        BrickModelPart(
+            placement_id="wall-colored",
+            part_id="BRICK_1X1",
+            category="brick",
+            component="wall",
+            x_studs=0,
+            y_studs=0,
+            z_plates=0,
+            rotation_quarter_turns=0,
+            facade=Facade.FRONT,
+            semantic_color="beige",
+        )
+
+
 def test_brick_model_rejects_building_mismatch():
     with pytest.raises(ValueError,match="same building"): generate_brick_model(_shell(),_roof(building_id="other"))
 
@@ -87,7 +106,44 @@ def test_bom_aggregates_all_generated_parts_and_totals():
     assert quantities["BRICK_SLOPED_45_2X4"]==2; assert quantities["TILE_2X2"]==1
     assert bom.total_parts==len(model.parts); assert sum(quantities.values())==len(model.parts)
 
+
+def test_bom_keeps_same_part_and_category_separate_when_semantic_colors_differ():
+    base = dict(
+        part_id="BRICK_1X1",
+        category="masonry",
+        component="facade_detail",
+        x_studs=0,
+        y_studs=0,
+        z_plates=0,
+        rotation_quarter_turns=0,
+        facade=Facade.FRONT,
+        opening_id="w1",
+        trim_role="head",
+    )
+    model = BrickModel(
+        building_id="house",
+        volume_id="main",
+        width_studs=4,
+        depth_studs=4,
+        height_plates=3,
+        parts=[
+            BrickModelPart(placement_id="a", semantic_color="beige", **base),
+            BrickModelPart(placement_id="b", semantic_color="gray", **base),
+            BrickModelPart(placement_id="c", semantic_color="beige", **base),
+        ],
+    )
+    bom = generate_bom(model)
+
+    assert [(line.semantic_color, line.quantity) for line in bom.lines] == [
+        ("beige", 2),
+        ("gray", 1),
+    ]
+    assert bom.unique_part_types == 2
+    assert bom.total_parts == 3
+
+
 def test_bom_order_and_serialization_are_deterministic():
     a=generate_bom(generate_brick_model(_shell(),_roof())); b=generate_bom(generate_brick_model(_shell(),_roof()))
     assert a.model_dump(mode="json")==b.model_dump(mode="json")
-    assert [(line.category,line.part_id) for line in a.lines]==sorted((line.category,line.part_id) for line in a.lines)
+    keys=[(line.category,line.part_id,line.semantic_color or "") for line in a.lines]
+    assert keys==sorted(keys)
