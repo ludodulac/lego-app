@@ -1,6 +1,6 @@
 import { instructionFidelitySummary } from './instruction-fidelity.js';
 
-const stepsRoot=document.querySelector('#steps');
+const stepsRoot=document.querySelector('#steps'),fileInput=document.querySelector('#instruction-file');
 let applying=false;
 const VIEW_LABELS={front:'Façade avant',rear:'Façade arrière',left:'Côté gauche',right:'Côté droit',perspective:'Vue perspective'};
 
@@ -88,6 +88,21 @@ function enhance(){
   }finally{applying=false;}
 }
 
+async function syncManualBundle(event){
+  const file=event.target?.files?.[0];
+  if(!file)return;
+  try{
+    const bundle=JSON.parse(await file.text());
+    if(!bundle?.assembly_plan?.steps?.length||!bundle?.brick_model?.parts?.length)return;
+    localStorage.setItem('brickhouse.currentExport',JSON.stringify(bundle));
+    queueMicrotask(enhance);
+  }catch{
+    // The main renderer owns the user-facing parse error. Keep the last valid
+    // project in localStorage so guidance never switches to malformed data.
+  }
+}
+
+fileInput?.addEventListener('change',syncManualBundle,true);
 const observer=new MutationObserver(()=>queueMicrotask(enhance));
 observer.observe(stepsRoot,{childList:true,subtree:true});
 window.addEventListener('DOMContentLoaded',()=>setTimeout(enhance,0));
