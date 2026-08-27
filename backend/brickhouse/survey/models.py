@@ -132,6 +132,7 @@ class OpeningVisualDescription(BaseModel):
     frame_material: str | None = None
     leaf_count: int | None = Field(default=None, ge=1, le=8)
     pane_count: int | None = Field(default=None, ge=1, le=32)
+    pane_layout: str | None = None
     mullion_count: int | None = Field(default=None, ge=0, le=16)
     glazing: str | None = None
     sill: str | None = None
