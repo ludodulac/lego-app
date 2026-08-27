@@ -1,0 +1,49 @@
+{
+  "schema_version": "brickhouse-reference-opening-visuals-0.1",
+  "reference_id": "real-house-5",
+  "observations": [
+    {
+      "opening_id": "front_upper_left_window",
+      "photo_index": 1,
+      "shutter_count": 2,
+      "shutter_style": "folding",
+      "shutter_state": "open_folded_at_sides",
+      "shutter_color": "white",
+      "observation": "Two white folding shutters are visibly open against the left and right sides of the upper-left front window."
+    },
+    {
+      "opening_id": "front_upper_right_window",
+      "photo_index": 1,
+      "shutter_count": 2,
+      "shutter_style": "folding",
+      "shutter_state": "open_folded_at_sides",
+      "shutter_color": "white",
+      "observation": "Two white folding shutters are visibly open against the left and right sides of the upper-right front window."
+    },
+    {
+      "opening_id": "front_middle_right_window",
+      "photo_index": 1,
+      "shutter_count": 2,
+      "shutter_style": "folding",
+      "shutter_state": "open_folded_at_sides",
+      "shutter_color": "white",
+      "observation": "Two white folding shutters are visibly open against the sides of the middle-right front window."
+    },
+    {
+      "opening_id": "right_upper_window",
+      "photo_index": 2,
+      "shutter_count": 2,
+      "shutter_style": "folding",
+      "shutter_state": "open_folded_at_sides",
+      "shutter_color": "white",
+      "observation": "The upper right-side window visibly has paired white shutters open against its sides."
+    }
+  ],
+  "explicit_non_observations": [
+    {
+      "opening_id": "front_middle_left_window",
+      "photo_index": 1,
+      "observation": "The middle-left front window is clearly visible without side shutters; no shutter geometry should be added from this view."
+    }
+  ]
+}
