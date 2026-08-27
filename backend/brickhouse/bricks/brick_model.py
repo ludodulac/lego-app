@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building.models import Facade, RidgeDirection
-from .facade_details import FacadeDetailPlacement
+from .facade_details import FacadeDetailPlacement, TrimRole
 from .roof import SUPPORTED_SLOPE_FAMILIES, SpatialRoof, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 from .windows import WindowPartPlacement
@@ -43,6 +43,8 @@ class BrickModelPart(BaseModel):
     rotation_quarter_turns: Literal[0, 1, 2, 3]
     facade: Facade | None = None
     roof_side: Literal["negative", "positive", "ridge", "slope"] | None = None
+    opening_id: str | None = None
+    trim_role: TrimRole | None = None
 
     @model_validator(mode="after")
     def validate_semantic_zone(self):
@@ -68,6 +70,11 @@ class BrickModelPart(BaseModel):
             }
             if self.category not in allowed:
                 raise ValueError("facade detail parts must use a facade-compatible category")
+
+        if self.component != "facade_detail" and (self.opening_id is not None or self.trim_role is not None):
+            raise ValueError("opening/trim provenance may only be attached to facade detail parts")
+        if self.trim_role is not None and self.opening_id is None:
+            raise ValueError("trim_role requires opening_id provenance")
         return self
 
 
@@ -233,6 +240,8 @@ def generate_brick_model(
                 z_plates=placement.z_plates,
                 rotation_quarter_turns=placement.rotation_quarter_turns,
                 facade=placement.facade,
+                opening_id=placement.opening_id,
+                trim_role=placement.trim_role,
             )
         )
     for index, placement in enumerate(window_parts or [], start=1):
