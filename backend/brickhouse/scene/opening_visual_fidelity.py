@@ -14,6 +14,7 @@ _VISUAL_FIELDS = (
     "frame_material",
     "leaf_count",
     "pane_count",
+    "pane_layout",
     "mullion_count",
     "glazing",
     "sill",
