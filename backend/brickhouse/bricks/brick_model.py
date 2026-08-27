@@ -45,6 +45,7 @@ class BrickModelPart(BaseModel):
     roof_side: Literal["negative", "positive", "ridge", "slope"] | None = None
     opening_id: str | None = None
     trim_role: TrimRole | None = None
+    semantic_color: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def validate_semantic_zone(self):
@@ -75,6 +76,8 @@ class BrickModelPart(BaseModel):
             raise ValueError("opening/trim provenance may only be attached to facade detail parts")
         if self.trim_role is not None and self.opening_id is None:
             raise ValueError("trim_role requires opening_id provenance")
+        if self.semantic_color is not None and self.component != "facade_detail":
+            raise ValueError("semantic_color is currently evidence-backed only for facade detail parts")
         return self
 
 
@@ -242,6 +245,7 @@ def generate_brick_model(
                 facade=placement.facade,
                 opening_id=placement.opening_id,
                 trim_role=placement.trim_role,
+                semantic_color=placement.semantic_color,
             )
         )
     for index, placement in enumerate(window_parts or [], start=1):
