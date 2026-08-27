@@ -12,6 +12,7 @@ from .brick_model import BrickModel, PartCategory
 class BOMLine(BaseModel):
     part_id: str
     category: PartCategory
+    semantic_color: str | None = Field(default=None, min_length=1)
     quantity: int = Field(gt=0)
 
 
@@ -25,11 +26,24 @@ class BillOfMaterials(BaseModel):
 
 
 def generate_bom(model: BrickModel) -> BillOfMaterials:
-    """Aggregate BrickModel placements by canonical part id and category."""
-    counts = Counter((part.part_id, part.category) for part in model.parts)
+    """Aggregate placements without discarding evidence-backed semantic color.
+
+    ``semantic_color`` deliberately remains an architectural descriptor. It is
+    not a LEGO catalogue color ID and therefore makes the canonical BOM more
+    precise without asserting physical part/color availability.
+    """
+    counts = Counter((part.part_id, part.category, part.semantic_color) for part in model.parts)
     lines = [
-        BOMLine(part_id=part_id, category=category, quantity=quantity)
-        for (part_id, category), quantity in sorted(counts.items(), key=lambda item: (item[0][1], item[0][0]))
+        BOMLine(
+            part_id=part_id,
+            category=category,
+            semantic_color=semantic_color,
+            quantity=quantity,
+        )
+        for (part_id, category, semantic_color), quantity in sorted(
+            counts.items(),
+            key=lambda item: (item[0][1], item[0][0], item[0][2] or ""),
+        )
     ]
     total = sum(line.quantity for line in lines)
     if total != len(model.parts):
