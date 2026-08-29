@@ -1,0 +1,111 @@
+BRICKHOUSE — ARCHITECTURALSURVEY v0.1 — SQUELETTE JSON CANONIQUE
+
+COPIE LA STRUCTURE, PAS LES FAITS D'EXEMPLE.
+La toute première clé du fichier doit être "schema_version". Il ne doit y avoir AUCUN objet parent "ArchitecturalSurvey", "survey", "result" ou autre wrapper.
+N'ajoute JAMAIS "physical_objects" : chaque objet physique observé est directement une entrée de observations[].
+
+{
+  "schema_version": "0.1",
+  "id": "survey-id-non-vide",
+  "name": "nom-non-vide",
+  "canonical_frame": {
+    "front_facade": "front",
+    "x_direction": "front_view_left_to_right",
+    "y_direction": "front_to_rear",
+    "z_direction": "bottom_to_top"
+  },
+  "photos": [
+    {
+      "photo_index": 1,
+      "capture_role": "facade_view",
+      "facade": "front",
+      "description": "description factuelle de ce que montre cette photo",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "low",
+      "user_note": null
+    }
+  ],
+  "known_measurements": [
+    {
+      "kind": "front_width",
+      "value": 10.0,
+      "units": "m",
+      "source": {"kind": "user_provided", "confidence": 1.0}
+    }
+  ],
+  "observations": [
+    {
+      "id": "observation-opening-exemple",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "une ouverture physique est réellement visible",
+      "evidence": [
+        {"photo_index": 1, "observation": "preuve visuelle factuelle"}
+      ],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_horizontal_rank": 1,
+        "facade_vertical_rank": 1
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "observation-platform-exemple",
+      "kind": "platform",
+      "facade": null,
+      "certainty": "certain",
+      "statement": "une plateforme physique est réellement visible",
+      "evidence": [
+        {"photo_index": 1, "observation": "preuve visuelle factuelle"}
+      ],
+      "attributes": {},
+      "attribute_certainty": {},
+      "appearance": null,
+      "opening_visual": null
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation-exemple",
+      "kind": "connects_to",
+      "subject_id": "observation-opening-exemple",
+      "object_id": "observation-platform-exemple",
+      "certainty": "certain",
+      "statement": "relation physique réellement prouvée",
+      "evidence": [
+        {"photo_index": 1, "observation": "preuve factuelle de la relation"}
+      ]
+    }
+  ],
+  "representation_policy": {
+    "preserve_nominal_materials": true,
+    "preserve_opening_composition": true,
+    "preserve_architectural_details": true,
+    "reproduce_weathering": false,
+    "reproduce_temporary_objects": false
+  },
+  "notes": null
+}
+
+RÈGLES DE STRUCTURE À AUDITER JUSTE AVANT DE CRÉER LE FICHIER
+1. Racine directe : schema_version/id/name/... ; aucun wrapper.
+2. canonical_frame.x_direction vaut EXACTEMENT "front_view_left_to_right", jamais "left_to_right".
+3. photos[] n'utilise pas filename ni orientation_source à la place du contrat : description + source sont obligatoires.
+4. known_measurements[] utilise exactement la forme kind/value/units/source : kind="front_width", value numérique, units="m", source objet ; jamais subject_id/attribute/unit/certainty.
+5. Il n'existe AUCUNE clé physical_objects. Les objets sont observations[].
+6. observations[] utilise kind/certainty/statement/evidence. evidence[] contient des objets {photo_index, observation}, jamais des IDs texte.
+7. Une observation kind="opening" porte attributes.physical_object_count=1.
+8. relations[] référence uniquement des IDs existants dans observations[]. Ne crée aucune relation si deux objets distincts prouvés ne sont pas disponibles.
+9. notes est une chaîne ou null, jamais un tableau.
+10. Supprime les champs facultatifs non soutenus par les preuves plutôt que d'inventer une valeur.
+
+Les valeurs du squelette (fenêtre, plateforme, rangs, largeur 10 m, relation) servent UNIQUEMENT à montrer la forme JSON. Elles ne sont jamais des faits sur le bâtiment analysé.
