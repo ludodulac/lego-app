@@ -1,0 +1,40 @@
+{
+  "schema_version": "0.1",
+  "id": "manual-handoff-house",
+  "name": "Manual handoff contract house",
+  "canonical_frame": {
+    "front_facade": "front",
+    "x_direction": "front_view_left_to_right",
+    "y_direction": "front_to_rear",
+    "z_direction": "bottom_to_top"
+  },
+  "photos": [
+    {
+      "photo_index": 1,
+      "capture_role": "facade_view",
+      "facade": "front",
+      "description": "Front facade is visible and used only as contract evidence.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "low",
+      "user_note": null
+    }
+  ],
+  "known_measurements": [
+    {
+      "kind": "front_width",
+      "value": 10.0,
+      "units": "m",
+      "source": {"kind": "user_provided", "confidence": 1.0}
+    }
+  ],
+  "observations": [],
+  "relations": [],
+  "representation_policy": {
+    "preserve_nominal_materials": true,
+    "preserve_opening_composition": true,
+    "preserve_architectural_details": true,
+    "reproduce_weathering": false,
+    "reproduce_temporary_objects": false
+  },
+  "notes": "Minimal valid fixture for the manual ChatGPT Survey boundary; not an architectural benchmark."
+}
