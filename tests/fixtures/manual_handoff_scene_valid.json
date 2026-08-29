@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.2",
+  "id": "manual-handoff-house",
+  "name": "Manual handoff contract house",
+  "units": "m",
+  "volumes": [
+    {
+      "id": "volume_main",
+      "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+      "width": {
+        "value": 10.0,
+        "source": {"kind": "user_provided", "confidence": 1.0},
+        "evidence": []
+      },
+      "depth": {
+        "value": 8.0,
+        "source": {"kind": "inferred", "confidence": 0.7},
+        "evidence": [{"photo_index": 1, "observation": "Contract fixture depth is explicitly marked as inferred from photo evidence."}]
+      },
+      "height": {
+        "value": 6.0,
+        "source": {"kind": "inferred", "confidence": 0.7},
+        "evidence": [{"photo_index": 1, "observation": "Contract fixture height is explicitly marked as inferred from photo evidence."}]
+      },
+      "floors": 2,
+      "source": {"kind": "inferred", "confidence": 0.7},
+      "evidence": [{"photo_index": 1, "observation": "Two-level envelope used only to exercise the Scene contract."}]
+    }
+  ],
+  "openings": [],
+  "roofs": [],
+  "terrain": null,
+  "chimneys": [],
+  "platforms": [],
+  "stairs": [],
+  "equipment": [],
+  "visibility": [],
+  "relations": [],
+  "appearance": {},
+  "notes": "Minimal valid fixture for the manual ChatGPT Scene boundary; not an architectural benchmark."
+}
