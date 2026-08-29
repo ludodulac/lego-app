@@ -1,75 +1,131 @@
-# Boldungo / BrickHouse — reprise immédiate de conversation
+# Boldüngo / BrickHouse — reprise immédiate de conversation
 
-Date : 2026-08-24
+Date : 2026-08-29
 
-> À lire **après `HANDOFF.md`**. `main` reste la source de vérité si ce document diverge.
+> À lire après `docs/PASSATION_CHATGPT.md` et `docs/JURIDIQUE_ET_VENTE_BRIQUES.md`. Ensuite vérifier l’état réel de `main`, des issues, PR et CI. `main` reste la source technique de vérité si ce document vieillit.
 
-## 1. Dépôt / benchmark / URL
+## 1. Discipline de reprise
 
-- dépôt : `ludodulac/lego-app`
-- branche de vérité : `main`
-- interface photo : `https://ludodulac.github.io/lego-app/photo.html`
-- benchmark principal : `frontend/benchmarks/real-house-5/`
-- ne jamais demander à l'utilisateur de renvoyer les 5 photos : elles sont déjà dans le dépôt.
+- dépôt : `ludodulac/lego-app` ; branche de vérité : `main` ;
+- travailler de façon autonome par tranches substantielles : inspection -> correction minimale -> régressions -> CI -> merge -> contrôle post-merge ;
+- ne solliciter l’utilisateur que lorsqu’une information ou action humaine est réellement nécessaire ;
+- ne jamais inventer une géométrie ou une donnée d’approvisionnement pour obtenir un résultat complet ;
+- préserver l’existant : une nouvelle couche doit être additive tant qu’une migration destructive n’est pas justifiée ;
+- distinguer la marque visible **Boldüngo** des identifiants/packages internes historiques BrickHouse ; ne pas renommer mécaniquement le dépôt ou les imports.
 
-## 2. État réel du chantier fidélité 5 photos
+## 2. État fiable atteint le 29/08/2026
 
-Le premier vrai run complet `5 photos -> Survey -> Scene -> LEGO -> viewer` a traversé le pipeline mais a produit un résultat architecturalement mauvais : toit/pignon perdu, ouvertures mal conservées, encadrements absents ou détails vitrés inventés, terrasse/escalier incohérents.
+### BH-087 — évidence visuelle des volets dans le build déployé
 
-Depuis ce run, les corrections génériques suivantes ont été mergées sur `main` :
+Terminé et réellement vérifié après déploiement.
 
-- PR #115 : toiture certaine préservée Survey -> Scene ; un gable incomplet ne peut plus devenir silencieusement un bâtiment ouvert côté LEGO.
-- PR #116 : une observation `opening` représente exactement une ouverture physique (`physical_object_count:1`) ; plus de groupes comme `front_openings`.
-- PR #117 : conservation de l'ordre qualitatif horizontal/vertical certain des ouvertures sans inventer de métrique.
-- PR #118 : conservation des appuis/encadrements observés ; suppression du cadre de porte vitrée inventé à partir de texte libre.
-- PR #119 : une terrasse/volée certaine corroborée multi-vues ne peut plus disparaître simplement parce que sa continuation cachée est inconnue.
-- PR #120 : `ArchitecturalScene` peut conserver des relations topologiques avec `geometry_status:"resolved|unresolved"`; une relation `unresolved` conserve la compréhension physique mais bloque volontairement la projection LEGO.
-- PR #121 : prompt Survey -> Scene v3.3 aligné sur ce contrat : topologie certaine != raccord métrique certain ; ne pas étirer/snaper une structure pour fermer une connexion cachée.
-- PR #122 : correction du handoff PDF externe après un vrai échec d'import ; le PDF exige maintenant un `ArchitecturalSurvey` complet et une `ArchitecturalScene` complète, et interdit de mettre la topologie intermédiaire directement dans `survey`/`scene`.
+- Le Scene CLI accepte un overlay optionnel d’évidence `opening_visual` ; seuls les champs explicitement présents sont fusionnés et un ID d’ouverture inconnu échoue clairement.
+- La scène de base `tests/fixtures/brickhouse_scene_current.json` reste inchangée.
+- `tests/fixtures/real_house_5_shutter_observations.json` cible les IDs canoniques actuels :
+  - `front_window_upper_left`
+  - `front_window_upper_right`
+  - `front_window_middle_right`
+  - `right_window_upper`
+- `front_window_middle_left` est explicitement conservée sans volets.
+- Un premier merge avait rendu la CI verte mais Pages rouge : le chemin `--allow-partial` conservait l’évidence dans ArchitecturalScene sans appliquer `augment_brick_model_with_scene_shutters` au BrickModel.
+- Ce défaut de frontière est désormais couvert par un vrai test `write_scene_export(... allow_partial=True, opening_visual_evidence=...)`.
+- Correctif final fusionné sur `main` au commit `d50d2370affb90cddc42daa60acac48276446c27` ; le déploiement GitHub Pages correspondant a réussi.
+- Issue #266 / BH-087 fermée comme terminée.
 
-## 3. Dernier test utilisateur et dernier bug observé
+Leçon à préserver : une CI de modèles/unités ne suffit pas si Pages exerce un chemin de pipeline différent. Toute exigence de déploiement critique doit aussi être reproduite dans la suite normale de tests.
 
-Le dernier fichier `brickhouse-external-result.json` produit par l'IA externe a été refusé à l'import avec :
+### BH-088 — InstructionPlan séparé
 
-`id : Field required · name : Field required · photos : Field required · relations.0.id : Field required · relations.0.kind : Field required · relations.0.statement : Field required ...`
+Terminé et fusionné sur `main` au commit `010312e16072ec3f95444f597f223a2c453f7e7a`.
 
-Diagnostic confirmé : l'IA avait placé une structure de type topologie intermédiaire dans `survey` au lieu d'un `ArchitecturalSurvey v0.1` complet. Le backend a correctement refusé le fichier. Ne pas assouplir le backend pour accepter ce résultat.
+Le dépôt possède maintenant un contrat renderer-neutral `InstructionPlan` / `InstructionStep`, dérivé déterministement de `AssemblyPlan`.
 
-PR #122 corrige précisément cette ambiguïté dans `frontend/brickhouse-single-package.js` et ajoute un test de non-régression. CI PR #122 verte, puis merge sur `main` au commit `1a7770c91bd8020d6c02eeced67a772cec0e71ee`.
+Il conserve exactement les sémantiques utiles à une notice :
+- identifiant et ordre des étapes ;
+- placements ;
+- phase ;
+- `instruction_kind` (`placement` / `subassembly`) ;
+- `focus` ;
+- `view` backend.
 
-## 4. Point exact de reprise
+`InstructionPlan` ne contient volontairement pas de numéro de sac. `AssemblyPlan` reste la source d’ordre de construction et reste exporté pour compatibilité. `BrickExportBundle.instruction_plan` est additif.
 
-Avant de demander un nouveau run utilisateur :
+Quand le pipeline partiel enrichit un BrickModel après création du bundle, il régénère ensemble BOM, AssemblyPlan et InstructionPlan pour éviter un plan de notice périmé.
 
-1. vérifier que GitHub Pages a réellement redéployé le `main` contenant PR #122 ;
-2. vérifier si possible que le fichier servi `brickhouse-single-package.js` contient la règle : `survey et scene ne sont PAS des résumés de la topologie` ;
-3. si le connecteur ne permet pas d'inspecter directement l'environnement Pages, ne pas prétendre que le déploiement est confirmé ; utiliser le mécanisme GitHub disponible ou demander seulement le test minimal permettant de le constater ;
-4. ensuite seulement demander à l'utilisateur de régénérer un **nouveau** `BRICKHOUSE-ANALYSE-COMPLETE.pdf` depuis `https://ludodulac.github.io/lego-app/photo.html` avec les 5 photos benchmark ;
-5. nouveau chat IA vierge, joindre uniquement le nouveau PDF, récupérer le nouveau `brickhouse-external-result.json` sans correction manuelle ;
-6. réimporter dans Boldungo et relever le premier refus ou, s'il passe, pousser jusqu'au viewer.
+### BH-089 — BagPlan séparé
 
-Ne jamais réutiliser l'ancien PDF ni l'ancien JSON après PR #122.
+Terminé et fusionné sur `main` au commit `99ce6569b57fe0fa9f2750c7067e0c8ea6411004`.
 
-## 5. Objectif produit immédiat
+Le dépôt possède maintenant `BagPlan` / `BagGroup`, séparé de la notice. La première version projette volontairement les affectations de sacs historiques d’AssemblyPlan afin de créer une frontière compatible avant toute optimisation d’emballage.
 
-Le but n'est plus d'ajouter des couches théoriques. Le prochain run réel doit valider que les garde-fous accumulés produisent effectivement un meilleur résultat avec les mêmes 5 photos.
+Chaque groupe de sac conserve :
+- numéro de sac ;
+- phase(s) ;
+- IDs d’étapes AssemblyPlan dans l’ordre ;
+- IDs de placements complets dans l’ordre.
 
-Lors de ce run, observer en priorité :
+Les validateurs imposent numérotation contiguë, couverture unique et comptage complet. `BrickExportBundle.bag_plan` est additif ; l’ancien `AssemblyStep.bag` reste présent pendant la migration. Le pipeline partiel régénère également BagPlan après enrichissement.
 
-- toiture/pignon conservé ou blocage honnête si métrique insuffisante ;
-- inventaire exact des ouvertures et leur ordre ;
-- encadrements observés présents, aucun vitrage décoratif inventé ;
-- terrasse bois / dalle ou palier béton / escalier distingués seulement si les photos le soutiennent ;
-- relations topologiques conservées même si un raccord caché reste `unresolved` ;
-- aucune géométrie cachée inventée pour rendre le modèle constructible.
+Cette séparation donne maintenant :
 
-Si un `unresolved` bloque LEGO, ce n'est pas automatiquement un échec : vérifier d'abord si la compréhension architecturale est correcte et si le raccord est réellement non prouvé par les 5 vues.
+`BrickModel -> AssemblyPlan (construction) -> InstructionPlan (présentation de montage)`
 
-## 6. Discipline de travail
+et, séparément :
 
-- corriger la première cause réelle observée, pas le JSON du benchmark à la main ;
-- correction générique + test de non-régression + CI verte + merge avant nouveau test utilisateur ;
-- ne pas lancer de refonte parallèle sans lien direct avec le prochain test réel ;
-- ne pas considérer `schema_valid` ou `constructible` comme synonyme de fidélité architecturale ;
-- les photos supplémentaires de la maison servent seulement de vérité de contrôle, jamais à rendre artificiellement le benchmark 5 photos parfait ;
-- main est toujours prioritaire sur cette passation.
+`AssemblyPlan -> BagPlan (préparation/emballage)`
+
+Les futures optimisations de sacs ne doivent jamais changer l’ordre de construction ni la fidélité architecturale.
+
+## 3. Pipeline manuel Boldüngo -> ChatGPT avant API
+
+Ne pas repartir de zéro : un handoff manuel existe déjà.
+
+`frontend/brickhouse-single-package.js` construit `BRICKHOUSE-ANALYSE-COMPLETE.pdf`, version `pdf-handoff-0.2`.
+
+Le PDF contient :
+- la commande complète ;
+- les prompts Topologie / Survey / Survey->Scene ;
+- les faits utilisateur et l’autorité d’orientation ;
+- les **photos elles-mêmes comme pages du PDF**, pas de simples chemins locaux.
+
+La sortie exigée est `brickhouse-external-result.json` avec l’enveloppe :
+- `schema_version: external-bundle-0.1`
+- `kind: brickhouse_external_result`
+- un `ArchitecturalSurvey v0.1` complet ;
+- une `ArchitecturalScene v0.2` complète.
+
+Un échec historique important doit rester dans les régressions : une IA avait renvoyé une topologie/résumé à la place d’un Survey complet ; le backend/import avait correctement refusé le JSON. Ne jamais assouplir les contrats pour accepter ce type de sortie malformée.
+
+Issue ouverte #274 / **BH-090 — Validate the manual Boldüngo -> ChatGPT round-trip contract end to end**.
+
+Première tranche recommandée sans intervention utilisateur :
+1. expliciter le contrat de round-trip dans le dépôt ;
+2. fixture canonique `external-bundle-0.1` ;
+3. tests positifs de parse/validation Survey + Scene ;
+4. tests négatifs pour les pseudo-Survey/pseudo-Scene de type topologie ;
+5. vérifier que générateur frontend et importeur attendent exactement les mêmes version/kind/noms ;
+6. seulement après cela, demander un nouveau run humain complet et importer le JSON retourné sans correction manuelle.
+
+La cible produit reste zéro à deux échanges supplémentaires, uniquement lorsqu’une question apporte un gain d’information architectural important.
+
+## 4. Ce qu’il ne faut pas faire ensuite
+
+- Ne pas passer au scraping/catalogue fournisseur massif avant de stabiliser le contrat manuel ChatGPT.
+- Ne pas confondre `semantic_color` observée avec une couleur physique réellement disponible chez un fabricant.
+- Ne pas optimiser les coûts en supprimant silencieusement un détail caractéristique.
+- Ne pas rendre le client captif d’un seul fournisseur.
+- Ne pas intégrer bags, instructions et procurement dans un même modèle monolithique : les frontières viennent précisément d’être séparées.
+- Ne pas demander à l’utilisateur de refaire un travail humain tant qu’un défaut de contrat ou de pipeline peut encore être testé automatiquement.
+
+## 5. Trajectoire après BH-090
+
+Une fois le round-trip manuel robuste :
+
+1. tester plusieurs maisons / cas afin de valider que le contrat n’est pas benchmark-spécifique ;
+2. enrichir InstructionPlan : pages/chapitres, rotations/zooms réellement utiles, sous-assemblages plus riches ;
+3. faire évoluer BagPlan vers PackingPlan en gardant la construction indépendante ;
+4. consolider le catalogue abstrait fabricant-indépendant (`PartDesign` / éléments fournisseur / couleurs réelles / disponibilité / prix) ;
+5. construire ProcurementPlan/comparaison fournisseurs ;
+6. seulement ensuite remplacer progressivement l’étape ChatGPT manuelle par API, sans changer le contrat métier validé.
+
+Toujours vérifier l’état réel de GitHub avant d’agir : les commits et numéros ci-dessus sont un point de reprise, pas une permission d’ignorer `main`.
