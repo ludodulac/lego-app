@@ -12,6 +12,7 @@ from brickhouse.bricks.assembly import generate_assembly_plan
 from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
+from brickhouse.bricks.instructions import generate_instruction_plan
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
@@ -274,10 +275,12 @@ def run_partial_scene_pipeline(
         front_width_studs=selected_width,
     )
     if enriched is not bundle.brick_model:
+        assembly_plan = generate_assembly_plan(enriched)
         bundle = bundle.model_copy(update={
             "brick_model": enriched,
             "bom": generate_bom(enriched),
-            "assembly_plan": generate_assembly_plan(enriched),
+            "assembly_plan": assembly_plan,
+            "instruction_plan": generate_instruction_plan(assembly_plan),
         })
 
     quality = build_discretization_quality(building, front_width_studs=selected_width)
