@@ -8,6 +8,7 @@ on:
       - 'backend/**'
       - 'docs/examples/**'
       - 'tests/fixtures/brickhouse_scene_current.json'
+      - 'tests/fixtures/real_house_5_shutter_observations.json'
       - 'pyproject.toml'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -55,6 +56,7 @@ jobs:
           --front-width-studs 48
           --allow-partial
           --optimize-scale
+          --opening-visual-evidence tests/fixtures/real_house_5_shutter_observations.json
 
       - name: Verify first-bricks export
         run: |
@@ -71,6 +73,18 @@ jobs:
           assert data['assembly_plan']['total_parts'] == len(parts)
           assert data['assembly_plan']['total_steps'] > 0
           assert any(issue['code'] == 'partial_preview_roof_omitted' for issue in data['fidelity_issues'])
+          shutter_openings = {
+              part['opening_id']
+              for part in parts
+              if part.get('placement_id', '').startswith('scene-shutter:')
+          }
+          assert shutter_openings == {
+              'front_window_upper_left',
+              'front_window_upper_right',
+              'front_window_middle_right',
+              'right_window_upper',
+          }
+          assert 'front_window_middle_left' not in shutter_openings
           metadata = data['metadata']
           assert metadata['discretization_quality']
           recommendation = metadata['scale_recommendation']

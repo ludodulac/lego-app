@@ -34,20 +34,20 @@ def _seed_model(scene: ArchitecturalScene) -> BrickModel:
     )
 
 
-def test_reference_house_shutter_observations_match_known_openings_and_render_only_observed_ids():
-    scene_data = _load_json("architectural_scene_real_house_5_v25.json")
+def test_reference_house_shutter_observations_match_current_reference_openings_and_render_only_observed_ids():
+    scene_data = _load_json("brickhouse_scene_current.json")
     evidence = _load_json("real_house_5_shutter_observations.json")
     openings = {opening["id"]: opening for opening in scene_data["openings"]}
 
     observed_ids = {item["opening_id"] for item in evidence["observations"]}
     assert observed_ids == {
-        "front_upper_left_window",
-        "front_upper_right_window",
-        "front_middle_right_window",
-        "right_upper_window",
+        "front_window_upper_left",
+        "front_window_upper_right",
+        "front_window_middle_right",
+        "right_window_upper",
     }
     assert {item["opening_id"] for item in evidence["explicit_non_observations"]} == {
-        "front_middle_left_window"
+        "front_window_middle_left"
     }
     assert observed_ids <= openings.keys()
 
@@ -70,4 +70,4 @@ def test_reference_house_shutter_observations_match_known_openings_and_render_on
         if part.placement_id.startswith("scene-shutter:")
     }
     assert rendered_ids == observed_ids
-    assert "front_middle_left_window" not in rendered_ids
+    assert "front_window_middle_left" not in rendered_ids
