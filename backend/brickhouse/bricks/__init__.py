@@ -16,6 +16,7 @@ from brickhouse.bricks.export import (
     create_export_bundle,
     export_bundle_json,
 )
+from brickhouse.bricks.instructions import InstructionPlan, InstructionStep, generate_instruction_plan
 from brickhouse.bricks.models import BrickCatalog, BrickDefinition
 from brickhouse.bricks.piece_capabilities import (
     PieceCapability,
@@ -70,6 +71,8 @@ __all__ = [
     "BuildingWallLayout",
     "GlobalBrickPlacement",
     "GlobalRoofPlacement",
+    "InstructionPlan",
+    "InstructionStep",
     "PieceCapability",
     "PieceCapabilityRegistry",
     "PieceCapabilityStage",
@@ -91,6 +94,7 @@ __all__ = [
     "generate_bom",
     "generate_brick_model",
     "generate_building_brick_shell",
+    "generate_instruction_plan",
     "generate_scaled_wall_layout",
     "generate_simple_wall_layout",
     "generate_spatial_brick_shell",
