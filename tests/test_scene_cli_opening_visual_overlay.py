@@ -18,10 +18,10 @@ def test_opening_visual_evidence_updates_only_explicit_visual_fields() -> None:
     after = {opening.id: opening for opening in overlaid.openings}
 
     confirmed = {
-        "front_upper_left_window",
-        "front_upper_right_window",
-        "front_middle_right_window",
-        "right_upper_window",
+        "front_window_upper_left",
+        "front_window_upper_right",
+        "front_window_middle_right",
+        "right_window_upper",
     }
     assert set(after) == set(before)
 
@@ -33,17 +33,17 @@ def test_opening_visual_evidence_updates_only_explicit_visual_fields() -> None:
         assert visual.shutter_state == "open_folded_at_sides"
         assert visual.shutter_color == "white"
 
-    assert after["front_middle_left_window"].opening_visual == before["front_middle_left_window"].opening_visual
+    assert after["front_window_middle_left"].opening_visual == before["front_window_middle_left"].opening_visual
 
     for opening_id in set(after) - confirmed:
-        if opening_id == "front_middle_left_window":
+        if opening_id == "front_window_middle_left":
             continue
         assert after[opening_id].model_dump(exclude={"opening_visual"}) == before[opening_id].model_dump(exclude={"opening_visual"})
 
 
 def test_opening_visual_evidence_preserves_existing_visual_fields(tmp_path: Path) -> None:
     scene = load_architectural_scene(SCENE)
-    target = next(opening for opening in scene.openings if opening.id == "front_upper_left_window")
+    target = next(opening for opening in scene.openings if opening.id == "front_window_upper_left")
     existing = target.opening_visual.model_dump(exclude_none=True) if target.opening_visual else {}
     existing["frame_color"] = "cream"
     replacement = target.model_copy(update={"opening_visual": target.opening_visual.model_validate(existing) if target.opening_visual else None})
