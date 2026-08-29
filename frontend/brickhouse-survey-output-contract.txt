@@ -86,7 +86,7 @@ RÈGLES DE STRUCTURE À AUDITER JUSTE AVANT DE CRÉER LE FICHIER
 1. Racine directe : schema_version/id/name/... ; aucun wrapper.
 2. canonical_frame.x_direction vaut EXACTEMENT "front_view_left_to_right", jamais "left_to_right".
 3. photos[] n'utilise pas filename ni orientation_source à la place du contrat : description + source sont obligatoires.
-4. known_measurements[] utilise kind="front_width", value, units="m", source ; jamais subject_id/attribute/unit/certainty.
+4. known_measurements[] utilise exactement la forme kind/value/units/source : kind="front_width", value numérique, units="m", source objet ; jamais subject_id/attribute/unit/certainty.
 5. Il n'existe AUCUNE clé physical_objects. Les objets sont observations[].
 6. observations[] utilise kind/certainty/statement/evidence. evidence[] contient des objets {photo_index, observation}, jamais des IDs texte.
 7. Une observation kind="opening" porte attributes.physical_object_count=1.
