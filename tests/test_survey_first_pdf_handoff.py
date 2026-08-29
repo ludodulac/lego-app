@@ -24,7 +24,9 @@ def test_initial_pdf_requests_only_architectural_survey() -> None:
     assert "brickhouse-survey-result.json" in source
     assert "produis UNIQUEMENT un ArchitecturalSurvey v0.1 complet" in source
     assert "NE CONSTRUIS PAS DE SCENE dans ce tour" in source
-    assert "Aucun wrapper, aucune clé survey, aucune Scene" in source
+    assert '{\\"ArchitecturalSurvey\\":{...}}' in source
+    assert '{\\"survey\\":{...}}' in source
+    assert "Scene ou autre wrapper" in source
     assert "brickhouse-survey-to-scene-prompt.txt" not in source
 
 
