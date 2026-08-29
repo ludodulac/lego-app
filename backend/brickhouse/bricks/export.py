@@ -12,6 +12,7 @@ from .assembly import AssemblyPlan
 from .bom import BillOfMaterials
 from .brick_model import BrickModel
 from .building_layout import BuildingDiscretizationQuality
+from .instructions import InstructionPlan, generate_instruction_plan
 from .scale_optimizer import ScaleRecommendation
 
 
@@ -54,6 +55,7 @@ class BrickExportBundle(BaseModel):
     brick_model: BrickModel
     bom: BillOfMaterials
     assembly_plan: AssemblyPlan | None = None
+    instruction_plan: InstructionPlan | None = None
     fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -75,6 +77,18 @@ class BrickExportBundle(BaseModel):
                 raise ValueError("AssemblyPlan volume_id does not match export volume_id")
             if self.assembly_plan.total_parts != len(self.brick_model.parts):
                 raise ValueError("AssemblyPlan total_parts does not match BrickModel part count")
+        if self.instruction_plan is not None:
+            if self.instruction_plan.building_id != self.building_id:
+                raise ValueError("InstructionPlan building_id does not match export building_id")
+            if self.instruction_plan.volume_id != self.volume_id:
+                raise ValueError("InstructionPlan volume_id does not match export volume_id")
+            if self.instruction_plan.total_parts != len(self.brick_model.parts):
+                raise ValueError("InstructionPlan total_parts does not match BrickModel part count")
+            if self.assembly_plan is not None:
+                assembly_ids = [pid for step in self.assembly_plan.steps for pid in step.placement_ids]
+                instruction_ids = [pid for step in self.instruction_plan.steps for pid in step.placement_ids]
+                if instruction_ids != assembly_ids:
+                    raise ValueError("InstructionPlan placement ordering does not match AssemblyPlan")
         return self
 
 
@@ -153,6 +167,7 @@ def create_export_bundle(
         fidelity_issues,
         _semantic_color_fidelity_issues(model),
     )
+    instruction_plan = generate_instruction_plan(assembly_plan) if assembly_plan is not None else None
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
@@ -165,6 +180,7 @@ def create_export_bundle(
         brick_model=model,
         bom=bom,
         assembly_plan=assembly_plan,
+        instruction_plan=instruction_plan,
         fidelity_issues=resolved_fidelity_issues,
     )
 
