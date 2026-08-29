@@ -19,6 +19,12 @@ def _json(name: str) -> dict:
 def _text(name: str) -> str:
     return (FRONTEND / name).read_text(encoding="utf-8")
 
+def _embedded_survey_skeleton() -> dict:
+    contract = _text("brickhouse-survey-output-contract.txt")
+    start = contract.index("{\n")
+    end = contract.index("\n\nRÈGLES DE STRUCTURE", start)
+    return json.loads(contract[start:end])
+
 def test_active_manual_handoff_uses_two_stage_survey_then_scene_flow() -> None:
     photo_html = _text("photo.html")
     survey_entry = _text("brickhouse-survey-package.js")
@@ -54,6 +60,18 @@ def test_active_manual_handoff_uses_two_stage_survey_then_scene_flow() -> None:
     assert "brickhouse-scene-result.json" in scene_handoff
     assert "/api/v1/validate-scene-against-survey" in scene_gate
     assert "/api/v1/validate-scene" in scene_gate
+
+def test_embedded_canonical_survey_skeleton_is_backend_valid() -> None:
+    raw = _embedded_survey_skeleton()
+    survey = ArchitecturalSurvey.model_validate(raw)
+    assert survey.schema_version == "0.1"
+    observation_ids = {item.id for item in survey.observations}
+    assert observation_ids
+    for relation in survey.relations:
+        assert relation.subject_id in observation_ids
+        assert relation.object_id in observation_ids
+    response = client.post("/api/v1/validate-survey", json=raw)
+    assert response.status_code == 200
 
 def test_manual_survey_fixture_validates_at_domain_and_api_boundaries() -> None:
     raw = _json("manual_handoff_survey_valid.json")
