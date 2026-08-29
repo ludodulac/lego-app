@@ -35,7 +35,7 @@ N'ajoute JAMAIS "physical_objects" : chaque objet physique observé est directem
   ],
   "observations": [
     {
-      "id": "observation-id-stable",
+      "id": "observation-opening-exemple",
       "kind": "opening",
       "facade": "front",
       "certainty": "certain",
@@ -57,14 +57,28 @@ N'ajoute JAMAIS "physical_objects" : chaque objet physique observé est directem
       },
       "appearance": null,
       "opening_visual": null
+    },
+    {
+      "id": "observation-platform-exemple",
+      "kind": "platform",
+      "facade": null,
+      "certainty": "certain",
+      "statement": "une plateforme physique est réellement visible",
+      "evidence": [
+        {"photo_index": 1, "observation": "preuve visuelle factuelle"}
+      ],
+      "attributes": {},
+      "attribute_certainty": {},
+      "appearance": null,
+      "opening_visual": null
     }
   ],
   "relations": [
     {
-      "id": "relation-id-stable",
+      "id": "relation-exemple",
       "kind": "connects_to",
-      "subject_id": "observation-id-stable",
-      "object_id": "autre-observation-id-existant",
+      "subject_id": "observation-opening-exemple",
+      "object_id": "observation-platform-exemple",
       "certainty": "certain",
       "statement": "relation physique réellement prouvée",
       "evidence": [
@@ -94,4 +108,4 @@ RÈGLES DE STRUCTURE À AUDITER JUSTE AVANT DE CRÉER LE FICHIER
 9. notes est une chaîne ou null, jamais un tableau.
 10. Supprime les champs facultatifs non soutenus par les preuves plutôt que d'inventer une valeur.
 
-Les valeurs du squelette (fenêtre, rangs, largeur 10 m, relation) servent UNIQUEMENT à montrer la forme JSON. Elles ne sont jamais des faits sur le bâtiment analysé.
+Les valeurs du squelette (fenêtre, plateforme, rangs, largeur 10 m, relation) servent UNIQUEMENT à montrer la forme JSON. Elles ne sont jamais des faits sur le bâtiment analysé.
