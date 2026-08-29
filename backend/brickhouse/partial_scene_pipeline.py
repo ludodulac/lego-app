@@ -13,6 +13,7 @@ from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene import ArchitecturalScene
@@ -264,6 +265,11 @@ def run_partial_scene_pipeline(
     bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
     enriched = augment_brick_model_with_wall_depth(
         bundle.brick_model,
+        scene,
+        front_width_studs=selected_width,
+    )
+    enriched = augment_brick_model_with_scene_shutters(
+        enriched,
         scene,
         front_width_studs=selected_width,
     )
