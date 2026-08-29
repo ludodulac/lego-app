@@ -3,7 +3,7 @@
   "reference_id": "real-house-5",
   "observations": [
     {
-      "opening_id": "front_upper_left_window",
+      "opening_id": "front_window_upper_left",
       "photo_index": 1,
       "shutter_count": 2,
       "shutter_style": "folding",
@@ -12,7 +12,7 @@
       "observation": "Two white folding shutters are visibly open against the left and right sides of the upper-left front window."
     },
     {
-      "opening_id": "front_upper_right_window",
+      "opening_id": "front_window_upper_right",
       "photo_index": 1,
       "shutter_count": 2,
       "shutter_style": "folding",
@@ -21,7 +21,7 @@
       "observation": "Two white folding shutters are visibly open against the left and right sides of the upper-right front window."
     },
     {
-      "opening_id": "front_middle_right_window",
+      "opening_id": "front_window_middle_right",
       "photo_index": 1,
       "shutter_count": 2,
       "shutter_style": "folding",
@@ -30,7 +30,7 @@
       "observation": "Two white folding shutters are visibly open against the sides of the middle-right front window."
     },
     {
-      "opening_id": "right_upper_window",
+      "opening_id": "right_window_upper",
       "photo_index": 2,
       "shutter_count": 2,
       "shutter_style": "folding",
@@ -41,7 +41,7 @@
   ],
   "explicit_non_observations": [
     {
-      "opening_id": "front_middle_left_window",
+      "opening_id": "front_window_middle_left",
       "photo_index": 1,
       "observation": "The middle-left front window is clearly visible without side shutters; no shutter geometry should be added from this view."
     }
