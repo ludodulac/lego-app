@@ -79,12 +79,12 @@ jobs:
               if part.get('placement_id', '').startswith('scene-shutter:')
           }
           assert shutter_openings == {
-              'front_upper_left_window',
-              'front_upper_right_window',
-              'front_middle_right_window',
-              'right_upper_window',
+              'front_window_upper_left',
+              'front_window_upper_right',
+              'front_window_middle_right',
+              'right_window_upper',
           }
-          assert 'front_middle_left_window' not in shutter_openings
+          assert 'front_window_middle_left' not in shutter_openings
           metadata = data['metadata']
           assert metadata['discretization_quality']
           recommendation = metadata['scale_recommendation']
