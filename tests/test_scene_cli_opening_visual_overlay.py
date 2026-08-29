@@ -101,3 +101,8 @@ def test_partial_scene_export_consumes_confirmed_shutter_overlay(tmp_path: Path)
     assert [pid for step in bundle.instruction_plan.steps for pid in step.placement_ids] == [
         pid for step in bundle.assembly_plan.steps for pid in step.placement_ids
     ]
+    assert bundle.bag_plan is not None
+    assert bundle.bag_plan.total_parts == len(bundle.brick_model.parts)
+    assert [pid for bag in bundle.bag_plan.bags for pid in bag.placement_ids] == [
+        pid for step in bundle.assembly_plan.steps for pid in step.placement_ids
+    ]

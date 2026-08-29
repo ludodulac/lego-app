@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from brickhouse.building.models import BuildingModel, Metadata, Opening, Volume, VolumeShape
 from brickhouse.bricks.assembly import generate_assembly_plan
+from brickhouse.bricks.bags import generate_bag_plan
 from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
 from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
@@ -281,6 +282,7 @@ def run_partial_scene_pipeline(
             "bom": generate_bom(enriched),
             "assembly_plan": assembly_plan,
             "instruction_plan": generate_instruction_plan(assembly_plan),
+            "bag_plan": generate_bag_plan(assembly_plan),
         })
 
     quality = build_discretization_quality(building, front_width_studs=selected_width)

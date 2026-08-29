@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 from brickhouse.building.models import Appearance
 
 from .assembly import AssemblyPlan
+from .bags import BagPlan, generate_bag_plan
 from .bom import BillOfMaterials
 from .brick_model import BrickModel
 from .building_layout import BuildingDiscretizationQuality
@@ -56,6 +57,7 @@ class BrickExportBundle(BaseModel):
     bom: BillOfMaterials
     assembly_plan: AssemblyPlan | None = None
     instruction_plan: InstructionPlan | None = None
+    bag_plan: BagPlan | None = None
     fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -89,6 +91,22 @@ class BrickExportBundle(BaseModel):
                 instruction_ids = [pid for step in self.instruction_plan.steps for pid in step.placement_ids]
                 if instruction_ids != assembly_ids:
                     raise ValueError("InstructionPlan placement ordering does not match AssemblyPlan")
+        if self.bag_plan is not None:
+            if self.bag_plan.building_id != self.building_id:
+                raise ValueError("BagPlan building_id does not match export building_id")
+            if self.bag_plan.volume_id != self.volume_id:
+                raise ValueError("BagPlan volume_id does not match export volume_id")
+            if self.bag_plan.total_parts != len(self.brick_model.parts):
+                raise ValueError("BagPlan total_parts does not match BrickModel part count")
+            if self.assembly_plan is not None:
+                assembly_ids = [pid for step in self.assembly_plan.steps for pid in step.placement_ids]
+                bag_ids = [pid for bag in self.bag_plan.bags for pid in bag.placement_ids]
+                if bag_ids != assembly_ids:
+                    raise ValueError("BagPlan placement ordering does not match AssemblyPlan")
+                assembly_step_ids = [step.step_id for step in self.assembly_plan.steps]
+                bag_step_ids = [step_id for bag in self.bag_plan.bags for step_id in bag.assembly_step_ids]
+                if bag_step_ids != assembly_step_ids:
+                    raise ValueError("BagPlan step ordering does not match AssemblyPlan")
         return self
 
 
@@ -168,6 +186,7 @@ def create_export_bundle(
         _semantic_color_fidelity_issues(model),
     )
     instruction_plan = generate_instruction_plan(assembly_plan) if assembly_plan is not None else None
+    bag_plan = generate_bag_plan(assembly_plan) if assembly_plan is not None else None
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
@@ -181,6 +200,7 @@ def create_export_bundle(
         bom=bom,
         assembly_plan=assembly_plan,
         instruction_plan=instruction_plan,
+        bag_plan=bag_plan,
         fidelity_issues=resolved_fidelity_issues,
     )
 
