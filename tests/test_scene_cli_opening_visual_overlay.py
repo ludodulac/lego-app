@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from brickhouse.scene_cli import apply_opening_visual_evidence, load_architectural_scene
+from brickhouse.scene_cli import apply_opening_visual_evidence, load_architectural_scene, write_scene_export
 
 
 SCENE = Path("tests/fixtures/brickhouse_scene_current.json")
@@ -71,3 +71,28 @@ def test_opening_visual_evidence_rejects_unknown_opening_id(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="unknown opening id 'missing-opening'"):
         apply_opening_visual_evidence(scene, evidence)
+
+
+def test_partial_scene_export_consumes_confirmed_shutter_overlay(tmp_path: Path) -> None:
+    bundle = write_scene_export(
+        SCENE,
+        tmp_path / "partial.json",
+        front_width_studs=48,
+        allow_partial=True,
+        opening_visual_evidence=EVIDENCE,
+    )
+    rendered_ids = {
+        part.opening_id
+        for part in bundle.brick_model.parts
+        if part.placement_id.startswith("scene-shutter:")
+    }
+    assert rendered_ids == {
+        "front_window_upper_left",
+        "front_window_upper_right",
+        "front_window_middle_right",
+        "right_window_upper",
+    }
+    assert "front_window_middle_left" not in rendered_ids
+    assert bundle.bom.total_parts == len(bundle.brick_model.parts)
+    assert bundle.assembly_plan is not None
+    assert bundle.assembly_plan.total_parts == len(bundle.brick_model.parts)
