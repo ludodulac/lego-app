@@ -159,18 +159,59 @@ def _tile_line(
         choices = family.line_parts
     else:
         choices = ((4, "TILE_2X4"), (3, "TILE_2X3"), (2, "TILE_2X2"))
+
+    # Preserve the historical largest-first layout whenever it already fits.
     out: list[tuple[str, int, int]] = []
     cursor = 0
     for span, part_id in choices:
         while cursor + span <= length:
             out.append((part_id, cursor, span))
             cursor += span
-    if cursor != length:
-        family_label = family.id if family else "ridge"
-        raise ValueError(
-            f"roof family {family_label} cannot tile line length {length} with available catalog parts"
-        )
-    return out
+    if cursor == length:
+        return out
+
+    # Some catalog combinations are tileable even when greedy largest-first is not
+    # (for example ridge length 5 = 3 + 2). Search exact combinations before failing.
+    exact: list[list[tuple[str, int, int]] | None] = [None] * (length + 1)
+    exact[0] = []
+    for position in range(length + 1):
+        if exact[position] is None:
+            continue
+        for span, part_id in choices:
+            end = position + span
+            if end <= length and exact[end] is None:
+                exact[end] = [*exact[position], (part_id, position, span)]
+    if exact[length] is not None:
+        return exact[length]
+
+    family_label = family.id if family else "ridge"
+    raise ValueError(
+        f"roof family {family_label} cannot tile line length {length} with available catalog parts"
+    )
+
+
+def _shared_tileable_line_length(line_length: int, family: RoofSlopeFamily) -> int:
+    """Return the smallest longitudinal roof span tileable by both slope and ridge parts.
+
+    The architectural wall length remains unchanged. A small positive gable-end
+    overhang is permitted only as LEGO catalog quantization, preserving roof pitch.
+    """
+    max_span = max(
+        max(span for span, _ in family.line_parts),
+        4,
+    )
+    for extra in range(max_span + 1):
+        candidate = line_length + extra
+        try:
+            _tile_line(candidate, "slope", family)
+            _tile_line(candidate, "ridge")
+        except ValueError:
+            continue
+        return candidate
+    raise ValueError(
+        f"roof family {family.id} cannot tile longitudinal wall length {line_length} "
+        "within minimal catalog overhang"
+    )
 
 
 def _plane_run_and_rise(plane: RoofPlaneGeometry) -> tuple[float, float]:
@@ -181,8 +222,8 @@ def _plane_run_and_rise(plane: RoofPlaneGeometry) -> tuple[float, float]:
     if high <= low or not eave or not ridge:
         raise ValueError("invalid gable roof plane")
     # A roof plane can list its eave/ridge vertices in either longitudinal
-    # order.  Pairing the first vertices can therefore measure a diagonal and
-    # make pitch depend on ridge orientation.  The true run is the shortest
+    # order. Pairing the first vertices can therefore measure a diagonal and
+    # make pitch depend on ridge orientation. The true run is the shortest
     # horizontal distance from the eave line to the ridge line.
     run = min(
         hypot(eave_point.x - ridge_point.x, eave_point.y - ridge_point.y)
@@ -407,6 +448,7 @@ def generate_spatial_gable_roof(
     )
 
     roof_span = _connected_roof_span(span, family)
+    roof_line_length = _shared_tileable_line_length(line_length, family)
     course_count = _course_count(roof_span, family)
     if course_count < 1:
         raise ValueError(
@@ -424,7 +466,7 @@ def generate_spatial_gable_roof(
                 - distance * family.course_advance_studs
             )
             z_plates = top + distance * family.rise_plates
-            for part_id, offset, _ in _tile_line(line_length, "slope", family):
+            for part_id, offset, _ in _tile_line(roof_line_length, "slope", family):
                 placements.append(
                     GlobalRoofPlacement(
                         part_id=part_id,
@@ -440,7 +482,7 @@ def generate_spatial_gable_roof(
 
     ridge_axis = roof_span // 2 - 1
     ridge_z = top + course_count * family.rise_plates
-    for part_id, offset, _ in _tile_line(line_length, "ridge"):
+    for part_id, offset, _ in _tile_line(roof_line_length, "ridge"):
         placements.append(
             GlobalRoofPlacement(
                 part_id=part_id,
