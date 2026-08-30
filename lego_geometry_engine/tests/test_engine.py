@@ -31,6 +31,16 @@ def slope(lib):
     return lib.load_part("3037")
 
 
+@pytest.fixture(scope="module")
+def window_frame(lib):
+    return lib.load_part("60592")
+
+
+@pytest.fixture(scope="module")
+def window_pane(lib):
+    return lib.load_part("60601")
+
+
 def _cube_definition(part_id: str, half_extent: float) -> PartDefinition:
     h = half_extent
     p000 = (-h, -h, -h)
@@ -122,6 +132,22 @@ def test_full_stud_geometry_keeps_connectors_on_nominal_mating_planes(brick):
     anti_stud = next(connector for connector in brick.connectors if connector.type == "anti_stud")
     assert stud.position[1] == pytest.approx(0.0)
     assert anti_stud.position[1] == pytest.approx(24.0)
+
+
+def test_window_frame_and_pane_fit_without_false_collision(window_frame, window_pane):
+    frame = instantiate(window_frame, "frame")
+    pane = instantiate(window_pane, "pane")
+    assert check_collision(frame, pane) is Relation.SEPARATED
+    report = analyze_assembly([frame, pane])
+    assert not report.collisions
+
+
+def test_window_pane_moved_into_frame_is_real_collision(window_frame, window_pane):
+    frame = instantiate(window_frame, "frame")
+    pane = instantiate(window_pane, "pane", Transform.translation(0, 0, 1))
+    assert check_collision(frame, pane) is Relation.COLLISION
+    report = analyze_assembly([frame, pane])
+    assert {report.collisions[0]["part_a"], report.collisions[0]["part_b"]} == {"frame", "pane"}
 
 
 def test_transformed_instance_geometry_is_cached(brick):
