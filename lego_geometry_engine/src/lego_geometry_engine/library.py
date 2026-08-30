@@ -20,7 +20,7 @@ class LDrawLibrary(_GeometryLDrawLibrary):
             return ()
 
         family = match.group(1).lower()
-        width, depth = int(match.group(2)), int(match.group(3))
+        width, length = int(match.group(2)), int(match.group(3))
         body_height = 24.0 if family == "brick" else 8.0
 
         # Canonical LDraw Brick/Plate orientation has the underside at the
@@ -29,8 +29,12 @@ class LDrawLibrary(_GeometryLDrawLibrary):
         body_bottom_y = bbox.maximum[1]
         body_top_y = body_bottom_y - body_height
 
-        xs = [(index - (width - 1) / 2) * 20 for index in range(width)]
-        zs = [(index - (depth - 1) / 2) * 20 for index in range(depth)]
+        # LDraw's canonical rectangular brick orientation puts the second
+        # description dimension (length) on local X and the first dimension
+        # (width) on local Z. Example: 3004 "Brick 1 x 2" spans 40 LDU in X
+        # and 20 LDU in Z.
+        xs = [(index - (length - 1) / 2) * 20 for index in range(length)]
+        zs = [(index - (width - 1) / 2) * 20 for index in range(width)]
         connectors: list[Connector] = []
         for x in xs:
             for z in zs:
