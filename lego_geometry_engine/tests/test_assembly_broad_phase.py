@@ -16,8 +16,6 @@ def _signature(report):
         "valid": report.valid,
         "collisions": sorted(pair(item) for item in report.collisions),
         "contacts": sorted(pair(item) for item in report.contacts),
-        # Candidate ordering may reverse stud/anti-stud labels, but the physical
-        # connection multiset and graph semantics are identical.
         "connections": sorted(pair(item) for item in report.connections),
         "unsupported": sorted(report.unsupported_parts),
         "components": sorted(tuple(component) for component in report.disconnected_components),
