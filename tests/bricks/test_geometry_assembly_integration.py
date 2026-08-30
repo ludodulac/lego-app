@@ -18,7 +18,7 @@ def _part(placement_id: str, part_id: str, *, x: int, y: int, z: int, roof_side=
         y_studs=y,
         z_plates=z,
         rotation_quarter_turns=0,
-        facade=Facade.FRONT,
+        facade=None if roof_side else Facade.FRONT,
         roof_side=roof_side,
     )
 
