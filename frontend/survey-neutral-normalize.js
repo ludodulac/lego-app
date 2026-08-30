@@ -1,6 +1,7 @@
-const importButton = document.querySelector('#import-analysis');
-const externalInput = document.querySelector('#external-analysis');
-const status = document.querySelector('#status');
+const doc = typeof document === 'undefined' ? null : document;
+const importButton = doc?.querySelector('#import-analysis');
+const externalInput = doc?.querySelector('#external-analysis');
+const status = doc?.querySelector('#status');
 
 function slug(value) {
   return String(value || '')
