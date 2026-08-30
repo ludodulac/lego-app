@@ -43,6 +43,8 @@ def test_staged_scene_handoff_locks_exact_scene_serialization_shapes() -> None:
     assert 'Chaque evidence Scene est un OBJET exactement de la forme' in source
     assert 'N’écris jamais une chaîne comme \\"photo:1\\"' in source
     assert "SceneVolume.floors est un ENTIER" in source
+    assert "Platform.width, Platform.depth, Platform.thickness et StairRun.width sont des NOMBRES JSON strictement positifs" in source
+    assert "jamais des PropertyValue ni des objets {value, source, evidence}" in source
     assert "Platform utilise thickness, jamais height" in source
     assert "appearance est toujours présent" in source
 
@@ -51,11 +53,27 @@ def test_external_scene_import_has_conservative_shape_normalizer() -> None:
     source = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
     assert "function normalizeEvidenceList" in source
     assert "function normalizeExternalScene" in source
+    assert "function unwrapPositiveScalarPropertyValue" in source
     assert "^photo:(\\d+)$" in source
     assert "volume.floors.value" in source
+    assert "platform.width = unwrapPositiveScalarPropertyValue(platform.width)" in source
+    assert "platform.depth = unwrapPositiveScalarPropertyValue(platform.depth)" in source
+    assert "platform.thickness = unwrapPositiveScalarPropertyValue(platform.thickness)" in source
+    assert "stair.width = unwrapPositiveScalarPropertyValue(stair.width)" in source
     assert "platform.thickness = Number(platform.height)" in source
     assert "clone.appearance = {}" in source
     assert "normalizeSceneTextareaBeforeImport" in source
+
+
+def test_scalar_metric_normalizer_is_targeted_and_positive_only() -> None:
+    source = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
+    assert "Number.isFinite(numeric) && numeric > 0 ? numeric : value" in source
+    assert "platform.width = unwrapPositiveScalarPropertyValue(platform.width)" in source
+    assert "platform.depth = unwrapPositiveScalarPropertyValue(platform.depth)" in source
+    assert "platform.thickness = unwrapPositiveScalarPropertyValue(platform.thickness)" in source
+    assert "stair.width = unwrapPositiveScalarPropertyValue(stair.width)" in source
+    assert "opening.width = unwrapPositiveScalarPropertyValue" not in source
+    assert "volume.width = unwrapPositiveScalarPropertyValue" not in source
 
 
 def test_photo_page_loads_photo_backed_scene_handoff_guard() -> None:
