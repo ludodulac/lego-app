@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from brickhouse.building.models import Facade
 from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
 from brickhouse.pipeline import _geometry_fidelity_issues
 
@@ -16,6 +17,8 @@ def _part(placement_id: str, *, x: int = 0) -> BrickModelPart:
         x_studs=x,
         y_studs=0,
         z_plates=0,
+        rotation_quarter_turns=0,
+        facade=Facade.FRONT,
     )
 
 
@@ -37,18 +40,12 @@ def test_geometry_validation_is_disabled_without_explicit_ldraw_root():
 
 
 def test_opt_in_geometry_validation_surfaces_collision_as_blocker():
-    issues = _geometry_fidelity_issues(
-        _model([_part("a"), _part("b")]),
-        LDRAW_FIXTURE,
-    )
+    issues = _geometry_fidelity_issues(_model([_part("a"), _part("b")]), LDRAW_FIXTURE)
     collision = next(issue for issue in issues if issue.code == "lego_geometry_collision")
     assert collision.severity == "blocker"
-    assert {"a", "b"}.issubset(set(collision.message.replace("'", "").replace(".", "").split()))
+    assert "'a'" in collision.message and "'b'" in collision.message
 
 
-def test_opt_in_geometry_validation_accepts_separated_supported_ground_parts():
-    issues = _geometry_fidelity_issues(
-        _model([_part("a"), _part("b", x=2)]),
-        LDRAW_FIXTURE,
-    )
+def test_opt_in_geometry_validation_accepts_separated_ground_parts():
+    issues = _geometry_fidelity_issues(_model([_part("a"), _part("b", x=2)]), LDRAW_FIXTURE)
     assert not [issue for issue in issues if issue.code == "lego_geometry_collision"]
