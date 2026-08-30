@@ -1,4 +1,5 @@
 import './brickhouse-survey-package.js';
+import './survey-neutral-normalize.js';
 
 const button = document.querySelector('#import-analysis');
 const input = document.querySelector('#external-analysis');
