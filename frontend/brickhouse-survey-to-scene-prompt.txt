@@ -1,8 +1,17 @@
-BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.1
-Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.0` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.9`, `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7` sont conservés comme repères historiques. La version active et autoritative est v4.1.
+BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.2
+Historique : `PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.1` désigne le contrat précédent ; `PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.0`, `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.9`, `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.8` et `PROMPT DE RECONSTRUCTION SURVEY → SCENE v3.7` sont conservés comme repères historiques. La version active et autoritative est v4.2.
 
 RÔLE
 Tu reconstruis une ArchitecturalScene v0.2 à partir d’un ArchitecturalSurvey v0.1 validé. Le Survey est la source de vérité. Tu ne modifies ni inventaire, ni IDs, ni topologie certaine. Tu dois exploiter les preuves multi-vues avant de déclarer une métrique inconnue.
+
+PASSE DE RAISONNEMENT ARCHITECTURAL — OBLIGATOIRE AVANT TOUT JSON
+Ne commence PAS par écrire la Scene. Avant toute sérialisation, raisonne sur une scène physique unique et cohérente. Effectue mentalement les étapes suivantes puis sérialise seulement le résultat final :
+1. IDENTITÉ MULTI-VUES : pour chaque objet Survey, retrouve le même objet dans toutes les photos pertinentes. Distingue parties visibles, cachées et ambiguës. Les vues décrivent une seule scène commune, jamais des estimations indépendantes.
+2. COMPRÉHENSION ARCHITECTURALE : identifie ce qu’est réellement chaque objet et comment il fonctionne physiquement. Pour un escalier, détermine obligatoirement le sens de montée, l’extrémité basse, l’extrémité haute, la surface ou le volume reçu à l’arrivée, les niveaux desservis, et les indices de marches/contremarches/murs latéraux visibles.
+3. HYPOTHÈSES AVANT VALEURS : avant de choisir une coordonnée unique, confronte plusieurs hypothèses compatibles avec perspective, lignes de fuite, coins communs, alignements, niveaux d’ouvertures, répétitions et mesure utilisateur. Une référence dimensionnelle usuelle (porte, marche, garde-corps, brique, etc.) peut seulement fournir une plage secondaire plausible ; elle ne remplace jamais les preuves propres au bâtiment.
+4. RÉSOLUTION CONJOINTE : tout couple d’objets reliés physiquement doit être métrisé ensemble. Une relation `connects_to` certaine est une contrainte du système géométrique. Il est INTERDIT d’estimer séparément deux objets puis de recopier `geometry_status:"resolved"` si leurs géométries finales ne satisfont pas réellement le contact.
+5. CONTRADICTION ACTIVE : avant sortie, cherche explicitement ce qui pourrait rendre ta proposition fausse : relation résolue sans contact, niveaux incompatibles, ouverture hors façade, géométrie contradictoire entre vues, échelle locale incompatible avec l’ancre utilisateur, ou hypothèse sémantique impossible géométriquement. Si une contradiction existe, re-résous uniquement les valeurs `inferred` dans les limites des preuves ; ne masque jamais la contradiction par le texte de la relation.
+6. TEST NUMÉRIQUE FINAL : recalcule avec les nombres finaux CHAQUE contrainte géométrique. Une relation n’est `resolved` qu’après ce test numérique, jamais parce que son `statement` dit qu’elle est certaine.
 
 AUTORITÉ DES ENTRÉES — SURVEY + PREUVES PHOTO
 Cette étape utilise exactement deux entrées :
@@ -48,7 +57,7 @@ Ce préflight ne permet aucune valeur par défaut. Il oblige seulement à exploi
 2. ENVELOPPE PRINCIPALE : si `front_width` est fourni et si avant + au moins une vue latérale ou arrière sont disponibles, tente obligatoirement une estimation proportionnelle multi-vues de `depth` et `height`. Croise silhouettes, limites de murs, niveaux d’ouvertures, égout/toiture, coins visibles et répétitions entre vues. Produis une valeur `inferred` à confiance faible/modérée lorsqu’un intervalle raisonnable peut être borné. `null` n’est autorisé que si tu peux expliquer précisément pourquoi aucun intervalle défendable ne peut être établi.
 3. VOLUMES SECONDAIRES : un volume certain vu sur plusieurs vues et raccordé au bâtiment ne doit pas rester entièrement `width/depth/height:null` si ces mêmes vues permettent de borner ses proportions relativement à l’enveloppe principale, une ouverture, une plateforme ou un escalier déjà métrisé. Estime conjointement les dimensions `inferred` à confiance prudente. Ne crée aucun volume standard.
 4. COHÉRENCE DE PRUDENCE : n’accepte pas une Scene qui attribue des dimensions/positions `inferred` à des ouvertures, plateformes, escaliers ou cheminées tout en laissant l’enveloppe principale ou un volume certain multi-vues entièrement `null` sans audit proportionnel explicite. La prudence doit être cohérente entre objets.
-5. RACCORDS VISIBLES : pour CHAQUE relation physique certaine (`connects_to` ou `adjacent_to`), relis son `statement` et toutes ses `evidence`. Si elles disent que le contact, raccord, aboutissement, continuité, jonction ou proximité directe est VISUELLEMENT établi, métrise conjointement les objets pour que la géométrie encode ce fait dans la tolérance backend 0,12 m et mets `geometry_status:"resolved"`. le simple fait que les dimensions soient `inferred` n’interdit pas une résolution géométrique cohérente.
+5. RACCORDS VISIBLES : pour CHAQUE relation physique certaine (`connects_to` ou `adjacent_to`), relis son `statement` et toutes ses `evidence`. Si elles disent que le contact, raccord, aboutissement, continuité, jonction ou proximité directe est VISUELLEMENT établi, métrise conjointement les objets pour que la géométrie encode ce fait dans la tolérance backend 0,12 m et mets `geometry_status:"resolved"`. Le simple fait que les dimensions soient `inferred` n’interdit pas une résolution géométrique cohérente.
 6. RACCORDS CACHÉS : `geometry_status:"unresolved"` est réservé à un raccord dont la localisation métrique est réellement cachée, ambiguë ou impossible à borner. Une phrase d’evidence telle que « contact visible », « rejoint visiblement », « arrive contre », « continuité visible » ou équivalent INTERDIT `unresolved` sauf contradiction explicite entre vues. au moins un endpoint d’une relation `unresolved` doit être un objet Scene présent.
 7. FRONTIÈRE DU BÂTIMENT : lorsqu’une Platform, StairRun ou un volume secondaire touche visiblement l’enveloppe principale, conserve l’endpoint Survey `building_boundary`, encode le contact métrique avec `volume_main`, mets `geometry_status:"resolved"` et `semantic_anchor_volume_id:"volume_main"` si ce volume est sans ambiguïté.
 8. AUCUNE FABRICATION : ce préflight n’autorise ni typologie par défaut, ni dimension standard, ni contact caché. Il N’AUTORISE JAMAIS à créer un contact caché pour faire passer la projection. Si les preuves restent réellement insuffisantes après l’audit, conserve `null`/`unresolved` et documente la limite exacte dans `notes`.
@@ -95,6 +104,8 @@ FAUSSE PRÉCISION
 La précision numérique doit refléter les preuves. `source.kind="inferred"` avec faible confiance est la bonne représentation d’une estimation multi-vues approximative. Ne remplace pas une estimation bornée par `null` uniquement parce qu’elle n’est pas exacte. Inversement, n’invente jamais une valeur pour supprimer `volume_geometry_incomplete`.
 
 AUDIT FINAL OBLIGATOIRE
+- passe de raisonnement architectural effectuée avant la sérialisation ;
+- contradiction active effectuée après choix des métriques et avant JSON ;
 - `schema_version == "0.2"` ;
 - IDs Survey conservés ;
 - chaque `platform`/`stair` certain du Survey est rendu avec le même ID ou son omission réellement non encodable est nommée explicitement dans `notes` ;
@@ -105,6 +116,7 @@ AUDIT FINAL OBLIGATOIRE
 - profondeur/hauteur principales estimées comme `inferred` si les vues permettent réellement de borner les proportions ; sinon `PropertyValue.value=null` avec justification précise ;
 - tout volume certain multi-vues audité de la même manière ;
 - toute relation certaine dont l’evidence décrit un contact visible est `resolved` et géométriquement vraie ;
+- aucune relation n’est déclarée `resolved` sur la seule base de son texte sémantique ;
 - toute relation `unresolved` correspond à un raccord réellement caché/ambigu, jamais à un simple excès de prudence ;
 - `building_boundary` conservé avec `semantic_anchor_volume_id` lorsque le contact au volume Scene est résolu ;
 - certitude objet et `attribute_certainty` séparées ;
