@@ -6,6 +6,7 @@ from brickhouse.bricks.geometry_adapter import (
     CANONICAL_LDRAW_PARTS, UnmappedCanonicalPartError, analyze_brick_model_geometry,
     brick_model_part_to_instance, brick_model_part_transform,
 )
+from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry
 from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES
 from brickhouse.building.models import Facade
 from lego_geometry_engine import AABB, PartDefinition, Relation, check_collision
@@ -68,6 +69,11 @@ def test_mapping_covers_standard_bricks_roof_slopes_ridge_tiles_and_windows():
     assert all(CANONICAL_LDRAW_PARTS[key].height_plates==1 for key in ("TILE_2X2","TILE_2X3","TILE_2X4"))
     approved_window_ids={part_id for assembly in VALIDATED_WINDOW_ASSEMBLIES for part_id in (assembly.frame_part_id,assembly.pane_part_id)}
     assert approved_window_ids.issubset(CANONICAL_LDRAW_PARTS)
+
+
+def test_ldraw_mapping_covers_every_current_placement_approved_part():
+    approved=create_current_engine_capability_registry().approved_ids()
+    assert approved.issubset(CANONICAL_LDRAW_PARTS), sorted(approved-set(CANONICAL_LDRAW_PARTS))
 
 
 def test_window_frame_and_pane_share_exact_ldraw_origin_and_nominal_height():
