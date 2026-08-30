@@ -46,6 +46,15 @@ CANONICAL_LDRAW_PARTS: Mapping[str, LDrawPartMapping] = {
     "BRICK_2X6": LDrawPartMapping("2456", 2, 6),
     "BRICK_2X8": LDrawPartMapping("3007", 2, 8),
     "BRICK_2X10": LDrawPartMapping("3006", 2, 10),
+    # Validated modern window assemblies. Frames and panes share the same
+    # canonical LDraw origin; pane geometry is inset inside that frame origin,
+    # so both use the standard BrickModel-to-LDraw placement transform.
+    "WINDOW_1X2X2_60592": LDrawPartMapping("60592", 1, 2, height_plates=6),
+    "GLASS_FOR_WINDOW_1X2X2_60601": LDrawPartMapping("60601", 1, 2, height_plates=6),
+    "WINDOW_1X2X3_60593": LDrawPartMapping("60593", 1, 2, height_plates=9),
+    "GLASS_FOR_WINDOW_1X2X3_60602": LDrawPartMapping("60602", 1, 2, height_plates=9),
+    "WINDOW_1X4X3_60594": LDrawPartMapping("60594", 1, 4, height_plates=9),
+    "GLASS_FOR_WINDOW_1X4X3_60603": LDrawPartMapping("60603", 1, 4, height_plates=9),
     # Flat ridge cover tiles used by the current gable-roof generator.
     "TILE_2X2": LDrawPartMapping("3068b", 2, 2, height_plates=1),
     "TILE_2X3": LDrawPartMapping("26603", 2, 3, height_plates=1),
