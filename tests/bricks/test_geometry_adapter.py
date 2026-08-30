@@ -6,12 +6,17 @@ from brickhouse.bricks.geometry_adapter import (
     CANONICAL_LDRAW_PARTS, UnmappedCanonicalPartError, analyze_brick_model_geometry,
     brick_model_part_to_instance, brick_model_part_transform,
 )
+from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES
 from brickhouse.building.models import Facade
 from lego_geometry_engine import AABB, PartDefinition, Relation, check_collision
 
 
 def _part(placement_id: str, part_id: str="BRICK_1X1", *, x=0,y=0,z=0,turns=0):
     return BrickModelPart(placement_id=placement_id,part_id=part_id,category="brick",component="wall",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,facade=Facade.FRONT)
+
+
+def _window_part(placement_id: str, part_id: str, *, x=0,y=0,z=0,turns=0,category="window_frame"):
+    return BrickModelPart(placement_id=placement_id,part_id=part_id,category=category,component="window",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,facade=Facade.FRONT)
 
 
 def _roof_part(placement_id: str, *, side: str,x=0,y=0,z=0,turns=0,part_id="BRICK_SLOPED_45_2X4"):
@@ -49,15 +54,31 @@ class FakeLibrary:
         raise FileNotFoundError(part_id)
 
 
-def test_mapping_covers_standard_bricks_roof_slopes_and_ridge_tiles():
+def test_mapping_covers_standard_bricks_roof_slopes_ridge_tiles_and_windows():
     assert {b.id for b in create_m0_brick_catalog().bricks}.issubset(CANONICAL_LDRAW_PARTS)
     expected={
         "TILE_2X2":"3068b","TILE_2X3":"26603","TILE_2X4":"87079",
         "BRICK_SLOPED_18_4X2":"30363","BRICK_SLOPED_33_3X6":"3939","BRICK_SLOPED_33_3X4":"3297","BRICK_SLOPED_33_3X2":"3298",
         "BRICK_SLOPED_45_2X4":"3037","BRICK_SLOPED_45_2X3":"3038","BRICK_SLOPED_45_2X2":"3039","BRICK_SLOPED_45_2X1":"3040b",
+        "WINDOW_1X2X2_60592":"60592","GLASS_FOR_WINDOW_1X2X2_60601":"60601",
+        "WINDOW_1X2X3_60593":"60593","GLASS_FOR_WINDOW_1X2X3_60602":"60602",
+        "WINDOW_1X4X3_60594":"60594","GLASS_FOR_WINDOW_1X4X3_60603":"60603",
     }
     assert {k:CANONICAL_LDRAW_PARTS[k].ldraw_id for k in expected}==expected
     assert all(CANONICAL_LDRAW_PARTS[key].height_plates==1 for key in ("TILE_2X2","TILE_2X3","TILE_2X4"))
+    approved_window_ids={part_id for assembly in VALIDATED_WINDOW_ASSEMBLIES for part_id in (assembly.frame_part_id,assembly.pane_part_id)}
+    assert approved_window_ids.issubset(CANONICAL_LDRAW_PARTS)
+
+
+def test_window_frame_and_pane_share_exact_ldraw_origin_and_nominal_height():
+    for assembly in VALIDATED_WINDOW_ASSEMBLIES:
+        frame=CANONICAL_LDRAW_PARTS[assembly.frame_part_id]
+        pane=CANONICAL_LDRAW_PARTS[assembly.pane_part_id]
+        assert (frame.width_studs,frame.length_studs,frame.height_plates)==(1,assembly.width_studs,assembly.height_bricks*3)
+        assert (pane.width_studs,pane.length_studs,pane.height_plates)==(1,assembly.width_studs,assembly.height_bricks*3)
+        frame_part=_window_part("frame",assembly.frame_part_id,x=5,y=7,z=12,turns=1)
+        pane_part=_window_part("pane",assembly.pane_part_id,x=5,y=7,z=12,turns=1,category="window_pane")
+        assert brick_model_part_transform(frame_part,frame)==brick_model_part_transform(pane_part,pane)
 
 
 def test_grid_coordinates_convert_to_ldraw_center_and_negative_y_up():
