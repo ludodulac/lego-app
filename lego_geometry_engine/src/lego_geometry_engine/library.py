@@ -1,0 +1,55 @@
+"""Public LDraw library specialization for LEGO connector metadata.
+
+Geometry bounds include protrusions such as studs, so connector mating planes must
+not be inferred directly from the full mesh AABB extrema.
+"""
+from __future__ import annotations
+
+from typing import Iterable
+import re
+
+from .core import AABB, Connector, LDrawLibrary as _GeometryLDrawLibrary
+
+
+class LDrawLibrary(_GeometryLDrawLibrary):
+    """LDraw loader with conservative standard Brick/Plate connector inference."""
+
+    def _infer_basic_connectors(self, description: str, bbox: AABB) -> Iterable[Connector]:
+        match = re.search(r"\b(Brick|Plate)\s+(\d+)\s*x\s*(\d+)\b", description, re.I)
+        if not match:
+            return ()
+
+        family = match.group(1).lower()
+        width, depth = int(match.group(2)), int(match.group(3))
+        body_height = 24.0 if family == "brick" else 8.0
+
+        # Canonical LDraw Brick/Plate orientation has the underside at the
+        # largest Y coordinate. Studs extend above the body toward negative Y,
+        # so the top mating plane is body_bottom_y - nominal body height.
+        body_bottom_y = bbox.maximum[1]
+        body_top_y = body_bottom_y - body_height
+
+        xs = [(index - (width - 1) / 2) * 20 for index in range(width)]
+        zs = [(index - (depth - 1) / 2) * 20 for index in range(depth)]
+        connectors: list[Connector] = []
+        for x in xs:
+            for z in zs:
+                connectors.append(
+                    Connector(
+                        "stud",
+                        (x, body_top_y, z),
+                        (0, -1, 0),
+                        ("anti_stud",),
+                        0.25,
+                    )
+                )
+                connectors.append(
+                    Connector(
+                        "anti_stud",
+                        (x, body_bottom_y, z),
+                        (0, 1, 0),
+                        ("stud",),
+                        0.25,
+                    )
+                )
+        return connectors
