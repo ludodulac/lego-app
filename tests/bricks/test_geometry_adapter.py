@@ -18,6 +18,10 @@ def _roof_part(placement_id: str, *, side: str,x=0,y=0,z=0,turns=0,part_id="BRIC
     return BrickModelPart(placement_id=placement_id,part_id=part_id,category="roof_tile",component="roof",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,roof_side=side)
 
 
+def _ridge_part(placement_id: str, part_id="TILE_2X4", *, x=0,y=0,z=0,turns=0):
+    return BrickModelPart(placement_id=placement_id,part_id=part_id,category="ridge_tile",component="roof",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,roof_side="ridge")
+
+
 def _box_definition(part_id,minimum,maximum,description=""):
     x0,y0,z0=minimum; x1,y1,z1=maximum
     p000=(x0,y0,z0);p001=(x0,y0,z1);p010=(x0,y1,z0);p011=(x0,y1,z1);p100=(x1,y0,z0);p101=(x1,y0,z1);p110=(x1,y1,z0);p111=(x1,y1,z1)
@@ -36,14 +40,24 @@ class FakeLibrary:
         for mapping in CANONICAL_LDRAW_PARTS.values():
             if mapping.ldraw_id==part_id:
                 if mapping.placement_kind=="slope": return _slope_definition(part_id,mapping.width_studs,mapping.length_studs)
-                return _box_definition(f"{part_id}.dat",(-mapping.length_studs*10.0,0.0,-mapping.width_studs*10.0),(mapping.length_studs*10.0,24.0,mapping.width_studs*10.0),f"Brick {mapping.width_studs} x {mapping.length_studs}")
+                return _box_definition(
+                    f"{part_id}.dat",
+                    (-mapping.length_studs*10.0,0.0,-mapping.width_studs*10.0),
+                    (mapping.length_studs*10.0,mapping.height_plates*8.0,mapping.width_studs*10.0),
+                    f"Part {mapping.width_studs} x {mapping.length_studs}",
+                )
         raise FileNotFoundError(part_id)
 
 
-def test_mapping_covers_standard_bricks_and_all_modeled_roof_slope_ids():
+def test_mapping_covers_standard_bricks_roof_slopes_and_ridge_tiles():
     assert {b.id for b in create_m0_brick_catalog().bricks}.issubset(CANONICAL_LDRAW_PARTS)
-    expected={"BRICK_SLOPED_18_4X2":"30363","BRICK_SLOPED_33_3X6":"3939","BRICK_SLOPED_33_3X4":"3297","BRICK_SLOPED_33_3X2":"3298","BRICK_SLOPED_45_2X4":"3037","BRICK_SLOPED_45_2X3":"3038","BRICK_SLOPED_45_2X2":"3039","BRICK_SLOPED_45_2X1":"3040b"}
+    expected={
+        "TILE_2X2":"3068b","TILE_2X3":"26603","TILE_2X4":"87079",
+        "BRICK_SLOPED_18_4X2":"30363","BRICK_SLOPED_33_3X6":"3939","BRICK_SLOPED_33_3X4":"3297","BRICK_SLOPED_33_3X2":"3298",
+        "BRICK_SLOPED_45_2X4":"3037","BRICK_SLOPED_45_2X3":"3038","BRICK_SLOPED_45_2X2":"3039","BRICK_SLOPED_45_2X1":"3040b",
+    }
     assert {k:CANONICAL_LDRAW_PARTS[k].ldraw_id for k in expected}==expected
+    assert all(CANONICAL_LDRAW_PARTS[key].height_plates==1 for key in ("TILE_2X2","TILE_2X3","TILE_2X4"))
 
 
 def test_grid_coordinates_convert_to_ldraw_center_and_negative_y_up():
@@ -62,6 +76,14 @@ def test_quarter_turn_places_length_on_grid_x():
     part=_part("p","BRICK_1X4",x=2,y=3,turns=1);t=brick_model_part_transform(part,CANONICAL_LDRAW_PARTS[part.part_id])
     assert (t.matrix[0][3],t.matrix[2][3])==(80.0,70.0)
     assert t.matrix[0][:3]==(1.0,0.0,0.0) and t.matrix[2][:3]==(0.0,0.0,1.0)
+
+
+def test_ridge_tile_uses_one_plate_height_and_standard_axis_conversion():
+    instance=brick_model_part_to_instance(_ridge_part("ridge",x=4,y=6,z=30),FakeLibrary())
+    assert (instance.bbox.minimum[0],instance.bbox.maximum[0])==pytest.approx((80.0,120.0))
+    assert (instance.bbox.minimum[2],instance.bbox.maximum[2])==pytest.approx((120.0,200.0))
+    assert instance.bbox.minimum[1]==pytest.approx(-248.0)
+    assert instance.bbox.maximum[1]==pytest.approx(-240.0)
 
 
 def test_adapter_preserves_placement_id_and_uses_verified_ldraw_id():
