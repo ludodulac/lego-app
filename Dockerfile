@@ -8,9 +8,12 @@ WORKDIR /app
 
 COPY pyproject.toml README.md ./
 COPY backend ./backend
+COPY lego_geometry_engine ./lego_geometry_engine
 COPY data/processed ./data/processed
 
-RUN python -m pip install --upgrade pip && python -m pip install .
+RUN python -m pip install --upgrade pip \
+    && python -m pip install ./lego_geometry_engine \
+    && python -m pip install .
 
 ENV PORT=8000
 EXPOSE 8000
