@@ -46,12 +46,17 @@ CANONICAL_LDRAW_PARTS: Mapping[str, LDrawPartMapping] = {
     "BRICK_2X6": LDrawPartMapping("2456", 2, 6),
     "BRICK_2X8": LDrawPartMapping("3007", 2, 8),
     "BRICK_2X10": LDrawPartMapping("3006", 2, 10),
-    # Verified LDraw 45-degree slope family. These need a different placement
-    # rule because their LDraw origins are not centered on the footprint.
-    "BRICK_SLOPED_45_2X4": LDrawPartMapping("3037", 2, 4, placement_kind="slope_45"),
-    "BRICK_SLOPED_45_2X3": LDrawPartMapping("3038", 2, 3, placement_kind="slope_45"),
-    "BRICK_SLOPED_45_2X2": LDrawPartMapping("3039", 2, 2, placement_kind="slope_45"),
-    "BRICK_SLOPED_45_2X1": LDrawPartMapping("3040b", 2, 1, placement_kind="slope_45"),
+    # Official LDraw roof families. All of these slope parts use local X as
+    # their longitudinal axis and rise toward local +Z, but their origins are
+    # not centered on the footprint, so placement is bbox-anchored below.
+    "BRICK_SLOPED_18_4X2": LDrawPartMapping("30363", 4, 2, placement_kind="slope"),
+    "BRICK_SLOPED_33_3X6": LDrawPartMapping("3939", 3, 6, placement_kind="slope"),
+    "BRICK_SLOPED_33_3X4": LDrawPartMapping("3297", 3, 4, placement_kind="slope"),
+    "BRICK_SLOPED_33_3X2": LDrawPartMapping("3298", 3, 2, placement_kind="slope"),
+    "BRICK_SLOPED_45_2X4": LDrawPartMapping("3037", 2, 4, placement_kind="slope"),
+    "BRICK_SLOPED_45_2X3": LDrawPartMapping("3038", 2, 3, placement_kind="slope"),
+    "BRICK_SLOPED_45_2X2": LDrawPartMapping("3039", 2, 2, placement_kind="slope"),
+    "BRICK_SLOPED_45_2X1": LDrawPartMapping("3040b", 2, 1, placement_kind="slope"),
 }
 
 
@@ -128,20 +133,20 @@ def _rotated_bbox(definition: PartDefinition, turns: int) -> tuple[float, float,
     )
 
 
-def _slope_45_transform(
+def _slope_transform(
     part: BrickModelPart,
     mapping: LDrawPartMapping,
     definition: PartDefinition,
 ) -> Transform:
     if part.roof_side not in {"negative", "positive"}:
         raise UnmappedCanonicalPartError(
-            f"45-degree slope {part.part_id!r} requires roof_side negative/positive "
+            f"Slope {part.part_id!r} requires roof_side negative/positive "
             f"at placement {part.placement_id!r}"
         )
 
     # BrickHouse rotation=0 means the roof run is along grid X; rotation=1
-    # means the run is along grid Y. LDraw 3037/3038/3039/3040b rise along
-    # their local +Z axis. Positive roof sides reverse that rise direction.
+    # means the run is along grid Y. Verified LDraw slope families rise along
+    # local +Z. Positive roof sides reverse that rise direction.
     if part.roof_side == "negative":
         physical_turns = (1 - part.rotation_quarter_turns) % 4
     else:
@@ -182,8 +187,8 @@ def brick_model_part_to_instance(part: BrickModelPart, library: LDrawLibrary) ->
             f"at placement {part.placement_id!r}"
         )
     definition = library.load_part(mapping.ldraw_id)
-    if mapping.placement_kind == "slope_45":
-        transform = _slope_45_transform(part, mapping, definition)
+    if mapping.placement_kind == "slope":
+        transform = _slope_transform(part, mapping, definition)
     else:
         transform = brick_model_part_transform(part, mapping)
     return instantiate(
