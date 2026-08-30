@@ -46,6 +46,10 @@ CANONICAL_LDRAW_PARTS: Mapping[str, LDrawPartMapping] = {
     "BRICK_2X6": LDrawPartMapping("2456", 2, 6),
     "BRICK_2X8": LDrawPartMapping("3007", 2, 8),
     "BRICK_2X10": LDrawPartMapping("3006", 2, 10),
+    # Flat ridge cover tiles used by the current gable-roof generator.
+    "TILE_2X2": LDrawPartMapping("3068b", 2, 2, height_plates=1),
+    "TILE_2X3": LDrawPartMapping("26603", 2, 3, height_plates=1),
+    "TILE_2X4": LDrawPartMapping("87079", 2, 4, height_plates=1),
     # Official LDraw roof families. All of these slope parts use local X as
     # their longitudinal axis and rise toward local +Z, but their origins are
     # not centered on the footprint, so placement is bbox-anchored below.
