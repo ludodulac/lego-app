@@ -19,12 +19,11 @@ def _instance(part_id: str, x: float, y: float = 0.0, z: float = 0.0):
 
 
 def _ids(pairs):
-    return {frozenset((a.instance_id, b.instance_id)) for a, b in pairs}
+    return {frozenset((a.instance_id,b.instance_id)) for a,b in pairs}
 
 
 def test_sweep_and_prune_keeps_overlapping_and_touching_aabbs():
-    parts=[_instance("a",0),_instance("touch",10),_instance("overlap",5),_instance("far",100)]
-    pairs=_ids(candidate_pairs(parts))
+    pairs=_ids(candidate_pairs([_instance("a",0),_instance("touch",10),_instance("overlap",5),_instance("far",100)]))
     assert frozenset(("a","touch")) in pairs
     assert frozenset(("a","overlap")) in pairs
     assert frozenset(("a","far")) not in pairs
@@ -35,12 +34,10 @@ def test_sweep_and_prune_rejects_y_and_z_separation():
 
 
 def test_sparse_line_does_not_degenerate_to_all_pairs():
-    parts=[_instance(str(index),index*40.0) for index in range(500)]
-    assert list(candidate_pairs(parts)) == []
+    assert list(candidate_pairs([_instance(str(index),index*40.0) for index in range(500)])) == []
 
 
 def test_candidate_pairs_are_unique():
-    parts=[_instance("a",0),_instance("b",5),_instance("c",8)]
-    pairs=list(candidate_pairs(parts))
-    assert len(pairs) == 3
-    assert len(_ids(pairs)) == 3
+    pairs=list(candidate_pairs([_instance("a",0),_instance("b",5),_instance("c",8)]))
+    assert len(pairs)==3
+    assert len(_ids(pairs))==3
