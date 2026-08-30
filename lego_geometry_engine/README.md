@@ -29,13 +29,13 @@ Broad phase uses transformed AABBs only as a candidate filter. Narrow phase runs
 
 ## Connectivity / support
 
-Geometry and LEGO connectivity are separate. The milestone exposes a generic `Connector` and conservatively derives stud/anti-stud grids only for canonical `Brick W x D` / `Plate W x D` descriptions. Connector matching checks both position and opposing transformed orientation. Support is topological reachability through contact/connection edges from the lowest assembly elevation. This is not a stress or stability simulation.
+Geometry and LEGO connectivity are separate. The milestone exposes a generic `Connector` and conservatively derives stud/anti-stud grids only for canonical `Brick W x D` / `Plate W x D` descriptions. Connector matching checks both position and opposing transformed orientation. Connector positions use nominal LEGO mating planes rather than full mesh extrema, so a physical stud that protrudes 4 LDU above a brick does not shift the logical stud/anti-stud connection plane. Support is topological reachability through contact/connection edges from the lowest assembly elevation. This is not a stress or stability simulation.
 
 ## Data and licensing
 
 Normal analysis is offline. Point `LDRAW_ROOT` at a local official LDraw Parts Library. The official library uses licenses declared in each part header (legacy CC BY 2.0, newer CC BY 4.0, and some CC0); preserve attribution and license terms when redistributing files.
 
-This repository includes only a tiny attributed regression fixture derived from official files `3005.dat`, `s/3005s01.dat`, `3037.dat`, `s/3037s01.dat`, `box4t.dat`, and `box5.dat`. It keeps exact polygon coordinates needed by the milestone collision regressions while omitting stud/cylindrical detail to keep the fixture small. **Production analysis must use a complete official LDraw installation.**
+The regression fixture is deliberately small. The `3005` dependency closure now includes the official solid stud geometry (`stud.dat` plus cylinder/disc primitives), so normal brick stacking is tested with the physical 4-LDU stud protrusion present. Non-solid edge/conditional drawing lines may be omitted because line types 2 and 5 are intentionally ignored by the collision loader. The `3037` regression remains a reduced slope shell containing the exact official polygon coordinates needed for the wall/slope tests. **Production analysis must still use a complete official LDraw installation.**
 
 References: https://www.ldraw.org/article/218.html, https://www.ldraw.org/legal-info, https://library.ldraw.org/.
 
