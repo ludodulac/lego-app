@@ -37,7 +37,7 @@ def _model(parts) -> BrickModel:
 def test_mixed_brick_slope_window_assembly_has_no_false_collisions():
     parts = [
         _part("ground", "BRICK_1X1", x=0, y=0, z=0),
-        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_slope"),
+        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_tile"),
         _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0, category="window_frame"),
         _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0, category="window_pane"),
     ]
@@ -51,7 +51,7 @@ def test_mixed_assembly_reports_only_deliberate_brick_collision_ids():
     parts = [
         _part("brick-a", "BRICK_1X1", x=0, y=0, z=0),
         _part("brick-b", "BRICK_1X1", x=0, y=0, z=0),
-        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_slope"),
+        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_tile"),
         _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0, category="window_frame"),
         _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0, category="window_pane"),
     ]
