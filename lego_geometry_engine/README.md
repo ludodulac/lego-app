@@ -27,15 +27,27 @@ Broad phase uses transformed AABBs only as a candidate filter. Narrow phase runs
 
 `PartDefinition` is cached per `LDrawLibrary`; transformed triangles and AABBs are cached per immutable `PartInstance`.
 
+## Coordinate and placement conventions
+
+Canonical rectangular LDraw parts use local X for the longitudinal/second catalog dimension and local Z for the first/width dimension. BrickModel rotation `0` expects width on grid X and length on grid Y, so the standard BrickModel adapter applies the required base -90° rotation about LDraw Y before applying BrickModel quarter turns.
+
+Official slope origins are not uniformly centered. Roof slopes are therefore bbox-anchored to the BrickModel footprint instead of using the standard centered transform. The adapter verifies the rotated LDraw bbox dimensions against the expected BrickModel footprint and preserves the requested `negative` / `positive` roof-side rise direction.
+
+Window frames and their matching panes intentionally use the same BrickModel-to-LDraw assembly transform. Their real geometry is inset rather than represented as two coincident full boxes.
+
 ## Connectivity / support
 
-Geometry and LEGO connectivity are separate. The milestone exposes a generic `Connector` and conservatively derives stud/anti-stud grids only for canonical `Brick W x D` / `Plate W x D` descriptions. Connector matching checks both position and opposing transformed orientation. Connector positions use nominal LEGO mating planes rather than full mesh extrema, so a physical stud that protrudes 4 LDU above a brick does not shift the logical stud/anti-stud connection plane. Support is topological reachability through contact/connection edges from the lowest assembly elevation. This is not a stress or stability simulation.
+Geometry and LEGO connectivity are separate. The milestone exposes a generic `Connector` and conservatively derives stud/anti-stud grids only for canonical `Brick W x D` / `Plate W x D` descriptions. Connector matching checks both position and opposing transformed orientation.
+
+Connector grids follow the same official LDraw rectangular axes: the second/length dimension runs along local X and the first/width dimension along local Z. Connector vertical positions use nominal LEGO body mating planes rather than full mesh extrema, so the physical 4-LDU stud protrusion does not shift the logical stud/anti-stud connection plane.
+
+Support is topological reachability through contact/connection edges from the lowest assembly elevation. This is not a stress or stability simulation.
 
 ## Data and licensing
 
-Normal analysis is offline. Point `LDRAW_ROOT` at a local official LDraw Parts Library. The official library uses licenses declared in each part header (legacy CC BY 2.0, newer CC BY 4.0, and some CC0); preserve attribution and license terms when redistributing files.
+Normal analysis is offline. Point `LDRAW_ROOT` at a local official LDraw Parts Library. The official library uses licenses declared in each part header; preserve attribution and license terms when redistributing files.
 
-The regression fixture is deliberately small. The `3005` dependency closure now includes the official solid stud geometry (`stud.dat` plus cylinder/disc primitives), so normal brick stacking is tested with the physical 4-LDU stud protrusion present. Non-solid edge/conditional drawing lines may be omitted because line types 2 and 5 are intentionally ignored by the collision loader. The `3037` regression remains a reduced slope shell containing the exact official polygon coordinates needed for the wall/slope tests. **Production analysis must still use a complete official LDraw installation.**
+The regression fixture is deliberately small. The `3005` dependency closure includes official solid stud geometry so normal stacking is tested with the real stud protrusion. The `3037` slope and `60592` / `60601` window pair use reduced, attributed regression fixtures derived from official coordinates for the exact collision cases under test. See `tests/fixtures/ldraw/NOTICE.md` for details. **Production analysis must still use a complete official LDraw installation.**
 
 References: https://www.ldraw.org/article/218.html, https://www.ldraw.org/legal-info, https://library.ldraw.org/.
 
@@ -55,7 +67,13 @@ assert result.complete
 print(result.report.to_dict())
 ```
 
-The first verified mapping slice covers exactly the 12 standard M0 bricks:
+Unknown canonical parts are never guessed. Strict mode raises `UnmappedCanonicalPartError`. Non-strict mode may analyze the mapped subset for diagnostics, but its result is explicitly `complete=False` and therefore `valid=False` while any placement is unmapped.
+
+A regression test additionally enforces that every canonical part currently marked `PLACEMENT_APPROVED` by BrickHouse has a verified LDraw mapping. This prevents future catalog expansion from silently bypassing geometry validation.
+
+## Current BrickHouse mapping coverage
+
+### Standard M0 bricks
 
 | BrickHouse canonical ID | LDraw part |
 | --- | --- |
@@ -72,9 +90,34 @@ The first verified mapping slice covers exactly the 12 standard M0 bricks:
 | `BRICK_2X8` | `3007` |
 | `BRICK_2X10` | `3006` |
 
-Unknown canonical parts are never guessed. Strict mode raises `UnmappedCanonicalPartError`. Non-strict mode may analyze the mapped subset for diagnostics, but its result is explicitly `complete=False` and therefore `valid=False` while any placement is unmapped.
+### Roof slopes and ridge tiles
 
-Roof slopes are deliberately not mapped by the generic brick transform yet. Official LDraw slope parts such as `3037` use part-specific origins, so correct integration requires verified anchor metadata per slope family rather than treating every footprint as a centered rectangular brick.
+| BrickHouse canonical ID | LDraw part |
+| --- | --- |
+| `BRICK_SLOPED_18_4X2` | `30363` |
+| `BRICK_SLOPED_33_3X6` | `3939` |
+| `BRICK_SLOPED_33_3X4` | `3297` |
+| `BRICK_SLOPED_33_3X2` | `3298` |
+| `BRICK_SLOPED_45_2X4` | `3037` |
+| `BRICK_SLOPED_45_2X3` | `3038` |
+| `BRICK_SLOPED_45_2X2` | `3039` |
+| `BRICK_SLOPED_45_2X1` | `3040b` |
+| `TILE_2X2` | `3068b` |
+| `TILE_2X3` | `26603` |
+| `TILE_2X4` | `87079` |
+
+### Validated window assemblies
+
+| BrickHouse canonical ID | LDraw part |
+| --- | --- |
+| `WINDOW_1X2X2_60592` | `60592` |
+| `GLASS_FOR_WINDOW_1X2X2_60601` | `60601` |
+| `WINDOW_1X2X3_60593` | `60593` |
+| `GLASS_FOR_WINDOW_1X2X3_60602` | `60602` |
+| `WINDOW_1X4X3_60594` | `60594` |
+| `GLASS_FOR_WINDOW_1X4X3_60603` | `60603` |
+
+The `60592` / `60601` regression uses official frame-opening and pane-envelope coordinates. The correctly co-located pair has no volumetric collision; moving the pane 1 LDU into the frame is detected as `COLLISION` and reported with both instance IDs.
 
 ## CLI
 
@@ -88,4 +131,6 @@ Each part needs `instance_id`, `part_id`, and either `position: [x,y,z]` in LDU,
 
 ## Milestone limits
 
-This slice intentionally does not solve Technic, clips, hinges, SNOT inference, mechanical stability, roof-slope anchor mapping, or a spatial index. Triangle narrow-phase is correctness-first and pairwise after AABB culling; a spatial index can be added later without changing the public API. Production LDraw libraries must be complete—missing recursive references are errors.
+This slice intentionally does not solve full Technic, clips, hinges, SNOT inference, mechanical stress/stability, MPD/TEXMAP coverage, or spatial indexing. Triangle narrow-phase remains correctness-first and pairwise after AABB culling; a spatial index can be added later without changing the public API.
+
+The adapter is currently opt-in and is not automatically injected into the main BrickHouse generation/export pipeline. Production LDraw libraries must be complete—missing recursive references are errors.
