@@ -113,6 +113,17 @@ def test_recursive_transform_and_definition_cache(lib):
     assert len(a.triangles) > 12
 
 
+def test_full_stud_geometry_keeps_connectors_on_nominal_mating_planes(brick):
+    # The official stud protrudes 4 LDU above the brick body. Connector
+    # semantics belong to the body mating planes, not the mesh extrema.
+    assert brick.bbox.minimum[1] == pytest.approx(-4.0)
+    assert brick.bbox.maximum[1] == pytest.approx(24.0)
+    stud = next(connector for connector in brick.connectors if connector.type == "stud")
+    anti_stud = next(connector for connector in brick.connectors if connector.type == "anti_stud")
+    assert stud.position[1] == pytest.approx(0.0)
+    assert anti_stud.position[1] == pytest.approx(24.0)
+
+
 def test_transformed_instance_geometry_is_cached(brick):
     instance = instantiate(brick, "cached", Transform.translation(20, -24, 0))
     assert instance.triangles is instance.triangles
