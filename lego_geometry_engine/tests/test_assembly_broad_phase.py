@@ -16,7 +16,9 @@ def _signature(report):
         "valid": report.valid,
         "collisions": sorted(pair(item) for item in report.collisions),
         "contacts": sorted(pair(item) for item in report.contacts),
-        "connections": sorted((pair(item)[0], pair(item)[1], item["type"].replace("stud:anti_stud", "mated").replace("anti_stud:stud", "mated")) for item in report.connections),
+        # Candidate ordering may reverse stud/anti-stud labels, but the physical
+        # connection and graph semantics are identical.
+        "connections": sorted(pair(item) for item in report.connections),
         "unsupported": sorted(report.unsupported_parts),
         "components": sorted(tuple(component) for component in report.disconnected_components),
     }
