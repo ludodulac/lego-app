@@ -16,7 +16,7 @@ def _part(placement_id: str, part_id: str="BRICK_1X1", *, x=0,y=0,z=0,turns=0):
 
 
 def _window_part(placement_id: str, part_id: str, *, x=0,y=0,z=0,turns=0,category="window_frame"):
-    return BrickModelPart(placement_id=placement_id,part_id=part_id,category=category,component="window",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,facade=Facade.FRONT)
+    return BrickModelPart(placement_id=placement_id,part_id=part_id,category=category,component="facade_detail",x_studs=x,y_studs=y,z_plates=z,rotation_quarter_turns=turns,facade=Facade.FRONT)
 
 
 def _roof_part(placement_id: str, *, side: str,x=0,y=0,z=0,turns=0,part_id="BRICK_SLOPED_45_2X4"):
