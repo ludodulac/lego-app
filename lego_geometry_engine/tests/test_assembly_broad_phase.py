@@ -9,11 +9,13 @@ FIXTURE = Path(__file__).parent / "fixtures" / "ldraw"
 
 
 def _signature(report):
+    # Pair ordering is an implementation detail; normalize it before comparing.
+    pair = lambda item: tuple(sorted((item["part_a"], item["part_b"])))
     return {
         "valid": report.valid,
-        "collisions": sorted((item["part_a"], item["part_b"]) for item in report.collisions),
-        "contacts": sorted((item["part_a"], item["part_b"]) for item in report.contacts),
-        "connections": sorted((item["part_a"], item["part_b"], item["type"]) for item in report.connections),
+        "collisions": sorted(pair(item) for item in report.collisions),
+        "contacts": sorted(pair(item) for item in report.contacts),
+        "connections": sorted((*pair(item), item["type"]) for item in report.connections),
         "unsupported": sorted(report.unsupported_parts),
         "components": sorted(tuple(component) for component in report.disconnected_components),
     }
