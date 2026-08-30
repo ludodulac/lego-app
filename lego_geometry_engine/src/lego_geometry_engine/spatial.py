@@ -7,11 +7,7 @@ from .core import CONTACT_EPS, PartInstance
 
 
 def candidate_pairs(parts: Sequence[PartInstance]) -> Iterator[tuple[PartInstance, PartInstance]]:
-    """Yield every pair whose AABBs can overlap/contact, without false negatives.
-
-    Sorting on X minimum avoids exact mesh work for distant parts. Y/Z checks
-    reject remaining separated pairs. check_collision remains the narrow phase.
-    """
+    """Yield every pair whose AABBs can overlap/contact, without false negatives."""
     ordered = sorted(parts, key=lambda part: part.bbox.minimum[0])
     active: list[PartInstance] = []
     for part in ordered:
