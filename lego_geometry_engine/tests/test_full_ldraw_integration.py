@@ -3,28 +3,23 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
 import pytest
 
 from lego_geometry_engine import LDrawLibrary, Relation, Transform, analyze_assembly, check_collision, instantiate
 
-LDRAW_ROOT = os.environ.get("LDRAW_ROOT")
-pytestmark = pytest.mark.skipif(not LDRAW_ROOT, reason="LDRAW_ROOT is not configured")
+LDRAW_ROOT=os.environ.get("LDRAW_ROOT")
+pytestmark=pytest.mark.skipif(not LDRAW_ROOT,reason="LDRAW_ROOT is not configured")
 
-
-def _library() -> LDrawLibrary:
+def _library():
     assert LDRAW_ROOT is not None
     root=Path(LDRAW_ROOT)
-    if not (root/"parts").is_dir() or not (root/"p").is_dir():
-        pytest.fail(f"LDRAW_ROOT does not look like a complete LDraw library: {root}")
+    if not (root/"parts").is_dir() or not (root/"p").is_dir(): pytest.fail(f"LDRAW_ROOT does not look like a complete LDraw library: {root}")
     return LDrawLibrary(root)
-
 
 def test_official_window_frame_and_pane_do_not_false_collide():
     lib=_library(); frame=instantiate(lib.load_part("60592"),"frame"); pane=instantiate(lib.load_part("60601"),"pane")
     assert check_collision(frame,pane) is not Relation.COLLISION
     assert not analyze_assembly([frame,pane]).collisions
-
 
 def test_official_window_pane_penetration_is_detected():
     lib=_library(); frame=instantiate(lib.load_part("60592"),"frame"); pane=instantiate(lib.load_part("60601"),"pane",Transform.translation(0,0,1))
