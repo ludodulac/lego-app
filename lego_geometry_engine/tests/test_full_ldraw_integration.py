@@ -1,8 +1,7 @@
 """Optional correctness gates against a complete official LDraw library.
 
-These tests deliberately skip in hermetic CI. Set LDRAW_ROOT to a complete
-LDraw installation to validate the reduced deterministic fixtures against the
-real dependency closure without vendoring the entire library.
+Set LDRAW_ROOT to a complete LDraw installation to validate real dependency
+closures without vendoring the entire library into deterministic CI fixtures.
 """
 from __future__ import annotations
 
@@ -30,7 +29,6 @@ def test_official_window_frame_and_pane_do_not_false_collide():
     lib = _library()
     frame = instantiate(lib.load_part("60592"), "frame")
     pane = instantiate(lib.load_part("60601"), "pane")
-
     assert check_collision(frame, pane) is not Relation.COLLISION
     assert not analyze_assembly([frame, pane]).collisions
 
@@ -39,7 +37,6 @@ def test_official_window_pane_penetration_is_detected():
     lib = _library()
     frame = instantiate(lib.load_part("60592"), "frame")
     pane = instantiate(lib.load_part("60601"), "pane", Transform.translation(0, 0, 1))
-
     assert check_collision(frame, pane) is Relation.COLLISION
     report = analyze_assembly([frame, pane])
     assert any({item["part_a"], item["part_b"]} == {"frame", "pane"} for item in report.collisions)
