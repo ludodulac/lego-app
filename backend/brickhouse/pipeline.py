@@ -42,6 +42,30 @@ def _validate_generated_model(model: BrickModel) -> None:
     validate_model_part_capabilities(model, create_current_engine_capability_registry())
 
 
+def _geometry_fidelity_issues(model: BrickModel, ldraw_root: str | Path | None) -> list[BrickExportFidelityIssue]:
+    """Run expensive mesh validation only when an LDraw root is explicitly supplied."""
+    if ldraw_root is None:
+        return []
+    from lego_geometry_engine import LDrawLibrary
+    from brickhouse.bricks.geometry_adapter import analyze_brick_model_geometry
+
+    result = analyze_brick_model_geometry(model, LDrawLibrary(Path(ldraw_root)), strict=True)
+    issues: list[BrickExportFidelityIssue] = []
+    for collision in result.report.collisions:
+        part_a = collision.get("part_a", "unknown")
+        part_b = collision.get("part_b", "unknown")
+        issues.append(BrickExportFidelityIssue(
+            code="lego_geometry_collision", severity="blocker", object_id=part_a,
+            message=f"LDraw geometry collision between placements {part_a!r} and {part_b!r}.",
+        ))
+    for placement_id in result.report.unsupported_parts:
+        issues.append(BrickExportFidelityIssue(
+            code="lego_geometry_unsupported", severity="warning", object_id=placement_id,
+            message=f"LDraw geometry analysis found placement {placement_id!r} unsupported by the assembly contact graph.",
+        ))
+    return issues
+
+
 def _volume_geometry(geometry, volume_id: str):
     return geometry.model_copy(update={
         "walls": [wall for wall in geometry.walls if wall.volume_id == volume_id],
@@ -71,12 +95,7 @@ def _build_local_model(building, geometry, shell, spatial_shell, roof, facade_de
     return generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
 
 
-def _single_volume_bundle(
-    building: BuildingModel,
-    geometry,
-    front_width_studs: int,
-    scale_recommendation: ScaleRecommendation,
-) -> BrickExportBundle:
+def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: int, scale_recommendation: ScaleRecommendation, *, ldraw_root: str | Path | None = None) -> BrickExportBundle:
     shell = generate_building_brick_shell(geometry, front_width_studs)
     spatial_shell = generate_spatial_brick_shell(shell)
     window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
@@ -87,165 +106,93 @@ def _single_volume_bundle(
     bom = generate_bom(brick_model)
     assembly_plan = generate_assembly_plan(brick_model)
     quality = [shell.discretization_quality] if shell.discretization_quality is not None else []
-    return create_export_bundle(
-        brick_model, bom, assembly_plan, appearance=building.appearance,
-        discretization_quality=quality,
-        scale_recommendation=scale_recommendation,
-    )
+    return create_export_bundle(brick_model, bom, assembly_plan, appearance=building.appearance, discretization_quality=quality, scale_recommendation=scale_recommendation, fidelity_issues=_geometry_fidelity_issues(brick_model, ldraw_root))
 
 
-def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
+def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
-    # The caller's requested scale remains authoritative for construction. The
-    # optimizer is advisory only and measures whether a nearby grid would reduce
-    # architectural discretization loss, especially around openings.
-    scale_recommendation = recommend_front_width_studs(
-        building,
-        preferred_front_width_studs=front_width_studs,
-        search_radius_studs=_SCALE_RECOMMENDATION_RADIUS_STUDS,
-    )
+    scale_recommendation = recommend_front_width_studs(building, preferred_front_width_studs=front_width_studs, search_radius_studs=_SCALE_RECOMMENDATION_RADIUS_STUDS)
     geometry = generate_building_geometry(building)
     if len(building.volumes) == 1:
-        return _single_volume_bundle(building, geometry, front_width_studs, scale_recommendation)
+        return _single_volume_bundle(building, geometry, front_width_studs, scale_recommendation, ldraw_root=ldraw_root)
     primary = building.volumes[0]
     studs_per_meter = front_width_studs / primary.width
     plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
-    min_x = min(volume.position.x for volume in building.volumes)
-    min_y = min(volume.position.y for volume in building.volumes)
-    min_z = min(volume.position.z for volume in building.volumes)
+    min_x = min(volume.position.x for volume in building.volumes); min_y = min(volume.position.y for volume in building.volumes); min_z = min(volume.position.z for volume in building.volumes)
     roofs_by_volume = {roof.volume_id: roof for roof in building.roofs}
-    all_parts = []
-    quality_reports = []
-    max_x = max_y = max_z = 1
+    all_parts = []; quality_reports = []; max_x = max_y = max_z = 1
     for volume in building.volumes:
-        subgeometry = _volume_geometry(geometry, volume.id)
-        shell = generate_building_brick_shell(subgeometry, studs_per_meter=studs_per_meter)
-        if shell.discretization_quality is not None:
-            quality_reports.append(shell.discretization_quality)
-        spatial_shell = generate_spatial_brick_shell(shell)
-        window_parts, fitted_window_ids = generate_window_assemblies(building, shell)
-        facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
-        roof = roofs_by_volume.get(volume.id)
+        subgeometry = _volume_geometry(geometry, volume.id); shell = generate_building_brick_shell(subgeometry, studs_per_meter=studs_per_meter)
+        if shell.discretization_quality is not None: quality_reports.append(shell.discretization_quality)
+        spatial_shell = generate_spatial_brick_shell(shell); window_parts, fitted_window_ids = generate_window_assemblies(building, shell); facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids); roof = roofs_by_volume.get(volume.id)
         local_model = _build_local_model(building, subgeometry, shell, spatial_shell, roof, facade_details, window_parts)
-        x = round((volume.position.x - min_x) * studs_per_meter)
-        y = round((volume.position.y - min_y) * studs_per_meter)
-        z = round((volume.position.z - min_z) * plates_per_meter)
-        all_parts.extend(_translate_model(local_model, prefix=volume.id, x=x, y=y, z=z))
-        max_x = max(max_x, x + local_model.width_studs)
-        max_y = max(max_y, y + local_model.depth_studs)
-        max_z = max(max_z, z + local_model.height_plates)
-    brick_model = BrickModel(building_id=building.id, volume_id="composite", width_studs=max_x, depth_studs=max_y, height_plates=max_z, parts=all_parts)
-    _validate_generated_model(brick_model)
-    bom = generate_bom(brick_model)
-    assembly_plan = generate_assembly_plan(brick_model)
-    return create_export_bundle(
-        brick_model, bom, assembly_plan, appearance=building.appearance,
-        discretization_quality=quality_reports,
-        scale_recommendation=scale_recommendation,
-    )
+        x = round((volume.position.x-min_x)*studs_per_meter); y = round((volume.position.y-min_y)*studs_per_meter); z = round((volume.position.z-min_z)*plates_per_meter)
+        all_parts.extend(_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z)); max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
+    brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts)
+    _validate_generated_model(brick_model); bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model)
+    return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance,discretization_quality=quality_reports,scale_recommendation=scale_recommendation,fidelity_issues=_geometry_fidelity_issues(brick_model,ldraw_root))
 
 
 def _source_confidence_issue(kind: str, obj) -> BrickExportFidelityIssue | None:
-    source = getattr(obj, "source", None)
-    if source is None or source.kind == "user_provided" or source.confidence >= 0.65:
-        return None
-    severity = "warning" if source.confidence < 0.5 else "info"
-    return BrickExportFidelityIssue(code="low_confidence_exterior_geometry", severity=severity, object_id=obj.id, message=(
-        f"{kind} {obj.id!r} is rendered from inferred architectural geometry with confidence {source.confidence:.2f}. "
-        "Additional overlapping views may refine its position or connectivity; the current LEGO geometry must not be treated as measured fact."
-    ))
+    source=getattr(obj,"source",None)
+    if source is None or source.kind=="user_provided" or source.confidence>=0.65: return None
+    severity="warning" if source.confidence<0.5 else "info"
+    return BrickExportFidelityIssue(code="low_confidence_exterior_geometry",severity=severity,object_id=obj.id,message=f"{kind} {obj.id!r} is rendered from inferred architectural geometry with confidence {source.confidence:.2f}. Additional overlapping views may refine its position or connectivity; the current LEGO geometry must not be treated as measured fact.")
 
 
 def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list[BrickExportFidelityIssue]:
-    issues: list[BrickExportFidelityIssue] = []
+    issues=[]
     for issue in projection.issues:
-        if issue.code in _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION:
-            continue
-        severity = "blocker" if issue.severity.value == "blocker" else "warning"
-        if issue.code == "visibility_not_supported":
-            severity = "info"
-        issues.append(BrickExportFidelityIssue(code=issue.code, severity=severity, message=issue.message, object_id=issue.object_id))
-    for kind, collection in (("Platform", scene.platforms), ("StairRun", scene.stairs), ("Chimney", scene.chimneys)):
+        if issue.code in _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION: continue
+        severity="blocker" if issue.severity.value=="blocker" else "warning"
+        if issue.code=="visibility_not_supported": severity="info"
+        issues.append(BrickExportFidelityIssue(code=issue.code,severity=severity,message=issue.message,object_id=issue.object_id))
+    for kind,collection in (("Platform",scene.platforms),("StairRun",scene.stairs),("Chimney",scene.chimneys)):
         for obj in collection:
-            issue = _source_confidence_issue(kind, obj)
-            if issue is not None:
-                issues.append(issue)
+            issue=_source_confidence_issue(kind,obj)
+            if issue is not None: issues.append(issue)
     for roof in scene.roofs:
-        if roof.type not in {SceneRoofType.GABLE, SceneRoofType.SHED} or roof.pitch_degrees is None:
-            continue
-        family = select_roof_slope_family(roof.pitch_degrees)
-        delta = abs(family.pitch_degrees - roof.pitch_degrees)
-        if delta > 0.25:
-            issues.append(BrickExportFidelityIssue(
-                code="roof_pitch_quantized", severity="info" if delta <= 5 else "warning", object_id=roof.id,
-                message=(f"Roof pitch {roof.pitch_degrees:g}° is preserved in ArchitecturalScene; the current LEGO build uses the validated {family.pitch_degrees:g}° slope family (difference {delta:g}°)."),
-            ))
-    compatibility = assess_m0_compatibility(projection.building)
-    for warning in compatibility.warnings:
-        issues.append(BrickExportFidelityIssue(code="m0_model_warning", severity="warning", message=warning))
-    for blocker in compatibility.blockers:
-        issues.append(BrickExportFidelityIssue(code="m0_model_blocker", severity="blocker", message=blocker))
-    unique, seen = [], set()
+        if roof.type not in {SceneRoofType.GABLE,SceneRoofType.SHED} or roof.pitch_degrees is None: continue
+        family=select_roof_slope_family(roof.pitch_degrees); delta=abs(family.pitch_degrees-roof.pitch_degrees)
+        if delta>0.25: issues.append(BrickExportFidelityIssue(code="roof_pitch_quantized",severity="info" if delta<=5 else "warning",object_id=roof.id,message=f"Roof pitch {roof.pitch_degrees:g}° is preserved in ArchitecturalScene; the current LEGO build uses the validated {family.pitch_degrees:g}° slope family (difference {delta:g}°)."))
+    compatibility=assess_m0_compatibility(projection.building)
+    for warning in compatibility.warnings: issues.append(BrickExportFidelityIssue(code="m0_model_warning",severity="warning",message=warning))
+    for blocker in compatibility.blockers: issues.append(BrickExportFidelityIssue(code="m0_model_blocker",severity="blocker",message=blocker))
+    unique=[]; seen=set()
     for issue in issues:
-        key = (issue.code, issue.object_id, issue.message)
-        if key not in seen:
-            seen.add(key)
-            unique.append(issue)
+        key=(issue.code,issue.object_id,issue.message)
+        if key not in seen: seen.add(key); unique.append(issue)
     return unique
 
 
-def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
-    projection = project_scene_to_building(scene)
+def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
+    projection=project_scene_to_building(scene)
     if projection.building is None or projection.blocked:
-        blockers = " ".join(issue.message for issue in projection.issues if issue.severity.value == "blocker")
-        raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
-    fidelity_issues = _scene_export_fidelity_issues(scene, projection)
-    base = run_m0_pipeline_model(projection.building, front_width_studs=front_width_studs)
-    enriched = augment_brick_model_with_scene_architecture(base.brick_model, scene, front_width_studs=front_width_studs)
-    enriched = augment_brick_model_with_scene_chimneys(enriched, scene, front_width_studs=front_width_studs)
-    enriched = apply_scene_part_categories(enriched, scene)
-    enriched = augment_brick_model_with_scene_glazing(enriched, scene, front_width_studs=front_width_studs)
-    enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=front_width_studs)
-    _validate_generated_model(enriched)
-    if enriched is base.brick_model:
-        return base.model_copy(update={"fidelity_issues": fidelity_issues})
-    bom = generate_bom(enriched)
-    assembly_plan = generate_assembly_plan(enriched)
-    return create_export_bundle(
-        enriched, bom, assembly_plan, appearance=projection.building.appearance,
-        fidelity_issues=fidelity_issues,
-        discretization_quality=base.metadata.discretization_quality,
-        scale_recommendation=base.metadata.scale_recommendation,
-    )
+        blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker"); raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
+    fidelity_issues=_scene_export_fidelity_issues(scene,projection)
+    base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs)
+    enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs)
+    _validate_generated_model(enriched); fidelity_issues.extend(_geometry_fidelity_issues(enriched,ldraw_root))
+    if enriched is base.brick_model: return base.model_copy(update={"fidelity_issues": fidelity_issues})
+    bom=generate_bom(enriched); assembly_plan=generate_assembly_plan(enriched)
+    return create_export_bundle(enriched,bom,assembly_plan,appearance=projection.building.appearance,fidelity_issues=fidelity_issues,discretization_quality=base.metadata.discretization_quality,scale_recommendation=base.metadata.scale_recommendation)
 
 
-def run_m0_pipeline(input_path: str | Path, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
-    return run_m0_pipeline_model(load_building_model(input_path), front_width_studs=front_width_studs)
+def run_m0_pipeline(input_path: str | Path, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
+    return run_m0_pipeline_model(load_building_model(input_path),front_width_studs=front_width_studs,ldraw_root=ldraw_root)
 
 
-def write_m0_export(input_path: str | Path, output_path: str | Path, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> BrickExportBundle:
-    bundle = run_m0_pipeline(input_path, front_width_studs=front_width_studs)
-    destination = Path(output_path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(export_bundle_json(bundle) + "\n", encoding="utf-8")
-    return bundle
+def write_m0_export(input_path: str | Path, output_path: str | Path, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
+    bundle=run_m0_pipeline(input_path,front_width_studs=front_width_studs,ldraw_root=ldraw_root); destination=Path(output_path); destination.parent.mkdir(parents=True,exist_ok=True); destination.write_text(export_bundle_json(bundle)+"\n",encoding="utf-8"); return bundle
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="brickhouse-m0", description="Generate a BrickHouse M0 BrickModel/BOM/AssemblyPlan JSON export from a BuildingModel JSON file.")
-    parser.add_argument("input", type=Path, help="BuildingModel JSON input")
-    parser.add_argument("output", type=Path, help="Output export JSON path")
-    parser.add_argument("--front-width-studs", type=int, default=DEFAULT_FRONT_WIDTH_STUDS, help=f"target front facade width in studs (default: {DEFAULT_FRONT_WIDTH_STUDS})")
-    return parser
+    parser=argparse.ArgumentParser(prog="brickhouse-m0",description="Generate a BrickHouse M0 BrickModel/BOM/AssemblyPlan JSON export from a BuildingModel JSON file."); parser.add_argument("input",type=Path,help="BuildingModel JSON input"); parser.add_argument("output",type=Path,help="Output export JSON path"); parser.add_argument("--front-width-studs",type=int,default=DEFAULT_FRONT_WIDTH_STUDS,help=f"target front facade width in studs (default: {DEFAULT_FRONT_WIDTH_STUDS})"); parser.add_argument("--ldraw-root",type=Path,default=None,help="optional complete LDraw library root; enables mesh collision/support validation"); return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    bundle = write_m0_export(args.input, args.output, front_width_studs=args.front_width_studs)
-    print(f"Generated {args.output}: {bundle.bom.total_parts} parts, {bundle.bom.unique_part_types} canonical types, {bundle.assembly_plan.total_steps if bundle.assembly_plan else 0} assembly steps")
-    return 0
+    args=build_parser().parse_args(argv); bundle=write_m0_export(args.input,args.output,front_width_studs=args.front_width_studs,ldraw_root=args.ldraw_root); print(f"Generated {args.output}: {bundle.bom.total_parts} parts, {bundle.bom.unique_part_types} canonical types, {bundle.assembly_plan.total_steps if bundle.assembly_plan else 0} assembly steps"); return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ == "__main__": raise SystemExit(main())
