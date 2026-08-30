@@ -41,7 +41,40 @@ References: https://www.ldraw.org/article/218.html, https://www.ldraw.org/legal-
 
 ## Backend/runtime integration
 
-The repository Docker image installs `./lego_geometry_engine` before the root BrickHouse package, so backend code can import the engine directly. The engine itself remains a Python library, not a microservice. Mapping BrickHouse canonical part IDs to real LDraw IDs intentionally stays in the application layer.
+The repository Docker image installs `./lego_geometry_engine` before the root BrickHouse package, so backend code can import the engine directly. The engine itself remains a Python library, not a microservice.
+
+The application-layer bridge lives in `brickhouse.bricks.geometry_adapter`. It converts BrickModel grid coordinates (`x_studs`, `y_studs`, `z_plates`) into native LDraw coordinates and preserves each `placement_id` as the geometry-engine `instance_id`.
+
+```python
+from brickhouse.bricks.geometry_adapter import analyze_brick_model_geometry
+from lego_geometry_engine import LDrawLibrary
+
+library = LDrawLibrary("/path/to/ldraw")
+result = analyze_brick_model_geometry(brick_model, library)
+assert result.complete
+print(result.report.to_dict())
+```
+
+The first verified mapping slice covers exactly the 12 standard M0 bricks:
+
+| BrickHouse canonical ID | LDraw part |
+| --- | --- |
+| `BRICK_1X1` | `3005` |
+| `BRICK_1X2` | `3004` |
+| `BRICK_1X3` | `3622` |
+| `BRICK_1X4` | `3010` |
+| `BRICK_1X6` | `3009` |
+| `BRICK_1X8` | `3008` |
+| `BRICK_2X2` | `3003` |
+| `BRICK_2X3` | `3002` |
+| `BRICK_2X4` | `3001` |
+| `BRICK_2X6` | `2456` |
+| `BRICK_2X8` | `3007` |
+| `BRICK_2X10` | `3006` |
+
+Unknown canonical parts are never guessed. Strict mode raises `UnmappedCanonicalPartError`. Non-strict mode may analyze the mapped subset for diagnostics, but its result is explicitly `complete=False` and therefore `valid=False` while any placement is unmapped.
+
+Roof slopes are deliberately not mapped by the generic brick transform yet. Official LDraw slope parts such as `3037` use part-specific origins, so correct integration requires verified anchor metadata per slope family rather than treating every footprint as a centered rectangular brick.
 
 ## CLI
 
@@ -55,4 +88,4 @@ Each part needs `instance_id`, `part_id`, and either `position: [x,y,z]` in LDU,
 
 ## Milestone limits
 
-This slice intentionally does not solve Technic, clips, hinges, SNOT inference, mechanical stability, or catalogue-ID mapping. Triangle narrow-phase is correctness-first and pairwise after AABB culling; a spatial index can be added later without changing the public API. Production LDraw libraries must be complete—missing recursive references are errors.
+This slice intentionally does not solve Technic, clips, hinges, SNOT inference, mechanical stability, roof-slope anchor mapping, or a spatial index. Triangle narrow-phase is correctness-first and pairwise after AABB culling; a spatial index can be added later without changing the public API. Production LDraw libraries must be complete—missing recursive references are errors.
