@@ -1,7 +1,17 @@
 from pathlib import Path
+
 import pytest
 
-from lego_geometry_engine import LDrawLibrary, Relation, Transform, analyze_assembly, check_collision, instantiate
+from lego_geometry_engine import (
+    AABB,
+    LDrawLibrary,
+    PartDefinition,
+    Relation,
+    Transform,
+    analyze_assembly,
+    check_collision,
+    instantiate,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "ldraw"
 
@@ -19,6 +29,27 @@ def brick(lib):
 @pytest.fixture(scope="module")
 def slope(lib):
     return lib.load_part("3037")
+
+
+def _cube_definition(part_id: str, half_extent: float) -> PartDefinition:
+    h = half_extent
+    p000 = (-h, -h, -h)
+    p001 = (-h, -h, h)
+    p010 = (-h, h, -h)
+    p011 = (-h, h, h)
+    p100 = (h, -h, -h)
+    p101 = (h, -h, h)
+    p110 = (h, h, -h)
+    p111 = (h, h, h)
+    triangles = (
+        (p000, p100, p110), (p000, p110, p010),
+        (p001, p011, p111), (p001, p111, p101),
+        (p000, p001, p101), (p000, p101, p100),
+        (p010, p110, p111), (p010, p111, p011),
+        (p000, p010, p011), (p000, p011, p001),
+        (p100, p101, p111), (p100, p111, p110),
+    )
+    return PartDefinition(part_id, triangles, AABB((-h, -h, -h), (h, h, h)))
 
 
 def test_a_separated_bricks(brick):
@@ -80,3 +111,15 @@ def test_recursive_transform_and_definition_cache(lib):
     b = lib.load_part("3005.dat")
     assert a is b
     assert len(a.triangles) > 12
+
+
+def test_transformed_instance_geometry_is_cached(brick):
+    instance = instantiate(brick, "cached", Transform.translation(20, -24, 0))
+    assert instance.triangles is instance.triangles
+    assert instance.bbox is instance.bbox
+
+
+def test_closed_mesh_containment_is_collision_without_surface_crossing():
+    outer = instantiate(_cube_definition("outer", 10), "outer")
+    inner = instantiate(_cube_definition("inner", 2), "inner", Transform.translation(1, 1, 1))
+    assert check_collision(outer, inner) is Relation.COLLISION
