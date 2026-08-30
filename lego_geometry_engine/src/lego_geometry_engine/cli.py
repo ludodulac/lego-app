@@ -5,7 +5,8 @@ import json
 import os
 from pathlib import Path
 
-from .core import LDrawLibrary, analyze_assembly, instance_from_dict
+from .core import analyze_assembly, instance_from_dict
+from .library import LDrawLibrary
 
 
 def main(argv=None):
