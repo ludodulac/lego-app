@@ -7,7 +7,9 @@ from lego_geometry_engine import (
     Connector,
     LDrawLibrary,
     PartDefinition,
+    Relation,
     Transform,
+    check_collision,
     instantiate,
 )
 from lego_geometry_engine.assembly import analyze_assembly as analyze_with_broad_phase
@@ -100,6 +102,46 @@ def test_connector_only_pair_preserves_reference_assembly_semantics():
     reference = analyze_reference([left, right])
     assert _signature(optimized) == _signature(reference)
     assert optimized.connections
+
+
+def test_rotated_exact_stud_mating_is_not_reported_as_assembly_collision():
+    brick = LDrawLibrary(FIXTURE).load_part("3005")
+    lower_transform = Transform(
+        (
+            (0.0, 0.0, -1.0, 30.0),
+            (0.0, 1.0, 0.0, -72.0),
+            (1.0, 0.0, 0.0, 10.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+    )
+    upper_transform = Transform(
+        (
+            (0.0, 0.0, -1.0, 30.0),
+            (0.0, 1.0, 0.0, -96.0),
+            (1.0, 0.0, 0.0, 10.0),
+            (0.0, 0.0, 0.0, 1.0),
+        )
+    )
+    lower = instantiate(brick, "lower", lower_transform)
+    upper = instantiate(brick, "upper", upper_transform)
+
+    # The triangle-only narrow phase is rotationally sensitive for this stud
+    # insertion, but exact compatible connectors prove the legal mating plane.
+    assert check_collision(lower, upper) is Relation.COLLISION
+    report = analyze_with_broad_phase([lower, upper])
+    assert not report.collisions
+    assert report.connections
+    assert report.valid
+
+
+def test_connector_mating_does_not_hide_coincident_brick_collision():
+    brick = LDrawLibrary(FIXTURE).load_part("3005")
+    first = instantiate(brick, "first")
+    second = instantiate(brick, "second")
+    report = analyze_with_broad_phase([first, second])
+    assert report.collisions
+    assert not report.connections
+    assert not report.valid
 
 
 def test_assembly_rejects_duplicate_instance_ids():
