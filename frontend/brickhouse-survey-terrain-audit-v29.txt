@@ -1,0 +1,25 @@
+BRICKHOUSE — ADDENDUM TERRAIN PHOTOS → SURVEY v2.9
+
+Cet addendum complète le prompt de relevé architectural existant. Il est ADDITIF : toutes les règles historiques du Survey restent applicables et prioritaires lorsqu'elles sont plus strictes.
+
+TERRAIN — AUDIT QUALITATIF OBLIGATOIRE
+Pour CHAQUE vue de façade où le pied du bâtiment et une portion de sol, route, trottoir, cour, talus ou bordure sont visibles, audite explicitement la relation verticale du sol le long de la façade avant de finaliser l'inventaire.
+
+Classe mentalement chaque façade visible dans exactement un de ces états :
+- `grade_visible` : une variation longitudinale réelle du niveau du sol est soutenue par des indices visuels matériels (bordure/sol qui monte ou descend par rapport au soubassement, seuils, ouvertures basses, joints horizontaux, intersections mur-sol recoupées) ;
+- `grade_not_supported` : le sol est suffisamment visible mais aucune pente ne peut être défendue ;
+- `grade_occluded` : le contact sol-bâtiment est trop caché, coupé ou ambigu pour conclure.
+
+Si l'état est `grade_visible`, crée obligatoirement une observation `kind:"terrain"` dans `observations[]`. La certitude de l'existence de la pente dépend des preuves, indépendamment de la certitude de son sens. Conserve dans `attributes.slope_direction` une direction qualitative cohérente avec le repère canonique seulement si elle est lisible, par exemple `front_to_rear_up`, `front_to_rear_down`, `left_to_right_up` ou `left_to_right_down`. Si le sens est seulement plausible, utilise `attribute_certainty.slope_direction:"plausible"`.
+
+Une pente certaine ne doit jamais disparaître parce que sa magnitude métrique est inconnue. Le Survey reste non métrique : n’invente JAMAIS amplitude, angle, pourcentage, mètres, cote absolue, niveau de rue ni différence d'altitude. L'absence d'observation terrain signifie uniquement que la pente n'est pas visuellement soutenue ou que le sol est occulté, jamais que la magnitude est inconnue.
+
+Aucune pente n'est inventée à partir de la seule perspective, d'une ligne de fuite, d'un appareil incliné ou d'une hypothèse architecturale. Cherche des indices liés physiquement au sol et au bâtiment et recoupe-les avec les autres objets visibles.
+
+PRÉFLIGHT TERRAIN — OBLIGATOIRE AVANT JSON
+1. Pour chaque photo de façade, vérifie si le pied du bâtiment et le sol adjacent sont visibles.
+2. Si oui, décide silencieusement `grade_visible`, `grade_not_supported` ou `grade_occluded`.
+3. Pour tout `grade_visible`, vérifie qu'une observation `kind:"terrain"` existe avec facade, statement, evidence et certainty.
+4. Si la direction qualitative est soutenue, conserve-la dans `attributes.slope_direction` avec sa propre certitude.
+5. Vérifie qu'aucune valeur métrique de pente n'a été inventée.
+6. Vérifie qu'une magnitude inconnue n'a jamais servi de raison pour supprimer une pente visuellement établie.
