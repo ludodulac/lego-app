@@ -28,7 +28,16 @@ def _validate_instance_ids(parts: Sequence[PartInstance]) -> None:
 
 
 def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
-    """Analyze collisions, contacts, connections, and support topology."""
+    """Analyze collisions, contacts, connections, and support topology.
+
+    LDraw meshes include studs and anti-stud cavities. At an exact legal mating
+    transform those surfaces can numerically look like a narrow solid
+    intersection after a rigid rotation even though the connector model proves
+    the parts are on the same nominal mating plane. Only that specific
+    COLLISION-plus-exact-connector case is reclassified as assembly contact.
+    Connector-only pairs that remain geometrically separated stay connections
+    without becoming surface contacts.
+    """
     _validate_instance_ids(parts)
 
     collisions = []
@@ -37,15 +46,28 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
     graph = {part.instance_id: set() for part in parts}
 
     for a, b in candidate_pairs(parts):
+        pair_connections = find_connections(a, b)
         relation = check_collision(a, b)
+
         if relation is Relation.COLLISION:
-            collisions.append(
-                {
-                    "part_a": a.instance_id,
-                    "part_b": b.instance_id,
-                    "type": "solid_intersection",
-                }
-            )
+            if pair_connections:
+                contacts.append(
+                    {
+                        "part_a": a.instance_id,
+                        "part_b": b.instance_id,
+                        "type": "connector_contact",
+                    }
+                )
+                graph[a.instance_id].add(b.instance_id)
+                graph[b.instance_id].add(a.instance_id)
+            else:
+                collisions.append(
+                    {
+                        "part_a": a.instance_id,
+                        "part_b": b.instance_id,
+                        "type": "solid_intersection",
+                    }
+                )
         elif relation is Relation.CONTACT:
             contacts.append(
                 {
@@ -57,7 +79,6 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
             graph[a.instance_id].add(b.instance_id)
             graph[b.instance_id].add(a.instance_id)
 
-        pair_connections = find_connections(a, b)
         connections.extend(pair_connections)
         if pair_connections:
             graph[a.instance_id].add(b.instance_id)
