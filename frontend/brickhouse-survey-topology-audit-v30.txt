@@ -1,0 +1,26 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.0 — COMPLÉTUDE TOPOLOGIQUE
+
+Cet addendum est strictement additif au prompt de relevé architectural actif et à l'audit terrain. Il ne remplace aucune règle existante et n'autorise aucune reconstruction métrique.
+
+ENVELOPPE DU BÂTIMENT — ANCRE TOPOLOGIQUE OBLIGATOIRE
+Si le bâtiment cible lui-même est certainement visible, le Survey DOIT contenir au moins une observation stable représentant son enveloppe physique, avec `kind:"building_boundary"` et `certainty:"certain"`. Cette observation est l'ancre sémantique des raccords bâtiment↔structures extérieures. Ne l'omets pas sous prétexte que les façades, ouvertures ou toiture décrivent déjà le bâtiment.
+
+L'observation `building_boundary` reste NON MÉTRIQUE : elle constate l'existence et l'identité de l'enveloppe observée. N'invente ni profondeur, ni hauteur, ni coordonnées, ni épaisseur de mur. Ses preuves doivent référencer les photos qui établissent réellement l'enveloppe.
+
+AUDIT DES RACCORDEMENTS — OBLIGATOIRE AVANT SORTIE
+Pour chaque observation certaine `kind:"platform"` ou `kind:"stair"`, vérifie explicitement ce que les photos prouvent concernant son raccord physique :
+- si elle touche/rejoint certainement l'enveloppe, ajoute une relation `connects_to` certaine vers l'ID `building_boundary` ;
+- si elle rejoint certainement une autre primitive observée (plateforme, palier, escalier), ajoute la relation `connects_to` certaine entre les deux IDs ;
+- si le contact n'est que plausible ou occulté, ne transforme jamais cette proximité en relation certaine ; conserve l'incertitude ou l'absence de relation selon le contrat existant.
+
+Une relation de support (`supports`) ne remplace jamais une relation de raccord (`connects_to`) lorsqu'elles expriment deux faits physiques différents et tous deux visibles.
+
+PRÉFLIGHT DE COMPLÉTUDE
+Avant de produire le JSON final, effectue ces contrôles :
+1. bâtiment cible certainement visible ⇒ au moins un `building_boundary` certain ;
+2. chaque plateforme/escalier certain manifestement raccordé dans les preuves ⇒ relation `connects_to` correspondante ;
+3. tous les `subject_id` et `object_id` de `relations[]` existent dans `observations[]` ;
+4. aucune relation certaine n'est créée pour compléter une zone cachée ;
+5. aucune métrique n'est inventée pour satisfaire cet audit.
+
+Le Survey est incomplet s'il décrit une structure extérieure certaine comme attachée/rejointe au bâtiment dans son `statement` ou ses preuves, mais omet à la fois l'ancre `building_boundary` et la relation topologique prouvée.
