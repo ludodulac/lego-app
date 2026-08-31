@@ -8,11 +8,11 @@ from lego_geometry_engine import LDrawLibrary
 LDRAW_FIXTURE = Path("lego_geometry_engine/tests/fixtures/ldraw")
 
 
-def _part(placement_id: str, part_id: str, *, x: int, y: int, z: int, roof_side=None, category="brick") -> BrickModelPart:
+def _part(placement_id: str, part_id: str, *, x: int, y: int, z: int, roof_side=None) -> BrickModelPart:
     return BrickModelPart(
         placement_id=placement_id,
         part_id=part_id,
-        category=category,
+        category="roof_tile" if roof_side else "brick",
         component="roof" if roof_side else "wall",
         x_studs=x,
         y_studs=y,
@@ -37,9 +37,9 @@ def _model(parts) -> BrickModel:
 def test_mixed_brick_slope_window_assembly_has_no_false_collisions():
     parts = [
         _part("ground", "BRICK_1X1", x=0, y=0, z=0),
-        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_tile"),
-        _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0, category="window_frame"),
-        _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0, category="window_pane"),
+        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative"),
+        _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0),
+        _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0),
     ]
     result = analyze_brick_model_geometry(_model(parts), LDrawLibrary(LDRAW_FIXTURE))
     assert result.complete
@@ -51,9 +51,9 @@ def test_mixed_assembly_reports_only_deliberate_brick_collision_ids():
     parts = [
         _part("brick-a", "BRICK_1X1", x=0, y=0, z=0),
         _part("brick-b", "BRICK_1X1", x=0, y=0, z=0),
-        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative", category="roof_tile"),
-        _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0, category="window_frame"),
-        _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0, category="window_pane"),
+        _part("slope", "BRICK_SLOPED_45_2X4", x=4, y=0, z=3, roof_side="negative"),
+        _part("frame", "WINDOW_1X2X2_60592", x=8, y=0, z=0),
+        _part("pane", "GLASS_FOR_WINDOW_1X2X2_60601", x=8, y=0, z=0),
     ]
     report = analyze_brick_model_geometry(_model(parts), LDrawLibrary(LDRAW_FIXTURE)).report
     collision_pairs = {frozenset((item["part_a"], item["part_b"])) for item in report.collisions}
