@@ -1,64 +1,69 @@
 # Contrôle de passation — 2026-08-31
 
-Ce fichier matérialise le contrôle demandé par `AI_START_HERE.md`. Il peut rester comme trace d’audit ; l’état vivant reste `docs/CURRENT_PROJECT_STATE.md`.
+Ce fichier matérialise le contrôle demandé par `AI_START_HERE.md`. L’état vivant reste `docs/CURRENT_PROJECT_STATE.md`.
 
 ## 1. Main / PR / CI / déploiement
 
-- Point de départ vérifié : `main` = `62655f6e1bd33c3ea469fe10af2ada27c586a889` (PR #305).
-- CI de ce point : succès, run 1257.
-- GitHub Pages de ce point : succès, run 514.
-- PR historique #296 contient une première version de `AI_START_HERE.md` mais est devenue non-mergeable/stale ; la présente branche la remplace proprement sur le `main` courant.
-- La présente passation doit être fusionnée uniquement après CI verte, puis `main` et Pages doivent être revérifiés.
+- PR #306 `docs: complete AI handoff and continuity index` : fusionnée.
+- Merge vérifié : `efb9095f3d249d5f27efea246d68c004145aa2ef`.
+- CI de `main` après #306 : run 1259, succès.
+- GitHub Pages après #306 : run 515, succès.
+- PR historique #296 : fermée comme supersédée par #306, historique conservé.
+- BH-090 / issue #274 : commentaire de continuité ajouté avec le dernier benchmark, #305/#306 et les contrôles encore ouverts.
 
-## 2. Inventaire de cette tranche
+La petite clôture documentaire qui actualise ce fichier ne change aucun comportement produit. Comme toujours, le prochain agent doit revérifier le `main` alors courant et ses workflows avant de travailler.
 
-Ajouts/mises à jour :
+## 2. Inventaire de la passation
+
+Indexé ou mis à jour :
 - `AI_START_HERE.md` — point d’entrée et protocole canonique ;
 - `README.md` — pipeline produit actuel ;
 - `NEXT_CONVERSATION.md` — reprise immédiate actuelle ;
-- `HANDOFF.md` — pointeur non contradictoire vers la continuité courante ;
-- `docs/HANDOFF_HISTORY_2026-08-23.md` — conservation de l’ancien contexte utile ;
-- `docs/CURRENT_PROJECT_STATE.md` — état vérifié, benchmark, limites, ouverts et prochaines étapes ;
-- `docs/ARCHITECTURE.md` — pipeline actuel Survey/Scene/LEGO ;
-- `docs/DECISIONS.md` — ADR Survey/Scene, vérité architecturale vs LEGO, workflow manuel en deux étapes et prompts additifs ;
+- `HANDOFF.md` — pointeur non contradictoire ;
+- `docs/HANDOFF_HISTORY_2026-08-23.md` — ancien contexte utile conservé ;
+- `docs/CURRENT_PROJECT_STATE.md` — état vérifié, benchmark, limites, ouverts, prochaine étape ;
+- `docs/ARCHITECTURE.md` — pipeline Survey/Scene/LEGO actuel ;
+- `docs/DECISIONS.md` — autorités Survey/Scene, frontière LEGO, workflow IA en deux étapes, prompts additifs ;
 - `docs/ARCHITECTURAL_SURVEY_V01.md` — terrain qualitatif, `building_boundary`, `connects_to`, audits v2.9/v3.0 ;
-- `frontend/brickhouse-survey-to-scene-prompt.txt` — correction de la collection terrain canonique `terrain.profiles` sans changer `terrain.kind` ;
-- `tests/test_scene_prompt_terrain_contract.py` — régression du contrat terrain ;
-- `tests/test_ai_handoff_index.py` — régression de l’index de continuité.
+- `frontend/brickhouse-survey-to-scene-prompt.txt` — collection terrain canonique `terrain.profiles`, avec `terrain.kind:"facade_grade_profiles"` conservé ;
+- `tests/test_scene_prompt_terrain_contract.py` — régression terrain ;
+- `tests/test_ai_handoff_index.py` — régression de l’index de continuité ;
+- issue #274 / BH-090 — dernier état du round-trip réel.
 
-## 3. Décisions durables indexées
+## 3. Décisions durables
 
-Les décisions durables de la conversation ont été déplacées vers `docs/DECISIONS.md` et les contrats spécialisés. Les détails temporaires du benchmark et de reprise sont dans `docs/CURRENT_PROJECT_STATE.md`.
+Les décisions durables ont été placées dans `docs/DECISIONS.md` ou les contrats spécialisés. Les détails temporaires de benchmark/reprise sont dans `docs/CURRENT_PROJECT_STATE.md`. Aucun choix structurant nécessaire à la reprise n’est volontairement laissé seulement dans l’historique du chat.
 
 ## 4. Régressions couvertes
 
-- terrain qualitatif Photos → Survey : tests existants de #304 ;
-- complétude topologique Photos → Survey : tests existants de #305 ;
-- `terrain.profiles` vs `terrain.kind:"facade_grade_profiles"` : nouveau test dédié ;
-- présence/référencement du point d’entrée IA : nouveau test dédié.
+- terrain qualitatif Photos → Survey : tests de #304 ;
+- complétude topologique Photos → Survey : tests de #305 ;
+- `terrain.profiles` vs `terrain.kind:"facade_grade_profiles"` : test dédié ;
+- présence/référencement du point d’entrée IA : test dédié ;
+- CI complète de #306 puis CI complète de `main` après merge : vertes.
 
-## 5. Références obsolètes/contradictoires traitées
+## 5. Contradictions traitées
 
-- README M0 présenté comme état global : remplacé par le pipeline actuel ;
-- `HANDOFF.md` ancien présenté comme « à lire en premier » : converti en pointeur, historique conservé ;
-- `NEXT_CONVERSATION.md` arrêté au 29/08 : remplacé par la reprise du 31/08 ;
-- `docs/ARCHITECTURE.md` centré uniquement sur BuildingModel/M0 et Next.js cible : aligné sur l’implémentation actuelle ;
-- ADR-003/004/005 historiques : explicitement marqués/étendus sans effacer leur historique ;
-- prompt Survey → Scene : `Terrain utilise facade_grade_profiles` corrigé en collection `profiles`, tout en conservant le discriminant `terrain.kind:"facade_grade_profiles"`.
+- README M0 présenté comme état global : aligné sur le produit actuel ;
+- ancien `HANDOFF.md` présenté comme point d’entrée courant : archivé et remplacé par un pointeur ;
+- `NEXT_CONVERSATION.md` ancien : actualisé ;
+- architecture BuildingModel/M0-only et cible frontend obsolète : remise en contexte ;
+- ADR historiques : conservés mais explicitement étendus ;
+- prompt Survey → Scene : collection terrain corrigée vers `profiles`, discriminant `facade_grade_profiles` conservé.
 
-## 6. État indexé
+## 6. État final de passation
 
-- **FAIT ET VÉRIFIÉ** : voir `docs/CURRENT_PROJECT_STATE.md`.
-- **EN COURS** : uniquement la fusion/validation de cette passation.
-- **OUVERT** : BH-090/#274, trois drifts de Survey à contrôler, fidélité visuelle/physique restante.
+- **FAIT ET VÉRIFIÉ** : passation #306 fusionnée ; CI/Pages de son merge vertes ; sources de continuité indexées ; #296 fermé ; #274 actualisée.
+- **EN COURS** : aucune tranche fonctionnelle.
+- **OUVERT** : BH-090/#274 ; trois drifts Survey à contrôler ; fidélité visuelle/physique restante.
 - **BLOQUÉ** : aucun blocage technique connu.
-- **PROCHAINE ÉTAPE** : contrôles automatiques des drifts avant un unique nouveau run Photos → Survey.
-- **À NE PAS REFAIRE** : modifier les JSON humains, coder pour le benchmark, réécrire destructivement les prompts historiques, faire passer artificiellement les tests, solliciter l’utilisateur entre petites étapes.
+- **PROCHAINE ÉTAPE** : contrôler automatiquement les trois drifts avant un unique nouveau run Photos → Survey.
+- **À NE PAS REFAIRE** : modifier les JSON humains, coder pour le benchmark, réécrire destructivement les prompts historiques, faire passer artificiellement les tests, demander un rerun humain après chaque petit correctif.
 
-## 7. Test de reprise mentale
+## 7. Contrôle de reprise
 
 Un agent sans historique de chat doit pouvoir recevoir uniquement :
 
 > Lis `AI_START_HERE.md`, vérifie l’état réel de `main` et reprends le projet.
 
-Il y trouvera l’ordre de lecture, les sources canoniques, l’état vérifié, les décisions, les ouverts et la prochaine étape. Si la PR de passation est fusionnée avec CI/Pages vertes, le contrôle est considéré réussi.
+Le dépôt lui fournit alors l’ordre de lecture, les sources canoniques, les décisions, l’état vérifié, les travaux ouverts et la prochaine étape. Contrôle de passation : **réussi**.
