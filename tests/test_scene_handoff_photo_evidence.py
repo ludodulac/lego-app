@@ -46,6 +46,8 @@ def test_staged_scene_handoff_locks_exact_scene_serialization_shapes() -> None:
     assert "Platform.width, Platform.depth, Platform.thickness et StairRun.width sont des NOMBRES JSON strictement positifs" in source
     assert "jamais des PropertyValue ni des objets {value, source, evidence}" in source
     assert "Platform utilise thickness, jamais height" in source
+    assert 'Terrain utilise exactement { \\"kind\\":\\"facade_grade_profiles\\", \\"profiles\\":[...] }' in source
+    assert "Chimney utilise exactement id, position, width, depth, height, source, evidence" in source
     assert "appearance est toujours présent" in source
 
 
@@ -61,6 +63,8 @@ def test_external_scene_import_has_conservative_shape_normalizer() -> None:
     assert "platform.thickness = unwrapPositiveScalarPropertyValue(platform.thickness)" in source
     assert "stair.width = unwrapPositiveScalarPropertyValue(stair.width)" in source
     assert "platform.thickness = Number(platform.height)" in source
+    assert "clone.terrain.profiles = clone.terrain.facade_grade_profiles" in source
+    assert "delete clone.terrain.facade_grade_profiles" in source
     assert "clone.appearance = {}" in source
     assert "normalizeSceneTextareaBeforeImport" in source
 
@@ -74,6 +78,16 @@ def test_scalar_metric_normalizer_is_targeted_and_positive_only() -> None:
     assert "stair.width = unwrapPositiveScalarPropertyValue(stair.width)" in source
     assert "opening.width = unwrapPositiveScalarPropertyValue" not in source
     assert "volume.width = unwrapPositiveScalarPropertyValue" not in source
+
+
+def test_handoff_preserves_qualitative_terrain_and_certain_chimney() -> None:
+    source = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
+    assert "Conserve sa direction qualitative dans terrain.profiles" in source
+    assert "champ JSON canonique est exactement terrain.profiles" in source
+    assert "n’utilise pas terrain.facade_grade_profiles" in source
+    assert "PRÉSERVATION DES CHEMINÉES CERTAINES" in source
+    assert "ArchitecturalScene v0.2 accepte nativement une collection chimneys" in source
+    assert "Il est interdit de l’omettre en affirmant que SceneChimney n’existe pas" in source
 
 
 def test_photo_page_loads_photo_backed_scene_handoff_guard() -> None:
