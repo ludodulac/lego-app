@@ -14,6 +14,8 @@ Pour chaque objet certain/plausible du Survey :
 
 Pour un escalier : déterminer le sens de montée, l’extrémité basse, l’extrémité haute, la surface du bâtiment ou de la plateforme reçue à l’arrivée, et les indices visibles de marches, contremarches, murs latéraux et niveaux.
 
+Pour le terrain : distinguer la vérité qualitative (par exemple « la rue monte vers l’arrière ») de son amplitude métrique. Une pente observée reste présente dans la Scene même si une ou deux altitudes du `GradeProfile` doivent rester `null`.
+
 ## 2. Hypothèses géométriques
 
 Ne pas choisir immédiatement une coordonnée unique. Construire d’abord des intervalles/hypothèses compatibles avec :
@@ -25,6 +27,8 @@ Ne pas choisir immédiatement une coordonnée unique. Construire d’abord des i
 - mêmes objets vus sous plusieurs angles.
 
 Les références usuelles d’objets architecturaux peuvent fournir uniquement des plages plausibles secondaires. Elles ne remplacent jamais les preuves de la maison photographiée.
+
+Une amplitude de terrain ne doit pas être fabriquée depuis une pente simplement visible. Si les vues permettent de borner les niveaux, ils peuvent être `inferred` avec une confiance prudente ; sinon le profil reste partiellement métriquement inconnu sans perdre l’observation.
 
 ## 3. Résolution conjointe
 
@@ -40,13 +44,17 @@ Avant sérialisation, rechercher activement les contradictions :
 - objets qui se chevauchent sans relation ;
 - niveaux incompatibles entre vues ;
 - échelle locale incohérente avec l’ancre utilisateur ;
-- hypothèse sémantique incompatible avec la géométrie.
+- hypothèse sémantique incompatible avec la géométrie ;
+- pente de terrain certaine supprimée parce que son amplitude n’est pas mesurable ;
+- amplitude de terrain inventée pour rendre le modèle LEGO.
 
 Toute contradiction doit être corrigée par une nouvelle résolution des seules valeurs `inferred`, ou laissée `unresolved` si elle n’est pas défendable. Ne jamais faire passer le validateur par snapping arbitraire.
 
 ## 5. Sérialisation seulement en dernier
 
 Le JSON ArchitecturalScene v0.2 est la sortie d’un raisonnement déjà cohérent. Les champs `geometry_status:"resolved"` et `semantic_anchor_volume_id` ne sont autorisés qu’après vérification numérique finale des contraintes backend.
+
+Les profils de terrain suivent la même règle : préserver d’abord la façade, la direction qualitative, la source et les preuves ; sérialiser `start_elevation`/`end_elevation` à `null` quand les valeurs métriques ne sont pas défendables. Le renderer LEGO attend une amplitude métrique au lieu de l’inventer.
 
 ## 6. Une photo vs plusieurs photos
 
