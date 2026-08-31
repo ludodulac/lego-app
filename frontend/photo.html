@@ -53,6 +53,7 @@
         <div class="field"><label for="external-analysis-file">Remettre ici le fichier résultat donné par l’IA</label><input id="external-analysis-file" type="file" accept="application/json,.json" /><small>Boldungo reconnaît un Survey, une Scene, ou le fichier résultat complet du pipeline.</small></div>
         <div class="field fallback-paste"><label for="external-analysis">Ou coller le résultat JSON</label><textarea id="external-analysis" rows="6" spellcheck="false" placeholder="Solution de secours si l’IA ne fournit pas de fichier à télécharger…"></textarea></div>
         <button id="import-analysis" class="primary big-action" type="button">Importer le résultat dans Boldungo</button>
+        <div id="scene-handoff-home"></div>
       </section>
 
       <section class="simple-card future-card" aria-disabled="true"><div class="simple-heading"><div><p class="eyebrow">Prochaine étape du produit</p><h2>Analyse directe dans Boldungo</h2><p>Cette zone est prévue pour le jour où l’application appellera directement le fournisseur d’IA : les mêmes photos et informations seront envoyées sans téléchargement intermédiaire.</p></div><span class="future-pill">Bientôt</span></div><button type="button" disabled>Analyser automatiquement mes photos</button></section>
@@ -75,11 +76,11 @@
       <div id="result" hidden><div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>État</span><strong id="confidence">—</strong></div></div><section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez seulement aux points que vous connaissez.</p></section><section class="result-card" id="proportions-card" hidden><h3>Proportions et échelle</h3><p id="scale-basis"></p><ul id="proportion-evidence"></ul></section><section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Boldungo n’affichera que les informations réellement utiles.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section><section class="result-card"><h3>Contrôles automatiques</h3><ul id="assumptions"></ul></section><details class="result-card"><summary>Voir les données techniques</summary><pre id="json-preview"></pre></details></div>
     </section>
   </main>
-  <script type="module" src="./brickhouse-survey-package.js?v=pdf-handoff-0.3"></script>
+  <script type="module" src="./brickhouse-survey-package.js?v=pdf-handoff-0.4"></script>
   <script type="module" src="./photo-simple.js?v=structured-capture-0.7"></script>
   <script type="module" src="./external-bundle-import.js"></script>
-  <script type="module" src="./survey-import.js"></script>
-  <script type="module" src="./scene-handoff-photo-evidence.js?v=scene-handoff-0.2"></script>
+  <script type="module" src="./survey-import.js?v=scene-handoff-0.5"></script>
+  <script type="module" src="./scene-handoff-photo-evidence.js?v=scene-handoff-0.5"></script>
   <script type="module" src="./scene-chimney-compat.js?v=scene-chimney-compat-0.1"></script>
   <script type="module" src="./photo.js"></script>
   <script type="module" src="./scene-build.js"></script>
