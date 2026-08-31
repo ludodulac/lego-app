@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from lego_geometry_engine import LDrawLibrary, Transform, instantiate
 from lego_geometry_engine.assembly import analyze_assembly as analyze_with_broad_phase
 from lego_geometry_engine.core import analyze_assembly as analyze_reference
@@ -10,6 +12,7 @@ FIXTURE = Path(__file__).parent / "fixtures" / "ldraw"
 def _signature(report):
     def pair(item):
         return tuple(sorted((item["part_a"], item["part_b"])))
+
     return {
         "valid": report.valid,
         "collisions": sorted(pair(item) for item in report.collisions),
@@ -30,3 +33,14 @@ def test_broad_phase_preserves_reference_assembly_semantics():
         instantiate(brick, "collision-b", Transform.translation(160, 0, 0)),
     ]
     assert _signature(analyze_with_broad_phase(parts)) == _signature(analyze_reference(parts))
+
+
+def test_assembly_rejects_duplicate_instance_ids():
+    brick = LDrawLibrary(FIXTURE).load_part("3005")
+    parts = [
+        instantiate(brick, "duplicate"),
+        instantiate(brick, "duplicate", Transform.translation(40, 0, 0)),
+    ]
+
+    with pytest.raises(ValueError, match="instance_id values must be unique"):
+        analyze_with_broad_phase(parts)
