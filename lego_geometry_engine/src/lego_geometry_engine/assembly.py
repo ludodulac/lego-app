@@ -28,7 +28,16 @@ def _validate_instance_ids(parts: Sequence[PartInstance]) -> None:
 
 
 def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
-    """Analyze collisions, contacts, connections, and support topology."""
+    """Analyze collisions, contacts, connections, and support topology.
+
+    LDraw meshes include studs and anti-stud cavities. At an exact legal mating
+    transform those surfaces can numerically look like a narrow solid
+    intersection after a rigid rotation even though the connector model proves
+    the parts are on the same nominal mating plane. Connector compatibility is
+    therefore evaluated before classifying a mesh intersection as an assembly
+    collision. A coincident or genuinely misplaced pair has no exact compatible
+    connector match and remains a collision.
+    """
     _validate_instance_ids(parts)
 
     collisions = []
@@ -37,8 +46,10 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
     graph = {part.instance_id: set() for part in parts}
 
     for a, b in candidate_pairs(parts):
+        pair_connections = find_connections(a, b)
         relation = check_collision(a, b)
-        if relation is Relation.COLLISION:
+
+        if relation is Relation.COLLISION and not pair_connections:
             collisions.append(
                 {
                     "part_a": a.instance_id,
@@ -46,18 +57,20 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
                     "type": "solid_intersection",
                 }
             )
-        elif relation is Relation.CONTACT:
+        elif relation is Relation.CONTACT or pair_connections:
+            # An exact connector mating is a physical contact even when the raw
+            # triangulated stud/cavity surfaces produce a rotationally sensitive
+            # narrow-phase COLLISION result.
             contacts.append(
                 {
                     "part_a": a.instance_id,
                     "part_b": b.instance_id,
-                    "type": "surface_contact",
+                    "type": "connector_contact" if pair_connections else "surface_contact",
                 }
             )
             graph[a.instance_id].add(b.instance_id)
             graph[b.instance_id].add(a.instance_id)
 
-        pair_connections = find_connections(a, b)
         connections.extend(pair_connections)
         if pair_connections:
             graph[a.instance_id].add(b.instance_id)
