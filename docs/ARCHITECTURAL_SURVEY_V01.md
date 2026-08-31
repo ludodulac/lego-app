@@ -1,86 +1,105 @@
 # ArchitecturalSurvey v0.1
 
-BrickHouse now separates **what a photo shows** from **what the building is** and from **how LEGO should represent it**.
+Boldüngo / BrickHouse sépare **ce que les photos montrent**, **ce que le bâtiment est géométriquement** et **comment LEGO peut le représenter**.
 
 ## Pipeline
 
-1. Photos + user facts
-2. ArchitecturalSurvey v0.1 — per-photo evidence and semantic observations
-3. Survey fusion / architectural interpretation
-4. ArchitecturalScene v0.2 — coherent building/site geometry
-5. LEGO representation policy
-6. BrickModel / BOM / instructions
+1. Photos + faits utilisateur
+2. `ArchitecturalSurvey v0.1` — évidence et observations sémantiques
+3. Fusion / raisonnement architectural
+4. `ArchitecturalScene v0.2` — géométrie cohérente du bâtiment et du site
+5. Politique d’approximation LEGO
+6. `BrickModel` / plans / export
 
-The important invariant is that later simplification must never rewrite earlier understanding.
+Invariant : une simplification ultérieure ne réécrit jamais la compréhension antérieure.
 
-## Why this layer exists
+## Autorité du Survey
 
-The real-house regression exposed three classes of failure that cannot be fixed by more metric prompting alone:
+Le Survey est l’autorité pour :
+- inventaire des objets observés ;
+- IDs stables ;
+- façade/côté lorsque prouvé ;
+- certitude d’existence ;
+- attributs sémantiques et leur certitude ;
+- relations topologiques observées ;
+- provenance/evidence.
 
-- left/right mirroring after a correct visual interpretation;
-- treating a facade as a set of generic holes rather than windows/doors with composition, materials and surrounds;
-- either ignoring weathering/terrain clues entirely or risking reproducing them literally in the final model.
+Il n’est pas l’autorité métrique finale. Une existence `certain` n’autorise pas l’invention de dimensions ou coordonnées certaines.
 
-ArchitecturalSurvey captures these clues before geometry is committed.
+## Repère canonique
 
-## Canonical frame
+La façade avant canonique fixe le repère :
+- `x` : gauche → droite lorsqu’on regarde la façade avant depuis l’extérieur ;
+- `y` : avant → arrière ;
+- `z` : bas → haut.
 
-The canonical front facade defines the building frame once:
+Le mapping gauche/droite d’une image est une donnée d’évidence qui doit survivre aux transformations. Le renderer ou la Scene ne doit jamais l’inverser silencieusement.
 
-- `x`: left to right while standing outside and looking straight at the front facade;
-- `y`: front to rear;
-- `z`: bottom to top.
+## Observation vs interprétation vs représentation
 
-Each photo states whether image-left maps to low or high facade offset. This mapping is evidence and must survive downstream transformations. A renderer is not allowed to reverse facade-local offsets silently.
+Une observation peut mentionner salissure, humidité ou vieillissement pour aider à comprendre terrain, exposition ou continuité de matière. Cela ne signifie pas que le modèle LEGO doit reproduire ces traces.
 
-## Observation vs interpretation vs representation
+Les couches de surface séparent donc matériau/couleur nominale, finition et weathering observé. La politique par défaut conserve l’architecture nominale et n’imite pas les salissures temporaires.
 
-An observation can state that a rendered wall has moisture staining. This can help infer local grade, exposure and material continuity. It does **not** imply the LEGO model should reproduce the stain.
+## Ouvertures
 
-`SurfaceAppearance` therefore separates:
+Les ouvertures sont des composants architecturaux, pas de simples trous. Le Survey peut conserver notamment :
+- type d’ouverture ;
+- cadre/matériau/couleur ;
+- nombre de vantaux/meneaux ;
+- vitrage ;
+- appui ;
+- encadrement décoratif ;
+- ordre/rang qualitatif ;
+- preuve multi-vues.
 
-- `base_material`;
-- `nominal_color`;
-- `finish`;
-- observed `weathering`;
-- `reproduce_weathering_in_lego`.
+Les comptes et identités priment sur une métrique approximative. Une grande ouverture simple ne doit pas devenir plusieurs ouvertures uniquement pour faciliter la construction LEGO.
 
-The default policy is to preserve nominal architecture and ignore weathering/temporary objects in LEGO unless a future user explicitly asks otherwise.
+## Certitude
 
-## Openings are visual components
+Chaque observation utilise :
+- `certain` — directement visible ou explicitement confirmé ;
+- `plausible` — soutenu mais non unique ;
+- `unproven` — hypothèse à ne pas promouvoir sans nouvelle preuve.
 
-`OpeningVisualDescription` records evidence such as:
+La certitude de l’objet et la certitude de ses attributs doivent rester séparées.
 
-- frame color/material;
-- leaf count;
-- mullion count;
-- glazing character;
-- sill;
-- surround material/color.
+## Terrain qualitatif
 
-This is intentionally independent from metric opening geometry. A user may confirm that an object is a window without having measured its width, height or offsets.
+Le terrain est une observation architecturale/site à part entière. Une pente clairement visible doit survivre au Survey même si son amplitude numérique est inconnue.
 
-## Certainty
+Règles :
+- auditer chaque façade pertinente ;
+- conserver une pente visible avec une observation `kind:"terrain"` ;
+- conserver la direction qualitative si elle est prouvée ;
+- ne jamais inventer angle, pourcentage ou différence d’altitude ;
+- l’absence de métrique n’autorise pas à effacer une pente certaine ;
+- les zones occultées restent explicitement inconnues plutôt que complétées.
 
-Every survey observation is one of:
+L’audit actuellement injecté au handoff est `frontend/brickhouse-survey-terrain-audit-v29.txt`.
 
-- `certain` — directly visible or explicitly confirmed;
-- `plausible` — supported but not uniquely determined;
-- `unproven` — candidate interpretation that must not become geometry without new evidence.
+## Enveloppe et topologie
 
-## Initial regression fixture
+Si le bâtiment cible est certainement visible, le Survey doit posséder une ancre sémantique stable `kind:"building_boundary"`. Cette observation est non métrique : elle identifie l’enveloppe, elle n’invente ni profondeur ni hauteur.
 
-`tests/fixtures/architectural_survey_real_house_photos_1_2.json` encodes only the first two real-house photos. It intentionally includes:
+Pour une `platform` ou un `stair` certain :
+- si le raccord à l’enveloppe est visiblement certain, conserver une relation `connects_to` vers le `building_boundary` ;
+- si le raccord à une autre primitive est certain, conserver la relation correspondante ;
+- une relation `supports` ne remplace pas `connects_to` lorsqu’elles décrivent deux faits physiques différents ;
+- ne jamais créer une relation certaine pour fermer une zone cachée.
 
-- rendered/off-white nominal facade material;
-- weathering understood but excluded from LEGO reproduction;
-- front window composition and mineral surrounds;
-- low-left front window and glazed lower-right access;
-- front gable/roof context and chimney;
-- strongly rising road on the right;
-- one proven upper-right window;
-- near-grade workshop window;
-- downspout/pipes/technical equipment;
-- strict right-side building boundary.
+L’audit actuellement injecté au handoff est `frontend/brickhouse-survey-topology-audit-v30.txt`.
 
-The remaining photos are deliberately not encoded yet. The survey is meant to grow evidence-first, not to backfill facts from the previous reconstructed scene.
+## Discipline de génération Photos → Survey
+
+Le prompt historique `frontend/brickhouse-survey-prompt.txt` reste volontairement conservé. Les garde-fous récents sont superposés de façon additive via les wrappers versionnés du frontend.
+
+Ce choix est architectural : une tentative de condenser le prompt historique lors de l’ajout du terrain avait supprimé des protections existantes et fait échouer les régressions. Les évolutions futures doivent donc préserver les règles déjà prouvées et ajouter des audits génériques ciblés.
+
+## Benchmark réel
+
+Le benchmark principal conserve les 5 photos originales de la maison test. Il sert à découvrir des défauts génériques du contrat, jamais à encoder des valeurs propres à cette maison comme défauts globaux.
+
+Le dernier run neutre avant l’audit topologique a démontré que le terrain droit pouvait être conservé qualitativement sans amplitude inventée, puis a révélé l’absence de `building_boundary` et de relations `connects_to`. Ces défauts ont motivé les audits v2.9/v3.0 et leurs tests.
+
+Pour l’état opérationnel exact et les prochains contrôles, voir `docs/CURRENT_PROJECT_STATE.md`.

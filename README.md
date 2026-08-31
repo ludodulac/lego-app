@@ -1,103 +1,103 @@
-# BrickHouse AI
+# Boldüngo / BrickHouse
 
-> Nom de travail. Le dépôt conserve pour l'instant le nom `lego-app`.
+> **Boldüngo** est le nom produit visible. Le dépôt `lego-app` et plusieurs packages/identifiants internes conservent volontairement le nom historique **BrickHouse**. Ne pas lancer de renommage mécanique.
 
-BrickHouse AI transforme une représentation structurée d'un bâtiment en modèle constructible avec des briques de construction compatibles, puis produit une visualisation 3D et une nomenclature de pièces (BOM). Le produit final devra pouvoir partir d'une ou plusieurs photos et d'indications textuelles, mais le moteur M0 est volontairement déterministe avant d'ajouter l'analyse d'images par IA.
+Boldüngo transforme des photos réelles d’un bâtiment en une représentation architecturale structurée, puis en une approximation LEGO déterministe, vérifiable et exportable.
+
+Pour toute reprise par une IA, commencer par **`AI_START_HERE.md`**.
 
 ## Pipeline actuel
 
-Le cœur M0 fonctionne selon :
+Le pipeline de référence est :
 
-`BuildingModel -> BuildingGeometry -> BuildingBrickShell -> SpatialBrickShell + SpatialRoof -> BrickModel -> BOM -> BrickExportBundle`
+`photos multi-vues → ArchitecturalSurvey v0.1 → ArchitecturalScene v0.2 → adaptation aux capacités LEGO → BrickModel → validation géométrique/assemblage → BOM / AssemblyPlan / InstructionPlan / BagPlan → viewer`
 
-La cible produit complète reste :
+Principes invariants :
+- le Survey conserve la vérité observée/sémantique et l’incertitude ;
+- la Scene porte la vérité métrique/géométrique ;
+- les contraintes LEGO ne doivent jamais modifier silencieusement la vérité architecturale ;
+- une approximation ou une primitive non supportée doit être signalée comme perte de fidélité plutôt que transformée en faux fait architectural.
 
-`PhotoEvidence -> BuildingModel -> BuildingGeometry -> BrickModel -> AssemblyPlan`
+Voir `docs/ARCHITECTURAL_ANALYSIS_PIPELINE.md`, `docs/ARCHITECTURAL_SURVEY_V01.md`, `docs/ARCHITECTURAL_SCENE_V02.md` et `docs/DECISIONS.md`.
 
-Les modèles IA ne doivent pas générer directement une liste de briques. Ils devront produire ou enrichir une représentation architecturale structurée, ensuite traitée par les moteurs déterministes.
+## Workflow photo principal
 
-## Ce que M0 sait déjà faire
+Le workflow manuel actuellement validé avant dépendance à une API IA est en deux étapes :
 
-- valider un `BuildingModel` structuré en mètres ;
-- générer les quatre murs et les ouvertures ;
-- appliquer une échelle cohérente à toute la maison ;
-- placer des briques autour des portes et fenêtres ;
-- décaler les joints entre rangées ;
-- lier les quatre façades dans une coque 3D avec angles alternés ;
-- générer un premier toit à deux pans en grille ;
-- produire un `BrickModel` unique ;
-- produire une BOM ;
-- exporter le résultat en JSON ;
-- afficher ce JSON dans un viewer 3D web.
+1. **Photos → Survey** : Boldüngo génère un PDF contenant les instructions et les photos. Une conversation IA neutre doit retourner un `ArchitecturalSurvey v0.1` complet, importé sans correction manuelle.
+2. **Survey → Scene** : le Survey validé et le PDF photo original sont fournis ensemble. Le Survey reste autoritatif pour inventaire/IDs/certitudes ; les photos servent à borner la géométrie. La sortie est un `ArchitecturalScene v0.2` complet.
 
-## Lancer le pipeline M0
+Le flux historique one-shot `external-bundle-0.1` reste une compatibilité d’import, pas le workflow principal. Le jalon de validation bout-en-bout est suivi dans l’issue #274 / BH-090.
+
+## Moteurs déterministes
+
+Le dépôt contient notamment :
+- `backend/brickhouse/building/` — contrats historiques BuildingModel ;
+- `backend/brickhouse/scene/` — contrats ArchitecturalScene et primitives métriques ;
+- `backend/brickhouse/geometry/` — géométrie architecturale ;
+- `backend/brickhouse/bricks/` — adaptation LEGO, placement, toiture, détails Scene-aware, export et validation ;
+- `lego_geometry_engine/` — géométrie physique LDraw, collisions/contacts/connecteurs/supports ;
+- `frontend/` — parcours photo, handoffs IA, viewer ;
+- `tests/` — régressions unitaires et bout-en-bout ;
+- `docs/` — architecture, contrats, décisions et continuité.
+
+Le moteur de construction doit rester autant que possible déterministe, testable et indépendant du fournisseur.
+
+## État des capacités importantes
+
+Le projet sait notamment :
+- valider Survey et Scene ;
+- conserver provenance, confiance et inconnues ;
+- préserver plusieurs volumes, ouvertures, plateformes, escaliers, terrain et cheminées ;
+- projeter une Scene vers une coque LEGO sans réécrire la Scene ;
+- gérer plusieurs familles de pente de toiture, dont une famille 18° utilisée par une régression maison réelle ;
+- ouvrir physiquement la toiture autour d’une cheminée métrique ;
+- valider une partie de la géométrie LDraw : collision/contact, containment, support et connecteurs exacts ;
+- produire BOM, AssemblyPlan, InstructionPlan et BagPlan comme contrats séparés ;
+- exposer les limitations finales via `fidelity_issues`.
+
+Le moteur géométrique n’est pas encore un solveur mécanique général : Technic, clips, charnières, SNOT, contraintes, stress et stabilité globale restent partiels ou hors périmètre actuel.
+
+## Benchmark principal
+
+Le benchmark réel principal reste une maison photographiée sous 5 vues originales. Une largeur réelle de façade avant de 10 m sert d’ancre d’échelle lors du test humain courant. Les photos supplémentaires historiques peuvent servir de vérité de contrôle, mais ne doivent pas être utilisées pour rendre artificiellement parfait le benchmark 5 vues.
+
+Les règles apprises de ce benchmark doivent toujours être génériques ; aucune dimension, typologie ou topologie propre à cette maison ne doit être codée comme défaut global.
+
+## Lancer les tests
 
 Python 3.12+ est requis.
 
 ```bash
 python -m pip install -e ".[dev]"
-brickhouse-m0 docs/examples/building-model-simple-house.json frontend/sample-export.json --front-width-studs 48
-```
-
-Le fichier produit est directement lisible par le viewer.
-
-## Lancer le viewer localement
-
-```bash
-python -m http.server 8000 --directory frontend
-```
-
-Puis ouvrir `http://localhost:8000` dans un navigateur. Le viewer permet rotation, zoom, déplacement, recentrage et chargement d'un export JSON local.
-
-## Tests et intégration continue
-
-```bash
 pytest -q
 ```
 
-Le workflow `.github/workflows/ci.yml` exécute automatiquement la suite de tests et le pipeline de référence sur GitHub Actions pour chaque push sur `main` et chaque pull request.
+Le workflow `.github/workflows/ci.yml` exécute la suite de tests et plusieurs smoke tests. `.github/workflows/pages.yml` reconstruit et publie le frontend sur GitHub Pages. Lorsqu’une fonctionnalité dépend du chemin Pages, une CI verte seule ne suffit pas : vérifier aussi le déploiement.
 
-## Déploiement du viewer
+## Pipeline M0 historique
 
-`.github/workflows/pages.yml` est prêt à reconstruire la vraie maison de référence avec le moteur puis à publier `frontend/` sur GitHub Pages. Voir `docs/DEPLOYMENT.md`.
+Le CLI historique M0 reste disponible pour les bâtiments synthétiques et les régressions :
 
-## Structure actuelle
+```bash
+brickhouse-m0 docs/examples/building-model-simple-house.json frontend/sample-export.json --front-width-studs 48
+```
 
-- `backend/brickhouse/building/` — contrat `BuildingModel` et validation ;
-- `backend/brickhouse/geometry/` — géométrie architecturale ;
-- `backend/brickhouse/bricks/` — catalogue, placement, échelle, coque 3D, toit, BrickModel, BOM et export ;
-- `backend/brickhouse/pipeline.py` — pipeline M0 de bout en bout ;
-- `frontend/` — viewer 3D statique ;
-- `data/raw/` — données sources externes non transformées ;
-- `data/processed/` — données dérivées/catalogues exploratoires ;
-- `scripts/` — scripts historiques d'import/normalisation, non considérés comme pipeline officiel ;
-- `docs/` — spécifications et décisions d'architecture ;
-- `tests/` — tests automatisés.
-
-## Catalogue de pièces
-
-Le moteur ne dépend pas des références d'un fournisseur ou d'une marque. Il utilise des identifiants fonctionnels internes, par exemple `BRICK_2X4`. Les références Rebrickable, LDraw ou celles de futurs fournisseurs seront des mappings externes.
-
-Le fichier `data/processed/piece_types_master.csv` est un travail exploratoire conservé, mais il ne constitue pas encore la spécification géométrique définitive du moteur.
-
-## Périmètre encore hors M0
-
-- analyse de photos ;
-- génération de questions à l'utilisateur pour les zones invisibles ;
-- vraies géométries fournisseur des pièces ;
-- optimiseur avancé de stabilité/coût/disponibilité ;
-- `AssemblyPlan` et notice de montage ;
-- API SaaS, authentification, stockage cloud, paiement ou commande de pièces.
+Il constitue une brique du système actuel, pas la description complète du produit.
 
 ## Règles de développement
 
-1. Une fonctionnalité suit : spécification -> ticket -> développement -> tests -> validation -> commit.
-2. Ne pas réinventer l'architecture au fil des implémentations.
-3. Ne pas introduire de fournisseur obligatoire dans le moteur.
-4. Séparer compréhension architecturale, géométrie, placement des briques, optimisation et ordre de montage.
-5. Préserver explicitement les hypothèses et niveaux de confiance lorsque l'analyse photo sera ajoutée.
-6. Préférer un petit catalogue géométriquement fiable à un grand catalogue mal défini.
+1. Préserver l’existant ; ajouter/étendre avant de supprimer.
+2. Séparer compréhension architecturale, géométrie métrique, adaptation LEGO, construction, notice, sacs et approvisionnement.
+3. Ne jamais inventer une géométrie, une mesure, une relation ou une certitude pour faire passer le pipeline.
+4. Corriger la cause générique et ajouter une régression reproductible.
+5. Une couche basse ne modifie pas un fait certain d’une couche haute pour faciliter la construction.
+6. Le catalogue et les IDs internes restent indépendants des fournisseurs.
+7. Toute décision architecturale structurante doit être indexée dans `docs/DECISIONS.md`.
+8. Toute passation substantielle doit suivre `AI_START_HERE.md` et mettre à jour `docs/CURRENT_PROJECT_STATE.md` / `NEXT_CONVERSATION.md`.
 
-## Statut
+## Reprise du projet
 
-Le moteur M0 possède maintenant une chaîne de bout en bout depuis un `BuildingModel` JSON jusqu'au viewer 3D et à la BOM. La prochaine grande phase est de rendre ce résultat réellement constructible/assemblable, puis d'introduire progressivement l'analyse photo.
+La source de reprise courte est :
+
+> Lis `AI_START_HERE.md`, vérifie l’état réel de `main` et reprends le projet.

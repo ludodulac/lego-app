@@ -1,41 +1,50 @@
 # Architecture baseline
 
-Ce document fixe la direction d'architecture avant le développement du moteur.
+Ce document fixe les frontières structurantes actuelles du projet. Les décisions détaillées et leur historique sont dans `docs/DECISIONS.md`.
 
-## Pipeline cible
+## Pipeline cible actuel
 
-1. `PhotoEvidence` — faits observés dans les images et informations fournies par l'utilisateur.
-2. `BuildingModel` — représentation sémantique et paramétrique du bâtiment.
-3. `BuildingGeometry` — géométrie 3D déterministe dérivée du BuildingModel.
-4. `BrickModel` — placement des pièces de construction et leurs orientations.
-5. `AssemblyPlan` — ordre constructible des étapes de montage.
+1. photos / faits utilisateur ;
+2. `ArchitecturalSurvey v0.1` — inventaire observé, identité, certitude, relations, evidence ;
+3. raisonnement/fusion architecturale ;
+4. `ArchitecturalScene v0.2` — géométrie métrique cohérente du bâtiment et du site ;
+5. adaptation déterministe aux capacités LEGO ;
+6. `BrickModel` ;
+7. validation géométrique / assemblage ;
+8. `AssemblyPlan`, `InstructionPlan`, `BagPlan`, BOM et exports/viewer.
+
+Les contrats historiques `BuildingModel` / `BuildingGeometry` restent utilisés par le M0 et plusieurs régressions, mais ils ne décrivent plus à eux seuls tout le workflow photo.
 
 ## Principe central
 
-L'IA n'est pas le moteur de construction. Elle sert principalement à transformer des observations (photos + texte) en informations architecturales structurées. La conversion vers la géométrie, les briques, l'optimisation et l'ordre de montage doit être autant que possible déterministe, testable et reproductible.
+L’IA n’est pas le moteur de construction. Elle transforme des observations en informations architecturales structurées et métriques avec incertitude explicite. La conversion vers les briques, les contrôles physiques, l’optimisation et l’ordre de montage doivent rester autant que possible déterministes, testables et reproductibles.
 
-## Composants prévus
+Frontière de vérité :
+- Survey = autorité sémantique/observée ;
+- Scene = autorité métrique/géométrique ;
+- LEGO = approximation physique de la Scene, jamais réécriture de la Scene.
 
-- Building engine : validation et manipulation du BuildingModel.
-- Geometry engine : volumes, murs, ouvertures, toitures et autres primitives architecturales.
-- Brick engine : discrétisation et placement de pièces.
-- Optimizer : fidélité, stabilité, nombre de pièces, simplicité, disponibilité et coût.
-- Assembly engine : génération d'un ordre de construction valide.
-- Web viewer : visualisation du BrickModel et de l'AssemblyPlan.
+## Composants actuels
+
+- Survey/Scene engine : validation des contrats architecturaux et cohérence inter-couches.
+- Geometry engine architectural : volumes, surfaces, murs, ouvertures, terrain et primitives associées.
+- Brick engine : discrétisation, placement, détails Scene-aware et construction du `BrickModel`.
+- LEGO Geometry & Assembly Engine : lecture LDraw, transforms, collisions/contacts, containment, support et connecteurs dans le périmètre pris en charge.
+- Planning : `AssemblyPlan` pour l’ordre constructif, `InstructionPlan` pour la présentation de montage, `BagPlan` pour la préparation/emballage.
+- Web frontend : workflow photo/handoff IA et viewer.
 
 ## Données de pièces
 
-Le moteur utilise des identifiants internes indépendants des fournisseurs. Les données Rebrickable actuelles servent de métadonnées et de matière première pour le catalogue ; elles ne constituent pas à elles seules une vérité géométrique.
+Le moteur utilise des identifiants internes indépendants des fournisseurs. Rebrickable, LDraw et futurs fournisseurs sont des mappings/métadonnées externes ; leur présence ne constitue pas à elle seule une preuve de géométrie ou de capacité de placement.
 
-Les caractéristiques géométriques et les connecteurs devront être décrits explicitement et validés.
+Les capacités géométriques et connecteurs doivent être décrits explicitement et validés avant utilisation déterministe.
 
-## Architecture applicative cible
+## Architecture applicative
 
-- Frontend : Next.js / React / TypeScript.
-- Backend et moteurs : Python / FastAPI pour l'orchestration et les calculs.
-- Persistance SaaS prévue : Supabase (PostgreSQL, Auth, Storage), introduite seulement lorsqu'elle devient nécessaire.
-- Calculs lourds : workers séparés si nécessaire ; ne pas coupler le moteur à Supabase Edge Functions.
+L’implémentation réellement présente dans le dépôt prime sur les intentions historiques de stack. Le backend est Python/FastAPI ; le frontend actuellement déployé sur GitHub Pages est un frontend web statique dans `frontend/`.
+
+Une migration future vers React/TypeScript, une persistance SaaS ou Supabase n’est pas une permission de refactorer le chemin actuel tant qu’un besoin produit concret ne la justifie pas.
 
 ## Règle de changement
 
-Toute modification importante de cette architecture doit être documentée dans `docs/DECISIONS.md` avant ou avec son implémentation.
+Toute modification importante de ces frontières doit être documentée dans `docs/DECISIONS.md` avant ou avec son implémentation et couverte par des régressions lorsque le comportement est exécutable.

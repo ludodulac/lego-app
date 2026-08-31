@@ -35,7 +35,7 @@ La sortie est UNIQUEMENT un objet ArchitecturalScene v0.2 complet.
 - SceneVolume conserve `id`, `position`, `width`, `depth`, `height`, `floors`, `source`, `evidence` ;
 - SceneOpening : `{ "id":"...", "type":"window|door|garage_door|unknown", "volume_id":"...", "facade":"front|rear|left|right", "offset_horizontal":0.0, "offset_vertical":0.0, "width":1.0, "height":1.0, "source":{...}, "evidence":[...] }` ;
 - SceneRelation : `{ "id":"...", "kind":"connects_to|adjacent_to|aligned_with|supports|part_of|same_physical_object", "subject_id":"...", "object_id":"...", "certainty":"certain|plausible|unproven", "geometry_status":"resolved|unresolved", "semantic_anchor_volume_id":"...|null", "statement":"...", "evidence":[...] }` ;
-- Terrain utilise `facade_grade_profiles` ; chaque GradeProfile accepte `start_elevation:null` et/ou `end_elevation:null` lorsque l’amplitude métrique est inconnue ;
+- Terrain utilise `profiles` ; `terrain.kind` peut valoir `"facade_grade_profiles"`, et chaque GradeProfile accepte `start_elevation:null` et/ou `end_elevation:null` lorsque l’amplitude métrique est inconnue ;
 - Platform.supports contient uniquement des objets SupportPost complets ;
 - un endpoint Survey `building_boundary` reste nommé `building_boundary` dans la relation et peut utiliser `semantic_anchor_volume_id` pour le volume Scene métriquement touché. Ne renomme jamais `building_boundary` en `volume_main`.
 
