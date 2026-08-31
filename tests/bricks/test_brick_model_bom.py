@@ -20,14 +20,16 @@ def test_brick_model_merges_wall_gable_and_roof_parts():
     assert sum(p.component=="roof" for p in model.parts)==3
     assert model.height_plates==10
 
-def test_gables_use_long_bricks_align_and_reach_roof_connection_zone():
+def test_gables_use_long_bricks_align_and_clear_roof_physical_footprint():
     model=generate_brick_model(_shell(),_roof()); gables=[p for p in model.parts if p.placement_id.startswith("gable-")]
     assert any(p.part_id!="BRICK_1X1" for p in gables)
     front=[p for p in gables if p.facade is Facade.FRONT]; rear=[p for p in gables if p.facade is Facade.REAR]
     assert front and rear
     assert {p.y_studs for p in front}=={0}; assert {p.y_studs for p in rear}=={7}
-    assert min(p.x_studs for p in front)==1
-    assert max(p.x_studs for p in front)<=8
+    # 45-degree slopes occupy two studs of physical depth. Gable masonry must
+    # start after that full footprint, not after the one-stud course advance.
+    assert min(p.x_studs for p in front)==2
+    assert max(p.x_studs for p in front)<=7
 
 def test_brick_model_generates_stable_unique_ids_and_metadata():
     model=generate_brick_model(_shell(),_roof()); ids=[p.placement_id for p in model.parts]

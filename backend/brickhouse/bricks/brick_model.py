@@ -12,19 +12,9 @@ from .spatial import SpatialBrickShell
 from .windows import WindowPartPlacement
 
 PartCategory = Literal[
-    "brick",
-    "roof_tile",
-    "ridge_tile",
-    "window_frame",
-    "window_pane",
-    "facade_detail",
-    "timber",
-    "concrete",
-    "masonry",
-    "stone",
-    "metal",
-    "composite",
-    "terrain",
+    "brick", "roof_tile", "ridge_tile", "window_frame", "window_pane",
+    "facade_detail", "timber", "concrete", "masonry", "stone", "metal",
+    "composite", "terrain",
 ]
 PartComponent = Literal["wall", "roof", "facade_detail"]
 EXTERIOR_MATERIAL_CATEGORIES = {
@@ -123,12 +113,8 @@ def _roof_family(roof: SpatialRoof):
 
 
 _GABLE_BRICKS = (
-    (8, "BRICK_1X8"),
-    (6, "BRICK_1X6"),
-    (4, "BRICK_1X4"),
-    (3, "BRICK_1X3"),
-    (2, "BRICK_1X2"),
-    (1, "BRICK_1X1"),
+    (8, "BRICK_1X8"), (6, "BRICK_1X6"), (4, "BRICK_1X4"),
+    (3, "BRICK_1X3"), (2, "BRICK_1X2"), (1, "BRICK_1X1"),
 )
 
 
@@ -170,13 +156,14 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
     index = 1
     for facade in facades:
         for level in range(len(slope_axes)):
-            trim = (level + 1) * family.course_advance_studs
+            # The roof piece occupies its complete physical footprint, not only the
+            # advance to the next course. Keep gable masonry inside that footprint
+            # boundary so real sloped solids cannot penetrate the wall infill.
+            trim = family.footprint_depth_studs + level * family.course_advance_studs
             start, end = trim, span - trim
             if end <= start:
                 continue
-            for local, part_id, brick_span in _tile_gable_course(
-                start, end, bool(level % 2)
-            ):
+            for local, part_id, brick_span in _tile_gable_course(start, end, bool(level % 2)):
                 if roof.ridge_direction is RidgeDirection.DEPTH:
                     x = local
                     y = 0 if facade is Facade.FRONT else shell.depth_studs - 1
@@ -185,17 +172,11 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
                     y = local
                 result.append(
                     BrickModelPart(
-                        placement_id=f"gable-{index:06d}",
-                        part_id=part_id,
-                        category="brick",
-                        component="wall",
-                        x_studs=x,
-                        y_studs=y,
+                        placement_id=f"gable-{index:06d}", part_id=part_id,
+                        category="brick", component="wall", x_studs=x, y_studs=y,
                         z_plates=wall_top + level * family.rise_plates,
                         rotation_quarter_turns=(
-                            1
-                            if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR}
-                            else 0
+                            1 if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR} else 0
                         ),
                         facade=facade,
                     )
@@ -215,85 +196,54 @@ def generate_brick_model(
 
     parts = []
     for index, placement in enumerate(shell.placements, start=1):
-        parts.append(
-            BrickModelPart(
-                placement_id=f"wall-{index:06d}",
-                part_id=placement.brick_id,
-                category="brick",
-                component="wall",
-                x_studs=placement.x_studs,
-                y_studs=placement.y_studs,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
-                facade=placement.facade,
-            )
-        )
+        parts.append(BrickModelPart(
+            placement_id=f"wall-{index:06d}", part_id=placement.brick_id,
+            category="brick", component="wall", x_studs=placement.x_studs,
+            y_studs=placement.y_studs, z_plates=placement.z_plates,
+            rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade,
+        ))
     if roof is not None:
         parts.extend(_generate_gable_wall_parts(shell, roof))
 
     for index, placement in enumerate(facade_details or [], start=1):
-        parts.append(
-            BrickModelPart(
-                placement_id=f"detail-{index:06d}",
-                part_id=placement.part_id,
-                category=placement.category,
-                component="facade_detail",
-                x_studs=placement.x_studs,
-                y_studs=placement.y_studs,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
-                facade=placement.facade,
-                opening_id=placement.opening_id,
-                trim_role=placement.trim_role,
-                semantic_color=placement.semantic_color,
-            )
-        )
+        parts.append(BrickModelPart(
+            placement_id=f"detail-{index:06d}", part_id=placement.part_id,
+            category=placement.category, component="facade_detail",
+            x_studs=placement.x_studs, y_studs=placement.y_studs,
+            z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
+            facade=placement.facade, opening_id=placement.opening_id,
+            trim_role=placement.trim_role, semantic_color=placement.semantic_color,
+        ))
     for index, placement in enumerate(window_parts or [], start=1):
-        parts.append(
-            BrickModelPart(
-                placement_id=f"window-{index:06d}",
-                part_id=placement.part_id,
-                category=placement.category,
-                component="facade_detail",
-                x_studs=placement.x_studs,
-                y_studs=placement.y_studs,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
-                facade=placement.facade,
-            )
-        )
+        parts.append(BrickModelPart(
+            placement_id=f"window-{index:06d}", part_id=placement.part_id,
+            category=placement.category, component="facade_detail",
+            x_studs=placement.x_studs, y_studs=placement.y_studs,
+            z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
+            facade=placement.facade,
+        ))
     if roof is not None:
         for index, placement in enumerate(roof.placements, start=1):
-            parts.append(
-                BrickModelPart(
-                    placement_id=f"roof-{index:06d}",
-                    part_id=placement.part_id,
-                    category=_roof_category(placement.part_id, placement.side),
-                    component="roof",
-                    x_studs=placement.x_studs,
-                    y_studs=placement.y_studs,
-                    z_plates=placement.z_plates,
-                    rotation_quarter_turns=placement.rotation_quarter_turns,
-                    roof_side=placement.side,
-                )
-            )
+            parts.append(BrickModelPart(
+                placement_id=f"roof-{index:06d}", part_id=placement.part_id,
+                category=_roof_category(placement.part_id, placement.side), component="roof",
+                x_studs=placement.x_studs, y_studs=placement.y_studs,
+                z_plates=placement.z_plates,
+                rotation_quarter_turns=placement.rotation_quarter_turns,
+                roof_side=placement.side,
+            ))
 
     wall_top = shell.height_bricks * 3
     roof_top = wall_top
     if roof is not None:
         catalog = create_m0_roof_catalog()
         roof_top = max(
-            (
-                placement.z_plates + catalog.get(placement.part_id).height_plates
-                for placement in roof.placements
-            ),
+            (placement.z_plates + catalog.get(placement.part_id).height_plates
+             for placement in roof.placements),
             default=wall_top,
         )
     return BrickModel(
-        building_id=shell.building_id,
-        volume_id=shell.volume_id,
-        width_studs=shell.width_studs,
-        depth_studs=shell.depth_studs,
-        height_plates=max(wall_top, roof_top),
-        parts=parts,
+        building_id=shell.building_id, volume_id=shell.volume_id,
+        width_studs=shell.width_studs, depth_studs=shell.depth_studs,
+        height_plates=max(wall_top, roof_top), parts=parts,
     )
