@@ -33,10 +33,10 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
     LDraw meshes include studs and anti-stud cavities. At an exact legal mating
     transform those surfaces can numerically look like a narrow solid
     intersection after a rigid rotation even though the connector model proves
-    the parts are on the same nominal mating plane. Connector compatibility is
-    therefore evaluated before classifying a mesh intersection as an assembly
-    collision. A coincident or genuinely misplaced pair has no exact compatible
-    connector match and remains a collision.
+    the parts are on the same nominal mating plane. Only that specific
+    COLLISION-plus-exact-connector case is reclassified as assembly contact.
+    Connector-only pairs that remain geometrically separated stay connections
+    without becoming surface contacts.
     """
     _validate_instance_ids(parts)
 
@@ -49,23 +49,31 @@ def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
         pair_connections = find_connections(a, b)
         relation = check_collision(a, b)
 
-        if relation is Relation.COLLISION and not pair_connections:
-            collisions.append(
-                {
-                    "part_a": a.instance_id,
-                    "part_b": b.instance_id,
-                    "type": "solid_intersection",
-                }
-            )
-        elif relation is Relation.CONTACT or pair_connections:
-            # An exact connector mating is a physical contact even when the raw
-            # triangulated stud/cavity surfaces produce a rotationally sensitive
-            # narrow-phase COLLISION result.
+        if relation is Relation.COLLISION:
+            if pair_connections:
+                contacts.append(
+                    {
+                        "part_a": a.instance_id,
+                        "part_b": b.instance_id,
+                        "type": "connector_contact",
+                    }
+                )
+                graph[a.instance_id].add(b.instance_id)
+                graph[b.instance_id].add(a.instance_id)
+            else:
+                collisions.append(
+                    {
+                        "part_a": a.instance_id,
+                        "part_b": b.instance_id,
+                        "type": "solid_intersection",
+                    }
+                )
+        elif relation is Relation.CONTACT:
             contacts.append(
                 {
                     "part_a": a.instance_id,
                     "part_b": b.instance_id,
-                    "type": "connector_contact" if pair_connections else "surface_contact",
+                    "type": "surface_contact",
                 }
             )
             graph[a.instance_id].add(b.instance_id)
