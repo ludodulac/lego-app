@@ -15,8 +15,22 @@ from .core import (
 from .spatial import candidate_pairs
 
 
+def _validate_instance_ids(parts: Sequence[PartInstance]) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for part in parts:
+        if part.instance_id in seen:
+            duplicates.add(part.instance_id)
+        seen.add(part.instance_id)
+    if duplicates:
+        duplicate_list = ", ".join(repr(value) for value in sorted(duplicates))
+        raise ValueError(f"Assembly instance_id values must be unique; duplicates: {duplicate_list}")
+
+
 def analyze_assembly(parts: Sequence[PartInstance]) -> AssemblyReport:
     """Analyze collisions, contacts, connections, and support topology."""
+    _validate_instance_ids(parts)
+
     collisions = []
     contacts = []
     connections = []
