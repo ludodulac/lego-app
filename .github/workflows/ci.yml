@@ -42,8 +42,29 @@ jobs:
           node --check frontend/brickhouse-single-package.js
           node --check frontend/external-bundle-import.js
           node --check frontend/survey-import.js
+          node --check frontend/scene-handoff-photo-evidence.js
           node --check frontend/scene-survey-gate.js
           node --check frontend/scene-build.js
+
+      - name: Verify Survey to Scene handoff is exposed
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          html = Path('frontend/photo.html').read_text(encoding='utf-8')
+          survey_import = Path('frontend/survey-import.js').read_text(encoding='utf-8')
+          evidence = Path('frontend/scene-handoff-photo-evidence.js').read_text(encoding='utf-8')
+          prompt = Path('frontend/brickhouse-survey-to-scene-prompt.txt').read_text(encoding='utf-8')
+
+          assert 'id="scene-handoff-home"' in html
+          assert 'Créer le fichier Survey → Scene' in survey_import
+          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.5'" in survey_import
+          assert 'Créer le fichier Survey → Scene v4.3' in evidence
+          assert 'PROMPT_VERSION=4.3' in evidence
+          assert 'start_elevation:null' in evidence
+          assert 'end_elevation:null' in evidence
+          assert prompt.startswith('BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.3')
+          PY
 
       - name: Run reference M0 pipeline
         run: >-
