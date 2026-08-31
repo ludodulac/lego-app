@@ -57,8 +57,9 @@ jobs:
           prompt = Path('frontend/brickhouse-survey-to-scene-prompt.txt').read_text(encoding='utf-8')
 
           assert 'id="scene-handoff-home"' in html
-          assert 'Créer le fichier Survey → Scene' in survey_import
-          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.5'" in survey_import
+          assert 'Créer le fichier Survey → Scene à envoyer à l’IA' in survey_import
+          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.1'" in survey_import
+          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.4-photo-evidence'" in evidence
           assert 'Créer le fichier Survey → Scene v4.3' in evidence
           assert 'PROMPT_VERSION=4.3' in evidence
           assert 'start_elevation:null' in evidence
