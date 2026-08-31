@@ -5,7 +5,8 @@ import json
 import os
 from pathlib import Path
 
-from .core import analyze_assembly, instance_from_dict
+from .assembly import analyze_assembly
+from .core import instance_from_dict
 from .library import LDrawLibrary
 
 
