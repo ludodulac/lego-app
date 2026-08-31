@@ -23,6 +23,7 @@ const surveyDownloadValidated = document.querySelector('#download-survey');
 const surveyReplace = document.querySelector('#replace-survey');
 const surveyReport = document.querySelector('#download-report');
 const surveyBuild = document.querySelector('#build-bricks');
+const surveySceneHandoffHome = document.querySelector('#scene-handoff-home');
 const SCENE_HANDOFF_VERSION = 'scene-handoff-0.1';
 const SCENE_HANDOFF_FILENAME = 'BRICKHOUSE-SURVEY-TO-SCENE.txt';
 let currentValidatedSurvey = null;
@@ -149,17 +150,23 @@ function renderSurveyValidation(payload, { extended = false, replaced = false } 
         : extended
           ? '<h3>Extension du relevé validée</h3><p>Les nouvelles vues ont été ajoutées sans modifier les faits déjà validés.</p>'
           : '<h3>Relevé architectural validé</h3><p>Les observations peuvent maintenant servir à la reconstruction de scène. Rien n’est encore construit en LEGO.</p>';
+  const handoffMarkup = payload.valid_for_scene_fusion
+    ? `<p><strong>Étape suivante :</strong> créez le fichier Survey → Scene puis envoyez-le avec le PDF photo original dans la même conversation IA. Sur téléphone, vous n’avez rien à copier.</p><p><button id="download-scene-handoff" class="primary big-action" type="button">Créer le fichier Survey → Scene à envoyer à l’IA</button></p><p><small>${SCENE_HANDOFF_FILENAME} · prompt v4.3 · ${SCENE_HANDOFF_VERSION}</small></p>`
+    : '';
+  if (surveySceneHandoffHome) {
+    surveySceneHandoffHome.innerHTML = handoffMarkup;
+    surveySceneHandoffHome.querySelector('#download-scene-handoff')?.addEventListener('click', createSceneHandoff);
+  }
   surveyQuestions.innerHTML = payload.valid_for_scene_fusion
-    ? `<p><strong>Étape suivante :</strong> Boldungo peut préparer un seul fichier contenant ce Survey validé et la commande Survey → Scene. Sur téléphone, vous n’avez rien à copier.</p><p><button id="download-scene-handoff" class="primary" type="button">Créer le fichier Survey → Scene à envoyer à l’IA</button></p><p><small>${SCENE_HANDOFF_FILENAME} · ${SCENE_HANDOFF_VERSION}</small></p><p><a class="prompt-link" href="./brickhouse-survey-extension-prompt.txt" target="_blank" rel="noopener">Ajouter de nouvelles photos au Survey ↗</a></p>`
+    ? '<p>Le Survey est validé. Le bouton Survey → Scene est disponible directement sous l’import.</p><p><a class="prompt-link" href="./brickhouse-survey-extension-prompt.txt" target="_blank" rel="noopener">Ajouter de nouvelles photos au Survey ↗</a></p>'
     : '<p>Corrigez d’abord les erreurs du relevé. La reconstruction de scène reste désactivée.</p>';
-  surveyQuestions.querySelector('#download-scene-handoff')?.addEventListener('click', createSceneHandoff);
   surveyRefine.disabled = true;
   surveyAssumptions.innerHTML = [`${survey.photos.length} photo(s) documentée(s).`, `${survey.observations.length} observation(s), dont ${certainCount} certaine(s).`, `${openingCount} ouverture(s) observée(s).`, knownWidth ? `Largeur avant connue : ${knownWidth.value} m · mesure utilisateur transportée dans le fichier Survey.` : 'Aucune largeur avant mesurée n’est encore transportée dans ce Survey.', 'Une révision explicitement demandée remplace le Survey précédent seulement après validation complète.', 'Les matériaux nominaux et les détails d’ouverture sont conservés séparément des imperfections.', 'Le relevé ne choisit pas encore la profondeur ni la hauteur globale du bâtiment.', 'Le fichier Survey validé est la source de vérité sémantique et métrique connue pour la reconstruction suivante.'].map(item => `<li>${surveyEscape(item)}</li>`).join('');
   surveyProportions.hidden = false;
   surveyScaleBasis.textContent = knownWidth ? `Repère canonique : x = gauche→droite, y = avant→arrière, z = bas→haut. Largeur avant utilisateur : ${knownWidth.value} m.` : 'Repère canonique : x = gauche→droite en regardant la façade avant, y = avant→arrière, z = bas→haut.';
   surveyEvidence.innerHTML = survey.photos.map(photo => `<li>Photo ${photo.photo_index} · façade ${surveyEscape(photo.facade)} · image gauche → offset ${surveyEscape(photo.image_left_maps_to_facade_offset)}</li>`).join('');
   surveyPreview.textContent = JSON.stringify(survey, null, 2); surveyDownloadValidated.hidden = !payload.valid_for_scene_fusion; surveyDownload.disabled = true; surveyReport.disabled = true; surveyBuild.disabled = true;
-  surveyStatus.textContent = payload.valid_for_scene_fusion ? (replaced ? 'ArchitecturalSurvey corrigé valide et actif. Préparez maintenant le fichier Survey → Scene.' : extended ? 'Extension ArchitecturalSurvey valide. Préparez maintenant le fichier Survey → Scene.' : 'ArchitecturalSurvey valide. Préparez maintenant le fichier unique Survey → Scene — ne construisez pas encore.') : 'ArchitecturalSurvey compris mais refusé. Corrigez les erreurs sémantiques affichées.';
+  surveyStatus.textContent = payload.valid_for_scene_fusion ? (replaced ? 'ArchitecturalSurvey corrigé valide et actif. Le handoff Survey → Scene est disponible sous l’import.' : extended ? 'Extension ArchitecturalSurvey valide. Le handoff Survey → Scene est disponible sous l’import.' : 'ArchitecturalSurvey valide. Le handoff Survey → Scene est disponible directement sous l’import.') : 'ArchitecturalSurvey compris mais refusé. Corrigez les erreurs sémantiques affichées.';
 }
 
 function restoreValidatedSurvey() {
