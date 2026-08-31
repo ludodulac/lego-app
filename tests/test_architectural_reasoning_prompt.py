@@ -6,7 +6,7 @@ PROMPT = ROOT / "frontend" / "brickhouse-survey-to-scene-prompt.txt"
 
 def test_scene_prompt_requires_reasoning_before_json() -> None:
     text = PROMPT.read_text(encoding="utf-8")
-    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.2" in text
+    assert "PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.3" in text
     assert "PASSE DE RAISONNEMENT ARCHITECTURAL — OBLIGATOIRE AVANT TOUT JSON" in text
     assert "IDENTITÉ MULTI-VUES" in text
     assert "COMPRÉHENSION ARCHITECTURALE" in text
@@ -32,3 +32,14 @@ def test_reference_object_priors_are_bounded_secondary_evidence() -> None:
     assert "référence dimensionnelle usuelle" in text
     assert "plage secondaire plausible" in text
     assert "ne remplace jamais les preuves propres au bâtiment" in text
+
+
+def test_observed_terrain_grade_survives_unknown_metric_amplitude() -> None:
+    text = PROMPT.read_text(encoding="utf-8")
+    assert "TERRAIN — VÉRITÉ QUALITATIVE AVANT AMPLITUDE MÉTRIQUE" in text
+    assert "observation Survey `terrain`" in text
+    assert "ne disparaît pas" in text
+    assert "start_elevation" in text
+    assert "end_elevation" in text
+    assert "`null`" in text
+    assert "N’invente jamais une amplitude" in text
