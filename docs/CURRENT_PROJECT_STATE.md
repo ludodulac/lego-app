@@ -68,6 +68,10 @@ Capacités actuelles :
 
 Limites connues : pas encore de modèle général complet pour Technic, clips, charnières, SNOT, contraintes mécaniques, stress ou stabilité globale.
 
+### Contrat terrain Scene rendu cohérent
+
+La contradiction documentaire du prompt Survey → Scene a été supprimée dans cette tranche : le contrat de collection est `terrain.profiles`, tandis que `terrain.kind` peut rester `"facade_grade_profiles"`. Un test dédié verrouille cette distinction dans `tests/test_scene_prompt_terrain_contract.py`.
+
 ## BENCHMARK RÉEL ACTUEL
 
 Le benchmark humain principal reste la même maison, avec 5 photos originales et une largeur réelle de façade avant de 10 m. Échelle de test habituelle : 48 studs.
@@ -98,14 +102,15 @@ Survey → Scene :
 - handoff v4.3 ;
 - le Survey reste l’autorité sémantique ;
 - le PDF original sert d’évidence géométrique supplémentaire ;
-- `terrain.profiles` est le contrat canonique Scene ;
+- `terrain.profiles` est le contrat canonique de collection ;
+- `terrain.kind:"facade_grade_profiles"` reste un discriminant valide ;
 - une cheminée certaine du Survey ne doit pas être omise si sa géométrie peut être bornée honnêtement.
 
 ## OUVERT
 
 ### BH-090 / #274 — validation humaine bout-en-bout
 
-Toujours ouvert. L’étape automatisée a été faite, puis plusieurs défauts génériques ont été découverts et corrigés. Le prochain passage humain doit reprendre uniquement une fois les audits actuels déployés.
+Toujours ouvert. L’étape automatisée a été faite, puis plusieurs défauts génériques ont été découverts et corrigés. Le prochain passage humain doit reprendre uniquement une fois la présente passation fusionnée/déployée et les contrôles automatiques restants terminés.
 
 ### Régressions encore à contrôler avant de considérer Photos → Survey robuste
 
@@ -114,10 +119,6 @@ Le dernier Survey neutre avant #305 a montré trois autres points à vérifier l
 1. `capture_role:"targeted_detail"` a été émis avec `facade:"left"`, alors que le contrat historique demande normalement `facade:null` pour une vue ciblée. Vérifier le schéma backend et le nouveau résultat avant toute correction.
 2. L’observation toiture était certaine mais sans hypothèse qualitative utile, malgré plusieurs vues. Vérifier si le prompt actuel exige réellement un attribut qualitatif soutenu et, si nécessaire, corriger par audit générique additif — jamais en imposant `gable` à cette maison.
 3. La chaîne qualitative de pente terrain a été émise sous la forme `rises_front_to_rear`; vérifier que Survey → Scene accepte cette sémantique sans dépendre d’un vocabulaire exact comme `front_to_rear_up`.
-
-### Contradiction documentaire connue à vérifier
-
-`frontend/brickhouse-survey-to-scene-prompt.txt` a historiquement contenu une mention ancienne `terrain.facade_grade_profiles` alors que le contrat Scene actuel est `terrain.profiles`. Le wrapper #303 impose le contrat canonique, mais le prompt de base doit être relu et corrigé minimalement si la ligne obsolète existe encore.
 
 ### Fidélité visuelle / modèle encore non résolue
 
@@ -133,20 +134,21 @@ Ne pas inventer des dimensions architecturales pour améliorer l’apparence. Un
 
 ## EN COURS
 
-La présente passation documentaire est préparée sur une branche dédiée. Elle doit être fusionnée uniquement après CI verte et contrôle de cohérence.
+Aucune tranche fonctionnelle séparée n’est volontairement laissée en cours par cette passation. La PR documentaire/contrat de passation doit seulement être contrôlée, fusionnée et déployée avant clôture.
 
 ## BLOQUÉ
 
-Aucun blocage technique connu au moment de cette passation. Le prochain vrai point nécessitant l’utilisateur est un nouveau run humain Photos → Survey, mais seulement après fusion/déploiement de la passation et vérification finale des contrats documentaires.
+Aucun blocage technique connu au moment de cette passation. Le prochain vrai point nécessitant l’utilisateur est un nouveau run humain Photos → Survey, mais seulement après fusion/déploiement et après traitement des contrôles automatiques encore possibles.
 
 ## PROCHAINE ÉTAPE
 
 Pour la prochaine conversation :
 1. lire `AI_START_HERE.md` ;
 2. vérifier le SHA réel de `main`, CI, Pages, PR/issues ouvertes ;
-3. vérifier/corriger les contradictions prompt/contrat listées ci-dessus sans demander encore un nouveau run humain ;
-4. seulement quand le dépôt est cohérent et déployé, demander un unique nouveau run utilisateur avec les mêmes 5 photos et largeur avant 10 m ;
-5. auditer le Survey retourné intact avant de lancer Survey → Scene.
+3. examiner les trois drifts de Survey listés ci-dessus dans le code/schéma/prompt avant de demander un nouveau run humain ;
+4. corriger uniquement les défauts génériques démontrés et ajouter les régressions correspondantes ;
+5. quand le dépôt est cohérent et déployé, demander un unique nouveau run utilisateur avec les mêmes 5 photos et largeur avant 10 m ;
+6. auditer le Survey retourné intact avant de lancer Survey → Scene.
 
 ## À NE PAS REFAIRE
 
