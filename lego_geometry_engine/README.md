@@ -19,11 +19,13 @@ print(report.to_dict())
 
 Milestone surface: `LDrawLibrary.load_part`, `instantiate`, `check_collision`, `find_contacts`, `find_connections`, `analyze_assembly`, `Transform`, `PartDefinition`, `PartInstance`, `Connector`, `AssemblyReport`.
 
+Assembly `instance_id` values must be unique. The public analyzer rejects duplicates instead of silently corrupting support/component topology.
+
 ## Geometry
 
 LDraw coordinates are retained internally: right-handed, `-Y` up; 20 LDU = one stud, 24 LDU = one brick height, 8 LDU = one plate. Type-1 matrices are recursively composed. Type-3 triangles and type-4 quads become collision triangles. Type-2 edges and type-5 conditional lines are non-solid and ignored.
 
-Broad phase uses transformed AABBs only as a candidate filter. Narrow phase runs on transformed LDraw triangles and distinguishes `SEPARATED`, `CONTACT`, and `COLLISION`. For closed meshes, an additional ray-casting containment pass catches full enclosure even when no surface triangles cross. `CONTACT_EPS = 1e-5 LDU` and parser/collision epsilon `1e-7 LDU` are explicit in `core.py`.
+Assembly broad phase uses a conservative sweep-and-prune index over transformed mesh AABBs unioned with connector tolerance envelopes. AABBs are candidate filters only. Narrow phase runs on transformed LDraw triangles and distinguishes `SEPARATED`, `CONTACT`, and `COLLISION`. For closed meshes, an additional ray-casting containment pass catches full enclosure even when no surface triangles cross. `CONTACT_EPS = 1e-5 LDU` and parser/collision epsilon `1e-7 LDU` are explicit in `core.py`.
 
 `PartDefinition` is cached per `LDrawLibrary`; transformed triangles and AABBs are cached per immutable `PartInstance`.
 
@@ -70,6 +72,8 @@ print(result.report.to_dict())
 Unknown canonical parts are never guessed. Strict mode raises `UnmappedCanonicalPartError`. Non-strict mode may analyze the mapped subset for diagnostics, but its result is explicitly `complete=False` and therefore `valid=False` while any placement is unmapped.
 
 A regression test additionally enforces that every canonical part currently marked `PLACEMENT_APPROVED` by BrickHouse has a verified LDraw mapping. This prevents future catalog expansion from silently bypassing geometry validation.
+
+The main BrickHouse pipeline has an explicit opt-in integration. Passing `ldraw_root=` to pipeline functions, or `--ldraw-root` to the `brickhouse-m0` CLI, runs geometry validation on the generated BrickModel. The default path remains unchanged and does not require an LDraw installation. Geometry collisions become blocker fidelity issues; unsupported topology becomes warnings.
 
 ## Current BrickHouse mapping coverage
 
@@ -129,8 +133,14 @@ lego-geometry analyze assembly.json --ldraw-root /path/to/ldraw
 
 Each part needs `instance_id`, `part_id`, and either `position: [x,y,z]` in LDU, a 12-value LDraw transform (`x y z a b c d e f g h i`), or a 4x4 matrix.
 
+For the BrickHouse generation pipeline, geometry validation is enabled separately:
+
+```bash
+brickhouse-m0 input.json output.json --ldraw-root /path/to/ldraw
+```
+
 ## Milestone limits
 
-This slice intentionally does not solve full Technic, clips, hinges, SNOT inference, mechanical stress/stability, MPD/TEXMAP coverage, or spatial indexing. Triangle narrow-phase remains correctness-first and pairwise after AABB culling; a spatial index can be added later without changing the public API.
+This slice intentionally does not solve full Technic, clips, hinges, SNOT inference, mechanical stress/stability, or MPD/TEXMAP coverage. Triangle narrow phase remains correctness-first; the assembly-level sweep-and-prune broad phase reduces candidate pairs without changing exact collision classification.
 
-The adapter is currently opt-in and is not automatically injected into the main BrickHouse generation/export pipeline. Production LDraw libraries must be complete—missing recursive references are errors.
+Production LDraw libraries must be complete—missing recursive references are errors. Full official-library integration tests can be enabled with `LDRAW_ROOT`; hermetic CI uses the reduced attributed fixtures documented above.
