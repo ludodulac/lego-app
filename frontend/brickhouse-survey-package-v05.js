@@ -11,10 +11,18 @@ function absoluteUrl(input) {
   return String(input);
 }
 
+function isSurveyPromptUrl(url) {
+  try {
+    return new URL(url, globalThis.location?.href || import.meta.url).pathname.endsWith('/brickhouse-survey-prompt.txt');
+  } catch {
+    return false;
+  }
+}
+
 globalThis.fetch = async function terrainAwareSurveyFetch(input, init) {
   const url = absoluteUrl(input);
   const response = await nativeFetch(input, init);
-  if (!url.endsWith('/brickhouse-survey-prompt.txt')) return response;
+  if (!isSurveyPromptUrl(url)) return response;
 
   const addendumResponse = await nativeFetch(terrainAuditUrl, { cache: 'no-store' });
   if (!addendumResponse.ok) {
