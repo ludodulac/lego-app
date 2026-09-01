@@ -1,5 +1,17 @@
 """Architectural survey: photo observations before scene reconstruction."""
 
+from .audit import (
+    SurveyAudit,
+    SurveyAuditFinding,
+    SurveyAuditFindingStatus,
+    SurveyAuditSeverity,
+    SurveyAuditStatus,
+    SurveyAuditSuggestedAction,
+    SurveyAuditSummary,
+    SurveyAuditTargetType,
+    SurveyAuditValidationIssue,
+    validate_survey_audit,
+)
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -69,6 +81,15 @@ __all__ = [
     "RelationKind",
     "RepresentationPolicy",
     "SurfaceAppearance",
+    "SurveyAudit",
+    "SurveyAuditFinding",
+    "SurveyAuditFindingStatus",
+    "SurveyAuditSeverity",
+    "SurveyAuditStatus",
+    "SurveyAuditSuggestedAction",
+    "SurveyAuditSummary",
+    "SurveyAuditTargetType",
+    "SurveyAuditValidationIssue",
     "SurveyHypothesis",
     "SurveyObservation",
     "SurveyOpenQuestion",
@@ -76,6 +97,7 @@ __all__ = [
     "SurveyRelation",
     "SurveyValidationIssue",
     "rank_questions_for_user_input",
+    "validate_survey_audit",
     "validate_survey_extension",
     "validate_survey_semantics",
     "validate_multiview_roof_hypotheses",
