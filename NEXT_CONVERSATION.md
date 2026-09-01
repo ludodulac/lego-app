@@ -8,59 +8,67 @@ Date : 2026-09-01
 2. `README.md`
 3. `docs/CURRENT_PROJECT_STATE.md`
 4. `docs/ARCHITECTURE.md` et `docs/DECISIONS.md`
-5. `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md` pour l’évolution du pipeline IA
-6. `backend/brickhouse/survey/audit.py`
-7. les contrats spécialisés concernés par la tâche
-8. `HANDOFF.md` seulement pour l’historique utile
+5. `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`
+6. `docs/SURVEY_AUDIT_BENCHMARK_V01.md`
+7. `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md`
+8. `backend/brickhouse/survey/audit.py` et `backend/brickhouse/survey/correction.py`
+9. les contrats spécialisés concernés par la tâche
+10. `HANDOFF.md` seulement pour l’historique utile
 
 Toujours vérifier l’état réel de `main`, des PR/issues, de la CI et de Pages avant d’agir. `main` et les tests exécutables priment sur cette passation.
 
-## PRIORITÉ — AUDITS IA INDÉPENDANTS
+## PRIORITÉ — BOUCLE SURVEY AUDIT / CORRECTION EXPÉRIMENTALE
 
-La Phase 1 de `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md` a commencé de façon additive.
+La proposition d’audits IA indépendants a désormais franchi les fondations de Phase 1 et la première infrastructure de Phase 2.
 
 ### FAIT ET VÉRIFIÉ
 
-- PR #319 fusionnée sur `main` : `SurveyAudit v0.1` existe comme contrat Pydantic séparé dans `backend/brickhouse/survey/audit.py`.
-- Le contrat expose des findings structurés, une preuve photo, des cibles Survey, une sévérité, une action suggérée et un statut global.
-- Un finding non `insufficient_evidence` doit citer une preuve photo.
-- `validate_survey_audit()` vérifie notamment l’identité du Survey audité, les références photo/observation/relation, les IDs de findings et la cohérence `pass|needs_correction`.
-- `frontend/brickhouse-survey-independent-audit-v01.txt` définit une passe indépendante strictement diagnostique : elle ne doit jamais retourner un Survey corrigé.
-- `tests/survey/test_survey_audit.py` couvre contrat, validation, non-mutation, preuve, statut, schéma JSON et prompt.
-- ADR-013 documente la frontière durable : un audit IA indépendant est un diagnostic séparé, jamais une mutation.
-- La PR #319 a aussi réparé deux régressions déjà présentes sur `main` : garde-fous texte supprimés du final-contract Survey v3.3 et garde CI du shell devenu obsolète par rapport au câblage réel.
-- CI PR #1330 : entièrement verte après correction ; suite principale 763 tests verts, LEGO Geometry Engine 26 verts / 2 skipped, puis tous les smoke/gardes frontend verts.
+- PR #319 : `SurveyAudit v0.1`, validateur Python, prompt indépendant et ADR-013.
+- PR #320 : protocole et scorecard du benchmark 5 photos dans `docs/SURVEY_AUDIT_BENCHMARK_V01.md`.
+- PR #321 : boundary HTTP `POST /api/v1/validate-survey-audit`, strictement diagnostique et précédé de la validation déterministe du Survey.
+- Benchmark humain : 3 runs indépendants, respectivement 4 / 3 / 6 findings, tous `needs_correction` ; 12 findings sur 13 jugés visuellement soutenus ; précision/actionable precision et evidence precision observées à 0,923 ; duplicate rate 0 ; correction trigger 1,0.
+- Le benchmark démontre au moins deux gains visuels non décidables par le JSON seul : toiture visible totalement omise et relation `platform supports building-envelope` non soutenue par les photos.
+- Le rappel/F1 et les rappels par catégorie ne sont pas encore publiables honnêtement : il manque une annotation gold exhaustive indépendante des sorties d’audit.
+- Les trois sorties historiques ont été revues par inspection contre le contrat, mais n’ont pas été persistées comme fichiers puis rejouées byte-for-byte dans le boundary ajouté ensuite. Le résultat est donc **GO candidat**, pas encore clôture formelle de tous les critères du benchmark.
+- PR #322 : `SurveyCorrection v0.1`, journal de changements lié aux findings, gel des vérités utilisateur/métadonnées, prompt de correction explicite, ADR-014 en préparation documentaire.
+- PR #323 : boundary HTTP `POST /api/v1/validate-survey-correction` ; valide successivement Survey source, SurveyAudit source puis SurveyCorrection ; retourne seulement l’éligibilité au ré-audit, sans adoption automatique du candidat.
+- CI PR #322 : 771 tests Python verts, LEGO Geometry Engine 26 verts / 2 skipped, tous les gardes/smokes frontend et pipelines verts.
+- CI PR #323 : 774 tests Python verts, LEGO Geometry Engine 26 verts / 2 skipped, tous les gardes/smokes frontend et pipelines verts.
 
-### EN COURS
+Au point de cette passation, le dernier `main` vérifié après #323 est `ed8de59537dc74474c2de27a5f93017bb4a4025f`. Toujours le revérifier avant d’agir.
 
-Aucune correction automatique Survey n’est implémentée. Le nouveau contrat est volontairement importable/validable côté Python mais n’est pas encore intégré au parcours produit ni à une boucle de correction.
+## INVARIANTS DU WORKFLOW DE CORRECTION
 
-### PROCHAINE ÉTAPE
+- Le Survey source ne doit jamais être modifié silencieusement.
+- `SurveyCorrection` transporte un candidat complet et un journal explicite des mutations.
+- Chaque mutation doit être reliée à un finding actionnable validé et utiliser la même `suggested_action`.
+- `keep` et `review` ne peuvent pas déclencher une mutation directe.
+- En v0.1, `name`, `canonical_frame`, photos/métadonnées, `known_measurements`, `representation_policy` et `notes` sont gelés.
+- Toute modification non déclarée d’une observation/relation fait échouer la correction.
+- Le candidat doit encore passer les validateurs Survey déterministes et les guards de toiture.
+- Le boundary de correction ne publie ni n’adopte automatiquement le candidat ; il dit seulement s’il est valide pour un contrôle ciblé suivant.
 
-Poursuivre la **Phase 1 avant de passer à la Phase 2** :
-1. décider le point d’import/validation HTTP minimal pour un `SurveyAudit v0.1` sans l’intégrer encore au workflow utilisateur ;
-2. ajouter ce boundary API si cela reste cohérent avec les patterns existants ;
-3. créer/figer une fiche de scoring benchmark 5 photos sans publier les photos privées ;
-4. définir les métriques automatisables du Survey initial vs audit/correction ;
-5. seulement ensuite préparer le workflow explicite de correction Survey (Phase 2), avec journal de modifications et validation que chaque changement est relié à un finding.
+## PROCHAINE ÉTAPE
 
-Ne pas lancer `SceneAudit` en production avant mesure du gain spécifique de `SurveyAudit`.
+Poursuivre sans redemander de travail humain tant que ce n’est pas nécessaire :
+
+1. fusionner/valider la tranche documentaire du benchmark et ADR-014 ;
+2. durcir `SurveyCorrection` là où une action déclarée pourrait encore masquer une modification trop large d’un objet existant, notamment `lower_certainty`, `reorient` et `merge`, avec tests négatifs avant utilisation sur le benchmark privé ;
+3. définir un ré-audit **ciblé** minimal qui contrôle uniquement les changements appliqués et les régressions qu’ils peuvent induire, au lieu de lancer une boucle IA illimitée ;
+4. préparer un artefact de scoring reproductible qui peut conserver résultats/validation sans publier les photos privées ;
+5. pour la clôture formelle du benchmark, conserver un nouveau triplet brut de SurveyAudit (ou les trois historiques s’ils sont récupérables), les passer sans retouche par `/api/v1/validate-survey-audit`, puis établir une annotation gold exhaustive avant de publier rappel/F1 ;
+6. seulement après cette mesure, exécuter une correction expérimentale sur le Survey privé et vérifier qu’aucune vérité utilisateur ni claim non ciblé n’a dérivé.
 
 ## DÉCISIONS À PRÉSERVER
 
-- **SurveyAudit indépendant : GO expérimental**, après validation déterministe du Survey.
-- **SceneAudit : GO conditionnel**, uniquement si les mesures montrent des anomalies photo-géométrie non couvertes par `validate-scene-against-survey`.
+- **SurveyAudit : GO candidat pour expérimentation contrôlée**, après validation déterministe du Survey.
+- **SurveyCorrection : expérimental et explicite**, jamais une réécriture silencieuse.
+- **SceneAudit : HOLD**, tant qu’un gain non redondant au-dessus de `validate-scene-against-survey` n’est pas mesuré.
 - aucun audit ne remplace les validateurs déterministes ;
-- aucun audit ne modifie silencieusement Survey ou Scene ;
 - aucune absence de preuve ne devient preuve d’absence ;
-- une boucle de correction future doit être explicite, traçable et limitée ;
-- aucune règle ne doit hardcoder la maison benchmark.
-
-## ÉTAT DU BENCHMARK
-
-Le benchmark principal reste la maison réelle à 5 photos et largeur de façade avant 10 m. Il sert à révéler des défauts génériques. Les photos privées ne doivent pas être ajoutées au dépôt sans décision explicite.
-
-Aucune nouvelle génération humaine n’est requise simplement parce que le contrat `SurveyAudit v0.1` existe. Le prochain run humain doit correspondre à un jalon de mesure utile.
+- aucune vérité `user_provided` ne change automatiquement ;
+- aucune règle ne doit hardcoder la maison benchmark ;
+- les photos/PDF/Survey privés ne sont pas ajoutés au dépôt sans décision explicite.
 
 ## AUTRES REPÈRES
 
@@ -78,8 +86,10 @@ Aucune nouvelle génération humaine n’est requise simplement parce que le con
 - ne pas demander un test humain après chaque micro-correctif ;
 - ne pas remplacer les validations déterministes par un vote IA ;
 - ne pas laisser un auditeur réécrire directement la source qu’il contrôle ;
-- ne pas réintroduire les deux régressions réparées par #319 dans le final-contract Survey ou le garde CI du shell.
+- ne pas faire trois pseudo-runs dans un même contexte et les compter comme indépendants ;
+- ne pas publier rappel/F1 sans gold set exhaustif ;
+- ne pas lancer SceneAudit par symétrie avec SurveyAudit.
 
 ## Instruction suffisante pour repartir
 
-> Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md` et reprends à partir de `SurveyAudit v0.1` en restant strictement additif.
+> Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`, `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md` et reprends à partir de la boucle explicite `SurveyAudit -> SurveyCorrection -> validation -> ré-audit ciblé` en restant strictement additif.
