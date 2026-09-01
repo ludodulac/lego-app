@@ -79,10 +79,15 @@ document.addEventListener('click', async event => {
     if (partialOmissions.length) {
       payload.fidelity_issues = [
         ...(payload.fidelity_issues ?? []),
-        ...partialOmissions.map(item => ({ severity: 'warning', code: 'partial_scene_omission', message: item.message })),
+        ...partialOmissions.map(item => ({
+          code: 'partial_scene_object_omitted',
+          severity: 'warning',
+          object_id: item.object_id,
+          message: `${item.object_id} n’est pas encore construit : ${item.reason}. La géométrie n’a pas été inventée.`,
+        })),
       ];
     }
-    localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify(scene));
+    localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify({ scene }));
     localStorage.setItem('brickhouse.pendingExport', JSON.stringify(payload));
     window.location.href = './viewer.html';
   } catch (error) {
