@@ -65,13 +65,12 @@ jobs:
           assert 'single-screen-0.6' in loader
           assert 'photo-shell.css' in loader and 'photo-shell.js' in loader
           assert "const stateOrder = ['photos', 'survey', 'scene', 'model']" in shell
-          assert "photoCard.className = 'shell-main-card shell-photo-card'" in shell
-          assert 'move(guidedGrid, photoCard)' in shell
-          assert 'move(viewsCard, drawerScroll)' in shell
-          assert 'move(resultPanel, drawerScroll)' in shell
+          assert "photoCard.className='shell-main-card shell-photo-card'" in shell
+          assert 'move(guidedGrid,photoCard)' in shell
+          assert '[viewsCard,resultPanel,handoffCard,factsCard,detailsCard,advanced,futureCard].forEach(node=>move(node,drawerScroll))' in shell
           assert 'id="shell-help-button"' in shell
-          assert "sceneCard.className = 'shell-main-card shell-scene-card'" in shell
-          assert "feedback.id = 'shell-feedback'" in shell
+          assert "sceneCard.className='shell-main-card shell-scene-card'" in shell
+          assert "feedback.id='shell-feedback'" in shell
           assert 'Lecture…' in shell and 'Vérification…' in shell
           assert "body.boldungo-shell-enabled{height:100dvh;overflow:hidden" in css
           assert ".shell-state-panel{height:100%;min-height:0;overflow:hidden" in css
