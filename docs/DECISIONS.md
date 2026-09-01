@@ -100,3 +100,14 @@ Le flux historique `external-bundle-0.1` reste seulement une compatibilité d’
 - le Survey candidat doit repasser les validateurs déterministes Survey et les garde-fous de toiture avant d’être éligible à un ré-audit ciblé ;
 - le boundary HTTP de correction valide successivement le Survey source, le SurveyAudit source puis le SurveyCorrection ; il n’adopte ni ne publie automatiquement le candidat ;
 - cette boucle reste expérimentale tant que le benchmark n’a pas démontré sa capacité à corriger sans introduire de nouvelles pertes de vérité.
+
+## ADR-015 — Le ré-audit post-correction est borné au voisinage déterministe de la correction
+
+**Décision :** `SurveyCorrectionReaudit v0.1` est une passe diagnostique séparée qui intervient uniquement après validation d’un `SurveyCorrection`. Son scope est calculé déterministiquement à partir des changements déclarés : observations/relations modifiées, relations directement incidentes et preuves photo déjà liées à ces objets dans l’original ou le candidat.
+
+**Conséquences :**
+- le ré-audit ne devient jamais un nouveau SurveyAudit complet par expansion opportuniste ; une anomalie hors scope nécessite une nouvelle passe indépendante ;
+- les findings du ré-audit v0.1 ne peuvent cibler que des observations/relations du candidat présentes dans le scope et ne peuvent citer que les photos du scope ;
+- le ré-audit ne produit ni n’applique une nouvelle correction ; il retourne seulement `pass|needs_correction` et des findings diagnostiques ;
+- `merge` et la réorientation de relations restent manuels en `SurveyCorrection v0.1` ; `lower_certainty` et la réorientation d’observations sont limités par des scopes de mutation déterministes ;
+- l’objectif est de vérifier qu’une correction ciblée a résolu son défaut sans introduire de régression locale, tout en empêchant une boucle IA ouverte et non bornée.
