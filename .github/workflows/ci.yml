@@ -71,7 +71,7 @@ jobs:
           assert 'move(resultPanel, drawerScroll)' in shell
           assert 'id="shell-help-button"' in shell
           assert "sceneCard.className = 'shell-main-card shell-scene-card'" in shell
-          assert 'shell-import-feedback' in shell
+          assert "feedback.id = 'shell-feedback'" in shell
           assert 'Lecture…' in shell and 'Vérification…' in shell
           assert "body.boldungo-shell-enabled{height:100dvh;overflow:hidden" in css
           assert ".shell-state-panel{height:100%;min-height:0;overflow:hidden" in css
@@ -156,7 +156,7 @@ jobs:
           assert any(value.startswith('scene-platform:deck:') for value in ids)
           assert any(value.startswith('scene-stair:deck_stair:') for value in ids)
           assert any(value.startswith('scene-terrain:right:') for value in ids)
-          assert bundle.bom.total_parts == len(bundle.brick_model.parts)
+          assert bundle.bom.total_parts == len(parts)
           output = Path('/tmp/brickhouse-rich-scene-export.json')
           output.write_text(json.dumps(bundle.model_dump(mode='json'), indent=2), encoding='utf-8')
           PY
