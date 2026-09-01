@@ -86,3 +86,17 @@ Le flux historique `external-bundle-0.1` reste seulement une compatibilité d’
 - chaque finding non `insufficient_evidence` doit citer une preuve photo ;
 - l’audit n’applique aucune correction automatique ; une éventuelle correction appartient à un futur workflow explicite et traçable ;
 - `SceneAudit` reste conditionnel à la mesure d’un gain non redondant après expérimentation de `SurveyAudit`.
+
+## ADR-014 — Une correction Survey est un artefact explicite, traçable et revalidé
+
+**Décision :** `SurveyCorrection v0.1` est un contrat séparé de l’`ArchitecturalSurvey` source et du `SurveyAudit`. Il transporte un Survey candidat complet accompagné d’un journal de changements reliant chaque mutation d’observation/relation à un finding actionnable du SurveyAudit validé.
+
+**Conséquences :**
+- le Survey source reste immuable pendant la correction ; aucune passe IA n’est autorisée à le remplacer silencieusement ;
+- chaque addition, suppression, fusion, réorientation ou baisse de certitude doit être déclarée et reliée à un `finding_id` existant avec la même `suggested_action` ;
+- les findings `keep` et `review` ne donnent pas d’autorité de mutation directe ;
+- en v0.1, `name`, `canonical_frame`, les photos et leurs métadonnées, `known_measurements`, `representation_policy` et `notes` sont gelés ; les vérités `user_provided` ne font donc pas partie de la surface de correction automatique ;
+- toute modification effective non déclarée dans le journal fait échouer la validation ;
+- le Survey candidat doit repasser les validateurs déterministes Survey et les garde-fous de toiture avant d’être éligible à un ré-audit ciblé ;
+- le boundary HTTP de correction valide successivement le Survey source, le SurveyAudit source puis le SurveyCorrection ; il n’adopte ni ne publie automatiquement le candidat ;
+- cette boucle reste expérimentale tant que le benchmark n’a pas démontré sa capacité à corriger sans introduire de nouvelles pertes de vérité.
