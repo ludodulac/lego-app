@@ -27,20 +27,26 @@ function extractJsonObject(raw) {
   return value.slice(start);
 }
 
-function explainSurveyProblem(parsed) {
-  if (parsed?.schema_version !== '0.1') return 'Ce fichier n’est pas un relevé ArchitecturalSurvey v0.1.';
-  if (!parsed?.id) return 'Le relevé est incomplet : identifiant racine « id » manquant.';
-  if (parsed?.canonical_frame?.front_facade !== 'front') return 'Le relevé utilise un ancien repère. Le champ canonical_frame.front_facade doit valoir « front ».';
-  if (parsed?.canonical_frame?.x_direction !== 'front_view_left_to_right') return 'Le repère horizontal du relevé n’est pas conforme au contrat actuel.';
-  if (!Array.isArray(parsed?.photos)) return 'Le relevé est incomplet : liste « photos » manquante.';
-  if (!Array.isArray(parsed?.observations)) return 'Le relevé est incomplet : liste « observations » manquante.';
-  if (parsed?.building) return 'Ce fichier utilise un ancien format de relevé non accepté.';
-  return 'Le fichier ne correspond pas au contrat ArchitecturalSurvey actuel.';
+function surveyProblems(parsed) {
+  const problems = [];
+  if (parsed?.schema_version !== '0.1') problems.push('schema_version doit valoir « 0.1 »');
+  if (!parsed?.id) problems.push('champ racine « id » manquant');
+  if (parsed?.canonical_frame?.front_facade !== 'front') {
+    if (parsed?.canonical_frame?.front === 'front') problems.push('ancien champ « canonical_frame.front » : utilisez « front_facade »');
+    else problems.push('canonical_frame.front_facade doit valoir « front »');
+  }
+  if (parsed?.canonical_frame?.x_direction !== 'front_view_left_to_right') problems.push('canonical_frame.x_direction non conforme');
+  if (!Array.isArray(parsed?.photos)) problems.push('liste « photos » manquante');
+  if (!Array.isArray(parsed?.observations)) problems.push('liste « observations » manquante');
+  if (parsed?.building) problems.push('ancien champ racine « building » non accepté');
+  return problems;
 }
 
-importButton?.addEventListener('click', () => {
+importButton?.addEventListener('click', event => {
   const raw = extractJsonObject(input?.value);
   if (!raw) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     if (status) status.textContent = 'Import du relevé impossible : le fichier est vide ou n’a pas été lu.';
     return;
   }
@@ -48,15 +54,15 @@ importButton?.addEventListener('click', () => {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     if (status) status.textContent = `Import du relevé impossible : JSON illisible (${error.message}).`;
     return;
   }
-  const looksCurrent = parsed?.schema_version === '0.1'
-    && parsed?.id
-    && parsed?.canonical_frame?.front_facade === 'front'
-    && parsed?.canonical_frame?.x_direction === 'front_view_left_to_right'
-    && Array.isArray(parsed?.photos)
-    && Array.isArray(parsed?.observations)
-    && !parsed?.building;
-  if (!looksCurrent && status) status.textContent = `Import du relevé impossible : ${explainSurveyProblem(parsed)}`;
-});
+  const problems = surveyProblems(parsed);
+  if (problems.length) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (status) status.textContent = `Import du relevé impossible : ${problems.join(' · ')}.`;
+  }
+}, { capture: true });
