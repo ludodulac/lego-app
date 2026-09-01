@@ -1,4 +1,4 @@
-BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.2 — FERMETURE DU CONTRAT FINAL
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.3 — FERMETURE DU CONTRAT FINAL
 
 Cet addendum est strictement additif aux contrats et audits Photos → Survey existants. Il intervient comme dernier contrôle juste avant la sérialisation JSON et ne change aucune vérité architecturale.
 
@@ -7,19 +7,33 @@ Avant sortie, recompte les observations `kind:"opening"` par rapport aux ouvertu
 Si la même ouverture est visible dans plusieurs photos, conserve un seul ID et plusieurs `evidence` : la déduplication multi-vues ne doit jamais devenir un regroupement de plusieurs objets physiques.
 
 OUVERTURES — VOCABULAIRE SÉMANTIQUE FINAL
-Pour `attributes.semantic_type`, utilise uniquement les valeurs autorisées par le contrat actif : `window`, `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening`, `garage_door`. Si aucune de ces hypothèses n'est suffisamment soutenue, omets `semantic_type` plutôt que d'émettre une paraphrase libre comme `window_or_door`, `glazed_or_glazed_opening`, `opening` ou une autre valeur inventée. Conserve la prudence via `attribute_certainty.semantic_type` quand une valeur autorisée est seulement plausible.
+Pour `attributes.semantic_type`, utilise uniquement les valeurs autorisées par le contrat actif : `window`, `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening`, `garage_door`. Si aucune de ces hypothèses n'est suffisamment soutenue, omets `semantic_type` plutôt que d'émettre une paraphrase libre. Conserve la prudence via `attribute_certainty.semantic_type` quand une valeur autorisée est seulement plausible.
 
 DÉTAILS ARCHITECTURAUX VISIBLES — FERMETURE D'INVENTAIRE
 Une catégorie architecturale visible et utile à la reconstruction ne peut pas exister seulement dans `photos[].description`. En particulier, une cheminée appartenant au bâtiment cible et réellement visible doit avoir une observation `kind:"chimney"` avec son propre ID, sa certitude et ses preuves. Cette règle est générique : elle ne crée jamais une cheminée lorsqu'aucune n'est visible ou lorsque son appartenance au bâtiment cible n'est pas soutenue.
 
 CONTRAT RACINE — DERNIÈRE LECTURE
-La racine finale contient exactement le champ `id` non vide prévu par ArchitecturalSurvey et ne contient pas `survey_id`. Ne remplace pas un champ canonique par un alias au moment de sérialiser.
+La racine finale contient exactement les champs canoniques `schema_version`, `id`, `name`, `canonical_frame`, `photos`, `known_measurements`, `observations`, `relations`, `representation_policy`, `notes`.
+- `schema_version` = `"0.1"`.
+- `id` existe, est non vide et n'est jamais remplacé par `survey_id`.
+- `canonical_frame` contient exactement `front_facade`, `x_direction`, `y_direction`, `z_direction`.
+- `canonical_frame.front_facade` = `"front"`.
+- `canonical_frame.x_direction` = `"front_view_left_to_right"`.
+- `canonical_frame.y_direction` = `"front_to_rear"`.
+- `canonical_frame.z_direction` = `"bottom_to_top"`.
+- L'ancien alias `canonical_frame.front` est INTERDIT, même s'il vaut `"front"`.
+Ne remplace aucun champ canonique par un alias au moment de sérialiser.
 
-PRÉFLIGHT FINAL v3.2 — OBLIGATOIRE AVANT JSON
-1. chaque observation `opening` représente un seul objet physique et porte `attributes.physical_object_count:1` ;
-2. aucun `semantic_type` d'ouverture n'est hors vocabulaire ; une ambiguïté non encodable est omise plutôt que renommée ;
-3. toute cheminée du bâtiment cible réellement visible et utile à la reconstruction possède une observation `chimney` ;
-4. les contrôles v3.1 restent satisfaits : toiture visible, hypothèse qualitative multi-vues, `building_boundary`, `id` canonique ;
-5. aucune métrique, ouverture, cheminée, façade, relation, direction ou forme n'est inventée pour satisfaire ces contrôles.
+PRÉFLIGHT FINAL v3.3 — OBLIGATOIRE AVANT JSON
+1. la racine est un objet ArchitecturalSurvey direct et `id` est présent/non vide ;
+2. `canonical_frame` possède les quatre clés exactes du contrat et aucune clé `front` héritée ;
+3. chaque observation `opening` représente un seul objet physique et porte `attributes.physical_object_count:1` ;
+4. aucun `semantic_type` d'ouverture n'est hors vocabulaire ; une ambiguïté non encodable est omise plutôt que renommée ;
+5. toute cheminée du bâtiment cible réellement visible et utile à la reconstruction possède une observation `chimney` ;
+6. les contrôles v3.1 restent satisfaits : toiture visible, hypothèse qualitative multi-vues, `building_boundary`, `id` canonique ;
+7. toutes les relations référencent des IDs d'observations existantes ;
+8. le contenu final est parsable comme UN SEUL objet JSON, sans bloc markdown, commentaire ou prose ;
+9. aucune métrique, ouverture, cheminée, façade, relation, direction ou forme n'est inventée pour satisfaire ces contrôles.
 
-Si un contrôle échoue, corrige uniquement la STRUCTURE du JSON à partir des faits déjà observés. Ne change jamais les preuves pour faire passer le contrat.
+DERNIÈRE PASSE DE SÉRIALISATION
+Relis uniquement les noms de clés et la forme du JSON final avant d'émettre le fichier. Si une clé héritée ou un champ obligatoire manquant est détecté, corrige uniquement la STRUCTURE à partir des faits déjà observés. Ne change jamais les preuves ni l'interprétation architecturale pour faire passer le contrat. Ne produis le fichier qu'après réussite de cette passe.
