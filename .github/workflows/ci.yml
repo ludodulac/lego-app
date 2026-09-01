@@ -39,12 +39,45 @@ jobs:
           node --check frontend/configurator.js
           node --check frontend/photo.js
           node --check frontend/photo-simple.js
+          node --check frontend/photo-shell-loader.js
+          node --check frontend/photo-shell.js
           node --check frontend/brickhouse-single-package.js
+          node --check frontend/brickhouse-survey-package.js
           node --check frontend/external-bundle-import.js
           node --check frontend/survey-import.js
           node --check frontend/scene-handoff-photo-evidence.js
           node --check frontend/scene-survey-gate.js
           node --check frontend/scene-build.js
+
+      - name: Verify Boldungo phone shell is wired and HUD-only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          html = Path('frontend/photo.html').read_text(encoding='utf-8')
+          package = Path('frontend/brickhouse-survey-package.js').read_text(encoding='utf-8')
+          loader = Path('frontend/photo-shell-loader.js').read_text(encoding='utf-8')
+          shell = Path('frontend/photo-shell.js').read_text(encoding='utf-8')
+          css = Path('frontend/photo-shell.css').read_text(encoding='utf-8')
+
+          assert 'brickhouse-survey-package.js' in html
+          assert 'photo-shell-loader.js' in package
+          assert 'single-screen-0.5' in loader
+          assert 'photo-shell.css' in loader and 'photo-shell.js' in loader
+          assert "const stateOrder = ['photos', 'survey', 'scene', 'model']" in shell
+          assert "photoCard.className = 'shell-main-card shell-photo-card'" in shell
+          assert 'move(guidedGrid, photoCard)' in shell
+          assert 'move(viewsCard, drawerScroll)' in shell
+          assert 'move(resultPanel, drawerScroll)' in shell
+          assert 'id="shell-help-button"' in shell
+          assert "sceneCard.className = 'shell-main-card shell-scene-card'" in shell
+          assert "body.boldungo-shell-enabled{height:100dvh;overflow:hidden" in css
+          assert ".shell-state-panel{height:100%;min-height:0;overflow:hidden" in css
+          assert ".shell-photo-card .guided-photo-grid{height:auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr" in css
+          assert ".shell-drawer-scroll{overflow:auto" in css
+          assert '.shell-state-panel{height:100%;overflow:auto' not in css
+          assert '#result{height:100%;overflow:auto' not in css
+          PY
 
       - name: Verify Survey to Scene handoff is exposed
         run: |
