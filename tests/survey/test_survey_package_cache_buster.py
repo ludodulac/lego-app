@@ -10,6 +10,8 @@ def test_photo_page_cache_buster_matches_active_survey_package_layer():
     entry = PACKAGE_ENTRY.read_text(encoding="utf-8")
     assert "brickhouse-survey-package-v07.js" in entry
     assert "pdf-handoff-0.7-coverage-audit" in entry
+    assert "brickhouse-survey-package-v08.js" in entry
+    assert "pdf-handoff-0.8-final-contract-audit" in entry
     assert "scene-handoff-source-lock.js" in entry
     assert 'brickhouse-survey-package.js?v=pdf-handoff-0.8-scene-source-lock' in page
     assert 'brickhouse-survey-package.js?v=pdf-handoff-0.7-coverage-preflight' not in page
