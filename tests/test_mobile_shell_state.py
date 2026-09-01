@@ -26,3 +26,15 @@ def test_shell_progress_has_active_and_complete_visual_states():
     assert ".shell-progress-step.is-active" in MOBILE_SHELL_CSS
     assert ".shell-progress-step.is-complete" in MOBILE_SHELL_CSS
     assert ".mobile-shell-nav a.is-active" in MOBILE_SHELL_CSS
+
+
+def test_shell_exposes_contextual_next_action_without_parallel_workflow_state():
+    assert "#shell-state-card" in STATE_JS
+    assert "État de votre maison" in STATE_JS
+    assert "Survey validé" in STATE_JS
+    assert "Scene reçue" in STATE_JS
+    assert "Maquette prête à construire" in STATE_JS
+    assert "#survey-handoff-card" in STATE_JS
+    assert "#analysis-panel" in STATE_JS
+    assert "#build-actions" in STATE_JS
+    assert ".shell-state-card" in MOBILE_SHELL_CSS
