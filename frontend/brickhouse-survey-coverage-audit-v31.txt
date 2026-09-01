@@ -1,0 +1,24 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.1 — FERMETURE DE COUVERTURE
+
+Cet addendum est strictement additif aux contrats et audits Photos → Survey existants. Il ne remplace aucune règle historique et n'autorise aucune reconstruction métrique.
+
+FERMETURE INVENTAIRE → OBSERVATIONS — OBLIGATOIRE
+Avant d'émettre le JSON, reparcours les photos et l'inventaire visuel déjà effectué. Toute catégorie architecturale réellement visible et utile à la reconstruction doit avoir son observation correspondante ; ne considère jamais qu'une mention dans `photos[].description` remplace une observation.
+
+TOITURE — PRÉSENCE AVANT FORME
+Si une toiture du bâtiment cible est réellement visible dans au moins une photo, crée une observation `kind:"roof"` avec les seules preuves qui la montrent. Si cette même toiture est recoupée dans au moins deux photos, applique ensuite intégralement le PRÉFLIGHT TOITURE MULTI-VUES du contrat actif : conserve au moins une hypothèse qualitative soutenue (`roof_type`, `facade_is_gable`, `facade_roof_relationship` ou `roof_edge_type`) avec sa certitude d'attribut. Ne supprime jamais l'observation de toiture pour éviter d'avoir à exprimer une forme incertaine. N'invente aucune métrique.
+
+ENVELOPPE — CONTRÔLE FINAL
+Si le bâtiment cible est certainement visible, vérifie une seconde fois qu'au moins une observation `kind:"building_boundary"` certaine existe, conformément à l'addendum de complétude topologique v3.0. Des ouvertures, une toiture ou des façades décrites ailleurs ne remplacent pas cette ancre.
+
+CONTRAT RACINE — CONTRÔLE FINAL
+La racine finale doit utiliser exactement `id`, jamais `survey_id`. Relis les noms de champs avant sortie et n'émets aucun alias interdit. Cette vérification ne change aucune donnée sémantique : elle garantit seulement que le JSON produit respecte directement `ArchitecturalSurvey`.
+
+PRÉFLIGHT FINAL — OBLIGATOIRE AVANT JSON
+1. chaque catégorie visible retenue dans l'inventaire a une observation, ou reste absente uniquement parce qu'elle n'est pas réellement soutenue ;
+2. toiture visible ⇒ observation `roof` ; toiture multi-vues ⇒ au moins une hypothèse qualitative soutenue avec sa certitude propre ;
+3. bâtiment cible certainement visible ⇒ `building_boundary` certain ;
+4. la racine contient `id` et ne contient pas `survey_id` ;
+5. aucune métrique, façade, relation, direction ou forme n'est inventée pour satisfaire ces contrôles.
+
+Si une information reste incertaine, conserve l'incertitude dans `certainty` / `attribute_certainty` au lieu de supprimer l'objet visible.
