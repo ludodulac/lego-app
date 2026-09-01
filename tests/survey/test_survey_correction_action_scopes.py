@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from brickhouse.survey import ArchitecturalSurvey, SurveyAudit, SurveyCorrection, validate_survey_correction
+from brickhouse.survey import (
+    ArchitecturalSurvey,
+    Certainty,
+    SurveyAudit,
+    SurveyCorrection,
+    validate_survey_correction,
+)
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "architectural_survey_real_house_photos_1_2.json"
@@ -86,7 +92,7 @@ def test_lower_certainty_accepts_only_a_real_certainty_decrease() -> None:
     )
     candidate = survey.model_copy(deep=True)
     target = next(item for item in candidate.observations if item.id == target_id)
-    target.certainty = "plausible"
+    target.certainty = Certainty.PLAUSIBLE
     correction = _correction(
         survey,
         audit,
@@ -110,7 +116,7 @@ def test_lower_certainty_rejects_semantic_mutation_hidden_in_same_change() -> No
     )
     candidate = survey.model_copy(deep=True)
     target = next(item for item in candidate.observations if item.id == target_id)
-    target.certainty = "plausible"
+    target.certainty = Certainty.PLAUSIBLE
     target.attributes["semantic_type"] = "door"
     correction = _correction(
         survey,
