@@ -4,6 +4,12 @@ COPIE LA STRUCTURE, PAS LES FAITS D'EXEMPLE.
 La toute première clé du fichier doit être "schema_version". Il ne doit y avoir AUCUN objet parent "ArchitecturalSurvey", "survey", "result" ou autre wrapper.
 N'ajoute JAMAIS "physical_objects" : chaque objet physique observé est directement une entrée de observations[].
 
+IMPORTANT — SERIALISATION STRICTE
+Avant de créer le fichier, reconstruis mentalement la racine à partir de cette liste fermée :
+"schema_version", "id", "name", "canonical_frame", "photos", "known_measurements", "observations", "relations", "representation_policy", "notes".
+Le champ racine "id" est obligatoire et non vide. "survey_id" n'est jamais un alias accepté.
+canonical_frame contient EXACTEMENT les quatre clés "front_facade", "x_direction", "y_direction", "z_direction". Le champ "front" est un ancien alias INTERDIT.
+
 {
   "schema_version": "0.1",
   "id": "survey-id-non-vide",
@@ -97,15 +103,17 @@ N'ajoute JAMAIS "physical_objects" : chaque objet physique observé est directem
 }
 
 RÈGLES DE STRUCTURE À AUDITER JUSTE AVANT DE CRÉER LE FICHIER
-1. Racine directe : schema_version/id/name/... ; aucun wrapper.
-2. canonical_frame.x_direction vaut EXACTEMENT "front_view_left_to_right", jamais "left_to_right".
-3. photos[] n'utilise pas filename ni orientation_source à la place du contrat : description + source sont obligatoires.
-4. known_measurements[] utilise exactement la forme kind/value/units/source : kind="front_width", value numérique, units="m", source objet ; jamais subject_id/attribute/unit/certainty.
-5. Il n'existe AUCUNE clé physical_objects. Les objets sont observations[].
-6. observations[] utilise kind/certainty/statement/evidence. evidence[] contient des objets {photo_index, observation}, jamais des IDs texte.
-7. Une observation kind="opening" porte attributes.physical_object_count=1.
-8. relations[] référence uniquement des IDs existants dans observations[]. Ne crée aucune relation si deux objets distincts prouvés ne sont pas disponibles.
-9. notes est une chaîne ou null, jamais un tableau.
-10. Supprime les champs facultatifs non soutenus par les preuves plutôt que d'inventer une valeur.
+1. Racine directe : schema_version/id/name/canonical_frame/photos/known_measurements/observations/relations/representation_policy/notes ; aucun wrapper, aucun alias de racine.
+2. id existe, est une chaîne non vide et n'est jamais remplacé par survey_id.
+3. canonical_frame vaut structurellement EXACTEMENT {front_facade, x_direction, y_direction, z_direction}; front_facade="front" ; x_direction="front_view_left_to_right" ; y_direction="front_to_rear" ; z_direction="bottom_to_top". La clé canonical_frame.front est INTERDITE.
+4. photos[] n'utilise pas filename ni orientation_source à la place du contrat : description + source sont obligatoires.
+5. known_measurements[] utilise exactement la forme kind/value/units/source : kind="front_width", value numérique, units="m", source objet ; jamais subject_id/attribute/unit/certainty.
+6. Il n'existe AUCUNE clé physical_objects. Les objets sont observations[].
+7. observations[] utilise kind/certainty/statement/evidence. evidence[] contient des objets {photo_index, observation}, jamais des IDs texte.
+8. Une observation kind="opening" porte attributes.physical_object_count=1.
+9. relations[] référence uniquement des IDs existants dans observations[]. Ne crée aucune relation si deux objets distincts prouvés ne sont pas disponibles.
+10. notes est une chaîne ou null, jamais un tableau.
+11. Supprime les champs facultatifs non soutenus par les preuves plutôt que d'inventer une valeur.
+12. Effectue une DERNIÈRE PASSE DE PARSING : le contenu final doit être un unique objet JSON valide, sans markdown, commentaire, explication ou texte avant/après. Si un contrôle structurel échoue, corrige uniquement la sérialisation avant d'émettre le fichier; ne modifie jamais les faits observés pour faire passer le contrat.
 
 Les valeurs du squelette (fenêtre, plateforme, rangs, largeur 10 m, relation) servent UNIQUEMENT à montrer la forme JSON. Elles ne sont jamais des faits sur le bâtiment analysé.
