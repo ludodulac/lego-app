@@ -219,3 +219,38 @@ def test_run_rejects_same_gold_anomaly_as_detected_and_missed() -> None:
             findings=[_finding("roof", gold_anomaly_id="missing-roof")],
             missed_gold_anomaly_ids=["missing-roof"],
         )
+
+
+def test_complete_gold_set_rejects_unlinked_true_positive() -> None:
+    with pytest.raises(ValidationError, match="every TP finding"):
+        SurveyAuditBenchmarkScorecard(
+            gold_set_complete=True,
+            gold_anomalies=[
+                SurveyAuditGoldAnomaly(
+                    id="missing-roof",
+                    category="omission",
+                )
+            ],
+            runs=[
+                SurveyAuditBenchmarkRun(
+                    run_id="run-1",
+                    contract_valid=True,
+                    audit_status="needs_correction",
+                    findings=[_finding("unlinked-roof")],
+                    missed_gold_anomaly_ids=["missing-roof"],
+                )
+            ],
+        )
+
+
+def test_run_rejects_multiple_true_positives_for_same_gold_anomaly() -> None:
+    with pytest.raises(ValidationError, match="label duplicate detections as DUP"):
+        SurveyAuditBenchmarkRun(
+            run_id="run-1",
+            contract_valid=True,
+            audit_status="needs_correction",
+            findings=[
+                _finding("roof-a", gold_anomaly_id="missing-roof"),
+                _finding("roof-b", gold_anomaly_id="missing-roof"),
+            ],
+        )
