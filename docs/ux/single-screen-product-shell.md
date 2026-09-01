@@ -26,97 +26,77 @@ This is an interaction architecture decision, not a visual imitation of any refe
 
 ## Shell anatomy
 
-### Persistent chrome
-
 - compact Boldüngo identity/header;
 - house/workflow progress indicator;
 - main content viewport;
 - bottom navigation / stage controls;
-- optional secondary drawer trigger for expert/settings tools.
+- secondary drawer for details, expert and compatibility tools.
 
-### Workflow states
+## Workflow states
 
-#### Photos
+### Photos
 
-Primary content: the four orientation capture slots, compact capture status, known front width and the next safe action.
+Primary content: the four orientation capture slots, compact capture status, known front width and the next safe action. Multiple photos per orientation remain supported. Notes remain available contextually rather than forcing permanent vertical height.
 
-The benchmark's multiple photos for one orientation remain supported. Detail groups and notes remain available through contextual expansion rather than disappearing.
+### Survey
 
-Primary CTA when inputs are ready: create the autonomous Survey PDF.
+Primary content: generation/import handoff and active Survey validation. A rejected import must not leave a stale Survey looking current.
 
-#### Survey
+### Scene
 
-Primary content: import result, validation status, uncertainties/questions and source identity. A rejected import must visibly invalidate the previous active Survey rather than leaving stale state looking current.
+Primary content: validation/result state driven by the current Survey → Scene contract. Construction remains locked until existing validation passes.
 
-Primary CTA exists only when the Survey is valid for Scene fusion.
+### Maquette
 
-#### Scene
-
-Primary content: active Survey source identity, Scene handoff/import, fidelity validation and unresolved geometry.
-
-Construction is unavailable until the Scene passes the existing validation contract.
-
-#### Maquette
-
-Primary content: build status and model summary, then access to viewer/instructions/BOM-related outputs as they become available.
-
-Viewer/share/export URLs may remain secondary routes because they are outputs, not the normal workflow shell.
+Primary content: the existing construction action and model state. Viewer/share/export routes may remain secondary outputs.
 
 ## Panels, overlays and drawers
 
-Use a panel/sheet when the user needs temporary focus while retaining the house context behind it. Examples: add photos to one orientation, edit a note, inspect a validation problem, import a JSON result.
-
-Use the expert drawer for API URL, legacy technical photo input, raw JSON, prompt links, test/report downloads and compatibility controls. Moving a control to this drawer does not authorize deleting its functionality.
-
-A modal is reserved for short blocking decisions or confirmations. Do not turn every workflow state into a modal stack.
+Detail photo groups, API controls, raw JSON, prompt links, reports, compatibility tools and future/experimental controls remain available in secondary panels. Moving a control is not authorization to delete its functionality.
 
 ## Scroll rules
 
 - persistent header/progress and bottom navigation do not scroll away on phone;
-- the active panel may scroll within the remaining viewport;
-- primary CTA should remain reachable without requiring a full-page scroll, preferably through a sticky action zone when appropriate;
-- large technical/raw data areas scroll internally;
-- desktop may show a docked validation/result panel alongside the active workflow panel.
+- only the active workspace panel scrolls when necessary;
+- the primary CTA remains outside the scrolling content;
+- expert/raw content scrolls inside its drawer;
+- the main path must not require traversing a document-length page.
 
 ## Touch and hierarchy
 
-- primary interactive targets should be comfortably thumb-sized (target approximately 44 CSS px minimum where practical);
-- avoid placing the only primary action at the extreme top of a tall panel;
-- use state, label and text in addition to color for completion/errors;
-- preserve keyboard focus order and visible focus states;
-- overlays/sheets must have an explicit close/back action and must not destroy entered state when dismissed.
+Primary touch targets should be comfortably thumb-sized. Each state has one dominant next action. Overlays and drawers have explicit close behavior and preserve entered state.
 
 ## Migration plan
 
 ### Phase 1 — shell foundation
 
-Introduce shell semantics and CSS around the existing Photos → Survey → Scene workflow while preserving current functional IDs and script imports. Convert mobile layout from a document-like column into an app viewport with persistent progress/bottom controls. Keep expert tools accessible.
+Reorganize the existing working `photo.html` UI at runtime into a fixed viewport cockpit while retaining the existing DOM controls, IDs and listeners. The first implementation uses four persistent workflow states, compact 2×2 photo capture, a fixed primary CTA, bottom navigation and a secondary tools drawer.
 
 ### Phase 2 — state orchestration
 
-Derive visible workflow state from the existing validated application state. Switch active panels without duplicating Survey/Scene truth in a second incompatible store. Add focused sheets for capture/import/validation where useful.
+Derive visible workflow state more deeply from validated Survey/Scene state without duplicating architectural truth.
 
 ### Phase 3 — absorb Maquette
 
-Bring build/model state into the same shell. Keep viewer, exports, debug and compatibility routes as secondary destinations where they remain useful.
+Bring model/viewer/instruction status further into the same shell while preserving useful output URLs.
 
 ### Phase 4 — compatibility retirement
 
-Only after equivalent behavior is covered by CI/browser checks may obsolete navigation/pages be removed. Removal is a separate deliberate change, never an incidental part of adding the shell.
+Remove obsolete page-era structures only after equivalent behavior is covered and CI remains green. Removal is deliberate and separate from additive shell work.
 
-## Guardrails for implementation and review
+## Guardrails
 
-A shell PR must be rejected if it:
+Reject any shell change that:
 
-- renames BrickHouse internals mechanically to Boldüngo;
-- removes a working control merely to simplify the screen;
+- mechanically renames BrickHouse internals to Boldüngo;
+- removes working functionality just to shorten the screen;
 - weakens Survey/Scene validation;
-- hardcodes benchmark-house facts into generic UI or workflow logic;
-- mutates imported/generated JSON to make validation pass;
+- hardcodes benchmark-house facts into generic rules;
+- mutates generated/imported JSON to make validation pass;
 - introduces a second source of truth for active Survey/Scene identity;
-- requires page-to-page navigation for the core Photos → Survey → Scene → Maquette journey;
+- restores page-to-page navigation for the core workflow;
 - copies proprietary visual identity from a reference product.
 
 ## First acceptance target
 
-The first complete shell milestone is the existing benchmark workflow: capture the five benchmark photos across the four orientation slots, enter the known front width, generate the Survey PDF, import and validate Survey, produce/import and validate Scene, then unlock construction — while remaining in one persistent Boldüngo shell and without changing the architectural contracts.
+Capture the benchmark views, enter the known front width, generate the Survey PDF, import/validate Survey, produce/import/validate Scene and unlock construction while staying in one persistent Boldüngo cockpit.
