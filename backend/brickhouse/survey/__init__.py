@@ -31,6 +31,12 @@ from .correction import (
     SurveyCorrectionValidationIssue,
     validate_survey_correction,
 )
+from .correction_eligibility import (
+    SurveyCorrectionEligibility,
+    automatic_survey_correction_finding_ids_v01,
+    classify_survey_correction_finding_v01,
+    survey_correction_eligibility_v01,
+)
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -119,6 +125,7 @@ __all__ = [
     "SurveyAuditValidationIssue",
     "SurveyCorrection",
     "SurveyCorrectionChange",
+    "SurveyCorrectionEligibility",
     "SurveyCorrectionObjectType",
     "SurveyCorrectionValidationIssue",
     "SurveyHypothesis",
@@ -127,9 +134,12 @@ __all__ = [
     "SurveyReasoningState",
     "SurveyRelation",
     "SurveyValidationIssue",
+    "automatic_survey_correction_finding_ids_v01",
+    "classify_survey_correction_finding_v01",
     "compute_survey_audit_benchmark_metrics",
     "evaluate_survey_audit_experimental_go",
     "rank_questions_for_user_input",
+    "survey_correction_eligibility_v01",
     "validate_survey_audit",
     "validate_survey_correction",
     "validate_survey_extension",
