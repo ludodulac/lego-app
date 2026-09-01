@@ -8,3 +8,7 @@ import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audi
 // Also lock Survey → Scene prompt fetches to the currently validated Survey so
 // stale browser state or a model's remembered IDs cannot silently replace it.
 import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
+// photo.html already loads this stable entry point. Load the additive one-screen
+// UI layer from here so the cockpit cannot exist in the branch without actually
+// being activated in the deployed Photos workflow.
+import './photo-shell-loader.js?v=single-screen-0.2';
