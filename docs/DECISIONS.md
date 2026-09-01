@@ -36,7 +36,7 @@ Ce fichier conserve les décisions structurantes afin que les humains et les age
 
 **Décision :** la géométrie réelle reste exprimée en mètres. La maquette choisit une échelle en tenons par mètre, puis la hauteur est dérivée avec la proportion physique de la grille (8 mm par tenon horizontal, 9,6 mm par rangée de brique standard). Les ouvertures sont quantifiées dans la même échelle ; elles ne sont pas redimensionnées indépendamment.
 
-**Conséquence :** un bâtiment complet doit utiliser une échelle globale partagée par toutes ses façades. Le choix d'une largeur cible par mur dans BH-008 est une primitive de validation, pas le mécanisme final de génération bâtiment.
+**Conséquence :** un bâtiment complet doit utiliser une échelle globale partagée par toutes ses façades. Le choix d’une largeur cible par mur dans BH-008 est une primitive de validation, pas le mécanisme final de génération bâtiment.
 
 ## ADR-009 — Survey = autorité sémantique, Scene = autorité métrique
 
@@ -75,3 +75,14 @@ Le flux historique `external-bundle-0.1` reste seulement une compatibilité d’
 **Contexte :** l’ajout de l’audit terrain a montré qu’une réécriture directe du prompt Survey pouvait supprimer des invariants historiques. Le modèle actuel conserve le prompt de base et superpose des audits terrain/topologie via des wrappers versionnés.
 
 **Conséquence :** une future règle de conformité Photos → Survey doit, par défaut, suivre la même stratégie additive et être couverte par tests avant déploiement.
+
+## ADR-013 — Un audit IA indépendant est un diagnostic séparé, jamais une mutation
+
+**Décision :** `SurveyAudit v0.1` est un contrat additif distinct de `ArchitecturalSurvey v0.1`. Il intervient uniquement après validation déterministe du Survey et produit des findings photo-référencés sans réécrire l’objet audité.
+
+**Conséquences :**
+- les validateurs Survey existants restent obligatoires et autoritatifs pour les invariants déterministes ;
+- l’audit se concentre sur les erreurs que le JSON seul ne permet pas de décider : fidélité visuelle, omissions, identité multi-vues, orientation, relations visibles et calibration de certitude ;
+- chaque finding non `insufficient_evidence` doit citer une preuve photo ;
+- l’audit n’applique aucune correction automatique ; une éventuelle correction appartient à un futur workflow explicite et traçable ;
+- `SceneAudit` reste conditionnel à la mesure d’un gain non redondant après expérimentation de `SurveyAudit`.
