@@ -62,7 +62,7 @@ jobs:
 
           assert 'brickhouse-survey-package.js' in html
           assert 'photo-shell-loader.js' in package
-          assert 'single-screen-0.5' in loader
+          assert 'single-screen-0.6' in loader
           assert 'photo-shell.css' in loader and 'photo-shell.js' in loader
           assert "const stateOrder = ['photos', 'survey', 'scene', 'model']" in shell
           assert "photoCard.className = 'shell-main-card shell-photo-card'" in shell
@@ -71,6 +71,8 @@ jobs:
           assert 'move(resultPanel, drawerScroll)' in shell
           assert 'id="shell-help-button"' in shell
           assert "sceneCard.className = 'shell-main-card shell-scene-card'" in shell
+          assert 'shell-import-feedback' in shell
+          assert 'Lecture…' in shell and 'Vérification…' in shell
           assert "body.boldungo-shell-enabled{height:100dvh;overflow:hidden" in css
           assert ".shell-state-panel{height:100%;min-height:0;overflow:hidden" in css
           assert ".shell-photo-card .guided-photo-grid{height:auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr" in css
