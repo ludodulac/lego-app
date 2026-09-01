@@ -1,142 +1,157 @@
 # Boldüngo / BrickHouse — état courant vérifié
 
-Date de passation : 2026-08-31
+Date de passation : 2026-09-01
 
-Ce document est l’index opérationnel du travail récent. Il complète `AI_START_HERE.md` et pointe vers les contrats/tests réels. `main` reste la source technique de vérité.
+Ce document est l’index opérationnel du travail récent. Il complète `AI_START_HERE.md`; `main` et les tests exécutables restent la source technique de vérité. Toujours revérifier les SHA, PR, CI et déploiements au début d’une nouvelle conversation.
 
 ## FAIT ET VÉRIFIÉ
 
-### État Git / déploiement
+### État Git récent
 
-La passation complète a été fusionnée via la PR #306. Son merge a produit `main` = `efb9095f3d249d5f27efea246d68c004145aa2ef`. La CI de `main` correspondante (run 1259) est terminée avec succès et le déploiement GitHub Pages correspondant (run 515) est terminé avec succès. La PR historique #296, devenue obsolète, a été fermée comme supersédée par #306.
+Dernier `main` vérifié au moment de cette passation : `ed8de59537dc74474c2de27a5f93017bb4a4025f`, merge de la PR #323.
 
-Toujours revérifier l’état réel de `main` au début d’une nouvelle conversation : les SHA et runs ci-dessus sont le point de contrôle de cette passation, pas une valeur éternelle.
+Tranches indépendantes récemment fusionnées :
+
+- #319 — `SurveyAudit v0.1`, validateur Python, prompt indépendant, tests et ADR-013 ;
+- #320 — protocole/scorecard du benchmark SurveyAudit 5 photos ;
+- #321 — boundary HTTP `POST /api/v1/validate-survey-audit` ;
+- #322 — `SurveyCorrection v0.1`, journal de changements, gel des vérités utilisateur, prompt de correction explicite ;
+- #323 — boundary HTTP `POST /api/v1/validate-survey-correction`.
+
+CI vérifiée :
+
+- PR #322 : 771 tests Python verts ; LEGO Geometry Engine 26 verts / 2 skipped ; tous les gardes/smokes frontend, handoff et pipelines verts ;
+- PR #323 : 774 tests Python verts ; LEGO Geometry Engine 26 verts / 2 skipped ; tous les gardes/smokes frontend, handoff et pipelines verts.
 
 ### Pipeline architectural de référence
 
-Le principe durable est :
+Le principe durable reste :
 
-`PHOTOS → vérité architecturale → scène architecturale métrique → construction LEGO → validation physique LEGO → modèle`
+`PHOTOS → ArchitecturalSurvey → ArchitecturalScene → construction LEGO → validation physique LEGO → modèle`
 
-Les responsabilités sont séparées :
-- le Survey est l’autorité sémantique/observée ;
-- la Scene est l’autorité métrique/géométrique ;
-- les contraintes LEGO ne doivent jamais réécrire silencieusement la vérité architecturale ;
-- les pertes de fidélité LEGO doivent être explicites.
+Responsabilités :
 
-Voir `docs/ARCHITECTURAL_ANALYSIS_PIPELINE.md`, `docs/ARCHITECTURAL_SURVEY_V01.md`, `docs/ARCHITECTURAL_SCENE_V02.md` et `docs/DECISIONS.md`.
+- `ArchitecturalSurvey v0.1` = autorité sémantique/observée ;
+- `ArchitecturalScene v0.2` = autorité métrique/géométrique ;
+- les contraintes LEGO ne réécrivent jamais silencieusement la vérité architecturale ;
+- `SurveyAudit` ajoute un diagnostic visuel après validation déterministe ;
+- `SurveyCorrection` propose un candidat séparé, traçable et revalidé ; le Survey source reste intact.
 
-### Round-trip manuel Boldüngo → ChatGPT
+Voir `docs/ARCHITECTURAL_ANALYSIS_PIPELINE.md`, `docs/ARCHITECTURAL_SURVEY_V01.md`, `docs/ARCHITECTURAL_SCENE_V02.md`, `docs/DECISIONS.md` et `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`.
 
-L’issue #274 / BH-090 reste le jalon de validation bout-en-bout. Le workflow principal actif est en deux étapes :
-1. Photos → `ArchitecturalSurvey v0.1` ;
-2. Survey validé + PDF photo original → `ArchitecturalScene v0.2`.
+### SurveyAudit v0.1
 
-Le flux one-shot `external-bundle-0.1` est seulement une compatibilité historique ; ne pas le rétablir comme workflow principal. L’issue #274 contient désormais un commentaire de continuité daté de cette passation avec le dernier état du benchmark.
+`backend/brickhouse/survey/audit.py` définit le contrat indépendant. Les findings portent une cible, un statut, une sévérité, une action suggérée et des preuves photo. L’audit ne modifie jamais le Survey.
 
-### Corrections structurantes récentes
+Le boundary `/api/v1/validate-survey-audit` impose d’abord la validation déterministe du Survey, puis vérifie le SurveyAudit. Il retourne l’audit parsé, les issues, `valid` et `needs_correction` ; il ne corrige rien.
 
-Les PR suivantes sont fusionnées et font partie de l’état actuel :
-- #283 : compatibilité métrique Platform/Stair `PropertyValue` vs scalaire ;
-- #285 : validation de contact métrique pour relations `semantic_anchor` résolues ;
-- #288 : raisonnement architectural v4.2, identité/topologie d’abord, hypothèses concurrentes, solve métrique conjoint et passe de contradictions ;
-- #290 : compatibilité des métadonnées racine Scene `id`/`name` manquantes ;
-- #292 : compatibilité cheminée générique → `SceneChimney` dans le cas précisément justifié par le Survey ;
-- #294 : longueur longitudinale de toiture rendue tileable sans modifier la maison ; fallback DP exact pour le tuilage ;
-- #295 : moteur LEGO Geometry & Assembly, intégré au dépôt ;
-- #297 : les pentes physiques de toiture ne pénètrent plus le remplissage de pignon ;
-- #298 : régression maison réelle pour toiture peu pentue 18° ;
-- #299 : ouverture physique de toiture autour des cheminées métriques ;
-- #300 : régression LDraw cheminée + correction de l’accouplement de connecteurs tournés ;
-- #301 : préservation d’une pente de terrain qualitative sans inventer d’amplitude ;
-- #302 : exposition du handoff Survey → Scene v4.3 dans le workflow principal ;
-- #303 : sérialisation canonique de `terrain.profiles` et des cheminées dans le handoff Scene ;
-- #304 : audit terrain Photos → Survey, additif au prompt historique ;
-- #305 : audit de complétude topologique Photos → Survey, additif après l’audit terrain ;
-- #306 : passation dépôt complète, sources de vérité remises à jour et contradiction terrain du prompt Scene supprimée.
+Prompt dédié : `frontend/brickhouse-survey-independent-audit-v01.txt`.
 
-### Moteur géométrique LEGO
+### SurveyCorrection v0.1
 
-Le sous-package `lego_geometry_engine/` est désormais intégré. L’adaptateur principal est `backend/brickhouse/bricks/geometry_adapter.py`.
+`backend/brickhouse/survey/correction.py` définit un artefact séparé contenant :
 
-Capacités actuelles : triangles LDraw transformés, broad phase AABB, collision/contact narrow phase, ray-casting de containment, topologie de support et connecteurs exacts pour distinguer contact légal/collision.
+- un Survey candidat complet ;
+- un journal `changes[]` ;
+- pour chaque mutation, un lien vers un `finding_id` actionnable et la même `suggested_action`.
+
+En v0.1, `name`, `canonical_frame`, photos/métadonnées, `known_measurements`, `representation_policy` et `notes` sont gelés. Les actions `keep`/`review` ne peuvent pas muter directement le Survey. Toute addition/suppression/modification non déclarée est rejetée. Le candidat repasse les validateurs Survey et le roof guard.
+
+Le boundary `/api/v1/validate-survey-correction` valide successivement le Survey original, le SurveyAudit puis le SurveyCorrection. Il retourne `valid_for_reaudit` mais n’adopte pas le candidat.
+
+Prompt dédié : `frontend/brickhouse-survey-correction-v01.txt`.
+
+## BENCHMARK SURVEYAUDIT — MAISON RÉELLE 5 PHOTOS
+
+Le benchmark principal reste la maison réelle à 5 photos avec largeur avant utilisateur de 10 m. Les photos, le PDF et le Survey utilisateur sont privés et ne doivent pas être copiés dans le dépôt sans décision explicite.
+
+Trois audits indépendants ont été collectés sur le même Survey intact : 4, 3 et 6 findings ; les trois ont conclu `needs_correction`.
+
+Adjudication actuelle : 12 findings sur 13 visuellement soutenus/utiles ; 1 faux positif clair sur l’identité multi-vues d’une fenêtre haute. Mesures directement établies : précision/actionable precision = 0,923 ; evidence precision = 0,923 ; duplicate rate = 0 ; correction trigger rate = 1,0. Au moins deux gains visuels nouveaux sont démontrés au-delà du JSON seul : toiture visible totalement omise et relation `platform supports building-envelope` non soutenue visuellement.
+
+Le résultat est **GO candidat pour expérimentation contrôlée**, pas encore clôture formelle du benchmark. Les sorties historiques n’ont pas été persistées comme fichiers puis rejouées byte-for-byte dans le boundary ajouté ensuite. De plus, rappel/F1 et rappels par catégorie exigent un gold set exhaustif indépendant des sorties des auditeurs.
+
+Voir `docs/SURVEY_AUDIT_BENCHMARK_V01.md` et `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md`.
+
+## ROUND-TRIP MANUEL / BH-090
+
+L’issue #274 / BH-090 reste le jalon bout-en-bout. Le workflow manuel principal reste volontairement en deux étapes :
+
+1. Photos → Survey ;
+2. Survey validé + PDF original → Scene.
+
+Le flux historique `external-bundle-0.1` reste une compatibilité, pas le workflow principal. Les nouveaux audits/corrections s’insèrent entre Survey et Scene sans fusionner les contrats.
+
+## MOTEUR GÉOMÉTRIQUE LEGO
+
+Le sous-package `lego_geometry_engine/` reste intégré via `backend/brickhouse/bricks/geometry_adapter.py`.
+
+Capacités : triangles LDraw transformés, broad phase AABB, collision/contact narrow phase, ray-casting de containment, topologie de support et connecteurs exacts pour distinguer contact légal/collision.
 
 Limites connues : pas encore de modèle général complet pour Technic, clips, charnières, SNOT, contraintes mécaniques, stress ou stabilité globale.
 
-### Contrat terrain Scene rendu cohérent
+## CONTRATS PROMPT À PRÉSERVER
 
-La contradiction documentaire du prompt Survey → Scene a été supprimée : le contrat de collection est `terrain.profiles`, tandis que `terrain.kind` peut rester `"facade_grade_profiles"`. `tests/test_scene_prompt_terrain_contract.py` verrouille cette distinction.
+Photos → Survey : conserver le prompt historique et ses couches additives terrain/topologie/final-contract. Ne pas condenser une règle nouvelle en supprimant des garde-fous existants.
 
-## BENCHMARK RÉEL ACTUEL
+Survey → Scene : handoff v4.3 ; Survey autorité sémantique ; PDF original preuve géométrique supplémentaire ; `terrain.profiles` collection canonique ; une primitive certaine ne disparaît pas seulement parce que sa métrique est difficile.
 
-Le benchmark humain principal reste la même maison, avec 5 photos originales et une largeur réelle de façade avant de 10 m. Échelle de test habituelle : 48 studs.
+SurveyAudit : auditeur indépendant, diagnostic uniquement, preuves photo obligatoires sauf `insufficient_evidence`, aucune réécriture du Survey.
 
-Le dernier Survey neutre observé après #304 a confirmé que l’audit terrain fonctionne : terrain droit certain montant de l’avant vers l’arrière, quatre façades auditées, aucune amplitude numérique inventée.
-
-Ce même Survey a exposé un défaut distinct : absence de `building_boundary` et absence de relations `connects_to` vers le bâtiment malgré une plateforme décrite comme attachée. #305 corrige ce défaut via un audit topologique additif.
-
-Ne pas réutiliser un JSON de conversation comme fixture canonique si le fichier n’est pas présent dans le dépôt. Le prochain run humain doit produire un nouveau Survey depuis le build déployé après ces corrections.
-
-## CONTRATS PROMPT ACTUELS À PRÉSERVER
-
-Photos → Survey :
-- prompt historique `frontend/brickhouse-survey-prompt.txt` conservé ;
-- audit terrain additif : `frontend/brickhouse-survey-terrain-audit-v29.txt` ;
-- wrapper terrain : `frontend/brickhouse-survey-package-v05.js` ;
-- audit topologique additif : `frontend/brickhouse-survey-topology-audit-v30.txt` ;
-- wrapper topologique : `frontend/brickhouse-survey-package-v06.js` ;
-- point d’entrée stable : `frontend/brickhouse-survey-package.js`.
-
-Invariant : ne pas condenser/réécrire le prompt historique pour ajouter une règle. Les audits récents sont volontairement des couches additives, car une tentative de remplacement direct avait supprimé des garde-fous historiques et fait échouer les régressions.
-
-Survey → Scene : handoff v4.3 ; Survey autorité sémantique ; PDF original preuve géométrique supplémentaire ; `terrain.profiles` collection canonique ; `terrain.kind:"facade_grade_profiles"` discriminant valide ; une cheminée certaine ne doit pas être omise si sa géométrie peut être bornée honnêtement.
+SurveyCorrection : candidat séparé, changements explicitement journalés, aucune vérité utilisateur modifiée, aucun opportunistic cleanup, validation déterministe obligatoire.
 
 ## OUVERT
 
-### BH-090 / #274 — validation humaine bout-en-bout
+### Clôture formelle du benchmark SurveyAudit
 
-Toujours ouvert. L’étape automatisée et plusieurs corrections génériques sont terminées. Le prochain passage humain ne doit avoir lieu qu’après les contrôles automatiques restants ci-dessous.
+Il manque encore :
 
-### Trois drifts à contrôler avant le prochain run humain
+1. conservation d’un triplet brut de sorties d’audit ;
+2. replay exact sans retouche via `/api/v1/validate-survey-audit` ;
+3. gold set exhaustif pour rappel/F1 et rappels par catégorie ;
+4. expérimentation d’une correction sur candidat et vérification qu’elle n’introduit aucune dérive non ciblée.
 
-1. `capture_role:"targeted_detail"` a été émis avec `facade:"left"`, alors que le contrat historique demande normalement `facade:null` pour une vue ciblée. Vérifier le schéma backend et le chemin de génération avant toute correction.
-2. L’observation toiture était certaine mais sans hypothèse qualitative utile malgré plusieurs vues. Vérifier le contrat actuel et, si nécessaire, corriger par audit générique additif — jamais en imposant `gable` à la maison benchmark.
-3. La pente terrain a été émise sous la forme `rises_front_to_rear`; vérifier que Survey → Scene accepte la sémantique sans dépendre d’un token exact comme `front_to_rear_up`.
+### Durcissement SurveyCorrection
+
+Le contrat v0.1 protège déjà les champs Survey globaux et les mutations non déclarées, mais les actions qui modifient un objet existant doivent encore être évaluées finement. Une action déclarée `lower_certainty`, `reorient` ou `merge` ne doit pas servir de couverture à des changements sans rapport dans le même objet. Ajouter des invariants ciblés/tests négatifs avant de confier un benchmark privé au correcteur.
+
+### Ré-audit ciblé
+
+`valid_for_reaudit` existe, mais aucun contrat dédié de ré-audit ciblé n’est encore défini. La prochaine boucle doit contrôler uniquement les findings appliqués et les régressions possibles, avec nombre d’itérations borné ; ne pas créer une boucle IA ouverte.
 
 ### Fidélité visuelle / physique restante
 
 Après stabilisation du round-trip : fenêtres encore schématiques ; cadres/retraits/appuis/linteaux partiels ; terrasse et escalier approximatifs ; position de cheminée prudente/estimée ; terrain/rue/trottoir incomplets dans le rendu final. Ne jamais inventer des dimensions architecturales pour améliorer l’apparence.
 
-## EN COURS
+## HOLD
 
-Aucune tranche fonctionnelle n’est laissée en cours par cette passation. La petite clôture documentaire qui actualise ce point de contrôle n’introduit aucun changement fonctionnel ; son propre état doit toujours être vérifié sur `main` par le prochain agent.
+### SceneAudit
 
-## BLOQUÉ
-
-Aucun blocage technique connu.
+**HOLD.** Aucun benchmark n’a encore démontré un gain propre de SceneAudit au-dessus de `validate-scene-against-survey`. Ne pas l’implémenter par symétrie avec SurveyAudit.
 
 ## PROCHAINE ÉTAPE
 
-1. Lire `AI_START_HERE.md` et revérifier `main`, CI, Pages, PR/issues.
-2. Examiner les trois drifts ci-dessus dans le code/schéma/prompt avant de demander un nouveau run humain.
-3. Corriger uniquement les défauts génériques démontrés, avec régressions.
-4. Une fois ces contrôles fusionnés/déployés, demander un unique nouveau run Photos → Survey avec les mêmes 5 photos et la largeur avant 10 m.
-5. Auditer le Survey retourné intact avant Survey → Scene.
+1. Fermer la documentation du benchmark/ADR-014 et garder la passation synchronisée avec `main`.
+2. Durcir les mutations in-place/merge de SurveyCorrection avec tests négatifs.
+3. Définir un mécanisme minimal de ré-audit ciblé, borné et non-mutant.
+4. Préparer une persistance/scoring reproductible des runs sans publier les assets privés.
+5. N’appeler l’utilisateur que lorsqu’un nouveau triplet brut ou une validation visuelle humaine apporte une information impossible à obtenir autrement.
 
 ## À NE PAS REFAIRE
 
-- ne pas demander à l’utilisateur de régénérer un benchmark à chaque petit correctif ;
-- ne pas modifier le JSON utilisateur pour le faire passer ;
-- ne pas assouplir un schéma pour accepter une pseudo-Survey/pseudo-Scene ;
+- ne pas modifier un JSON utilisateur pour le faire passer ;
+- ne pas affaiblir un validateur pour accepter une sortie IA incorrecte ;
+- ne pas hardcoder la maison benchmark ;
+- ne pas demander un run humain après chaque micro-correctif ;
+- ne pas compter plusieurs passes dans le même contexte comme audits indépendants ;
+- ne pas publier rappel/F1 sans gold set exhaustif ;
+- ne pas laisser SurveyAudit ou SurveyCorrection réécrire silencieusement la source ;
 - ne pas laisser les contraintes LEGO modifier la Scene ;
-- ne pas réécrire les prompts historiques en supprimant des garde-fous ;
-- ne pas coder de règle spécifique à la maison test ;
-- ne pas faire passer artificiellement un test reproductible qui échoue.
+- ne pas publier les photos/PDF/Survey privés sans décision explicite ;
+- ne pas lancer SceneAudit sans mesure de gain non redondant.
 
 ## Validation de reprise
 
 Une nouvelle conversation doit pouvoir commencer par :
 
-> Lis `AI_START_HERE.md`, vérifie l’état réel de `main` et reprends le projet.
-
-Si cette instruction ne suffit plus, `AI_START_HERE.md`, ce document et `NEXT_CONVERSATION.md` doivent être mis à jour avant la prochaine passation.
+> Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`, `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md` et reprends la boucle explicite SurveyAudit → SurveyCorrection → validation → ré-audit ciblé.
