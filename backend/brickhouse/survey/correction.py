@@ -20,7 +20,7 @@ from .audit import (
     SurveyAuditSuggestedAction,
     SurveyAuditTargetType,
 )
-from .models import ArchitecturalSurvey
+from .models import ArchitecturalSurvey, Certainty, SurveyObservation, SurveyRelation
 from .roof_guard import validate_multiview_roof_hypotheses
 from .validation import validate_survey_semantics
 
@@ -91,6 +91,17 @@ class SurveyCorrectionValidationIssue:
     severity: str = "error"
 
 
+_CERTAINTY_RANK = {
+    Certainty.UNPROVEN: 0,
+    Certainty.PLAUSIBLE: 1,
+    Certainty.CERTAIN: 2,
+}
+_ORIENTATION_ATTRIBUTE_KEYS = {
+    "facade_horizontal_rank",
+    "facade_vertical_rank",
+}
+
+
 def _maps(survey: ArchitecturalSurvey):
     return (
         {item.id: item for item in survey.observations},
@@ -109,6 +120,166 @@ def _diff_ids(before: dict, after: dict) -> tuple[set[str], set[str], set[str]]:
         if before[item_id] != after[item_id]
     }
     return added, removed, modified
+
+
+def _validation_issue(
+    code: str,
+    change: SurveyCorrectionChange,
+    message: str,
+) -> SurveyCorrectionValidationIssue:
+    return SurveyCorrectionValidationIssue(
+        code=code,
+        change_id=change.id,
+        message=message,
+    )
+
+
+def _validate_lower_certainty_scope(
+    change: SurveyCorrectionChange,
+    before: SurveyObservation | SurveyRelation,
+    after: SurveyObservation | SurveyRelation,
+) -> list[SurveyCorrectionValidationIssue]:
+    issues: list[SurveyCorrectionValidationIssue] = []
+
+    if isinstance(before, SurveyObservation) and isinstance(after, SurveyObservation):
+        frozen_fields = (
+            "id",
+            "kind",
+            "facade",
+            "statement",
+            "evidence",
+            "attributes",
+            "appearance",
+            "opening_visual",
+        )
+        if any(getattr(before, field) != getattr(after, field) for field in frozen_fields):
+            issues.append(
+                _validation_issue(
+                    "survey_correction_lower_certainty_scope_violation",
+                    change,
+                    "lower_certainty may change only object/attribute certainty, not observation content.",
+                )
+            )
+
+        increased = _CERTAINTY_RANK[after.certainty] > _CERTAINTY_RANK[before.certainty]
+        decreased = _CERTAINTY_RANK[after.certainty] < _CERTAINTY_RANK[before.certainty]
+        for name in before.attributes:
+            before_level = before.certainty_for_attribute(name)
+            after_level = after.certainty_for_attribute(name)
+            increased = increased or _CERTAINTY_RANK[after_level] > _CERTAINTY_RANK[before_level]
+            decreased = decreased or _CERTAINTY_RANK[after_level] < _CERTAINTY_RANK[before_level]
+        if increased:
+            issues.append(
+                _validation_issue(
+                    "survey_correction_lower_certainty_increased_certainty",
+                    change,
+                    "lower_certainty cannot increase object or attribute certainty.",
+                )
+            )
+        if not decreased:
+            issues.append(
+                _validation_issue(
+                    "survey_correction_lower_certainty_no_decrease",
+                    change,
+                    "lower_certainty must strictly lower at least one effective certainty value.",
+                )
+            )
+        return issues
+
+    if isinstance(before, SurveyRelation) and isinstance(after, SurveyRelation):
+        frozen_fields = ("id", "kind", "subject_id", "object_id", "statement", "evidence")
+        if any(getattr(before, field) != getattr(after, field) for field in frozen_fields):
+            issues.append(
+                _validation_issue(
+                    "survey_correction_lower_certainty_scope_violation",
+                    change,
+                    "lower_certainty may change only relation certainty, not relation content.",
+                )
+            )
+        if _CERTAINTY_RANK[after.certainty] >= _CERTAINTY_RANK[before.certainty]:
+            issues.append(
+                _validation_issue(
+                    "survey_correction_lower_certainty_no_decrease",
+                    change,
+                    "lower_certainty must strictly lower relation certainty.",
+                )
+            )
+        return issues
+
+    return [
+        _validation_issue(
+            "survey_correction_lower_certainty_type_mismatch",
+            change,
+            "lower_certainty source and candidate must preserve the object type.",
+        )
+    ]
+
+
+def _validate_reorient_scope(
+    change: SurveyCorrectionChange,
+    before: SurveyObservation | SurveyRelation,
+    after: SurveyObservation | SurveyRelation,
+) -> list[SurveyCorrectionValidationIssue]:
+    if not isinstance(before, SurveyObservation) or not isinstance(after, SurveyObservation):
+        return [
+            _validation_issue(
+                "survey_correction_reorient_relation_unsupported",
+                change,
+                "SurveyCorrection v0.1 reorient is limited to observations; relation reorientation requires manual review.",
+            )
+        ]
+
+    issues: list[SurveyCorrectionValidationIssue] = []
+    frozen_fields = (
+        "id",
+        "kind",
+        "certainty",
+        "evidence",
+        "attribute_certainty",
+        "appearance",
+        "opening_visual",
+    )
+    if any(getattr(before, field) != getattr(after, field) for field in frozen_fields):
+        issues.append(
+            _validation_issue(
+                "survey_correction_reorient_scope_violation",
+                change,
+                "reorient cannot change identity, kind, certainty, evidence, or visual/material detail.",
+            )
+        )
+
+    before_non_orientation = {
+        key: value
+        for key, value in before.attributes.items()
+        if key not in _ORIENTATION_ATTRIBUTE_KEYS
+    }
+    after_non_orientation = {
+        key: value
+        for key, value in after.attributes.items()
+        if key not in _ORIENTATION_ATTRIBUTE_KEYS
+    }
+    if before_non_orientation != after_non_orientation:
+        issues.append(
+            _validation_issue(
+                "survey_correction_reorient_non_orientation_attribute_changed",
+                change,
+                "reorient may change only facade and facade rank attributes.",
+            )
+        )
+
+    orientation_changed = before.facade != after.facade or any(
+        before.attributes.get(key) != after.attributes.get(key)
+        for key in _ORIENTATION_ATTRIBUTE_KEYS
+    )
+    if not orientation_changed:
+        issues.append(
+            _validation_issue(
+                "survey_correction_reorient_no_orientation_change",
+                change,
+                "reorient must actually change facade or facade rank orientation data.",
+            )
+        )
+    return issues
 
 
 def validate_survey_correction(
@@ -305,6 +476,23 @@ def validate_survey_correction(
                         message="in-place correction must actually modify the targeted object.",
                     )
                 )
+            elif change.source_id in before and change.source_id in after:
+                if change.action is SurveyAuditSuggestedAction.LOWER_CERTAINTY:
+                    issues.extend(
+                        _validate_lower_certainty_scope(
+                            change,
+                            before[change.source_id],
+                            after[change.source_id],
+                        )
+                    )
+                else:
+                    issues.extend(
+                        _validate_reorient_scope(
+                            change,
+                            before[change.source_id],
+                            after[change.source_id],
+                        )
+                    )
             covered_modified.add((change.object_type, change.source_id))
         elif change.action is SurveyAuditSuggestedAction.MERGE:
             assert change.source_id is not None and change.candidate_id is not None
@@ -332,6 +520,16 @@ def validate_survey_correction(
                         message="merge source must exist in the original Survey.",
                     )
                 )
+            issues.append(
+                SurveyCorrectionValidationIssue(
+                    code="survey_correction_merge_requires_manual_review",
+                    change_id=change.id,
+                    message=(
+                        "SurveyCorrection v0.1 does not automatically validate merge semantics; "
+                        "duplicate-object merges require explicit manual review."
+                    ),
+                )
+            )
             covered_removed.add((change.object_type, change.source_id))
             if change.candidate_id in modified:
                 covered_modified.add((change.object_type, change.candidate_id))
