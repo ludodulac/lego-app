@@ -1,4 +1,4 @@
-// Boldüngo phone-first shell v0.5. HUD first; explanations only on demand.
+// Boldüngo phone-first shell v0.6. HUD first; immediate import feedback.
 const stateOrder = ['photos', 'survey', 'scene', 'model'];
 
 function shellReady() { return document.querySelector('.layout') && document.querySelector('.panel'); }
@@ -44,6 +44,8 @@ function initShell() {
   const guidedGrid = document.querySelector('#guided-photo-grid');
   const download = document.querySelector('#download-ai-package');
   const resultFile = document.querySelector('#external-analysis-file');
+  const resultText = document.querySelector('#external-analysis');
+  const importButton = document.querySelector('#import-analysis');
 
   simplifyPhotoSlots(guidedGrid);
   document.body.classList.add('boldungo-shell-enabled');
@@ -73,7 +75,7 @@ function initShell() {
 
   const surveyCard = document.createElement('section');
   surveyCard.className = 'shell-main-card shell-survey-card';
-  surveyCard.innerHTML = '<div class="shell-state-icon" aria-hidden="true">⌁</div><h2>Relevé</h2><strong>Photos prêtes</strong><div class="shell-export-home"></div>';
+  surveyCard.innerHTML = '<div class="shell-state-icon" aria-hidden="true">⌁</div><h2>Relevé</h2><strong id="shell-survey-status">Photos prêtes</strong><div class="shell-export-home"></div>';
   if (download) {
     download.textContent = 'Exporter';
     surveyCard.querySelector('.shell-export-home').appendChild(download);
@@ -97,6 +99,13 @@ function initShell() {
   action.className = 'shell-primary-action';
   action.innerHTML = '<button type="button" id="shell-primary-button">Créer le relevé</button>';
 
+  const feedback = document.createElement('div');
+  feedback.className = 'shell-feedback';
+  feedback.id = 'shell-feedback';
+  feedback.setAttribute('role', 'status');
+  feedback.setAttribute('aria-live', 'polite');
+  feedback.hidden = true;
+
   const bottom = document.createElement('nav');
   bottom.className = 'shell-bottom-nav';
   bottom.setAttribute('aria-label', 'Parcours');
@@ -118,7 +127,6 @@ function initShell() {
   drawer.innerHTML = '<div class="shell-drawer-head"><strong id="shell-drawer-title">Aide</strong><button type="button" id="shell-tools-close" aria-label="Fermer">×</button></div><div class="shell-drawer-scroll"></div>';
   const drawerScroll = drawer.querySelector('.shell-drawer-scroll');
 
-  // Long explanations and test tools stay available, but never occupy the main workflow.
   move(viewsCard, drawerScroll);
   move(resultPanel, drawerScroll);
   move(handoffCard, drawerScroll);
@@ -129,14 +137,24 @@ function initShell() {
   if (status) drawerScroll.prepend(status);
 
   [...legacy.children].filter(node => ['P', 'H1'].includes(node.tagName)).forEach(node => node.remove());
-  cockpit.append(header, workspace, action, bottom);
+  cockpit.append(header, workspace, action, bottom, feedback);
   layout.replaceChildren(cockpit);
   document.body.append(backdrop, drawer);
 
   const titles = { photos: 'Photos', survey: 'Relevé', scene: 'Maison', model: 'Maquette' };
   const actions = { photos: 'Créer le relevé', survey: 'Importer', scene: 'Continuer', model: 'Construire' };
   let active = 'photos';
+  let feedbackTimer = 0;
 
+  function showFeedback(message, kind = 'info', persist = false) {
+    const text = String(message || '').trim();
+    if (!text) return;
+    window.clearTimeout(feedbackTimer);
+    feedback.textContent = text;
+    feedback.dataset.kind = kind;
+    feedback.hidden = false;
+    if (!persist) feedbackTimer = window.setTimeout(() => { feedback.hidden = true; }, 3200);
+  }
   function closeDrawer() {
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
@@ -172,6 +190,21 @@ function initShell() {
     document.querySelector('#shell-scene-name').textContent = name && name !== '—' ? name : 'Maison';
     document.querySelector('#shell-scene-status').textContent = result && !result.hidden ? (confidence && confidence !== '—' ? confidence : 'Prête') : 'En attente';
   }
+  function mirrorStatus() {
+    const message = status?.textContent?.trim() || '';
+    if (!message) return;
+    const lower = message.toLowerCase();
+    if (lower.includes('impossible') || lower.includes('refus') || lower.includes('invalide') || lower.includes('manquante')) {
+      surveyCard.querySelector('#shell-survey-status').textContent = 'À corriger';
+      showFeedback(message, 'error', true);
+    } else if (lower.includes('valide')) {
+      surveyCard.querySelector('#shell-survey-status').textContent = 'Relevé importé';
+      showFeedback('Relevé importé ✓', 'success');
+    } else if (lower.includes('vérif') || lower.includes('charg') || lower.includes('contrôle')) {
+      surveyCard.querySelector('#shell-survey-status').textContent = 'Vérification…';
+      showFeedback('Vérification du relevé…', 'info', true);
+    }
+  }
 
   bottom.addEventListener('click', event => {
     const button = event.target.closest('[data-shell-state]');
@@ -190,6 +223,7 @@ function initShell() {
       return;
     }
     if (active === 'survey') {
+      showFeedback('Choisissez le relevé', 'info');
       resultFile?.click();
       return;
     }
@@ -200,15 +234,34 @@ function initShell() {
     build?.click();
   });
 
-  resultFile?.addEventListener('change', () => {
-    if (resultFile.files?.length) document.querySelector('#import-analysis')?.click();
+  resultFile?.addEventListener('change', async () => {
+    const file = resultFile.files?.[0];
+    if (!file) return;
+    surveyCard.querySelector('#shell-survey-status').textContent = 'Lecture…';
+    showFeedback('Lecture du relevé…', 'info', true);
+    try {
+      const text = await file.text();
+      if (resultText) resultText.value = text;
+      surveyCard.querySelector('#shell-survey-status').textContent = 'Vérification…';
+      showFeedback('Vérification du relevé…', 'info', true);
+      importButton?.click();
+    } catch (error) {
+      surveyCard.querySelector('#shell-survey-status').textContent = 'Erreur de lecture';
+      showFeedback(`Impossible de lire le relevé : ${error.message}`, 'error', true);
+    }
   });
+
+  if (status) new MutationObserver(mirrorStatus).observe(status, { childList: true, subtree: true, characterData: true });
 
   const result = document.querySelector('#result');
   if (result) {
     new MutationObserver(() => {
       syncSceneSummary();
-      if (!result.hidden) setState('scene');
+      if (!result.hidden) {
+        surveyCard.querySelector('#shell-survey-status').textContent = 'Relevé importé';
+        showFeedback('Relevé importé ✓', 'success');
+        setState('scene');
+      }
     }).observe(result, { attributes: true, subtree: true, childList: true, characterData: true });
   }
 
