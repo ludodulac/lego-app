@@ -12,6 +12,13 @@ from .audit import (
     SurveyAuditValidationIssue,
     validate_survey_audit,
 )
+from .correction import (
+    SurveyCorrection,
+    SurveyCorrectionChange,
+    SurveyCorrectionObjectType,
+    SurveyCorrectionValidationIssue,
+    validate_survey_correction,
+)
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -90,6 +97,10 @@ __all__ = [
     "SurveyAuditSummary",
     "SurveyAuditTargetType",
     "SurveyAuditValidationIssue",
+    "SurveyCorrection",
+    "SurveyCorrectionChange",
+    "SurveyCorrectionObjectType",
+    "SurveyCorrectionValidationIssue",
     "SurveyHypothesis",
     "SurveyObservation",
     "SurveyOpenQuestion",
@@ -98,6 +109,7 @@ __all__ = [
     "SurveyValidationIssue",
     "rank_questions_for_user_input",
     "validate_survey_audit",
+    "validate_survey_correction",
     "validate_survey_extension",
     "validate_survey_semantics",
     "validate_multiview_roof_hypotheses",
