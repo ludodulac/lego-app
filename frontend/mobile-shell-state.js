@@ -7,6 +7,10 @@ const result = document.querySelector('#result');
 const sceneHandoffHome = document.querySelector('#scene-handoff-home');
 const buildButton = document.querySelector('#build-bricks');
 const progress = document.querySelector('.shell-progress');
+const workflowPanel = document.querySelector('.panel');
+const mobileViewport = window.matchMedia('(max-width: 620px)');
+let requestedView = null;
+let detailCaptureOpen = false;
 
 function readStoredSurvey() {
   try {
@@ -43,6 +47,16 @@ function computeStage() {
   return 0;
 }
 
+function defaultView() {
+  const surveyReady = readStoredSurvey() || Boolean(sceneHandoffHome?.querySelector('#download-scene-handoff'));
+  const sceneReady = Boolean(currentScene());
+  const buildReady = sceneReady && Boolean(buildButton && !buildButton.disabled);
+  if (buildReady) return 'build';
+  if (sceneReady) return 'scene';
+  if (surveyReady) return 'survey';
+  return 'photos';
+}
+
 function ensureStateCard() {
   let card = document.querySelector('#shell-state-card');
   if (card || !progress?.parentNode) return card;
@@ -74,6 +88,66 @@ function renderStateCard(active) {
   card.innerHTML = `<div><small>État de votre maison</small><strong>${copy.label}</strong><span>${copy.detail}</span></div><a href="${copy.href}">${copy.action} →</a>`;
 }
 
+function decorateFocusPanels() {
+  const captureCard = document.querySelector('#capture-card');
+  const detailCard = document.querySelector('#detail-photo-grid')?.closest('.simple-card');
+  if (detailCard) {
+    detailCard.id ||= 'detail-capture-card';
+    detailCard.classList.add('shell-detail-card');
+  }
+  if (captureCard && detailCard && !document.querySelector('#shell-detail-toggle')) {
+    const toggle = document.createElement('button');
+    toggle.id = 'shell-detail-toggle';
+    toggle.className = 'shell-detail-toggle';
+    toggle.type = 'button';
+    toggle.setAttribute('aria-controls', detailCard.id);
+    captureCard.appendChild(toggle);
+  }
+  const panels = [
+    [captureCard, 'photos'],
+    [detailCard, 'photos'],
+    [document.querySelector('#measure-card'), 'measure'],
+    [document.querySelector('#survey-handoff-card'), 'survey'],
+    [document.querySelector('#analysis-panel'), 'scene'],
+    [document.querySelector('#build-ready-card'), 'build'],
+  ];
+  for (const [panel, view] of panels) if (panel) panel.dataset.shellPanel = view;
+}
+
+function syncDetailCapture() {
+  const detailCard = document.querySelector('#detail-capture-card');
+  const toggle = document.querySelector('#shell-detail-toggle');
+  detailCard?.classList.toggle('is-shell-detail-open', detailCaptureOpen);
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', detailCaptureOpen ? 'true' : 'false');
+    toggle.textContent = detailCaptureOpen ? 'Masquer les détails facultatifs' : 'Ajouter des détails facultatifs';
+  }
+}
+
+function activeFocusView() {
+  return requestedView || defaultView();
+}
+
+function renderFocusView() {
+  decorateFocusPanels();
+  syncDetailCapture();
+  const activeView = activeFocusView();
+  if (shell) shell.dataset.shellView = activeView;
+  for (const panel of document.querySelectorAll('[data-shell-panel]')) {
+    const visible = !mobileViewport.matches || panel.dataset.shellPanel === activeView;
+    panel.classList.toggle('is-shell-view', visible);
+  }
+}
+
+function viewForTarget(target) {
+  if (target === '#capture-card') return 'photos';
+  if (target === '#measure-card') return 'measure';
+  if (target === '#survey-handoff-card') return 'survey';
+  if (target === '#analysis-panel') return 'scene';
+  if (target === '#build-ready-card' || target === '#build-actions') return 'build';
+  return null;
+}
+
 function syncShellState() {
   const active = computeStage();
   if (shell) shell.dataset.shellStage = String(active + 1);
@@ -86,26 +160,59 @@ function syncShellState() {
     else step.removeAttribute('aria-current');
   });
 
-  const activeMobileIndex = active === 0 ? 0 : active === 1 ? 2 : active === 2 ? 2 : 3;
+  const buildReady = Boolean(currentScene() && buildButton && !buildButton.disabled);
+  const visibleView = activeFocusView();
   mobileLinks.forEach((link, index) => {
-    const isActive = index === activeMobileIndex;
+    const label = link.querySelector('strong');
+    if (index === 2 && label) label.textContent = 'Survey';
+    if (index === 3) {
+      link.setAttribute('href', buildReady ? '#build-ready-card' : '#analysis-panel');
+      if (label) label.textContent = buildReady ? 'Maquette' : 'Scene';
+    }
+    const linkView = viewForTarget(link.getAttribute('href'));
+    const isActive = linkView === visibleView;
     link.classList.toggle('is-active', isActive);
-    if (index === 3 && document.querySelector('#build-ready-card')) link.setAttribute('href', '#build-ready-card');
     if (isActive) link.setAttribute('aria-current', 'location');
     else link.removeAttribute('aria-current');
   });
 
   renderStateCard(active);
+  renderFocusView();
+}
+
+function activateTarget(event) {
+  if (!mobileViewport.matches) return;
+  const detailToggle = event.target.closest('#shell-detail-toggle');
+  if (detailToggle) {
+    detailCaptureOpen = !detailCaptureOpen;
+    renderFocusView();
+    if (detailCaptureOpen) requestAnimationFrame(() => document.querySelector('#detail-capture-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    return;
+  }
+  const link = event.target.closest('a[href^="#"]');
+  if (!link) return;
+  const target = link.getAttribute('href');
+  const view = viewForTarget(target);
+  if (!view) return;
+  requestedView = view;
+  renderFocusView();
+  const destination = document.querySelector(target);
+  if (!destination) return;
+  event.preventDefault();
+  requestAnimationFrame(() => destination.scrollIntoView({ block: 'start', behavior: 'smooth' }));
 }
 
 const observer = new MutationObserver(syncShellState);
 for (const target of [result, scenePreview, sceneHandoffHome, buildButton]) {
   if (target) observer.observe(target, { subtree: true, childList: true, characterData: true, attributes: true });
 }
+if (workflowPanel) observer.observe(workflowPanel, { childList: true, subtree: true });
 
+document.addEventListener('click', activateTarget, true);
 document.addEventListener('change', syncShellState, true);
 document.addEventListener('input', syncShellState, true);
 window.addEventListener('storage', syncShellState);
 window.addEventListener('pageshow', syncShellState);
+mobileViewport.addEventListener?.('change', () => { requestedView = null; detailCaptureOpen = false; syncShellState(); });
 
 syncShellState();

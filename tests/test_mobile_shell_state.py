@@ -39,3 +39,26 @@ def test_shell_exposes_contextual_next_action_without_parallel_workflow_state():
     assert "#build-ready-card" in STATE_JS
     assert "card.id = 'build-ready-card'" in SCENE_BUILD_JS
     assert ".shell-state-card" in MOBILE_SHELL_CSS
+
+
+def test_mobile_focus_mode_keeps_one_workflow_panel_visible_without_replacing_state():
+    assert "window.matchMedia('(max-width: 620px)')" in STATE_JS
+    assert "dataset.shellPanel" in STATE_JS
+    assert "requestedView" in STATE_JS
+    assert "#detail-photo-grid" in STATE_JS
+    assert "#measure-card" in STATE_JS
+    assert "viewForTarget" in STATE_JS
+    assert "scrollIntoView" in STATE_JS
+    assert "[data-shell-panel]{display:none!important}" in MOBILE_SHELL_CSS
+    assert "[data-shell-panel].is-shell-view{display:block!important}" in MOBILE_SHELL_CSS
+    assert ".future-card{display:none!important}" in MOBILE_SHELL_CSS
+
+
+def test_optional_detail_capture_is_a_mobile_disclosure_not_a_second_long_panel():
+    assert "detailCaptureOpen" in STATE_JS
+    assert "#shell-detail-toggle" in STATE_JS
+    assert "detail-capture-card" in STATE_JS
+    assert "aria-expanded" in STATE_JS
+    assert "Ajouter des détails facultatifs" in STATE_JS
+    assert ".shell-detail-card.is-shell-view:not(.is-shell-detail-open){display:none!important}" in MOBILE_SHELL_CSS
+    assert ".shell-detail-toggle{display:block" in MOBILE_SHELL_CSS
