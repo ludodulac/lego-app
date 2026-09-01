@@ -75,12 +75,26 @@ class SurveyAuditBenchmarkRun(BaseModel):
             raise ValueError("benchmark finding ids must be unique within a run")
         if len(self.missed_gold_anomaly_ids) != len(set(self.missed_gold_anomaly_ids)):
             raise ValueError("missed_gold_anomaly_ids must be unique within a run")
-        detected = {
+
+        detected_ids = [
             item.gold_anomaly_id
             for item in self.findings
             if item.label is SurveyAuditBenchmarkLabel.TP
             and item.gold_anomaly_id is not None
-        }
+        ]
+        duplicate_tp_links = sorted(
+            anomaly_id
+            for anomaly_id, count in Counter(detected_ids).items()
+            if count > 1
+        )
+        if duplicate_tp_links:
+            raise ValueError(
+                "multiple TP findings cannot map to the same gold anomaly within one run; "
+                "label duplicate detections as DUP: "
+                + ", ".join(duplicate_tp_links)
+            )
+
+        detected = set(detected_ids)
         overlap = detected & set(self.missed_gold_anomaly_ids)
         if overlap:
             raise ValueError(
@@ -126,6 +140,19 @@ class SurveyAuditBenchmarkScorecard(BaseModel):
                     + ", ".join(sorted(unknown))
                 )
             if self.gold_set_complete:
+                unlinked_tp = [
+                    item.finding_id
+                    for item in run.findings
+                    if item.label is SurveyAuditBenchmarkLabel.TP
+                    and item.gold_anomaly_id is None
+                ]
+                if unlinked_tp:
+                    raise ValueError(
+                        "complete gold set requires every TP finding to reference exactly one "
+                        "gold anomaly in run "
+                        f"{run.run_id!r}: "
+                        + ", ".join(sorted(unlinked_tp))
+                    )
                 detected = {
                     item.gold_anomaly_id
                     for item in run.findings
@@ -294,7 +321,8 @@ def compute_survey_audit_benchmark_metrics(
     recall_values: list[float] = []
     if scorecard.gold_set_complete:
         fn = sum(len(run.missed_gold_anomaly_ids) for run in scorecard.runs)
-        recall = _ratio(tp, tp + fn)
+        detected_occurrences = sum(len(detected) for detected in detected_per_run)
+        recall = _ratio(detected_occurrences, detected_occurrences + fn)
         if precision is not None and recall is not None and precision + recall > 0:
             f1 = 2 * precision * recall / (precision + recall)
 
