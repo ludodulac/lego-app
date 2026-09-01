@@ -1,4 +1,4 @@
-// Boldüngo phone-first shell v0.3. One viewport, one primary task, details on demand.
+// Boldüngo phone-first shell v0.4. One viewport, one primary task, details on demand.
 const stateOrder = ['photos', 'survey', 'scene', 'model'];
 
 function shellReady() { return document.querySelector('.layout') && document.querySelector('.panel'); }
@@ -9,9 +9,9 @@ function shortCopy(root){
   const views=root.querySelector('#guided-photo-grid')?.closest('.simple-card');
   if(views){const h=views.querySelector('h2');if(h)h.textContent='Ajoutez vos photos';const badge=views.querySelector('.step-badge');if(badge)badge.textContent='4 côtés';}
   const names={front:'Avant',right:'Droite',left:'Gauche',rear:'Arrière'};
-  root.querySelectorAll('#guided-photo-grid .guided-photo-slot').forEach(slot=>{const strong=slot.querySelector('strong');if(strong)strong.textContent=names[slot.dataset.slot]||strong.textContent;const hint=slot.querySelector(':scope > span');if(hint)hint.remove();});
+  root.querySelectorAll('#guided-photo-grid .guided-photo-slot').forEach(slot=>{const strong=slot.querySelector('strong');if(strong)strong.textContent=names[slot.dataset.slot]||strong.textContent;slot.querySelector(':scope > span')?.remove();});
   const handoff=root.querySelector('.ai-handoff-card');
-  if(handoff){const h=handoff.querySelector('h2');if(h)h.textContent='Analyse ChatGPT';const p=handoff.querySelector('.simple-heading p:not(.eyebrow)');if(p)p.textContent='Envoyez le relevé à ChatGPT, puis importez le résultat.';const download=handoff.querySelector('#download-ai-package');if(download)download.textContent='Exporter pour ChatGPT';const fileLabel=handoff.querySelector('label[for="external-analysis-file"]');if(fileLabel)fileLabel.textContent='Résultat ChatGPT';const importer=handoff.querySelector('#import-analysis');if(importer)importer.textContent='Importer';}
+  if(handoff){const h=handoff.querySelector('h2');if(h)h.textContent='Analyse ChatGPT';const p=handoff.querySelector('.simple-heading p:not(.eyebrow)');if(p)p.textContent='Exportez, analysez, importez.';const download=handoff.querySelector('#download-ai-package');if(download)download.textContent='Exporter pour ChatGPT';const fileLabel=handoff.querySelector('label[for="external-analysis-file"]');if(fileLabel)fileLabel.textContent='Résultat ChatGPT';const importer=handoff.querySelector('#import-analysis');if(importer)importer.textContent='Importer';}
 }
 
 function initShell(){
@@ -21,27 +21,35 @@ function initShell(){
   const cards=[...legacy.querySelectorAll(':scope > .simple-card')]; const [viewsCard,detailsCard,factsCard,handoffCard,futureCard]=cards;
   const advanced=legacy.querySelector(':scope > .advanced-panel'); const status=legacy.querySelector(':scope > #status'); const build=document.querySelector('#build-bricks');
   document.body.classList.add('boldungo-shell-enabled');
+
   const cockpit=document.createElement('div');cockpit.className='boldungo-cockpit';
-  const header=document.createElement('header');header.className='shell-progress';header.innerHTML=`<div class="shell-progress-copy"><strong id="shell-state-title">Photos</strong></div><div class="shell-progress-meter" aria-label="Progression"><span class="shell-progress-fill" id="shell-progress-fill"></span></div><button type="button" class="shell-tools-button" id="shell-tools-button" aria-expanded="false">•••</button>`;
+  const header=document.createElement('header');header.className='shell-progress';header.innerHTML=`<div class="shell-progress-copy"><strong id="shell-state-title">Photos</strong></div><div class="shell-progress-meter" aria-label="Progression"><span class="shell-progress-fill" id="shell-progress-fill"></span></div><button type="button" class="shell-tools-button" id="shell-tools-button" aria-expanded="false" aria-controls="shell-tools-drawer" aria-label="Ouvrir les détails">•••</button>`;
   const workspace=document.createElement('div');workspace.className='shell-workspace';
   const photos=panel('photos','Photos'),survey=panel('survey','Relevé'),scene=panel('scene','Maison'),model=panel('model','Maquette');
-  move(viewsCard,photos); move(handoffCard,survey); move(resultPanel,scene);
-  const modelCard=document.createElement('section');modelCard.className='simple-card shell-model-card';modelCard.innerHTML='<div class="shell-model-icon" aria-hidden="true">▦</div><h2>Maquette</h2><p>Prête après validation de la maison.</p><div class="shell-build-home"></div>';if(build)modelCard.querySelector('.shell-build-home').appendChild(build);model.appendChild(modelCard);
+  move(viewsCard,photos); move(handoffCard,survey);
+
+  const sceneCard=document.createElement('section');sceneCard.className='simple-card shell-scene-card';sceneCard.innerHTML='<div class="shell-scene-icon" aria-hidden="true">⌂</div><h2 id="shell-scene-name">Maison</h2><strong id="shell-scene-status">En attente du relevé</strong><button type="button" id="shell-scene-details">Voir les détails</button>';
+  scene.appendChild(sceneCard);
+  const modelCard=document.createElement('section');modelCard.className='simple-card shell-model-card';modelCard.innerHTML='<div class="shell-model-icon" aria-hidden="true">▦</div><h2>Maquette</h2><p>Prête après validation.</p><div class="shell-build-home"></div>';if(build)modelCard.querySelector('.shell-build-home').appendChild(build);model.appendChild(modelCard);
   workspace.append(photos,survey,scene,model);
+
   const action=document.createElement('div');action.className='shell-primary-action';action.innerHTML='<button type="button" id="shell-primary-button">Créer le relevé</button>';
   const bottom=document.createElement('nav');bottom.className='shell-bottom-nav';bottom.setAttribute('aria-label','Parcours');bottom.append(navButton('Photos','photos'),navButton('Relevé','survey'),navButton('Maison','scene'),navButton('Maquette','model'));
   const backdrop=document.createElement('div');backdrop.className='shell-drawer-backdrop';backdrop.hidden=true;
   const drawer=document.createElement('aside');drawer.className='shell-tools-drawer';drawer.id='shell-tools-drawer';drawer.setAttribute('aria-hidden','true');drawer.innerHTML='<div class="shell-drawer-head"><strong>Détails</strong><button type="button" id="shell-tools-close">Fermer</button></div><div class="shell-drawer-scroll"></div>';
-  const drawerScroll=drawer.querySelector('.shell-drawer-scroll');move(factsCard,drawerScroll);move(detailsCard,drawerScroll);move(advanced,drawerScroll);move(futureCard,drawerScroll);
+  const drawerScroll=drawer.querySelector('.shell-drawer-scroll');move(resultPanel,drawerScroll);move(factsCard,drawerScroll);move(detailsCard,drawerScroll);move(advanced,drawerScroll);move(futureCard,drawerScroll);
   [...legacy.children].filter(n=>['P','H1'].includes(n.tagName)).forEach(n=>n.remove());if(status)drawerScroll.prepend(status);
   cockpit.append(header,workspace,action,bottom);layout.replaceChildren(cockpit);document.body.append(backdrop,drawer);
+
   const titles={photos:'Photos',survey:'Relevé',scene:'Maison',model:'Maquette'};const labels={photos:'Créer le relevé',survey:'Importer le résultat',scene:'Continuer',model:'Construire'};let active='photos';
   function close(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;header.querySelector('#shell-tools-button').setAttribute('aria-expanded','false');}
   function open(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;header.querySelector('#shell-tools-button').setAttribute('aria-expanded','true');}
   function setState(state){if(!stateOrder.includes(state))return;active=state;cockpit.dataset.shellState=state;workspace.querySelectorAll('[data-shell-panel]').forEach(p=>p.hidden=p.dataset.shellPanel!==state);bottom.querySelectorAll('[data-shell-state]').forEach(b=>{const on=b.dataset.shellState===state;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false');});document.querySelector('#shell-state-title').textContent=titles[state];document.querySelector('#shell-progress-fill').style.width=`${((stateOrder.indexOf(state)+1)/4)*100}%`;document.querySelector('#shell-primary-button').textContent=labels[state];}
-  bottom.addEventListener('click',e=>{const b=e.target.closest('[data-shell-state]');if(b)setState(b.dataset.shellState);});header.querySelector('#shell-tools-button').addEventListener('click',()=>drawer.classList.contains('open')?close():open());drawer.querySelector('#shell-tools-close').addEventListener('click',close);backdrop.addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  function syncSceneSummary(){const result=document.querySelector('#result');const name=document.querySelector('#result-name')?.textContent?.trim();const confidence=document.querySelector('#confidence')?.textContent?.trim();document.querySelector('#shell-scene-name').textContent=name&&name!=='—'?name:'Maison';document.querySelector('#shell-scene-status').textContent=result&&!result.hidden?(confidence&&confidence!=='—'?confidence:'Relevé prêt'):'En attente du relevé';}
+
+  bottom.addEventListener('click',e=>{const b=e.target.closest('[data-shell-state]');if(b)setState(b.dataset.shellState);});header.querySelector('#shell-tools-button').addEventListener('click',()=>drawer.classList.contains('open')?close():open());drawer.querySelector('#shell-tools-close').addEventListener('click',close);backdrop.addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});sceneCard.querySelector('#shell-scene-details').addEventListener('click',open);
   document.querySelector('#shell-primary-button').addEventListener('click',()=>{if(active==='photos'){document.querySelector('#download-ai-package')?.click();setState('survey');return;}if(active==='survey'){document.querySelector('#external-analysis-file')?.click();return;}if(active==='scene'){setState('model');return;}document.querySelector('#build-bricks')?.click();});
   document.querySelector('#external-analysis-file')?.addEventListener('change',()=>{if(document.querySelector('#external-analysis-file')?.files?.length)document.querySelector('#import-analysis')?.click();});
-  const result=document.querySelector('#result');if(result)new MutationObserver(()=>{if(!result.hidden)setState('scene');}).observe(result,{attributes:true,attributeFilter:['hidden']});setState('photos');
+  const result=document.querySelector('#result');if(result)new MutationObserver(()=>{syncSceneSummary();if(!result.hidden){close();setState('scene');}}).observe(result,{attributes:true,subtree:true,childList:true,characterData:true});syncSceneSummary();setState('photos');
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initShell,{once:true});else initShell();
