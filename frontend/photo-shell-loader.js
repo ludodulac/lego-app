@@ -9,3 +9,4 @@ if (!document.getElementById(shellStylesheetId)) {
 }
 
 import('./photo-shell.js?v=single-screen-0.6');
+import('./survey-import-feedback-guard.js?v=survey-feedback-0.7');
