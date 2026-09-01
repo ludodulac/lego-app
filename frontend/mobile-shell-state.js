@@ -195,7 +195,7 @@ function activateTarget(event) {
   const view = viewForTarget(target);
   if (!view) return;
   requestedView = view;
-  renderFocusView();
+  syncShellState();
   const destination = document.querySelector(target);
   if (!destination) return;
   event.preventDefault();
