@@ -7,7 +7,7 @@ ACTIVE_PACKAGE = FRONTEND / "brickhouse-survey-package-v04.js"
 
 def test_photo_page_uses_single_pdf_as_primary_handoff() -> None:
     html = (FRONTEND / "photo.html").read_text(encoding="utf-8")
-    package_src = 'src="./brickhouse-survey-package.js?v=pdf-handoff-0.7-coverage-preflight"'
+    package_src = 'src="./brickhouse-survey-package.js?v=pdf-handoff-0.8-scene-source-lock"'
     assert "Créer le PDF unique à envoyer à l’IA" in html
     assert "BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf" in html
     assert package_src in html
