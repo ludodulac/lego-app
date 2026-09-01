@@ -6,6 +6,7 @@ const scenePreview = document.querySelector('#json-preview');
 const result = document.querySelector('#result');
 const sceneHandoffHome = document.querySelector('#scene-handoff-home');
 const buildButton = document.querySelector('#build-bricks');
+const progress = document.querySelector('.shell-progress');
 
 function readStoredSurvey() {
   try {
@@ -42,6 +43,37 @@ function computeStage() {
   return 0;
 }
 
+function ensureStateCard() {
+  let card = document.querySelector('#shell-state-card');
+  if (card || !progress?.parentNode) return card;
+  card = document.createElement('aside');
+  card.id = 'shell-state-card';
+  card.className = 'shell-state-card';
+  card.setAttribute('aria-live', 'polite');
+  progress.insertAdjacentElement('afterend', card);
+  return card;
+}
+
+function stateCopy(active) {
+  const hasEvidence = hasCapturedEvidence();
+  const surveyReady = readStoredSurvey() || Boolean(sceneHandoffHome?.querySelector('#download-scene-handoff'));
+  const sceneReady = Boolean(currentScene());
+  const buildReady = sceneReady && Boolean(buildButton && !buildButton.disabled);
+
+  if (buildReady) return { label: 'Maquette prête à construire', detail: 'La Scene est validée. Vous pouvez lancer la construction sans quitter ce parcours.', href: '#build-actions', action: 'Construire' };
+  if (sceneReady) return { label: 'Scene reçue', detail: 'La reconstruction 3D est présente. Vérifiez les contrôles affichés avant la construction.', href: '#analysis-panel', action: 'Vérifier la Scene' };
+  if (surveyReady) return { label: 'Survey validé', detail: 'Le relevé architectural est prêt. La prochaine étape est la reconstruction Survey → Scene.', href: '#survey-handoff-card', action: 'Préparer la Scene' };
+  if (hasEvidence || active === 1) return { label: 'Photos en préparation', detail: 'Vos preuves sont en cours de collecte. Complétez les vues utiles puis générez le Survey.', href: '#survey-handoff-card', action: 'Continuer vers le Survey' };
+  return { label: 'Commencer par les photos', detail: 'Ajoutez les vues disponibles. Une orientation manquante peut rester inconnue.', href: '#capture-card', action: 'Ajouter des photos' };
+}
+
+function renderStateCard(active) {
+  const card = ensureStateCard();
+  if (!card) return;
+  const copy = stateCopy(active);
+  card.innerHTML = `<div><small>État de votre maison</small><strong>${copy.label}</strong><span>${copy.detail}</span></div><a href="${copy.href}">${copy.action} →</a>`;
+}
+
 function syncShellState() {
   const active = computeStage();
   if (shell) shell.dataset.shellStage = String(active + 1);
@@ -59,6 +91,8 @@ function syncShellState() {
     if (targetStage === active) link.setAttribute('data-shell-current', 'true');
     else link.removeAttribute('data-shell-current');
   });
+
+  renderStateCard(active);
 }
 
 const observer = new MutationObserver(syncShellState);
