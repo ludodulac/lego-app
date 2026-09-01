@@ -8,5 +8,5 @@ if (!document.getElementById(shellStylesheetId)) {
   document.head.appendChild(link);
 }
 
-import('./photo-shell.js?v=single-screen-0.6');
+import('./photo-shell.js?v=single-screen-0.7');
 import('./survey-import-feedback-guard.js?v=survey-feedback-0.7');
