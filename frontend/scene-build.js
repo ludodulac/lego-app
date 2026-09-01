@@ -1,5 +1,6 @@
 import './benchmark-test.js';
 import './scene-required-inputs.js';
+import './mobile-shell-state.js';
 import { prepareConservativePartialScene } from './partial-scene-build.js';
 
 const buildButton = document.querySelector('#build-bricks');
