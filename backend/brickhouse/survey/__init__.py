@@ -37,6 +37,15 @@ from .correction_eligibility import (
     classify_survey_correction_finding_v01,
     survey_correction_eligibility_v01,
 )
+from .correction_reaudit import (
+    SurveyCorrectionReauditScope,
+    build_survey_correction_reaudit_scope,
+)
+from .correction_reaudit_contract import (
+    SurveyCorrectionReaudit,
+    SurveyCorrectionReauditValidationIssue,
+    validate_survey_correction_reaudit,
+)
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -127,6 +136,9 @@ __all__ = [
     "SurveyCorrectionChange",
     "SurveyCorrectionEligibility",
     "SurveyCorrectionObjectType",
+    "SurveyCorrectionReaudit",
+    "SurveyCorrectionReauditScope",
+    "SurveyCorrectionReauditValidationIssue",
     "SurveyCorrectionValidationIssue",
     "SurveyHypothesis",
     "SurveyObservation",
@@ -135,6 +147,7 @@ __all__ = [
     "SurveyRelation",
     "SurveyValidationIssue",
     "automatic_survey_correction_finding_ids_v01",
+    "build_survey_correction_reaudit_scope",
     "classify_survey_correction_finding_v01",
     "compute_survey_audit_benchmark_metrics",
     "evaluate_survey_audit_experimental_go",
@@ -142,6 +155,7 @@ __all__ = [
     "survey_correction_eligibility_v01",
     "validate_survey_audit",
     "validate_survey_correction",
+    "validate_survey_correction_reaudit",
     "validate_survey_extension",
     "validate_survey_semantics",
     "validate_multiview_roof_hypotheses",
