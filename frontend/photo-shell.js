@@ -1,193 +1,47 @@
-// Boldüngo single-screen shell v0.2. Presentation/orchestration only.
+// Boldüngo phone-first shell v0.3. One viewport, one primary task, details on demand.
 const stateOrder = ['photos', 'survey', 'scene', 'model'];
 
-function shellReady() {
-  return document.querySelector('.layout') && document.querySelector('.panel');
+function shellReady() { return document.querySelector('.layout') && document.querySelector('.panel'); }
+function navButton(label, state) { const el=document.createElement('button'); el.type='button'; el.className='shell-nav-button'; el.dataset.shellState=state; el.innerHTML=`<span class="shell-nav-dot" aria-hidden="true"></span><span>${label}</span>`; return el; }
+function panel(state,label){const el=document.createElement('section');el.className='shell-state-panel';el.dataset.shellPanel=state;el.setAttribute('aria-label',label);return el;}
+function move(node,target){if(node)target.appendChild(node);}
+function shortCopy(root){
+  const views=root.querySelector('#guided-photo-grid')?.closest('.simple-card');
+  if(views){const h=views.querySelector('h2');if(h)h.textContent='Ajoutez vos photos';const badge=views.querySelector('.step-badge');if(badge)badge.textContent='4 côtés';}
+  const names={front:'Avant',right:'Droite',left:'Gauche',rear:'Arrière'};
+  root.querySelectorAll('#guided-photo-grid .guided-photo-slot').forEach(slot=>{const strong=slot.querySelector('strong');if(strong)strong.textContent=names[slot.dataset.slot]||strong.textContent;const hint=slot.querySelector(':scope > span');if(hint)hint.remove();});
+  const handoff=root.querySelector('.ai-handoff-card');
+  if(handoff){const h=handoff.querySelector('h2');if(h)h.textContent='Analyse ChatGPT';const p=handoff.querySelector('.simple-heading p:not(.eyebrow)');if(p)p.textContent='Envoyez le relevé à ChatGPT, puis importez le résultat.';const download=handoff.querySelector('#download-ai-package');if(download)download.textContent='Exporter pour ChatGPT';const fileLabel=handoff.querySelector('label[for="external-analysis-file"]');if(fileLabel)fileLabel.textContent='Résultat ChatGPT';const importer=handoff.querySelector('#import-analysis');if(importer)importer.textContent='Importer';}
 }
 
-function button(label, state) {
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = 'shell-nav-button';
-  el.dataset.shellState = state;
-  el.innerHTML = `<span class="shell-nav-dot" aria-hidden="true"></span><span>${label}</span>`;
-  return el;
-}
-
-function makePanel(state, label) {
-  const panel = document.createElement('section');
-  panel.className = 'shell-state-panel';
-  panel.dataset.shellPanel = state;
-  panel.setAttribute('aria-label', label);
-  return panel;
-}
-
-function move(node, target) {
-  if (node) target.appendChild(node);
-}
-
-function initShell() {
-  if (!shellReady() || document.body.classList.contains('boldungo-shell-enabled')) return;
-
-  const layout = document.querySelector('.layout');
-  const legacyPanel = document.querySelector('.panel');
-  const resultPanel = document.querySelector('.result-panel');
-  const cards = [...legacyPanel.querySelectorAll(':scope > .simple-card')];
-  const [viewsCard, detailsCard, factsCard, handoffCard, futureCard] = cards;
-  const advancedPanel = legacyPanel.querySelector(':scope > .advanced-panel');
-  const status = legacyPanel.querySelector(':scope > #status');
-  const buildButton = document.querySelector('#build-bricks');
-
+function initShell(){
+  if(!shellReady()||document.body.classList.contains('boldungo-shell-enabled'))return;
+  const layout=document.querySelector('.layout'); const legacy=document.querySelector('.panel'); const resultPanel=document.querySelector('.result-panel');
+  shortCopy(legacy);
+  const cards=[...legacy.querySelectorAll(':scope > .simple-card')]; const [viewsCard,detailsCard,factsCard,handoffCard,futureCard]=cards;
+  const advanced=legacy.querySelector(':scope > .advanced-panel'); const status=legacy.querySelector(':scope > #status'); const build=document.querySelector('#build-bricks');
   document.body.classList.add('boldungo-shell-enabled');
-
-  const cockpit = document.createElement('div');
-  cockpit.className = 'boldungo-cockpit';
-
-  const shellHeader = document.createElement('section');
-  shellHeader.className = 'shell-progress';
-  shellHeader.innerHTML = `
-    <div class="shell-progress-copy">
-      <span class="shell-kicker">Ma maison</span>
-      <strong id="shell-state-title">Photos</strong>
-    </div>
-    <div class="shell-progress-meter" aria-label="Progression du projet">
-      <span class="shell-progress-fill" id="shell-progress-fill"></span>
-    </div>
-    <button type="button" class="shell-tools-button" id="shell-tools-button" aria-expanded="false" aria-controls="shell-tools-drawer">Outils</button>`;
-
-  const workspace = document.createElement('div');
-  workspace.className = 'shell-workspace';
-  const photosPanel = makePanel('photos', 'Photos');
-  const surveyPanel = makePanel('survey', 'Survey');
-  const scenePanel = makePanel('scene', 'Scene');
-  const modelPanel = makePanel('model', 'Maquette');
-
-  move(viewsCard, photosPanel);
-  move(factsCard, photosPanel);
-  move(handoffCard, surveyPanel);
-  move(resultPanel, scenePanel);
-
-  const modelCard = document.createElement('section');
-  modelCard.className = 'simple-card shell-model-card';
-  modelCard.innerHTML = `
-    <div class="simple-heading"><div><p class="eyebrow">Maquette</p><h2>Construire la maison</h2><p>La construction reste verrouillée tant que la Scene n'est pas validée par les contrats existants.</p></div></div>
-    <div class="shell-build-home"></div>`;
-  if (buildButton) modelCard.querySelector('.shell-build-home').appendChild(buildButton);
-  modelPanel.appendChild(modelCard);
-
-  workspace.append(photosPanel, surveyPanel, scenePanel, modelPanel);
-
-  const actionBar = document.createElement('div');
-  actionBar.className = 'shell-primary-action';
-  actionBar.innerHTML = '<button type="button" id="shell-primary-button">Créer mon relevé</button>';
-
-  const bottomNav = document.createElement('nav');
-  bottomNav.className = 'shell-bottom-nav';
-  bottomNav.setAttribute('aria-label', 'Parcours Boldüngo');
-  bottomNav.append(
-    button('Photos', 'photos'),
-    button('Relevé', 'survey'),
-    button('Maison', 'scene'),
-    button('Maquette', 'model'),
-  );
-
-  const drawerBackdrop = document.createElement('div');
-  drawerBackdrop.className = 'shell-drawer-backdrop';
-  drawerBackdrop.hidden = true;
-
-  const drawer = document.createElement('aside');
-  drawer.className = 'shell-tools-drawer';
-  drawer.id = 'shell-tools-drawer';
-  drawer.setAttribute('aria-label', 'Détails et outils avancés');
-  drawer.setAttribute('aria-hidden', 'true');
-  drawer.innerHTML = `<div class="shell-drawer-head"><div><span class="shell-kicker">Secondaire</span><strong>Détails et outils</strong></div><button type="button" id="shell-tools-close">Fermer</button></div><div class="shell-drawer-scroll"></div>`;
-  const drawerScroll = drawer.querySelector('.shell-drawer-scroll');
-  move(detailsCard, drawerScroll);
-  move(advancedPanel, drawerScroll);
-  move(futureCard, drawerScroll);
-
-  const legacyIntro = [...legacyPanel.children].filter(node => ['P', 'H1'].includes(node.tagName));
-  legacyIntro.forEach(node => node.remove());
-  if (status) cockpit.appendChild(status);
-
-  cockpit.prepend(shellHeader, workspace);
-  cockpit.append(actionBar, bottomNav);
-  layout.replaceChildren(cockpit);
-  document.body.append(drawerBackdrop, drawer);
-
-  const titles = { photos: 'Photos', survey: 'Relevé', scene: 'Maison', model: 'Maquette' };
-  const primaryLabels = { photos: 'Créer mon relevé', survey: 'Importer mon relevé', scene: 'Vérifier ma maison', model: 'Construire ma maquette' };
-  let activeState = 'photos';
-
-  function closeDrawer() {
-    drawer.classList.remove('open');
-    drawer.setAttribute('aria-hidden', 'true');
-    drawerBackdrop.hidden = true;
-    shellHeader.querySelector('#shell-tools-button').setAttribute('aria-expanded', 'false');
-  }
-
-  function openDrawer() {
-    drawer.classList.add('open');
-    drawer.setAttribute('aria-hidden', 'false');
-    drawerBackdrop.hidden = false;
-    shellHeader.querySelector('#shell-tools-button').setAttribute('aria-expanded', 'true');
-  }
-
-  function setState(state) {
-    if (!stateOrder.includes(state)) return;
-    activeState = state;
-    cockpit.dataset.shellState = state;
-    workspace.querySelectorAll('[data-shell-panel]').forEach(panel => {
-      panel.hidden = panel.dataset.shellPanel !== state;
-      if (!panel.hidden) panel.scrollTop = 0;
-    });
-    bottomNav.querySelectorAll('[data-shell-state]').forEach(navButton => {
-      const selected = navButton.dataset.shellState === state;
-      navButton.classList.toggle('active', selected);
-      navButton.setAttribute('aria-current', selected ? 'page' : 'false');
-    });
-    document.querySelector('#shell-state-title').textContent = titles[state];
-    document.querySelector('#shell-progress-fill').style.width = `${((stateOrder.indexOf(state) + 1) / stateOrder.length) * 100}%`;
-    document.querySelector('#shell-primary-button').textContent = primaryLabels[state];
-  }
-
-  bottomNav.addEventListener('click', event => {
-    const navButton = event.target.closest('[data-shell-state]');
-    if (navButton) setState(navButton.dataset.shellState);
-  });
-
-  shellHeader.querySelector('#shell-tools-button').addEventListener('click', () => drawer.classList.contains('open') ? closeDrawer() : openDrawer());
-  drawer.querySelector('#shell-tools-close').addEventListener('click', closeDrawer);
-  drawerBackdrop.addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeDrawer(); });
-
-  document.querySelector('#shell-primary-button').addEventListener('click', () => {
-    if (activeState === 'photos') {
-      document.querySelector('#download-ai-package')?.click();
-      return;
-    }
-    if (activeState === 'survey') {
-      document.querySelector('#external-analysis-file')?.click();
-      return;
-    }
-    if (activeState === 'scene') {
-      const result = document.querySelector('#result');
-      if (result && !result.hidden) result.closest('.shell-state-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
-      else setState('survey');
-      return;
-    }
-    document.querySelector('#build-bricks')?.click();
-  });
-
-  const resultObserver = new MutationObserver(() => {
-    const result = document.querySelector('#result');
-    if (result && !result.hidden && activeState === 'survey') setState('scene');
-  });
-  const result = document.querySelector('#result');
-  if (result) resultObserver.observe(result, { attributes: true, attributeFilter: ['hidden'] });
-
-  setState('photos');
+  const cockpit=document.createElement('div');cockpit.className='boldungo-cockpit';
+  const header=document.createElement('header');header.className='shell-progress';header.innerHTML=`<div class="shell-progress-copy"><strong id="shell-state-title">Photos</strong></div><div class="shell-progress-meter" aria-label="Progression"><span class="shell-progress-fill" id="shell-progress-fill"></span></div><button type="button" class="shell-tools-button" id="shell-tools-button" aria-expanded="false">•••</button>`;
+  const workspace=document.createElement('div');workspace.className='shell-workspace';
+  const photos=panel('photos','Photos'),survey=panel('survey','Relevé'),scene=panel('scene','Maison'),model=panel('model','Maquette');
+  move(viewsCard,photos); move(handoffCard,survey); move(resultPanel,scene);
+  const modelCard=document.createElement('section');modelCard.className='simple-card shell-model-card';modelCard.innerHTML='<div class="shell-model-icon" aria-hidden="true">▦</div><h2>Maquette</h2><p>Prête après validation de la maison.</p><div class="shell-build-home"></div>';if(build)modelCard.querySelector('.shell-build-home').appendChild(build);model.appendChild(modelCard);
+  workspace.append(photos,survey,scene,model);
+  const action=document.createElement('div');action.className='shell-primary-action';action.innerHTML='<button type="button" id="shell-primary-button">Créer le relevé</button>';
+  const bottom=document.createElement('nav');bottom.className='shell-bottom-nav';bottom.setAttribute('aria-label','Parcours');bottom.append(navButton('Photos','photos'),navButton('Relevé','survey'),navButton('Maison','scene'),navButton('Maquette','model'));
+  const backdrop=document.createElement('div');backdrop.className='shell-drawer-backdrop';backdrop.hidden=true;
+  const drawer=document.createElement('aside');drawer.className='shell-tools-drawer';drawer.id='shell-tools-drawer';drawer.setAttribute('aria-hidden','true');drawer.innerHTML='<div class="shell-drawer-head"><strong>Détails</strong><button type="button" id="shell-tools-close">Fermer</button></div><div class="shell-drawer-scroll"></div>';
+  const drawerScroll=drawer.querySelector('.shell-drawer-scroll');move(factsCard,drawerScroll);move(detailsCard,drawerScroll);move(advanced,drawerScroll);move(futureCard,drawerScroll);
+  [...legacy.children].filter(n=>['P','H1'].includes(n.tagName)).forEach(n=>n.remove());if(status)drawerScroll.prepend(status);
+  cockpit.append(header,workspace,action,bottom);layout.replaceChildren(cockpit);document.body.append(backdrop,drawer);
+  const titles={photos:'Photos',survey:'Relevé',scene:'Maison',model:'Maquette'};const labels={photos:'Créer le relevé',survey:'Importer le résultat',scene:'Continuer',model:'Construire'};let active='photos';
+  function close(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');backdrop.hidden=true;header.querySelector('#shell-tools-button').setAttribute('aria-expanded','false');}
+  function open(){drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');backdrop.hidden=false;header.querySelector('#shell-tools-button').setAttribute('aria-expanded','true');}
+  function setState(state){if(!stateOrder.includes(state))return;active=state;cockpit.dataset.shellState=state;workspace.querySelectorAll('[data-shell-panel]').forEach(p=>p.hidden=p.dataset.shellPanel!==state);bottom.querySelectorAll('[data-shell-state]').forEach(b=>{const on=b.dataset.shellState===state;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false');});document.querySelector('#shell-state-title').textContent=titles[state];document.querySelector('#shell-progress-fill').style.width=`${((stateOrder.indexOf(state)+1)/4)*100}%`;document.querySelector('#shell-primary-button').textContent=labels[state];}
+  bottom.addEventListener('click',e=>{const b=e.target.closest('[data-shell-state]');if(b)setState(b.dataset.shellState);});header.querySelector('#shell-tools-button').addEventListener('click',()=>drawer.classList.contains('open')?close():open());drawer.querySelector('#shell-tools-close').addEventListener('click',close);backdrop.addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  document.querySelector('#shell-primary-button').addEventListener('click',()=>{if(active==='photos'){document.querySelector('#download-ai-package')?.click();setState('survey');return;}if(active==='survey'){document.querySelector('#external-analysis-file')?.click();return;}if(active==='scene'){setState('model');return;}document.querySelector('#build-bricks')?.click();});
+  document.querySelector('#external-analysis-file')?.addEventListener('change',()=>{if(document.querySelector('#external-analysis-file')?.files?.length)document.querySelector('#import-analysis')?.click();});
+  const result=document.querySelector('#result');if(result)new MutationObserver(()=>{if(!result.hidden)setState('scene');}).observe(result,{attributes:true,attributeFilter:['hidden']});setState('photos');
 }
-
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initShell, { once: true });
-else initShell();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initShell,{once:true});else initShell();
