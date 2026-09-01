@@ -93,3 +93,20 @@ Poursuivre sans redemander de travail humain tant que ce n’est pas nécessaire
 ## Instruction suffisante pour repartir
 
 > Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`, `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md` et reprends à partir de la boucle explicite `SurveyAudit -> SurveyCorrection -> validation -> ré-audit ciblé` en restant strictement additif.
+
+## MISE À JOUR — fin de tranche Phase 2 du 2026-09-01
+
+Les étapes techniques 1 à 4 ci-dessus ont depuis été largement réalisées. Lire aussi `docs/SURVEY_AUDIT_CORRECTION_PHASE2_STATUS.md` avant d’agir.
+
+Tranches supplémentaires fusionnées sur `main` :
+- #324 — résultat benchmark anonymisé + ADR-014/passation ;
+- #325 — scorecard benchmark exécutable ;
+- #326 — scopes `lower_certainty` / `reorient` durcis, `merge` et reorient relation rendus manuels en v0.1, prompt aligné ;
+- #327 — protection du gold scorecard contre l’inflation du rappel ;
+- #328 — préflight déterministe d’éligibilité des findings à une correction automatique ;
+- #329 — calcul du scope minimal de ré-audit post-correction ;
+- #330 — `SurveyCorrectionReaudit v0.1` + validateur + prompt borné, diagnostique seulement.
+
+Le prochain travail qui apporte réellement une nouvelle information nécessite désormais des sorties humaines/indépendantes : conserver au moins trois nouveaux SurveyAudit JSON bruts sur le même Survey/photos gelés, les rejouer sans retouche par le boundary, puis produire un gold set exhaustif indépendant. Le scorecard peut alors calculer rappel/F1 honnêtement. Si les seuils GO restent satisfaits, seulement ensuite exécuter une première correction privée limitée aux findings déclarés automatiquement éligibles, la valider puis lancer le ré-audit ciblé.
+
+`SceneAudit` reste **HOLD**.

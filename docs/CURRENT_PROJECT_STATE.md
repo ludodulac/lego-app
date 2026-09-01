@@ -155,3 +155,17 @@ Après stabilisation du round-trip : fenêtres encore schématiques ; cadres/ret
 Une nouvelle conversation doit pouvoir commencer par :
 
 > Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `docs/AI_INDEPENDENT_AUDITS_PROPOSAL.md`, `docs/SURVEY_AUDIT_BENCHMARK_RESULT_2026-09-01.md` et reprends la boucle explicite SurveyAudit → SurveyCorrection → validation → ré-audit ciblé.
+
+## MISE À JOUR — Phase 2 SurveyAudit / SurveyCorrection
+
+La section ci-dessus conserve l’état au merge #323. Pour l’état courant de la tranche, lire `docs/SURVEY_AUDIT_CORRECTION_PHASE2_STATUS.md`.
+
+Depuis ce point, les PR #324 à #330 ont été fusionnées. Elles ajoutent la clôture documentaire du benchmark, un scorecard exécutable avec protections anti-inflation, le durcissement des scopes de mutation SurveyCorrection, un préflight déterministe d’éligibilité automatique, un calcul de scope de ré-audit, puis le contrat/prompt borné `SurveyCorrectionReaudit v0.1`.
+
+La surface automatique v0.1 est désormais volontairement étroite : `add`, `remove`, `lower_certainty` et `reorient` d’observation seulement lorsque les préconditions déterministes sont satisfaites. `merge`, reorientation de relation, `review`, `keep`, cibles photo et findings `info` restent hors correction automatique.
+
+Le ré-audit post-correction n’est plus une intention documentaire seulement : `build_survey_correction_reaudit_scope()` calcule le voisinage minimal et `SurveyCorrectionReaudit v0.1` interdit l’expansion vers des objets/photos hors scope. Il reste diagnostique et ne lance jamais une seconde mutation.
+
+La prochaine étape bloquante en information, et non en code, est désormais la clôture formelle du benchmark : au moins trois SurveyAudit JSON bruts indépendants conservés, replay exact via le boundary, puis gold set exhaustif indépendant. Une première correction privée ne doit être exécutée qu’après ce score formel, sur des findings déclarés automatiquement éligibles, puis validée et ré-auditée dans le scope borné.
+
+`SceneAudit` reste **HOLD**.
