@@ -1,3 +1,13 @@
+import './photo-shell.js?v=single-screen-shell-0.1';
+
+if (!document.querySelector('link[data-boldungo-shell-style]')) {
+  const shellStyle = document.createElement('link');
+  shellStyle.rel = 'stylesheet';
+  shellStyle.href = './photo-shell.css?v=single-screen-shell-0.1';
+  shellStyle.dataset.boldungoShellStyle = 'true';
+  document.head.appendChild(shellStyle);
+}
+
 function pendingValidatedSurvey() {
   try {
     const payload = JSON.parse(localStorage.getItem('brickhouse.pendingArchitecturalSurvey') || 'null');
