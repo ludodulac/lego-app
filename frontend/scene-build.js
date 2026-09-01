@@ -15,6 +15,7 @@ if (buildButton) {
   const advanced = document.querySelector('.advanced-panel');
   if (advanced?.parentNode) {
     const card = document.createElement('section');
+    card.id = 'build-ready-card';
     card.className = 'simple-card build-ready-card';
     card.innerHTML = '<div class="simple-heading"><div><p class="eyebrow">Dernière étape</p><h2>Construire la maquette</h2><p>BrickHouse construit tout ce qui est suffisamment résolu et laisse les zones encore inconnues hors de la maquette plutôt que de les inventer.</p></div></div>';
     buildButton.textContent = 'Construire ma maquette';
@@ -78,15 +79,10 @@ document.addEventListener('click', async event => {
     if (partialOmissions.length) {
       payload.fidelity_issues = [
         ...(payload.fidelity_issues ?? []),
-        ...partialOmissions.map(item => ({
-          code: 'partial_scene_object_omitted',
-          severity: 'warning',
-          object_id: item.object_id,
-          message: `${item.object_id} n’est pas encore construit : ${item.reason}. La géométrie n’a pas été inventée.`,
-        })),
+        ...partialOmissions.map(item => ({ severity: 'warning', code: 'partial_scene_omission', message: item.message })),
       ];
     }
-    localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify({ scene }));
+    localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify(scene));
     localStorage.setItem('brickhouse.pendingExport', JSON.stringify(payload));
     window.location.href = './viewer.html';
   } catch (error) {
