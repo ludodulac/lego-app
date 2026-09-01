@@ -138,6 +138,7 @@ function initShell() {
     cockpit.dataset.shellState = state;
     workspace.querySelectorAll('[data-shell-panel]').forEach(panel => {
       panel.hidden = panel.dataset.shellPanel !== state;
+      if (!panel.hidden) panel.scrollTop = 0;
     });
     bottomNav.querySelectorAll('[data-shell-state]').forEach(navButton => {
       const selected = navButton.dataset.shellState === state;
@@ -170,7 +171,7 @@ function initShell() {
     }
     if (activeState === 'scene') {
       const result = document.querySelector('#result');
-      if (result && !result.hidden) result.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (result && !result.hidden) result.closest('.shell-state-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
       else setState('survey');
       return;
     }
