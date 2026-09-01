@@ -152,7 +152,8 @@ jobs:
           path = Path('docs/examples/architectural-scene-rich-exterior.json')
           scene = ArchitecturalScene.model_validate_json(path.read_text(encoding='utf-8'))
           bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
-          ids = [part.placement_id for part in bundle.brick_model.parts]
+          parts = bundle.brick_model.parts
+          ids = [part.placement_id for part in parts]
           assert any(value.startswith('scene-platform:deck:') for value in ids)
           assert any(value.startswith('scene-stair:deck_stair:') for value in ids)
           assert any(value.startswith('scene-terrain:right:') for value in ids)
