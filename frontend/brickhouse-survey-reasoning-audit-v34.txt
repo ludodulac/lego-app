@@ -1,0 +1,41 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.4 — RAISONNEMENT VISUEL MULTI-VUES
+
+Cet addendum renforce la QUALITÉ D'ANALYSE avant la sérialisation. Il ne change pas le schéma ArchitecturalSurvey et n'autorise aucune invention. Le raisonnement reste interne : la sortie reste uniquement le JSON final.
+
+1. INVENTAIRE INDÉPENDANT PAR PHOTO
+Avant toute fusion, examine chaque photo indépendamment. Inventorie les objets architecturaux réellement visibles : enveloppe, ouvertures, toiture, cheminée, plateformes/paliers, escaliers, garde-corps, supports, volumes secondaires, terrain, équipements et occultations. Ne laisse pas la première vue imposer l'interprétation des suivantes.
+
+2. HYPOTHÈSES CONCURRENTES
+Pour tout élément ambigu important, forme au moins une hypothèse alternative raisonnable avant de décider. Exemples : fenêtre vs porte vitrée ; plateforme bois vs palier maçonné adjacent ; volume bâti vs simple muret ; pente réelle du terrain vs effet de perspective. Ne conserve dans le Survey que la meilleure hypothèse soutenue, avec `attribute_certainty` adaptée. Si aucune hypothèse n'est suffisamment soutenue, omets l'attribut plutôt que de choisir arbitrairement.
+
+3. RECOUPEMENT MULTI-VUES
+Pour fusionner deux occurrences comme le même objet physique, cherche au moins deux indices stables parmi : position relative aux angles du bâtiment, voisinage avec d'autres ouvertures, niveau vertical, matériau, forme, raccord à une plateforme/escalier, continuité de rive/toiture, occultations cohérentes. Une ressemblance visuelle seule ne suffit pas.
+Pour séparer deux objets proches, vérifie aussi les indices de non-identité : rang différent, décalage relatif, changement de matériau, rupture de continuité, présence simultanée dans une même vue.
+
+4. ÉCHELLE ET PROPORTIONS
+Une mesure utilisateur explicite est l'ancre métrique prioritaire lorsqu'elle existe. Les dimensions d'objets courants, textures, briques, fenêtres, portes ou véhicules peuvent servir uniquement d'indices qualitatifs de cohérence ; elles ne deviennent jamais des mesures connues sans preuve explicite. Le Survey reste non métrique sauf `known_measurements` autorisé.
+
+5. MATÉRIAUX ET TEXTURES
+Distingue matériau nominal, finition de surface et vieillissement. N'infère pas un matériau uniquement depuis une couleur. Croise texture, joints, épaisseur apparente, bords, répétition et contexte architectural. Si le matériau reste incertain, garde l'objet certain mais marque l'attribut plausible/unproven ou omets-le.
+
+6. STRUCTURES EXTÉRIEURES ET CONNECTIVITÉ
+Pour terrasse, palier, escalier, support ou volume secondaire, détermine d'abord les primitives physiques distinctes, puis leurs relations. Une proximité visuelle n'est pas une connexion certaine. Si plusieurs vues montrent un contact physique cohérent, encode la relation certaine ; si le contact est masqué, garde les objets sans inventer la liaison.
+
+7. TOITURE, CHEMINÉE, TERRAIN ET VOLUMES SECONDAIRES
+Effectue une passe dédiée à ces catégories avant sortie, car elles sont souvent sous-détectées. Une catégorie visible ne doit pas rester seulement dans `photos[].description`. Vérifie explicitement si les vues arrière/latérales révèlent une cheminée, un volume bas, une plateforme distincte, un palier, ou une pente de terrain qui n'apparaît pas clairement de face.
+
+8. CONTRE-VÉRIFICATION FINALE
+Avant de sérialiser :
+- cherche un objet certain potentiellement oublié ;
+- cherche un doublon créé par deux vues du même objet ;
+- cherche un regroupement qui fusionne plusieurs objets physiques distincts ;
+- cherche un attribut devenu trop certain par simple répétition ;
+- cherche une relation certaine non réellement prouvée ;
+- cherche une catégorie visible mentionnée dans une description photo mais absente des observations.
+Corrige seulement ce que les preuves permettent.
+
+9. AUCUNE SOURCE EXTERNE IMPLICITE
+N'affirme jamais avoir consulté Internet, une base de produits ou une référence externe si aucun outil/source externe n'est réellement disponible dans le tour. Les comparaisons à des dimensions ou formes courantes restent des connaissances générales de contexte, jamais des preuves photographiques.
+
+10. SORTIE
+Après ce raisonnement, applique intégralement le contrat ArchitecturalSurvey v0.1 et le préflight de sérialisation final. La sortie ne contient pas ce raisonnement, uniquement `brickhouse-survey-result.json`.
