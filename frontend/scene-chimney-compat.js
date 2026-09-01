@@ -1,3 +1,16 @@
+// Keep the architectural compatibility hook intact and load the additive
+// one-screen presentation layer beside it. The shell only moves existing DOM
+// controls; it does not rewrite Survey/Scene truth or replace validators.
+import './photo-shell.js?v=single-screen-shell-0.2';
+
+if (!document.querySelector('link[data-boldungo-shell-style]')) {
+  const shellStyle = document.createElement('link');
+  shellStyle.rel = 'stylesheet';
+  shellStyle.href = './photo-shell.css?v=single-screen-shell-0.2';
+  shellStyle.dataset.boldungoShellStyle = 'true';
+  document.head.appendChild(shellStyle);
+}
+
 function pendingValidatedSurvey() {
   try {
     const payload = JSON.parse(localStorage.getItem('brickhouse.pendingArchitecturalSurvey') || 'null');
