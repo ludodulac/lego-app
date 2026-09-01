@@ -84,6 +84,7 @@ Si une vue de pignon montre suffisamment clairement les deux égouts et le faît
 
 TERRAIN — VÉRITÉ QUALITATIVE AVANT AMPLITUDE MÉTRIQUE
 Une observation Survey `terrain` certaine ou plausible ne disparaît pas de la Scene simplement parce que son amplitude métrique est difficile à mesurer. Si les preuves établissent une pente longitudinale, une montée ou une descente le long d’une façade, conserve cette vérité dans `terrain.kind:"facade_grade_profiles"` avec la façade, la source et les evidence correspondantes.
+Interprète `attributes.slope_direction` par son sens architectural, sans dépendre d’un token exact : une paraphrase non ambiguë telle que `rises_front_to_rear` porte la même vérité qualitative que `front_to_rear_up`. Ne réécris pas le Survey, ne change pas sa façade et n’invente aucune direction si la formulation est ambiguë ou contradictoire ; conserve seulement dans la Scene la montée/descente réellement exprimée par le Survey et ses evidence.
 Tente d’abord de borner `start_elevation` et `end_elevation` à partir des vues, de l’ancre utilisateur et des niveaux architecturaux réellement visibles. Si un endpoint ou l’amplitude reste non défendable, utilise `start_elevation:null` et/ou `end_elevation:null`. N’invente jamais une amplitude, une pente en mètres, un trottoir ou un niveau de rue pour satisfaire le renderer LEGO. La Scene peut donc savoir « le terrain monte » alors que la construction LEGO attend encore une amplitude métrique avant de le matérialiser.
 
 STRUCTURES EXTÉRIEURES
