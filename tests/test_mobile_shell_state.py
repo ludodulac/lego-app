@@ -36,5 +36,6 @@ def test_shell_exposes_contextual_next_action_without_parallel_workflow_state():
     assert "Maquette prête à construire" in STATE_JS
     assert "#survey-handoff-card" in STATE_JS
     assert "#analysis-panel" in STATE_JS
-    assert "#build-actions" in STATE_JS
+    assert "#build-ready-card" in STATE_JS
+    assert "card.id = 'build-ready-card'" in SCENE_BUILD_JS
     assert ".shell-state-card" in MOBILE_SHELL_CSS
