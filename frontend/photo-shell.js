@@ -1,5 +1,4 @@
-// Boldüngo single-screen shell v0.2.
-// Presentation/orchestration only: preserve existing functional nodes and IDs.
+// Boldüngo single-screen shell v0.2. Presentation/orchestration only.
 const stateOrder = ['photos', 'survey', 'scene', 'model'];
 
 function shellReady() {
