@@ -1,4 +1,4 @@
-// Boldüngo phone-first shell v0.6. HUD first; immediate import feedback.
+// Boldüngo phone-first shell v0.7. HUD first; state-aware Survey/Scene/build feedback.
 const stateOrder = ['photos', 'survey', 'scene', 'model'];
 
 function shellReady() { return document.querySelector('.layout') && document.querySelector('.panel'); }
@@ -89,7 +89,7 @@ function initShell() {
 
   const modelCard = document.createElement('section');
   modelCard.className = 'shell-main-card shell-model-card';
-  modelCard.innerHTML = '<div class="shell-state-icon" aria-hidden="true">▦</div><h2>Maquette</h2><strong>Après validation</strong><div class="shell-build-home"></div>';
+  modelCard.innerHTML = '<div class="shell-state-icon" aria-hidden="true">▦</div><h2>Maquette</h2><strong id="shell-model-status">Après validation</strong><div class="shell-build-home"></div>';
   if (build) modelCard.querySelector('.shell-build-home').appendChild(build);
   model.appendChild(modelCard);
 
@@ -155,6 +155,12 @@ function initShell() {
     feedback.hidden = false;
     if (!persist) feedbackTimer = window.setTimeout(() => { feedback.hidden = true; }, 3200);
   }
+  function previewSchema() {
+    const raw = document.querySelector('#json-preview')?.textContent?.trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw)?.schema_version ?? null; }
+    catch { return null; }
+  }
   function closeDrawer() {
     drawer.classList.remove('open');
     drawer.setAttribute('aria-hidden', 'true');
@@ -187,22 +193,41 @@ function initShell() {
     const result = document.querySelector('#result');
     const name = document.querySelector('#result-name')?.textContent?.trim();
     const confidence = document.querySelector('#confidence')?.textContent?.trim();
-    document.querySelector('#shell-scene-name').textContent = name && name !== '—' ? name : 'Maison';
-    document.querySelector('#shell-scene-status').textContent = result && !result.hidden ? (confidence && confidence !== '—' ? confidence : 'Prête') : 'En attente';
+    const schema = previewSchema();
+    document.querySelector('#shell-scene-name').textContent = schema === '0.2' && name && name !== '—' ? name : 'Maison';
+    document.querySelector('#shell-scene-status').textContent = schema === '0.2' && result && !result.hidden ? (confidence && confidence !== '—' ? confidence : 'Prête') : 'En attente';
   }
   function mirrorStatus() {
     const message = status?.textContent?.trim() || '';
     if (!message) return;
     const lower = message.toLowerCase();
+    const constructionMessage = lower.includes('construction') || lower.includes('maquette') || lower.includes('m0') || lower.includes('projection');
+    if (constructionMessage) {
+      const modelStatus = modelCard.querySelector('#shell-model-status');
+      if (lower.includes('impossible') || lower.includes('bloqu') || lower.includes('interromp')) {
+        modelStatus.textContent = 'Bloquée';
+        showFeedback(message, 'error', true);
+      } else if (lower.includes('constructible') || lower.includes('étape suivante')) {
+        modelStatus.textContent = 'Prête';
+        showFeedback('Maison prête à construire ✓', 'success');
+      } else {
+        modelStatus.textContent = 'Construction…';
+        showFeedback(message, 'info', true);
+      }
+      return;
+    }
     if (lower.includes('impossible') || lower.includes('refus') || lower.includes('invalide') || lower.includes('manquante')) {
       surveyCard.querySelector('#shell-survey-status').textContent = 'À corriger';
       showFeedback(message, 'error', true);
-    } else if (lower.includes('valide')) {
+    } else if (lower.includes('architecturalscene valide')) {
+      document.querySelector('#shell-scene-status').textContent = lower.includes('constructible') ? 'Prête' : 'À corriger';
+      showFeedback(message, lower.includes('constructible') ? 'success' : 'error', !lower.includes('constructible'));
+    } else if (lower.includes('architecturalsurvey') && lower.includes('valide')) {
       surveyCard.querySelector('#shell-survey-status').textContent = 'Relevé importé';
       showFeedback('Relevé importé ✓', 'success');
-    } else if (lower.includes('vérif') || lower.includes('charg') || lower.includes('contrôle')) {
+    } else if (lower.includes('vérif') || lower.includes('charg') || lower.includes('contrôle') || lower.includes('validation')) {
       surveyCard.querySelector('#shell-survey-status').textContent = 'Vérification…';
-      showFeedback('Vérification du relevé…', 'info', true);
+      showFeedback(message, 'info', true);
     }
   }
 
@@ -228,9 +253,24 @@ function initShell() {
       return;
     }
     if (active === 'scene') {
+      if (previewSchema() !== '0.2') {
+        showFeedback('Importez d’abord la Maison reconstruite', 'error', true);
+        resultFile?.click();
+        return;
+      }
+      if (build?.disabled) {
+        showFeedback(status?.textContent || 'La Maison doit être validée avant construction', 'error', true);
+        return;
+      }
       setState('model');
       return;
     }
+    if (build?.disabled) {
+      showFeedback(status?.textContent || 'La maquette n’est pas encore constructible', 'error', true);
+      return;
+    }
+    modelCard.querySelector('#shell-model-status').textContent = 'Construction…';
+    showFeedback('Construction de la maquette…', 'info', true);
     build?.click();
   });
 
@@ -257,10 +297,16 @@ function initShell() {
   if (result) {
     new MutationObserver(() => {
       syncSceneSummary();
-      if (!result.hidden) {
+      if (result.hidden) return;
+      const schema = previewSchema();
+      if (schema === '0.2') {
+        document.querySelector('#shell-scene-status').textContent = build?.disabled ? 'Validation…' : 'Prête';
+        showFeedback(build?.disabled ? 'Validation de la Maison…' : 'Maison prête ✓', 'success');
+        setState('scene');
+      } else if (schema === '0.1') {
         surveyCard.querySelector('#shell-survey-status').textContent = 'Relevé importé';
         showFeedback('Relevé importé ✓', 'success');
-        setState('scene');
+        setState('survey');
       }
     }).observe(result, { attributes: true, subtree: true, childList: true, characterData: true });
   }
