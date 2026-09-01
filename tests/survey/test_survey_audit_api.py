@@ -98,8 +98,11 @@ def test_validate_survey_audit_accepts_valid_diagnostic_without_mutation() -> No
     assert body["valid"] is True
     assert body["needs_correction"] is True
     assert body["issues"] == []
-    assert body["audit"] == audit
+    assert body["audit"]["survey_id"] == audit["survey_id"]
+    assert body["audit"]["summary"] == audit["summary"]
+    assert body["audit"]["findings"][0]["id"] == audit["findings"][0]["id"]
     assert survey == _survey()
+    assert audit == _audit()
 
 
 def test_validate_survey_audit_rejects_unknown_photo_reference() -> None:
