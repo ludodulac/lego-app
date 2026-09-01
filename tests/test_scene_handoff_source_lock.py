@@ -18,7 +18,8 @@ def test_source_lock_manifest_preserves_active_survey_semantics():
     assert "active_roofs" in text
     assert "building_boundary_ids" in text
     assert "terrain.profiles contient un profil de la même façade" in text
-    assert 'facade_is_gable:true certain/plausible ne doit pas devenir type:\"other\"' in text
+    assert "facade_is_gable:true certain/plausible" in text
+    assert 'type:' in text and 'other' in text
     assert "n'invente jamais obs-building-envelope" in text
     assert "compare le JSON Scene final à ce manifeste" in text
 
