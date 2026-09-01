@@ -1,3 +1,6 @@
+// Keep the architectural compatibility hook intact and load the additive
+// one-screen presentation layer beside it. The shell only moves existing DOM
+// controls; it does not rewrite Survey/Scene truth or replace validators.
 import './photo-shell.js?v=single-screen-shell-0.2';
 
 if (!document.querySelector('link[data-boldungo-shell-style]')) {
