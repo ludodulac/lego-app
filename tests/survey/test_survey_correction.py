@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from brickhouse.survey import (
     ArchitecturalSurvey,
+    KnownMeasurement,
     SurveyAudit,
     SurveyCorrection,
     SurveyObservation,
@@ -135,10 +136,20 @@ def test_survey_correction_rejects_undeclared_extra_change() -> None:
 
 def test_survey_correction_freezes_user_measurements() -> None:
     survey = _survey()
+    survey.known_measurements.append(
+        KnownMeasurement.model_validate(
+            {
+                "kind": "front_width",
+                "value": 10.0,
+                "units": "m",
+                "source": {"kind": "user_provided", "confidence": 1.0},
+            }
+        )
+    )
     audit = _missing_roof_audit(survey)
     candidate = survey.model_copy(deep=True)
     candidate.observations.append(_roof_observation())
-    candidate.known_measurements[0].value = candidate.known_measurements[0].value + 1.0
+    candidate.known_measurements[0].value = 11.0
     correction = _add_correction(survey, candidate=candidate)
 
     codes = {issue.code for issue in validate_survey_correction(survey, audit, correction)}
