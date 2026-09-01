@@ -16,6 +16,17 @@ Only create a change for a SurveyAudit finding that is actionable (severity warn
 
 Do NOT directly mutate the Survey for findings whose suggested_action is review or keep. A review finding means the evidence is not decisive enough for automatic correction.
 
+AUTOMATIC SCOPE IN v0.1
+The backend deliberately supports only correction shapes whose mutation scope can be checked deterministically.
+
+- add and remove remain eligible when the resulting candidate is backend-valid.
+- lower_certainty is eligible only as a true certainty decrease. It must not alter object identity, kind, facade, statement, evidence, attributes, appearance, or opening_visual. Attribute certainty may only become less certain, never more certain.
+- reorient is eligible only for observations. It may change facade and/or facade_horizontal_rank / facade_vertical_rank, plus wording needed to describe that orientation. It must not change identity, kind, certainty, evidence, visual/material details, or non-orientation attributes.
+- relation reorient is NOT automatically correctable in v0.1 and requires manual review.
+- merge is NOT automatically correctable in v0.1 and requires manual review. Do not emit a merge change expecting backend acceptance.
+
+The caller should invoke this correction prompt only when at least one finding is automatically correctable under these rules. Never invent a substitute action for a merge, relation-reorient, review, or keep finding.
+
 FROZEN FIELDS
 The candidate MUST preserve exactly from the original Survey:
 - id and name;
@@ -30,14 +41,14 @@ Only observations and relations may change in SurveyCorrection v0.1.
 CHANGE JOURNAL
 Every actual candidate change MUST have exactly traceable journal evidence through changes[]. Each change references one existing SurveyAudit finding_id and must use the same suggested_action.
 
-Never add, remove, merge, reorient, or lower certainty for an object without declaring that mutation in changes[]. Do not perform opportunistic cleanup.
+Never add, remove, reorient, or lower certainty for an object without declaring that mutation in changes[]. Do not perform opportunistic cleanup.
 
 ACTION SHAPES
 - add: source_id=null, candidate_id=<new observation/relation id>
 - remove: source_id=<existing id>, candidate_id=null
 - lower_certainty: source_id=candidate_id=<same existing id>
-- reorient: source_id=candidate_id=<same existing id>
-- merge: source_id=<removed existing id>, candidate_id=<surviving id>
+- reorient: source_id=candidate_id=<same existing observation id>
+- merge: structurally representable by the contract but manual-review-only in v0.1; do not emit for automatic validation
 - keep/review: forbidden as direct mutations
 
 CONSERVATISM
@@ -46,6 +57,7 @@ CONSERVATISM
 - Lower certainty rather than inventing a replacement fact when pixels do not decide it.
 - For missing visible objects, add only what the photos support. Unknown properties may remain absent or uncertain.
 - Do not modify a user_provided measurement or convert it into an inferred value.
+- Never use lower_certainty or reorient as a container for unrelated semantic cleanup.
 
 CANDIDATE VALIDITY
 The complete candidate Survey must still satisfy ArchitecturalSurvey v0.1 and deterministic Survey semantic validation. Correction is not a way to bypass backend validators.
@@ -64,7 +76,7 @@ Return JSON only, with exactly this root shape:
       "object_type": "observation|relation",
       "source_id": "<existing id or null>",
       "candidate_id": "<candidate id or null>",
-      "action": "add|remove|lower_certainty|merge|reorient",
+      "action": "add|remove|lower_certainty|reorient",
       "message": "<concise description of the explicit mutation>"
     }
   ]
@@ -77,6 +89,9 @@ Before returning JSON, verify:
 - every changes[].finding_id exists in the supplied validated audit;
 - action matches the audit finding suggested_action;
 - no review/keep finding caused mutation;
+- no merge or relation-reorient was treated as automatically correctable;
+- lower_certainty contains no semantic mutation and strictly lowers certainty;
+- reorient changes only permitted orientation data and optional orientation wording;
 - frozen fields are byte-equivalent at the model level;
 - no user_provided truth changed;
 - candidate remains backend-valid;
