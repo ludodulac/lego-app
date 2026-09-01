@@ -7,13 +7,13 @@ Avant sortie, recompte les observations `kind:"opening"` par rapport aux ouvertu
 Si la même ouverture est visible dans plusieurs photos, conserve un seul ID et plusieurs `evidence` : la déduplication multi-vues ne doit jamais devenir un regroupement de plusieurs objets physiques.
 
 OUVERTURES — VOCABULAIRE SÉMANTIQUE FINAL
-Pour `attributes.semantic_type`, utilise uniquement les valeurs autorisées par le contrat actif : `window`, `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening`, `garage_door`. Si aucune de ces hypothèses n'est suffisamment soutenue, omets `semantic_type` plutôt que d'émettre une paraphrase libre. Conserve la prudence via `attribute_certainty.semantic_type` quand une valeur autorisée est seulement plausible.
+Pour `attributes.semantic_type`, utilise uniquement les valeurs autorisées par le contrat actif : `window`, `door`, `door_or_glazed_door`, `glazed_door_or_large_glazed_opening`, `garage_door`. Si aucune de ces hypothèses n'est suffisamment soutenue, omets `semantic_type` plutôt que d'émettre une paraphrase libre comme `window_or_door`, `glazed_or_glazed_opening`, `opening` ou une autre valeur inventée. Conserve la prudence via `attribute_certainty.semantic_type` quand une valeur autorisée est seulement plausible.
 
 DÉTAILS ARCHITECTURAUX VISIBLES — FERMETURE D'INVENTAIRE
 Une catégorie architecturale visible et utile à la reconstruction ne peut pas exister seulement dans `photos[].description`. En particulier, une cheminée appartenant au bâtiment cible et réellement visible doit avoir une observation `kind:"chimney"` avec son propre ID, sa certitude et ses preuves. Cette règle est générique : elle ne crée jamais une cheminée lorsqu'aucune n'est visible ou lorsque son appartenance au bâtiment cible n'est pas soutenue.
 
 CONTRAT RACINE — DERNIÈRE LECTURE
-La racine finale contient exactement les champs canoniques `schema_version`, `id`, `name`, `canonical_frame`, `photos`, `known_measurements`, `observations`, `relations`, `representation_policy`, `notes`.
+La racine finale contient exactement les champs canoniques `schema_version`, `id`, `name`, `canonical_frame`, `photos`, `known_measurements`, `observations`, `relations`, `representation_policy`, `notes` et ne contient pas `survey_id`.
 - `schema_version` = `"0.1"`.
 - `id` existe, est non vide et n'est jamais remplacé par `survey_id`.
 - `canonical_frame` contient exactement `front_facade`, `x_direction`, `y_direction`, `z_direction`.
