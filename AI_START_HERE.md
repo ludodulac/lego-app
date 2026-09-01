@@ -10,6 +10,8 @@ Ce fichier est le point d’entrée obligatoire de tout agent IA qui reprend ce 
 > Reprends ensuite le chantier prioritaire indiqué par le dépôt.
 > Ne repars pas de zéro et préserve l’existant.
 
+Compatibilité historique : `Lis `AI_START_HERE.md`, vérifie l’état réel de `main` et reprends le projet.` reste une instruction courte valide, mais le bloc ci-dessus est désormais le prompt recommandé.
+
 Ce prompt doit rester valable même si la passation date de plusieurs semaines. Si une vieille passation, un ancien prompt ou une conversation contredit l’état technique actuel du dépôt, **l’état actuel du dépôt gagne**. Les principes et ADR restent normatifs ; les SHA, PR, CI, tests, endpoints et fonctionnalités doivent être revérifiés.
 
 ## 1. Démarrage obligatoire
