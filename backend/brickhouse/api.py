@@ -28,7 +28,10 @@ from brickhouse.scene import (
 )
 from brickhouse.survey import (
     ArchitecturalSurvey,
+    SurveyAudit,
+    SurveyAuditValidationIssue,
     SurveyValidationIssue,
+    validate_survey_audit,
     validate_survey_extension,
     validate_survey_semantics,
 )
@@ -75,6 +78,25 @@ class SurveyValidationResponse(BaseModel):
 class SurveyExtensionValidationRequest(BaseModel):
     base: ArchitecturalSurvey
     candidate: ArchitecturalSurvey
+
+
+class SurveyAuditValidationRequest(BaseModel):
+    survey: ArchitecturalSurvey
+    audit: SurveyAudit
+
+
+class SurveyAuditValidationIssueModel(BaseModel):
+    code: str
+    finding_id: str | None = None
+    message: str
+    severity: str
+
+
+class SurveyAuditValidationResponse(BaseModel):
+    audit: SurveyAudit
+    issues: list[SurveyAuditValidationIssueModel] = Field(default_factory=list)
+    valid: bool
+    needs_correction: bool
 
 
 class SceneValidationResponse(BaseModel):
@@ -253,6 +275,57 @@ def validate_architectural_survey_extension(
         survey=request.candidate,
         issues=issues,
         valid_for_scene_fusion=not any(issue.severity == "error" for issue in raw_issues),
+    )
+
+
+@app.post("/api/v1/validate-survey-audit", response_model=SurveyAuditValidationResponse)
+def validate_architectural_survey_audit(
+    request: SurveyAuditValidationRequest,
+) -> SurveyAuditValidationResponse:
+    """Validate a diagnostic SurveyAudit without mutating either input artifact."""
+    survey_issues: list[SurveyValidationIssue] = validate_survey_semantics(request.survey)
+    blocking_survey_issues = [issue for issue in survey_issues if issue.severity == "error"]
+    if blocking_survey_issues:
+        issues = [
+            SurveyAuditValidationIssueModel(
+                code=f"survey_{issue.code}",
+                finding_id=None,
+                message=(
+                    "The audited Survey must pass deterministic validation before SurveyAudit: "
+                    f"{issue.message}"
+                ),
+                severity=issue.severity,
+            )
+            for issue in blocking_survey_issues
+        ]
+        return SurveyAuditValidationResponse(
+            audit=request.audit,
+            issues=issues,
+            valid=False,
+            needs_correction=False,
+        )
+
+    raw_issues: list[SurveyAuditValidationIssue] = validate_survey_audit(
+        request.survey,
+        request.audit,
+    )
+    issues = [
+        SurveyAuditValidationIssueModel(
+            code=issue.code,
+            finding_id=issue.finding_id,
+            message=issue.message,
+            severity=issue.severity,
+        )
+        for issue in raw_issues
+    ]
+    valid = not any(issue.severity == "error" for issue in raw_issues)
+    return SurveyAuditValidationResponse(
+        audit=request.audit,
+        issues=issues,
+        valid=valid,
+        needs_correction=(
+            valid and request.audit.summary.status.value == "needs_correction"
+        ),
     )
 
 
