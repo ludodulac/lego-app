@@ -62,3 +62,9 @@ def test_optional_detail_capture_is_a_mobile_disclosure_not_a_second_long_panel(
     assert "Ajouter des détails facultatifs" in STATE_JS
     assert ".shell-detail-card.is-shell-view:not(.is-shell-detail-open){display:none!important}" in MOBILE_SHELL_CSS
     assert ".shell-detail-toggle{display:block" in MOBILE_SHELL_CSS
+
+
+def test_portrait_photo_capture_keeps_the_four_orientation_contract_compact():
+    assert ".guided-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))" in MOBILE_SHELL_CSS
+    assert ".guided-photo-slot,.detail-photo-slot{min-width:0;padding:10px}" in MOBILE_SHELL_CSS
+    assert ".guided-photo-input,.detail-photo-input{min-width:0;font-size:11px" in MOBILE_SHELL_CSS
