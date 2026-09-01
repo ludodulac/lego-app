@@ -30,8 +30,11 @@ from brickhouse.survey import (
     ArchitecturalSurvey,
     SurveyAudit,
     SurveyAuditValidationIssue,
+    SurveyCorrection,
+    SurveyCorrectionValidationIssue,
     SurveyValidationIssue,
     validate_survey_audit,
+    validate_survey_correction,
     validate_survey_extension,
     validate_survey_semantics,
 )
@@ -97,6 +100,25 @@ class SurveyAuditValidationResponse(BaseModel):
     issues: list[SurveyAuditValidationIssueModel] = Field(default_factory=list)
     valid: bool
     needs_correction: bool
+
+
+class SurveyCorrectionValidationRequest(BaseModel):
+    original: ArchitecturalSurvey
+    audit: SurveyAudit
+    correction: SurveyCorrection
+
+
+class SurveyCorrectionValidationIssueModel(BaseModel):
+    code: str
+    change_id: str | None = None
+    message: str
+    severity: str
+
+
+class SurveyCorrectionValidationResponse(BaseModel):
+    correction: SurveyCorrection
+    issues: list[SurveyCorrectionValidationIssueModel] = Field(default_factory=list)
+    valid_for_reaudit: bool
 
 
 class SceneValidationResponse(BaseModel):
@@ -326,6 +348,79 @@ def validate_architectural_survey_audit(
         needs_correction=(
             valid and request.audit.summary.status.value == "needs_correction"
         ),
+    )
+
+
+@app.post(
+    "/api/v1/validate-survey-correction",
+    response_model=SurveyCorrectionValidationResponse,
+)
+def validate_architectural_survey_correction(
+    request: SurveyCorrectionValidationRequest,
+) -> SurveyCorrectionValidationResponse:
+    """Validate an explicit audit-linked candidate before any targeted re-audit."""
+    survey_issues: list[SurveyValidationIssue] = validate_survey_semantics(request.original)
+    blocking_survey_issues = [issue for issue in survey_issues if issue.severity == "error"]
+    if blocking_survey_issues:
+        issues = [
+            SurveyCorrectionValidationIssueModel(
+                code=f"survey_{issue.code}",
+                change_id=None,
+                message=(
+                    "The original Survey must pass deterministic validation before correction: "
+                    f"{issue.message}"
+                ),
+                severity=issue.severity,
+            )
+            for issue in blocking_survey_issues
+        ]
+        return SurveyCorrectionValidationResponse(
+            correction=request.correction,
+            issues=issues,
+            valid_for_reaudit=False,
+        )
+
+    audit_issues: list[SurveyAuditValidationIssue] = validate_survey_audit(
+        request.original,
+        request.audit,
+    )
+    if any(issue.severity == "error" for issue in audit_issues):
+        issues = [
+            SurveyCorrectionValidationIssueModel(
+                code=issue.code,
+                change_id=None,
+                message=(
+                    "SurveyCorrection requires a valid SurveyAudit: "
+                    f"{issue.message}"
+                ),
+                severity=issue.severity,
+            )
+            for issue in audit_issues
+        ]
+        return SurveyCorrectionValidationResponse(
+            correction=request.correction,
+            issues=issues,
+            valid_for_reaudit=False,
+        )
+
+    raw_issues: list[SurveyCorrectionValidationIssue] = validate_survey_correction(
+        request.original,
+        request.audit,
+        request.correction,
+    )
+    issues = [
+        SurveyCorrectionValidationIssueModel(
+            code=issue.code,
+            change_id=issue.change_id,
+            message=issue.message,
+            severity=issue.severity,
+        )
+        for issue in raw_issues
+    ]
+    return SurveyCorrectionValidationResponse(
+        correction=request.correction,
+        issues=issues,
+        valid_for_reaudit=not any(issue.severity == "error" for issue in raw_issues),
     )
 
 
