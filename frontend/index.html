@@ -21,23 +21,23 @@
       </div>
       <aside class="hero-card">
         <strong>Le parcours Boldungo</strong>
-        <p>Une seule chaîne de données, de la maison réelle jusqu'à la notice.</p>
-        <div class="pipeline"><span><b>1</b> Comprendre la maison</span><span><b>2</b> Valider sa géométrie</span><span><b>3</b> Choisir des pièces compatibles</span><span><b>4</b> Construire et suivre la notice</span></div>
+        <p>Un seul parcours conserve le contexte, des photos jusqu'à la maquette.</p>
+        <div class="pipeline"><span><b>1</b> Photographier</span><span><b>2</b> Valider le Survey</span><span><b>3</b> Valider la Scene</span><span><b>4</b> Construire la maquette</span></div>
       </aside>
     </section>
 
     <section>
-      <div class="section-title"><h2>Comment voulez-vous commencer ?</h2><p>Le configurateur manuel fonctionne déjà de bout en bout. L'analyse photo est prête côté produit mais attend l'activation d'un fournisseur IA.</p></div>
+      <div class="section-title"><h2>Commencer une maison</h2><p>Le parcours principal regroupe maintenant photos, mesure, Survey, Scene et construction dans le même shell. Les outils historiques restent disponibles pendant la migration.</p></div>
       <div class="choices">
-        <a class="choice" href="./configurator.html"><span class="number">Disponible maintenant</span><h3>Décrire ma maison</h3><p>Indiquez les dimensions, le nombre d'étages, les fenêtres, la porte et la pente du toit. Boldungo génère ensuite la maquette via le moteur hébergé.</p><span class="cta">Créer une maquette →</span></a>
-        <a class="choice disabled" href="./photo.html"><span class="number">Prototype prêt</span><h3>Analyser des photos</h3><p>Ajoutez plusieurs vues de votre maison, complétez avec du texte, puis laissez Boldungo proposer un BuildingModel et poser des questions sur les zones incertaines.</p><span class="cta">Vision IA non activée pour l'instant →</span></a>
+        <a class="choice" href="./photo.html"><span class="number">Parcours principal</span><h3>Créer ma maison à partir de photos</h3><p>Ajoutez vos vues, indiquez une mesure si vous la connaissez, validez le Survey puis la Scene et lancez la maquette sans changer de parcours.</p><span class="cta">Ouvrir le parcours Boldungo →</span></a>
+        <a class="choice" href="./configurator.html"><span class="number">Mode manuel</span><h3>Décrire ma maison</h3><p>Le configurateur historique reste disponible pour saisir directement les dimensions, ouvertures et toiture puis générer la maquette via le moteur hébergé.</p><span class="cta">Ouvrir le configurateur →</span></a>
       </div>
     </section>
 
     <section class="status-strip" aria-label="État du prototype">
       <div class="status"><small>Moteur de briques</small><strong id="engine-status" class="ok">Opérationnel</strong></div>
       <div class="status"><small>API publique</small><strong id="api-status" class="ok">Vérification…</strong></div>
-      <div class="status"><small>Analyse photo IA</small><strong id="vision-status" class="wait">En attente d'activation</strong></div>
+      <div class="status"><small>Analyse photo IA</small><strong id="vision-status" class="wait">Handoff externe disponible</strong></div>
     </section>
   </main>
   <script type="module" src="./app.js"></script>
