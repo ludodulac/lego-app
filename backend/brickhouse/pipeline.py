@@ -21,6 +21,7 @@ from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chim
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
+from brickhouse.bricks.scene_supports import platform_support_level_mismatches, validate_platform_support_footprints
 from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
 from brickhouse.bricks.shed_roof import generate_spatial_shed_roof
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
@@ -193,6 +194,18 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list
         for obj in collection:
             issue=_source_confidence_issue(kind,obj)
             if issue is not None: issues.append(issue)
+    for mismatch in platform_support_level_mismatches(scene):
+        issues.append(BrickExportFidelityIssue(
+            code="platform_support_level_mismatch",
+            severity="warning",
+            object_id=mismatch.support_id,
+            message=(
+                f"Support {mismatch.support_id!r} on platform {mismatch.platform_id!r} ends at "
+                f"{mismatch.support_top_m:g}m while the platform level is {mismatch.platform_level_m:g}m "
+                f"(difference {mismatch.delta_m:g}m). The ArchitecturalScene values are preserved; "
+                "the LEGO renderer must not silently extend the support to hide this mismatch."
+            ),
+        ))
     for roof in scene.roofs:
         if roof.type not in {SceneRoofType.GABLE,SceneRoofType.SHED} or roof.pitch_degrees is None: continue
         family=select_roof_slope_family(roof.pitch_degrees); delta=abs(family.pitch_degrees-roof.pitch_degrees)
@@ -208,6 +221,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list
 
 
 def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
+    validate_platform_support_footprints(scene)
     projection=project_scene_to_building(scene)
     if projection.building is None or projection.blocked:
         blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker"); raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
