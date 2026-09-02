@@ -90,10 +90,11 @@ def test_renderer_uses_selected_footprint_without_mutating_scene():
 
     parts = [part for part in result.parts if part.placement_id.startswith("scene-chimney:chimney-a:")]
     assert parts
-    footprint = {(part.x_studs, part.y_studs) for part in parts}
-    assert len(footprint) == 2
-    assert len({x for x, _ in footprint}) == 1
-    assert len({y for _, y in footprint}) == 2
+    # BH-099 may represent the selected 1x2 footprint as one structural brick;
+    # the BH-098 architectural footprint itself is unchanged.
+    assert {part.part_id for part in parts} == {"BRICK_1X2"}
+    assert {part.rotation_quarter_turns for part in parts} == {0}
+    assert len({(part.x_studs, part.y_studs) for part in parts}) == 1
     assert scene.model_dump(mode="json", by_alias=True) == before
 
 

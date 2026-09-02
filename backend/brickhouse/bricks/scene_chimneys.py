@@ -16,6 +16,7 @@ from .scene_architecture import (
     _round_half_up,
     _scene_bounds,
 )
+from .scene_chimney_course_solutions import compact_scene_chimney_courses
 from .scene_chimney_solutions import select_scene_chimney_footprints
 
 
@@ -60,15 +61,33 @@ def augment_brick_model_with_scene_chimneys(
     The renderer deliberately does not infer caps, flues, material, roof pitch, or
     hidden penetration geometry. Width/depth are converted through the dedicated
     architectural footprint solution layer instead of being independently rounded
-    outward. When an explicit metric chimney crosses an already-rendered roof
-    element, that whole roof element is removed to create a conservative physical
-    opening rather than allowing two LEGO solids to occupy the same space.
-    ArchitecturalScene dimensions remain authoritative.
+    outward. Generated footprint cells are then exact-covered with the current
+    placement-approved canonical brick vocabulary. When an explicit metric chimney
+    crosses an already-rendered roof element, that whole roof element is removed
+    to create a conservative physical opening rather than allowing two LEGO solids
+    to occupy the same space. ArchitecturalScene dimensions remain authoritative.
+
+    Generated ``scene-chimney:{id}:`` placements also mark that chimney as already
+    augmented. This makes the stage idempotent when legacy orchestration invokes
+    the Scene chimney pass more than once: structural course compaction must not
+    cause a second call to mistake covered studs for missing architectural cells.
     """
     if not scene.chimneys:
         return model
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
+
+    rendered_ids = {
+        chimney.id
+        for chimney in scene.chimneys
+        if any(
+            part.placement_id.startswith(f"scene-chimney:{chimney.id}:")
+            for part in model.parts
+        )
+    }
+    pending_chimneys = [chimney for chimney in scene.chimneys if chimney.id not in rendered_ids]
+    if not pending_chimneys:
+        return model
 
     main = scene.volumes[0]
     if main.width.value is None:
@@ -85,7 +104,7 @@ def augment_brick_model_with_scene_chimneys(
     }
 
     chimney_specs = []
-    for chimney in scene.chimneys:
+    for chimney in pending_chimneys:
         solution = footprint_solutions[chimney.id]
         x0 = _round_half_up((chimney.position.x - origin_x) * studs_per_meter)
         y0 = _round_half_up((chimney.position.y - origin_y) * studs_per_meter)
@@ -144,7 +163,7 @@ def augment_brick_model_with_scene_chimneys(
     parts = [*retained_parts, *extra]
     if parts == model.parts:
         return model
-    return model.model_copy(
+    augmented = model.model_copy(
         update={
             "width_studs": max(model.width_studs, max(part.x_studs + 1 for part in parts)),
             "depth_studs": max(model.depth_studs, max(part.y_studs + 1 for part in parts)),
@@ -152,3 +171,4 @@ def augment_brick_model_with_scene_chimneys(
             "parts": parts,
         }
     )
+    return compact_scene_chimney_courses(augmented, scene)
