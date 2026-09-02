@@ -2,6 +2,7 @@ from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.building.models import BuildingModel
 from brickhouse.geometry import generate_building_geometry
+from brickhouse.pipeline import run_m0_pipeline_model
 
 
 def _building(*, width: float, depth: float) -> BuildingModel:
@@ -83,3 +84,28 @@ def test_raster_selection_is_deterministic_and_does_not_mutate_building() -> Non
 
     assert first == second
     assert building.model_dump(mode="json") == before
+
+
+def test_pipeline_surfaces_quantized_roof_raster_as_representation_only_fidelity() -> None:
+    building = _building(width=8.0, depth=6.5)
+    before = building.model_dump(mode="json")
+
+    bundle = run_m0_pipeline_model(building, front_width_studs=16)
+    issues = {issue.code: issue for issue in bundle.fidelity_issues}
+
+    assert issues["lego_roof_eave_span_adjustment"].object_id == "roof"
+    assert issues["lego_roof_eave_span_adjustment"].severity == "info"
+    assert issues["lego_roof_gable_line_adjustment"].object_id == "roof"
+    assert issues["lego_roof_gable_line_adjustment"].severity == "info"
+    assert building.model_dump(mode="json") == before
+
+
+def test_pipeline_emits_no_roof_raster_adjustment_when_catalog_tiles_exactly() -> None:
+    bundle = run_m0_pipeline_model(
+        _building(width=8.5, depth=7.0),
+        front_width_studs=17,
+    )
+    codes = {issue.code for issue in bundle.fidelity_issues}
+
+    assert "lego_roof_eave_span_adjustment" not in codes
+    assert "lego_roof_gable_line_adjustment" not in codes
