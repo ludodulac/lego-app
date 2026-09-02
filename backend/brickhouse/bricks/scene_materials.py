@@ -7,6 +7,7 @@ from .brick_model import BrickModel
 from .scene_access import validate_scene_stair_platform_access
 from .scene_architecture import _is_timber
 from .scene_railing_solutions import compact_scene_platform_railings
+from .scene_stair_solutions import compact_scene_stair_treads
 from .scene_support_solutions import compact_scene_platform_supports
 
 
@@ -38,10 +39,10 @@ def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) ->
     Scene must declare an access span wide enough for the stair before a LEGO
     representation is accepted.
 
-    Railing and support compaction run after classification so replacement bricks
-    preserve the Scene's timber/metal/etc. semantics. Both solution layers only
-    exact-cover already-generated cells; neither may invent missing architectural
-    geometry.
+    Railing, support and tread compaction run after classification so replacement
+    bricks preserve the Scene's timber/metal/etc. semantics. Every solution layer
+    only exact-covers already-generated cells; none may invent missing
+    architectural geometry.
     """
     validate_scene_stair_platform_access(scene)
 
@@ -55,7 +56,6 @@ def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) ->
         for stair in scene.stairs
         if (category := _structured_category(stair, scene)) is not None
     }
-    has_terrain = bool(scene.terrain and scene.terrain.profiles)
 
     changed = False
     parts = []
@@ -84,4 +84,5 @@ def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) ->
     categorized = model.model_copy(update={"parts": parts}) if changed else model
     # These remain no-ops when the Scene generated no eligible cells.
     railing_compacted = compact_scene_platform_railings(categorized, scene)
-    return compact_scene_platform_supports(railing_compacted, scene)
+    support_compacted = compact_scene_platform_supports(railing_compacted, scene)
+    return compact_scene_stair_treads(support_compacted, scene)
