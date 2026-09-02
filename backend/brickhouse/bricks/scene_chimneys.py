@@ -16,6 +16,7 @@ from .scene_architecture import (
     _round_half_up,
     _scene_bounds,
 )
+from .scene_chimney_solutions import select_scene_chimney_footprints
 
 
 def _roof_footprint(part: BrickModelPart) -> set[tuple[int, int]]:
@@ -57,10 +58,12 @@ def augment_brick_model_with_scene_chimneys(
     """Add only the rectangular chimney geometry explicitly present in Scene.
 
     The renderer deliberately does not infer caps, flues, material, roof pitch, or
-    hidden penetration geometry. When an explicit metric chimney crosses an
-    already-rendered roof element, that whole roof element is removed to create a
-    conservative physical opening rather than allowing two LEGO solids to occupy
-    the same space. ArchitecturalScene dimensions remain authoritative.
+    hidden penetration geometry. Width/depth are converted through the dedicated
+    architectural footprint solution layer instead of being independently rounded
+    outward. When an explicit metric chimney crosses an already-rendered roof
+    element, that whole roof element is removed to create a conservative physical
+    opening rather than allowing two LEGO solids to occupy the same space.
+    ArchitecturalScene dimensions remain authoritative.
     """
     if not scene.chimneys:
         return model
@@ -73,14 +76,22 @@ def augment_brick_model_with_scene_chimneys(
     studs_per_meter = front_width_studs / main.width.value
     plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
     origin_x, origin_y, origin_z = _scene_bounds(scene)
+    footprint_solutions = {
+        solution.chimney_id: solution
+        for solution in select_scene_chimney_footprints(
+            scene,
+            front_width_studs=front_width_studs,
+        )
+    }
 
     chimney_specs = []
     for chimney in scene.chimneys:
+        solution = footprint_solutions[chimney.id]
         x0 = _round_half_up((chimney.position.x - origin_x) * studs_per_meter)
         y0 = _round_half_up((chimney.position.y - origin_y) * studs_per_meter)
         z0 = _course_z(chimney.position.z, origin_z, plates_per_meter)
-        width = max(1, ceil(chimney.width * studs_per_meter - EPSILON))
-        depth = max(1, ceil(chimney.depth * studs_per_meter - EPSILON))
+        width = solution.width_studs
+        depth = solution.depth_studs
         courses = max(1, ceil(chimney.height * plates_per_meter / 3.0 - EPSILON))
         cells = {
             (x0 + dx, y0 + dy)
@@ -90,8 +101,8 @@ def augment_brick_model_with_scene_chimneys(
         chimney_specs.append((chimney, x0, y0, z0, width, depth, courses, cells))
 
     # A roof part is an indivisible physical LEGO element. If any part of its
-    # conservative footprint crosses a metric chimney prism, remove the full
-    # element instead of pretending that the chimney can pass through it.
+    # conservative footprint crosses the selected LEGO chimney footprint, remove
+    # the full element instead of pretending that the chimney can pass through it.
     retained_parts = []
     for part in model.parts:
         if any(
