@@ -5,6 +5,19 @@ AUDIT = Path("frontend/brickhouse-survey-final-contract-audit-v32.txt")
 PACKAGE = Path("frontend/brickhouse-survey-package-v08.js")
 
 
+def test_final_contract_audit_closes_observation_kind_vocabulary():
+    text = AUDIT.read_text(encoding="utf-8")
+    allowed = (
+        "`building_boundary`, `terrain`, `material`, `weathering`, `opening`, "
+        "`roof`, `chimney`, `equipment`, `volume`, `platform`, `stair`, "
+        "`occlusion`, `context`"
+    )
+    assert allowed in text
+    assert '`secondary_volume`' in text
+    assert 'utilise `kind:"volume"`' in text
+    assert "aucun sous-type libre" in text
+
+
 def test_final_contract_audit_closes_opening_identity_and_vocabulary():
     text = AUDIT.read_text(encoding="utf-8")
     assert 'kind:"opening"' in text
