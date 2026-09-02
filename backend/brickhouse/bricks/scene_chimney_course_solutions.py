@@ -33,7 +33,8 @@ _CANDIDATE_SHAPES: tuple[tuple[int, int, str, int], ...] = (
 def _chimney_id(part: BrickModelPart, scene: ArchitecturalScene) -> str | None:
     placement = part.placement_id
     for chimney in scene.chimneys:
-        if placement.startswith(f"scene-chimney:{chimney.id}:"):
+        prefix = f"scene-chimney:{chimney.id}:"
+        if placement.startswith(prefix) and not placement.startswith(f"{prefix}solution:"):
             return chimney.id
     return None
 
