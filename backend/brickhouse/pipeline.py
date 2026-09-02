@@ -17,6 +17,7 @@ from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slop
 from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
+from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
@@ -183,7 +184,27 @@ def _source_confidence_issue(kind: str, obj) -> BrickExportFidelityIssue | None:
     return BrickExportFidelityIssue(code="low_confidence_exterior_geometry",severity=severity,object_id=obj.id,message=f"{kind} {obj.id!r} is rendered from inferred architectural geometry with confidence {source.confidence:.2f}. Additional overlapping views may refine its position or connectivity; the current LEGO geometry must not be treated as measured fact.")
 
 
-def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list[BrickExportFidelityIssue]:
+def _chimney_footprint_issues(scene: ArchitecturalScene, front_width_studs: int) -> list[BrickExportFidelityIssue]:
+    issues: list[BrickExportFidelityIssue] = []
+    for solution in select_scene_chimney_footprints(scene, front_width_studs=front_width_studs):
+        if not solution.geometry_changed:
+            continue
+        severity = "info" if max(solution.dimensional_error, solution.area_error) <= 0.35 else "warning"
+        issues.append(BrickExportFidelityIssue(
+            code="lego_chimney_footprint_adjustment",
+            severity=severity,
+            object_id=solution.chimney_id,
+            message=(
+                f"Architectural chimney {solution.chimney_id!r} remains unchanged in ArchitecturalScene; "
+                f"its LEGO footprint represents {solution.target_width_studs:.3f}x{solution.target_depth_studs:.3f} "
+                f"studs as {solution.width_studs}x{solution.depth_studs} studs to preserve dimensional and "
+                "aspect-ratio fidelity without systematic outward rounding."
+            ),
+        ))
+    return issues
+
+
+def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS) -> list[BrickExportFidelityIssue]:
     issues=[]
     for issue in projection.issues:
         if issue.code in _SCENE_LOSSES_RECOVERED_AFTER_PROJECTION: continue
@@ -194,6 +215,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection) -> list
         for obj in collection:
             issue=_source_confidence_issue(kind,obj)
             if issue is not None: issues.append(issue)
+    issues.extend(_chimney_footprint_issues(scene, front_width_studs))
     for mismatch in platform_support_level_mismatches(scene):
         issues.append(BrickExportFidelityIssue(
             code="platform_support_level_mismatch",
@@ -225,7 +247,7 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
     projection=project_scene_to_building(scene)
     if projection.building is None or projection.blocked:
         blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker"); raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
-    scene_issues=_scene_export_fidelity_issues(scene,projection)
+    scene_issues=_scene_export_fidelity_issues(scene,projection,front_width_studs=front_width_studs)
     base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs)
     fidelity_issues=[*base.fidelity_issues,*scene_issues]
     enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs)
