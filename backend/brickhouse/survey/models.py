@@ -210,6 +210,9 @@ _REPRESENTATION_POLICY_FIELDS = {
     "reproduce_temporary_objects",
 }
 _LEGACY_QUALITATIVE_RANKS = {"low": 1, "high": 2}
+_CONSERVATIVE_OBSERVATION_KIND_ALIASES = {
+    "secondary_volume": ObservationKind.VOLUME.value,
+}
 
 
 class ArchitecturalSurvey(BaseModel):
@@ -232,10 +235,13 @@ class ArchitecturalSurvey(BaseModel):
         Some external models have returned ``representation_policy`` as a list
         of field names instead of the required object. Because that list carries
         no boolean values, the only non-fabricating interpretation is the
-        backend's safe default policy. An opening whose semantic type is literally
-        ``opening`` and explicitly unproven means the subtype is unknown, so the
-        unsupported placeholder is removed. Legacy low/high layout labels are
-        ordinal, not metric, and are normalized to ranks 1/2.
+        backend's safe default policy. A literal ``secondary_volume`` observation
+        kind is a narrower wording of the canonical ``volume`` category, so it
+        can be normalized without changing the observation statement, evidence,
+        attributes, identity, or relations. An opening whose semantic type is
+        literally ``opening`` and explicitly unproven means the subtype is
+        unknown, so the unsupported placeholder is removed. Legacy low/high
+        layout labels are ordinal, not metric, and are normalized to ranks 1/2.
         """
         if not isinstance(value, dict):
             return value
@@ -257,6 +263,9 @@ class ArchitecturalSurvey(BaseModel):
                     repaired_observations.append(item)
                     continue
                 repaired = dict(item)
+                kind = repaired.get("kind")
+                if kind in _CONSERVATIVE_OBSERVATION_KIND_ALIASES:
+                    repaired["kind"] = _CONSERVATIVE_OBSERVATION_KIND_ALIASES[kind]
                 attributes = repaired.get("attributes")
                 certainty_map = repaired.get("attribute_certainty")
                 if isinstance(attributes, dict):
