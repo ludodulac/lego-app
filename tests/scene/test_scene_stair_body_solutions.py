@@ -63,8 +63,8 @@ def _model(parts):
     )
 
 
-def _rectangle(*, x0=10, y0=5, width=2, depth=4, z=0):
-    index = 1
+def _rectangle(*, x0=10, y0=5, width=2, depth=4, z=0, index_start=1):
+    index = index_start
     parts = []
     for dx in range(width):
         for dy in range(depth):
@@ -94,7 +94,10 @@ def test_long_x_body_course_preserves_orientation():
 
 
 def test_body_courses_at_different_heights_never_merge():
-    parts = [*_rectangle(z=0), *_rectangle(z=3)]
+    parts = [
+        *_rectangle(z=0, index_start=1),
+        *_rectangle(z=3, index_start=20),
+    ]
     result = compact_scene_stair_bodies(_model(parts), _scene())
     assert len(result.parts) == 2
     assert {part.z_plates for part in result.parts} == {0, 3}
