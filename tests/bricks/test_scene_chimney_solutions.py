@@ -1,4 +1,5 @@
-from brickhouse.bricks.brick_model import BrickModel
+from brickhouse.building.models import Facade
+from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
 from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.pipeline import run_m0_pipeline_scene
@@ -36,14 +37,26 @@ def _scene(*, chimney_width=0.30, chimney_depth=0.55):
     })
 
 
-def _empty_model():
+def _base_model():
     return BrickModel(
         building_id="generic",
         volume_id="main",
         width_studs=32,
         depth_studs=24,
         height_plates=48,
-        parts=[],
+        parts=[
+            BrickModelPart(
+                placement_id="base-wall-cell",
+                part_id="BRICK_1X1",
+                category="brick",
+                component="wall",
+                x_studs=0,
+                y_studs=0,
+                z_plates=0,
+                rotation_quarter_turns=0,
+                facade=Facade.FRONT,
+            )
+        ],
     )
 
 
@@ -70,7 +83,7 @@ def test_renderer_uses_selected_footprint_without_mutating_scene():
     before = scene.model_dump(mode="json", by_alias=True)
 
     result = augment_brick_model_with_scene_chimneys(
-        _empty_model(),
+        _base_model(),
         scene,
         front_width_studs=32,
     )
