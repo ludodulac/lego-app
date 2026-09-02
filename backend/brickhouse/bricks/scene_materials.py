@@ -4,6 +4,7 @@ from __future__ import annotations
 from brickhouse.scene.models import ArchitecturalScene, ExteriorMaterial
 
 from .brick_model import BrickModel
+from .scene_access import validate_scene_stair_platform_access
 from .scene_architecture import _is_timber
 from .scene_railing_solutions import compact_scene_platform_railings
 
@@ -29,13 +30,20 @@ def _structured_category(obj, scene: ArchitecturalScene) -> str | None:
 
 
 def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) -> BrickModel:
-    """Reclassify exterior parts, then apply material-preserving rail solutions.
+    """Validate exterior access, reclassify parts, then apply rail solutions.
 
-    Railing compaction deliberately runs after classification so replacing a run
-    of generated 1x1 rail cells with approved 1xN bricks preserves the Scene's
-    timber/metal/etc. semantics. The geometry change itself lives in the separate
+    Access validation deliberately happens before railing compaction: a stair may
+    not silently punch through an explicitly guarded platform edge. The source
+    Scene must declare an access span wide enough for the stair before a LEGO
+    representation is accepted.
+
+    Railing compaction runs after classification so replacing a run of generated
+    1x1 rail cells with approved 1xN bricks preserves the Scene's timber/metal/etc.
+    semantics. The geometry change itself lives in the separate
     ``scene_railing_solutions`` module rather than in material inference.
     """
+    validate_scene_stair_platform_access(scene)
+
     platform_categories = {
         platform.id: category
         for platform in scene.platforms
