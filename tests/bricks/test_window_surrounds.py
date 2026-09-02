@@ -89,24 +89,28 @@ def test_decorative_surround_never_places_masonry_inside_window_void():
     assert any(z==raster.z_bricks+raster.height_bricks for _,z in occupied)
 
 
-def test_horizontal_semantic_trim_compacts_without_changing_occupied_cells():
+def test_horizontal_semantic_trim_compacts_complete_architectural_ring():
     building = _building()
     shell = _shell(building)
     details = generate_window_surrounds(building, shell)
     front = next(w for w in shell.walls if w.facade.value == "front")
     raster = front.grid.openings[0]
 
+    left = raster.x_studs - 1
+    right = raster.x_studs + raster.width_studs
+    bottom = raster.z_bricks - 1
+    top = raster.z_bricks + raster.height_bricks
     expected = {
-        (raster.x_studs - 1, course)
-        for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks)
+        (left, course)
+        for course in range(bottom, top + 1)
     } | {
-        (raster.x_studs + raster.width_studs, course)
-        for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks)
+        (right, course)
+        for course in range(bottom, top + 1)
     } | {
-        (x, raster.z_bricks - 1)
+        (x, bottom)
         for x in range(raster.x_studs, raster.x_studs + raster.width_studs)
     } | {
-        (x, raster.z_bricks + raster.height_bricks)
+        (x, top)
         for x in range(raster.x_studs, raster.x_studs + raster.width_studs)
     }
 
