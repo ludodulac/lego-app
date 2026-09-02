@@ -47,6 +47,51 @@ def test_legacy_representation_policy_list_normalizes_to_safe_defaults() -> None
     assert survey.representation_policy.reproduce_temporary_objects is False
 
 
+def test_secondary_volume_kind_normalizes_without_changing_observation_facts() -> None:
+    payload = _base_payload()
+    payload["observations"] = [
+        {
+            "id": "rear-low-volume-1",
+            "kind": "secondary_volume",
+            "facade": "rear",
+            "certainty": "certain",
+            "statement": "A low attached secondary volume is visible at the rear.",
+            "evidence": [{"photo_index": 1, "observation": "Attached low volume visible."}],
+            "attributes": {"physical_object_count": 1, "attachment": "attached"},
+        }
+    ]
+
+    survey = ArchitecturalSurvey.model_validate(payload)
+    volume = survey.observations[0]
+
+    assert volume.kind.value == "volume"
+    assert volume.id == "rear-low-volume-1"
+    assert volume.statement == "A low attached secondary volume is visible at the rear."
+    assert volume.attributes == {"physical_object_count": 1, "attachment": "attached"}
+    assert volume.evidence[0].observation == "Attached low volume visible."
+    assert validate_survey_semantics(survey) == []
+
+
+def test_unknown_observation_kind_is_not_silently_repaired() -> None:
+    payload = _base_payload()
+    payload["observations"] = [
+        {
+            "id": "invented-kind",
+            "kind": "annex_guess",
+            "certainty": "plausible",
+            "statement": "Unsupported free-form category.",
+            "evidence": [{"photo_index": 1, "observation": "Some shape is visible."}],
+        }
+    ]
+
+    try:
+        ArchitecturalSurvey.model_validate(payload)
+    except Exception:
+        pass
+    else:
+        raise AssertionError("unknown observation kinds must remain invalid")
+
+
 def test_unproven_opening_placeholder_and_qualitative_ranks_are_normalized() -> None:
     payload = _base_payload()
     payload["representation_policy"] = ["preserve_nominal_materials"]
