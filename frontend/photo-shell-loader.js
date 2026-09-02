@@ -10,3 +10,4 @@ if (!document.getElementById(shellStylesheetId)) {
 
 import('./photo-shell.js?v=single-screen-0.7');
 import('./survey-import-feedback-guard.js?v=survey-feedback-0.8');
+import('./copy-feedback.js?v=feedback-copy-0.1');
