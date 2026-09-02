@@ -3,12 +3,8 @@
 BrickHouse prefers explicit frame+pane assemblies over masonry drawn inside a
 window opening. Window composition is architectural evidence: a larger opening
 must not be tiled with several frames merely because that makes it constructible.
-Only a Scene style that explicitly implies subdivisions may create them.
-
-When a simple planar window has no exact validated frame family, BrickHouse may
-fill the already-preserved opening with transparent standard 1x1 bricks. Those
-cells are LEGO discretization, not architectural mullions: no opaque cross-bar or
-invented subdivision is added.
+Only explicit style/topology evidence or an architectural solution selected from
+that evidence may create subdivisions.
 """
 from __future__ import annotations
 
@@ -31,27 +27,9 @@ class WindowAssemblyDefinition:
 
 
 VALIDATED_WINDOW_ASSEMBLIES: tuple[WindowAssemblyDefinition, ...] = (
-    WindowAssemblyDefinition(
-        "window-1x2x2-60592-60601",
-        "WINDOW_1X2X2_60592",
-        "GLASS_FOR_WINDOW_1X2X2_60601",
-        2,
-        2,
-    ),
-    WindowAssemblyDefinition(
-        "window-1x2x3-60593-60602",
-        "WINDOW_1X2X3_60593",
-        "GLASS_FOR_WINDOW_1X2X3_60602",
-        2,
-        3,
-    ),
-    WindowAssemblyDefinition(
-        "window-1x4x3-60594-60603",
-        "WINDOW_1X4X3_60594",
-        "GLASS_FOR_WINDOW_1X4X3_60603",
-        4,
-        3,
-    ),
+    WindowAssemblyDefinition("window-1x2x2-60592-60601", "WINDOW_1X2X2_60592", "GLASS_FOR_WINDOW_1X2X2_60601", 2, 2),
+    WindowAssemblyDefinition("window-1x2x3-60593-60602", "WINDOW_1X2X3_60593", "GLASS_FOR_WINDOW_1X2X3_60602", 2, 3),
+    WindowAssemblyDefinition("window-1x4x3-60594-60603", "WINDOW_1X4X3_60594", "GLASS_FOR_WINDOW_1X4X3_60603", 4, 3),
 )
 
 
@@ -65,14 +43,7 @@ class WindowPartPlacement(BaseModel):
     rotation_quarter_turns: Literal[0, 1, 2, 3] = 0
 
 
-def _to_global(
-    facade: Facade,
-    local_x: int,
-    opening_width: int,
-    z_bricks: int,
-    width_studs: int,
-    depth_studs: int,
-) -> tuple[int, int, int, Literal[0, 1, 2, 3]]:
+def _to_global(facade: Facade, local_x: int, opening_width: int, z_bricks: int, width_studs: int, depth_studs: int) -> tuple[int, int, int, Literal[0, 1, 2, 3]]:
     z = z_bricks * 3
     if facade is Facade.FRONT:
         return local_x, 0, z, 1
@@ -83,53 +54,29 @@ def _to_global(
     return 0, depth_studs - local_x - opening_width, z, 0
 
 
-def choose_window_assembly(
-    width_studs: int,
-    height_bricks: int,
-) -> WindowAssemblyDefinition | None:
-    return next(
-        (
-            assembly
-            for assembly in VALIDATED_WINDOW_ASSEMBLIES
-            if assembly.width_studs == width_studs
-            and assembly.height_bricks == height_bricks
-        ),
-        None,
-    )
+def choose_window_assembly(width_studs: int, height_bricks: int) -> WindowAssemblyDefinition | None:
+    return next((assembly for assembly in VALIDATED_WINDOW_ASSEMBLIES if assembly.width_studs == width_studs and assembly.height_bricks == height_bricks), None)
 
 
 def _assembly(width: int, height: int) -> WindowAssemblyDefinition | None:
     return choose_window_assembly(width, height)
 
 
-def choose_window_layout(
-    style: WindowStyle,
-    width_studs: int,
-    height_bricks: int,
-) -> tuple[tuple[WindowAssemblyDefinition, int, int], ...]:
+def choose_window_layout(style: WindowStyle, width_studs: int, height_bricks: int) -> tuple[tuple[WindowAssemblyDefinition, int, int], ...]:
     """Fit validated LEGO frames without inventing architectural joinery."""
     if style is WindowStyle.BAY:
         return ()
-
     if style is WindowStyle.SIMPLE:
         assembly = _assembly(width_studs, height_bricks)
         return ((assembly, 0, 0),) if assembly is not None else ()
-
     if style is WindowStyle.TRADITIONAL_TALL:
-        # A 2x2 frame is dimensionally possible but contradicts the semantic
-        # style. Keep the original style-aware contract: only the validated
-        # three-brick-high module is a real traditional-tall assembly.
         assembly = _assembly(2, 3) if width_studs == 2 and height_bricks == 3 else None
         return ((assembly, 0, 0),) if assembly is not None else ()
-
     if style is WindowStyle.PAIRED:
         if width_studs != 4 or height_bricks not in {2, 3}:
             return ()
         assembly = _assembly(2, height_bricks)
-        if assembly is None:
-            return ()
-        return ((assembly, 0, 0), (assembly, 2, 0))
-
+        return ((assembly, 0, 0), (assembly, 2, 0)) if assembly is not None else ()
     if style is WindowStyle.FOUR_PANE:
         if width_studs != 4 or height_bricks not in {4, 6}:
             return ()
@@ -137,143 +84,83 @@ def choose_window_layout(
         assembly = _assembly(2, pane_height)
         if assembly is None:
             return ()
-        return (
-            (assembly, 0, 0),
-            (assembly, 2, 0),
-            (assembly, 0, pane_height),
-            (assembly, 2, pane_height),
-        )
-
+        return ((assembly, 0, 0), (assembly, 2, 0), (assembly, 0, pane_height), (assembly, 2, pane_height))
     return ()
 
 
-def _emit_pair(
-    placements: list[WindowPartPlacement],
-    assembly: WindowAssemblyDefinition,
-    facade: Facade,
-    local_x: int,
-    z_bricks: int,
-    front: int,
-    depth: int,
-) -> None:
-    x, y, z, rotation = _to_global(
-        facade,
-        local_x,
-        assembly.width_studs,
-        z_bricks,
-        front,
-        depth,
-    )
-    placements.extend(
-        (
-            WindowPartPlacement(
-                part_id=assembly.frame_part_id,
-                category="window_frame",
-                facade=facade,
-                x_studs=x,
-                y_studs=y,
-                z_plates=z,
-                rotation_quarter_turns=rotation,
-            ),
-            WindowPartPlacement(
-                part_id=assembly.pane_part_id,
-                category="window_pane",
-                facade=facade,
-                x_studs=x,
-                y_studs=y,
-                z_plates=z,
-                rotation_quarter_turns=rotation,
-            ),
+def _selected_layout(composition: str, assembly_id: str, width_studs: int, height_bricks: int) -> tuple[tuple[WindowAssemblyDefinition, int, int], ...]:
+    assembly = next((item for item in VALIDATED_WINDOW_ASSEMBLIES if item.id == assembly_id), None)
+    if assembly is None:
+        raise ValueError(f"unknown selected window assembly {assembly_id!r}")
+    if composition == "single":
+        layout = ((assembly, 0, 0),)
+    elif composition == "paired":
+        layout = ((assembly, 0, 0), (assembly, assembly.width_studs, 0))
+    elif composition == "four_pane":
+        layout = (
+            (assembly, 0, 0),
+            (assembly, assembly.width_studs, 0),
+            (assembly, 0, assembly.height_bricks),
+            (assembly, assembly.width_studs, assembly.height_bricks),
         )
-    )
+    else:
+        raise ValueError(f"unsupported selected window composition {composition!r}")
+    outer_width = max(x + item.width_studs for item, x, _ in layout)
+    outer_height = max(z + item.height_bricks for item, _, z in layout)
+    if outer_width != width_studs or outer_height != height_bricks:
+        raise ValueError("selected window solution does not match anchored opening raster")
+    return layout
 
 
-def _emit_joinery_free_glazing(
-    placements: list[WindowPartPlacement],
-    *,
-    facade: Facade,
-    local_x: int,
-    z_bricks: int,
-    width_studs: int,
-    height_bricks: int,
-    front: int,
-    depth: int,
-) -> None:
-    """Fill a simple opening with transparent 1x1 LEGO bricks, no fake frame bars."""
+def _emit_pair(placements: list[WindowPartPlacement], assembly: WindowAssemblyDefinition, facade: Facade, local_x: int, z_bricks: int, front: int, depth: int) -> None:
+    x, y, z, rotation = _to_global(facade, local_x, assembly.width_studs, z_bricks, front, depth)
+    placements.extend((
+        WindowPartPlacement(part_id=assembly.frame_part_id, category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation),
+        WindowPartPlacement(part_id=assembly.pane_part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation),
+    ))
+
+
+def _emit_joinery_free_glazing(placements: list[WindowPartPlacement], *, facade: Facade, local_x: int, z_bricks: int, width_studs: int, height_bricks: int, front: int, depth: int) -> None:
     for dx in range(width_studs):
         for dz in range(height_bricks):
-            x, y, z, rotation = _to_global(
-                facade,
-                local_x + dx,
-                1,
-                z_bricks + dz,
-                front,
-                depth,
-            )
-            placements.append(
-                WindowPartPlacement(
-                    part_id="BRICK_1X1",
-                    category="window_pane",
-                    facade=facade,
-                    x_studs=x,
-                    y_studs=y,
-                    z_plates=z,
-                    rotation_quarter_turns=rotation,
-                )
-            )
+            x, y, z, rotation = _to_global(facade, local_x + dx, 1, z_bricks + dz, front, depth)
+            placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation))
 
 
 def generate_window_assemblies(
     building: BuildingModel,
     shell: BuildingBrickShell,
+    *,
+    selected_solutions: dict[str, tuple[str, str]] | None = None,
 ) -> tuple[list[WindowPartPlacement], set[str]]:
+    """Generate windows from the anchored raster and optional evidence-backed selections."""
     openings = {opening.id: opening for opening in building.openings}
     walls = {wall.facade: wall for wall in shell.walls}
     front = walls[Facade.FRONT].grid.width_studs
     depth = walls[Facade.RIGHT].grid.width_studs
     placements: list[WindowPartPlacement] = []
     fitted: set[str] = set()
+    selected = selected_solutions or {}
 
     for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
         for raster in walls[facade].grid.openings:
             opening = openings.get(raster.id)
-            if not opening or opening.type is not OpeningType.WINDOW:
+            if not opening or opening.volume_id != shell.volume_id or opening.type is not OpeningType.WINDOW:
                 continue
-            style = opening.window_style or WindowStyle.SIMPLE
-            layout = choose_window_layout(
-                style,
-                raster.width_studs,
-                raster.height_bricks,
-            )
+            selected_solution = selected.get(raster.id)
+            if selected_solution is not None:
+                composition, assembly_id = selected_solution
+                layout = _selected_layout(composition, assembly_id, raster.width_studs, raster.height_bricks)
+            else:
+                style = opening.window_style or WindowStyle.SIMPLE
+                layout = choose_window_layout(style, raster.width_studs, raster.height_bricks)
             if layout:
                 for assembly, x_offset, z_offset in layout:
-                    _emit_pair(
-                        placements,
-                        assembly,
-                        facade,
-                        raster.x_studs + x_offset,
-                        raster.z_bricks + z_offset,
-                        front,
-                        depth,
-                    )
+                    _emit_pair(placements, assembly, facade, raster.x_studs + x_offset, raster.z_bricks + z_offset, front, depth)
                 fitted.add(raster.id)
                 continue
-
-            # For a visually continuous planar window, a transparent LEGO-brick
-            # infill is more faithful than an empty hole and does not assert any
-            # mullion/transom geometry. Complex styles remain unsupported rather
-            # than being flattened into this fallback.
+            style = opening.window_style or WindowStyle.SIMPLE
             if style in {WindowStyle.SIMPLE, WindowStyle.TRADITIONAL_TALL}:
-                _emit_joinery_free_glazing(
-                    placements,
-                    facade=facade,
-                    local_x=raster.x_studs,
-                    z_bricks=raster.z_bricks,
-                    width_studs=raster.width_studs,
-                    height_bricks=raster.height_bricks,
-                    front=front,
-                    depth=depth,
-                )
+                _emit_joinery_free_glazing(placements, facade=facade, local_x=raster.x_studs, z_bricks=raster.z_bricks, width_studs=raster.width_studs, height_bricks=raster.height_bricks, front=front, depth=depth)
                 fitted.add(raster.id)
-
     return placements, fitted
