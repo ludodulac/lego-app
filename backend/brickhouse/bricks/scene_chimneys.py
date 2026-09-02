@@ -16,6 +16,7 @@ from .scene_architecture import (
     _round_half_up,
     _scene_bounds,
 )
+from .scene_chimney_course_solutions import compact_scene_chimney_courses
 from .scene_chimney_solutions import select_scene_chimney_footprints
 
 
@@ -60,10 +61,11 @@ def augment_brick_model_with_scene_chimneys(
     The renderer deliberately does not infer caps, flues, material, roof pitch, or
     hidden penetration geometry. Width/depth are converted through the dedicated
     architectural footprint solution layer instead of being independently rounded
-    outward. When an explicit metric chimney crosses an already-rendered roof
-    element, that whole roof element is removed to create a conservative physical
-    opening rather than allowing two LEGO solids to occupy the same space.
-    ArchitecturalScene dimensions remain authoritative.
+    outward. Generated footprint cells are then exact-covered with the current
+    placement-approved canonical brick vocabulary. When an explicit metric chimney
+    crosses an already-rendered roof element, that whole roof element is removed
+    to create a conservative physical opening rather than allowing two LEGO solids
+    to occupy the same space. ArchitecturalScene dimensions remain authoritative.
     """
     if not scene.chimneys:
         return model
@@ -144,7 +146,7 @@ def augment_brick_model_with_scene_chimneys(
     parts = [*retained_parts, *extra]
     if parts == model.parts:
         return model
-    return model.model_copy(
+    augmented = model.model_copy(
         update={
             "width_studs": max(model.width_studs, max(part.x_studs + 1 for part in parts)),
             "depth_studs": max(model.depth_studs, max(part.y_studs + 1 for part in parts)),
@@ -152,3 +154,4 @@ def augment_brick_model_with_scene_chimneys(
             "parts": parts,
         }
     )
+    return compact_scene_chimney_courses(augmented, scene)
