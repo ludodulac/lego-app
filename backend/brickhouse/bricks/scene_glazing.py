@@ -14,10 +14,21 @@ from .wall_depth import augment_brick_model_with_wall_depth
 
 
 FOUR_PANE_TALL_OVER_SQUARER = "two_over_two_upper_rectangular_lower_squarer"
+GLASS_BLOCK_GLAZING = frozenset({
+    "glass block",
+    "glass blocks",
+    "pave de verre",
+    "paves de verre",
+})
 
 
 def _normalized(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").lower().split())
+
+
+def _normalized_glazing(value: str) -> str:
+    """Normalize separators only for the deliberately small glazing vocabulary."""
+    return _normalized(value.replace("_", " ").replace("-", " "))
 
 
 def _opening_text(opening: SceneOpening) -> str:
@@ -26,8 +37,13 @@ def _opening_text(opening: SceneOpening) -> str:
 
 
 def _is_glass_block(opening: SceneOpening) -> bool:
-    text = _opening_text(opening)
-    return any(token in text for token in ("paves de verre", "pave de verre", "glass block", "glass-block"))
+    """Classify glass blocks from structured glazing first, with legacy fallback."""
+    if opening.opening_visual is not None and opening.opening_visual.glazing is not None:
+        return _normalized_glazing(opening.opening_visual.glazing) in GLASS_BLOCK_GLAZING
+
+    # Legacy fallback for scenes created before structured opening composition.
+    text = _normalized_glazing(_opening_text(opening))
+    return any(token in text for token in GLASS_BLOCK_GLAZING)
 
 
 def _structured_glazing_state(opening: SceneOpening) -> bool | None:
