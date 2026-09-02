@@ -77,7 +77,7 @@ def _surround_semantic_color(opening) -> str | None:
     visual = opening.opening_visual
     if visual is None or visual.surround_color is None:
         return None
-    value = visual.surround_color.strip()
+    value = opening.opening_visual.surround_color.strip()
     return value or None
 
 
@@ -232,15 +232,18 @@ def generate_window_surrounds(
 ) -> list[FacadeDetailPlacement]:
     """Render observed sill/surround masonry strictly outside window voids.
 
-    Horizontal sill/head/base runs use the longest placement-approved canonical
-    1xN bricks that preserve the exact occupied cells. Vertical jambs remain
-    1x1-per-course because the current placement model supports only rotations
-    around the vertical axis; using a 1xN brick across courses would invent an
-    unvalidated sideways-building technique.
+    A decorative surround owns the full ring immediately outside the opening:
+    horizontal head/base runs include the two corner cells shared with the jamb
+    columns. When a separately observed sill replaces the surround base, the
+    sill remains limited to the opening width and generic sill evidence, while
+    the surround keeps only the two lower corner cells so its jambs stay visually
+    continuous without borrowing sill material/color evidence.
 
-    Explicit surround material and semantic color are carried only by surround
-    roles. A sill stays generic and uncolored unless its own evidence is added by
-    a future contract; surround evidence is never silently reused as sill data.
+    Horizontal runs use the longest placement-approved canonical 1xN bricks that
+    preserve the exact occupied cells. Vertical jambs remain 1x1-per-course
+    because the current placement model supports only rotations around the
+    vertical axis; using a 1xN brick across courses would invent an unvalidated
+    sideways-building technique.
     """
     _ = skip_opening_ids
     openings = {opening.id: opening for opening in building.openings}
@@ -300,14 +303,11 @@ def generate_window_surrounds(
             surround_category = _surround_category(opening)
             surround_color = _surround_semantic_color(opening)
             if opening.has_decorative_surround:
-                for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks):
-                    add(facade, raster, left, course, "left_jamb", wall, surround_category, surround_color)
-                    add(facade, raster, right, course, "right_jamb", wall, surround_category, surround_color)
                 add_run(
                     facade,
                     raster,
-                    raster.x_studs,
-                    raster.x_studs + raster.width_studs,
+                    left,
+                    right + 1,
                     top,
                     "head",
                     wall,
@@ -318,14 +318,20 @@ def generate_window_surrounds(
                     add_run(
                         facade,
                         raster,
-                        raster.x_studs,
-                        raster.x_studs + raster.width_studs,
+                        left,
+                        right + 1,
                         bottom,
                         "surround_base",
                         wall,
                         surround_category,
                         surround_color,
                     )
+                for course in range(raster.z_bricks, raster.z_bricks + raster.height_bricks):
+                    add(facade, raster, left, course, "left_jamb", wall, surround_category, surround_color)
+                    add(facade, raster, right, course, "right_jamb", wall, surround_category, surround_color)
+                if opening.has_sill:
+                    add(facade, raster, left, bottom, "left_jamb", wall, surround_category, surround_color)
+                    add(facade, raster, right, bottom, "right_jamb", wall, surround_category, surround_color)
             if opening.has_sill:
                 add_run(
                     facade,
