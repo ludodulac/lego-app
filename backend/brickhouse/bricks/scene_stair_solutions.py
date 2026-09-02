@@ -77,7 +77,9 @@ def _tile_run(
         )
         source = run[cursor]
         result.append(source.model_copy(update={
-            "placement_id": f"scene-stair:{stair_id}:tread-solution:{serial:05d}",
+            # Keep the historic ``...:tread:`` provenance prefix so downstream
+            # topology checks and viewers can continue to recognize tread parts.
+            "placement_id": f"scene-stair:{stair_id}:tread:solution:{serial:05d}",
             "part_id": part_id,
             "rotation_quarter_turns": 0 if axis == "y" or span == 1 else 1,
         }))
