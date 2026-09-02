@@ -32,9 +32,10 @@ _CANDIDATE_SHAPES: tuple[tuple[int, int, str, int], ...] = (
 
 def _chimney_id(part: BrickModelPart, scene: ArchitecturalScene) -> str | None:
     placement = part.placement_id
+    if placement.endswith(":solution"):
+        return None
     for chimney in scene.chimneys:
-        prefix = f"scene-chimney:{chimney.id}:"
-        if placement.startswith(prefix) and not placement.startswith(f"{prefix}solution:"):
+        if placement.startswith(f"scene-chimney:{chimney.id}:"):
             return chimney.id
     return None
 
@@ -51,12 +52,10 @@ def _tile_course(
     source_parts: list[BrickModelPart],
     *,
     chimney_id: str,
-    serial_start: int,
-) -> tuple[list[BrickModelPart], int]:
+) -> list[BrickModelPart]:
     remaining = {(part.x_studs, part.y_studs) for part in source_parts}
     by_cell = {(part.x_studs, part.y_studs): part for part in source_parts}
     result: list[BrickModelPart] = []
-    serial = serial_start
 
     while remaining:
         x, y = min(remaining, key=lambda cell: (cell[1], cell[0]))
@@ -70,19 +69,17 @@ def _tile_course(
         part_id, rotation, occupied = chosen
         source = by_cell[(x, y)]
         result.append(source.model_copy(update={
-            "placement_id": (
-                f"scene-chimney:{chimney_id}:solution:"
-                f"{source.z_plates:04d}:{serial:05d}"
-            ),
+            # Source placement ids are globally unique. Deriving the solution id
+            # from the retained anchor cell prevents cross-pass/cross-group clashes.
+            "placement_id": f"{source.placement_id}:solution",
             "part_id": part_id,
             "rotation_quarter_turns": rotation,
             "x_studs": x,
             "y_studs": y,
         }))
         remaining.difference_update(occupied)
-        serial += 1
 
-    return result, serial
+    return result
 
 
 def compact_scene_chimney_courses(
@@ -111,14 +108,8 @@ def compact_scene_chimney_courses(
         return model
 
     compacted: list[BrickModelPart] = []
-    serial = 1
     for key in sorted(groups, key=lambda item: (item[0], item[1])):
         chimney_id, *_ = key
-        tiled, serial = _tile_course(
-            groups[key],
-            chimney_id=chimney_id,
-            serial_start=serial,
-        )
-        compacted.extend(tiled)
+        compacted.extend(_tile_course(groups[key], chimney_id=chimney_id))
 
     return model.model_copy(update={"parts": [*retained, *compacted]})
