@@ -4,6 +4,7 @@ from pathlib import Path
 STATE_JS = Path("frontend/mobile-shell-state.js").read_text(encoding="utf-8")
 SCENE_BUILD_JS = Path("frontend/scene-build.js").read_text(encoding="utf-8")
 MOBILE_SHELL_CSS = Path("frontend/mobile-shell.css").read_text(encoding="utf-8")
+SURVEY_PACKAGE_JS = Path("frontend/brickhouse-survey-package.js").read_text(encoding="utf-8")
 
 
 def test_shell_state_reuses_existing_survey_scene_and_build_signals():
@@ -48,3 +49,4 @@ def test_mobile_shell_keeps_existing_workflow_cards_visible_and_navigable():
     assert ".panel>h1,.panel>.intro,.panel>.eyebrow{display:none}" not in MOBILE_SHELL_CSS
     assert "#measure-card" not in STATE_JS
     assert "scrollIntoView" not in STATE_JS
+    assert "photo-shell-loader.js?v=single-screen-1.0" in SURVEY_PACKAGE_JS
