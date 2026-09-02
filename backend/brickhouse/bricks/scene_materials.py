@@ -7,6 +7,7 @@ from .brick_model import BrickModel
 from .scene_access import validate_scene_stair_platform_access
 from .scene_architecture import _is_timber
 from .scene_railing_solutions import compact_scene_platform_railings
+from .scene_support_solutions import compact_scene_platform_supports
 
 
 _MATERIAL_CATEGORY = {
@@ -30,17 +31,17 @@ def _structured_category(obj, scene: ArchitecturalScene) -> str | None:
 
 
 def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) -> BrickModel:
-    """Validate exterior access, reclassify parts, then apply rail solutions.
+    """Validate access, classify exterior parts, then apply structural solutions.
 
     Access validation deliberately happens before railing compaction: a stair may
     not silently punch through an explicitly guarded platform edge. The source
     Scene must declare an access span wide enough for the stair before a LEGO
     representation is accepted.
 
-    Railing compaction runs after classification so replacing a run of generated
-    1x1 rail cells with approved 1xN bricks preserves the Scene's timber/metal/etc.
-    semantics. The geometry change itself lives in the separate
-    ``scene_railing_solutions`` module rather than in material inference.
+    Railing and support compaction run after classification so replacement bricks
+    preserve the Scene's timber/metal/etc. semantics. Both solution layers only
+    exact-cover already-generated cells; neither may invent missing architectural
+    geometry.
     """
     validate_scene_stair_platform_access(scene)
 
@@ -81,5 +82,6 @@ def apply_scene_part_categories(model: BrickModel, scene: ArchitecturalScene) ->
             parts.append(part)
 
     categorized = model.model_copy(update={"parts": parts}) if changed else model
-    # This remains a no-op when the Scene generated no compactable platform rail.
-    return compact_scene_platform_railings(categorized, scene)
+    # These remain no-ops when the Scene generated no eligible cells.
+    railing_compacted = compact_scene_platform_railings(categorized, scene)
+    return compact_scene_platform_supports(railing_compacted, scene)
