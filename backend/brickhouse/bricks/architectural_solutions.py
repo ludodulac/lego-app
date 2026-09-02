@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from brickhouse.building.models import Facade, Opening, OpeningType
+from brickhouse.building.models import Facade, Opening, OpeningType, WindowStyle
 from .building_layout import BuildingBrickShell
 from .windows import VALIDATED_WINDOW_ASSEMBLIES, WindowAssemblyDefinition
 
@@ -74,7 +74,6 @@ class FacadeWindowSelection(BaseModel):
     score: float = Field(ge=0)
 
 
-
 def _composition_geometry(
     assembly: WindowAssemblyDefinition,
     composition: WindowComposition,
@@ -123,7 +122,12 @@ def rank_window_solutions(
     max_local_adjustment_studs: int = 1,
     max_local_adjustment_bricks: int = 1,
 ) -> ArchitecturalWindowSelection:
-    """Rank catalog-backed window solutions without changing source geometry."""
+    """Rank catalog-backed window solutions without inventing subdivisions.
+
+    In the absence of explicit topology evidence only a single-module window is
+    considered. Paired/four-pane layouts become candidates only when leaf/pane
+    evidence exists; aspect ratio alone never creates architectural joinery.
+    """
     if architectural_width_m <= 0 or architectural_height_m <= 0:
         raise ValueError("architectural opening dimensions must be positive")
     if raster_width_studs <= 0 or raster_height_bricks <= 0:
@@ -135,9 +139,14 @@ def rank_window_solutions(
     if observed_pane_count is not None and observed_pane_count <= 0:
         raise ValueError("observed_pane_count must be positive when provided")
 
+    compositions: tuple[WindowComposition, ...] = (
+        ("single",)
+        if observed_leaf_count is None and observed_pane_count is None
+        else ("single", "paired", "four_pane")
+    )
     candidates: list[ArchitecturalWindowSolution] = []
     for assembly in VALIDATED_WINDOW_ASSEMBLIES:
-        for composition in ("single", "paired", "four_pane"):
+        for composition in compositions:
             module_count, width, height, leaves, panes = _composition_geometry(assembly, composition)
             dx = abs(width - raster_width_studs)
             dz = abs(height - raster_height_bricks)
@@ -188,6 +197,22 @@ def rank_window_solutions(
     )
 
 
+def _opening_topology(opening: Opening) -> tuple[int | None, int | None]:
+    visual = opening.opening_visual
+    leaf_count = visual.leaf_count if visual else None
+    pane_count = visual.pane_count if visual else None
+    if leaf_count is not None or pane_count is not None:
+        return leaf_count, pane_count
+    style = opening.window_style
+    if style in {WindowStyle.SIMPLE, WindowStyle.TRADITIONAL_TALL}:
+        return 1, 1
+    if style is WindowStyle.PAIRED:
+        return 2, 2
+    if style is WindowStyle.FOUR_PANE:
+        return 2, 4
+    return None, None
+
+
 def _relative_proportion_penalty(
     openings: list[Opening],
     solutions: tuple[ArchitecturalWindowSolution, ...],
@@ -218,12 +243,12 @@ def _family_penalty(
         for second_index in range(first_index + 1, len(openings)):
             second = openings[second_index]
             metric_ratio_delta = abs(log((first.width / first.height) / (second.width / second.height)))
+            first_topology = _opening_topology(first)
+            second_topology = _opening_topology(second)
             topology_matches = (
-                (first.opening_visual is None or second.opening_visual is None)
-                or (
-                    first.opening_visual.leaf_count == second.opening_visual.leaf_count
-                    and first.opening_visual.pane_count == second.opening_visual.pane_count
-                )
+                first_topology == (None, None)
+                or second_topology == (None, None)
+                or first_topology == second_topology
             )
             if metric_ratio_delta <= 0.12 and topology_matches:
                 first_solution = solutions[first_index]
@@ -245,15 +270,17 @@ def select_facade_window_solutions(
 ) -> FacadeWindowSelection | None:
     """Select window solutions jointly so facade proportions survive discretization.
 
-    The shell is read-only here. The selected dimensions are future local LEGO
-    anchors; this function neither changes architectural measurements nor cuts a
-    different wall opening yet.
+    Only openings belonging to ``shell.volume_id`` participate. This matters for
+    multi-volume buildings where several volumes can expose the same facade enum.
+    The shell remains read-only at this stage.
     """
     if max_candidates_per_opening <= 0:
         raise ValueError("max_candidates_per_opening must be positive")
     windows = [
         opening for opening in openings
-        if opening.facade is facade and opening.type is OpeningType.WINDOW
+        if opening.volume_id == shell.volume_id
+        and opening.facade is facade
+        and opening.type is OpeningType.WINDOW
     ]
     if not windows:
         return None
@@ -267,14 +294,14 @@ def select_facade_window_solutions(
         raster = rasters.get(opening.id)
         if raster is None:
             raise ValueError(f"shell has no raster opening for {opening.id!r}")
-        visual = opening.opening_visual
+        leaf_count, pane_count = _opening_topology(opening)
         selection = rank_window_solutions(
             architectural_width_m=opening.width,
             architectural_height_m=opening.height,
             raster_width_studs=raster.width_studs,
             raster_height_bricks=raster.height_bricks,
-            observed_leaf_count=visual.leaf_count if visual else None,
-            observed_pane_count=visual.pane_count if visual else None,
+            observed_leaf_count=leaf_count,
+            observed_pane_count=pane_count,
         )
         candidates = selection.candidates[:max_candidates_per_opening]
         if not candidates:
