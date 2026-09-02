@@ -14,6 +14,7 @@ from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
 from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slope_family
+from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
@@ -87,6 +88,38 @@ def _build_local_model(building, geometry, shell, spatial_shell, roof, facade_de
     return generate_brick_model(spatial_shell, spatial_roof, facade_details, window_parts)
 
 
+def _roof_raster_issues(geometry, shell, roof) -> list[BrickExportFidelityIssue]:
+    if roof is None or roof.type is not RoofType.GABLE:
+        return []
+    selection = select_gable_roof_raster(geometry, shell)
+    issues: list[BrickExportFidelityIssue] = []
+    if selection.span_adjustment_studs:
+        issues.append(BrickExportFidelityIssue(
+            code="lego_roof_eave_span_adjustment",
+            severity="info",
+            object_id=roof.id,
+            message=(
+                f"Architectural roof {roof.id!r} remains unchanged; its LEGO slope raster extends the "
+                f"{selection.wall_span_studs}-stud wall span to {selection.selected_span_studs} studs "
+                f"(+{selection.span_adjustment_studs}) so the validated {selection.slope_family_id}° family "
+                "connects physically to the ridge. This is representation-only overhang."
+            ),
+        ))
+    if selection.line_adjustment_studs:
+        issues.append(BrickExportFidelityIssue(
+            code="lego_roof_gable_line_adjustment",
+            severity="info",
+            object_id=roof.id,
+            message=(
+                f"Architectural roof {roof.id!r} remains unchanged; its LEGO longitudinal line extends "
+                f"from {selection.wall_line_length_studs} to {selection.selected_line_length_studs} studs "
+                f"(+{selection.line_adjustment_studs}) to tile the selected slope and ridge families exactly. "
+                "This is representation-only gable-end overhang."
+            ),
+        ))
+    return issues
+
+
 def _window_anchor_issues(application) -> list[BrickExportFidelityIssue]:
     issues: list[BrickExportFidelityIssue] = []
     for anchor in application.anchors:
@@ -130,6 +163,7 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
     window_parts, fitted_window_ids = generate_window_assemblies(building, shell, selected_solutions=selected_windows)
     facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
     roof = building.roofs[0] if building.roofs else None
+    roof_issues = _roof_raster_issues(geometry, shell, roof)
     brick_model = _build_local_model(building, geometry, shell, spatial_shell, roof, facade_details, window_parts)
     _validate_generated_model(brick_model)
     bom = generate_bom(brick_model)
@@ -140,7 +174,7 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
         appearance=building.appearance,
         discretization_quality=quality,
         scale_recommendation=scale_recommendation,
-        fidelity_issues=[*anchor_issues, *_geometry_fidelity_issues(brick_model, ldraw_root)],
+        fidelity_issues=[*anchor_issues, *roof_issues, *_geometry_fidelity_issues(brick_model, ldraw_root)],
     )
 
 
@@ -168,6 +202,7 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
         window_parts, fitted_window_ids = generate_window_assemblies(building, shell, selected_solutions=selected_windows)
         facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
         roof = roofs_by_volume.get(volume.id)
+        fidelity_issues.extend(_roof_raster_issues(subgeometry, shell, roof))
         local_model = _build_local_model(building, subgeometry, shell, spatial_shell, roof, facade_details, window_parts)
         x = round((volume.position.x-min_x)*studs_per_meter); y = round((volume.position.y-min_y)*studs_per_meter); z = round((volume.position.z-min_z)*plates_per_meter)
         all_parts.extend(_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z)); max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
