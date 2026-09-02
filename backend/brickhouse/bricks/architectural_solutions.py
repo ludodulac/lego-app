@@ -1,28 +1,29 @@
 """Deterministic architectural LEGO solution search.
 
-This module sits between architectural truth and brick filling.  It does not
-mutate BuildingModel/ArchitecturalScene geometry.  Instead it ranks small,
+This module sits between architectural truth and brick filling. It does not
+mutate BuildingModel/ArchitecturalScene geometry. Instead it ranks small,
 placement-approved LEGO assembly families that may become local representation
 anchors before surrounding wall cells are filled.
 
 The first supported family is deliberately narrow: validated window frame/pane
-assemblies already approved by :mod:`brickhouse.bricks.windows`.  More
+assemblies already approved by :mod:`brickhouse.bricks.windows`. More
 architectural families must be added explicitly rather than inferred from the
 raw piece catalogue.
 """
 from __future__ import annotations
 
+from itertools import product
 from math import log
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from brickhouse.building.models import Facade, Opening, OpeningType
+from .building_layout import BuildingBrickShell
 from .windows import VALIDATED_WINDOW_ASSEMBLIES, WindowAssemblyDefinition
 
 WindowComposition = Literal["single", "paired", "four_pane"]
 
-# Physical LEGO proportions used elsewhere by BrickHouse: one stud is 8 mm and
-# one standard brick course is 9.6 mm high.
 STUD_MM = 8.0
 BRICK_COURSE_MM = 9.6
 
@@ -55,11 +56,29 @@ class ArchitecturalWindowSelection(BaseModel):
     recommended: ArchitecturalWindowSolution | None = None
 
 
+class FacadeWindowChoice(BaseModel):
+    opening_id: str
+    source_raster_width_studs: int = Field(gt=0)
+    source_raster_height_bricks: int = Field(gt=0)
+    solution: ArchitecturalWindowSolution
+
+
+class FacadeWindowSelection(BaseModel):
+    """Coherent window-family choice for one facade, without moving openings."""
+
+    facade: Facade
+    choices: list[FacadeWindowChoice]
+    individual_score: float = Field(ge=0)
+    proportion_penalty: float = Field(ge=0)
+    family_penalty: float = Field(ge=0)
+    score: float = Field(ge=0)
+
+
+
 def _composition_geometry(
     assembly: WindowAssemblyDefinition,
     composition: WindowComposition,
 ) -> tuple[int, int, int, int, int]:
-    """Return module_count, width, height, leaves and panes for one family."""
     if composition == "single":
         return 1, assembly.width_studs, assembly.height_bricks, 1, 1
     if composition == "paired":
@@ -75,7 +94,6 @@ def _aspect_ratio_error(
 ) -> float:
     architectural_ratio = architectural_width_m / architectural_height_m
     lego_ratio = (width_studs * STUD_MM) / (height_bricks * BRICK_COURSE_MM)
-    # Log-ratio distance treats reciprocal over/under distortion symmetrically.
     return abs(log(lego_ratio / architectural_ratio))
 
 
@@ -105,13 +123,7 @@ def rank_window_solutions(
     max_local_adjustment_studs: int = 1,
     max_local_adjustment_bricks: int = 1,
 ) -> ArchitecturalWindowSelection:
-    """Rank catalog-backed window solutions without changing source geometry.
-
-    ``raster_*`` describes the current global-grid projection.  Candidates may
-    differ by a small, explicit local amount so a characteristic opening can be
-    considered as a future wall-fill anchor.  This function only reports that
-    adjustment; callers must never rewrite architectural measurements with it.
-    """
+    """Rank catalog-backed window solutions without changing source geometry."""
     if architectural_width_m <= 0 or architectural_height_m <= 0:
         raise ValueError("architectural opening dimensions must be positive")
     if raster_width_studs <= 0 or raster_height_bricks <= 0:
@@ -131,12 +143,8 @@ def rank_window_solutions(
             dz = abs(height - raster_height_bricks)
             if dx > max_local_adjustment_studs or dz > max_local_adjustment_bricks:
                 continue
-
             ratio_error = _aspect_ratio_error(
-                architectural_width_m,
-                architectural_height_m,
-                width,
-                height,
+                architectural_width_m, architectural_height_m, width, height
             )
             topology = _topology_penalty(
                 leaf_count=leaves,
@@ -144,9 +152,6 @@ def rank_window_solutions(
                 observed_leaf_count=observed_leaf_count,
                 observed_pane_count=observed_pane_count,
             )
-            # Identity of the opening dominates.  Grid movement is a smaller
-            # representation cost and is never allowed outside the explicit
-            # local bounds above.
             score = 4.0 * ratio_error + 3.0 * topology + 0.35 * dx + 0.35 * dz
             candidates.append(
                 ArchitecturalWindowSolution(
@@ -181,3 +186,124 @@ def rank_window_solutions(
         candidates=candidates,
         recommended=candidates[0] if candidates else None,
     )
+
+
+def _relative_proportion_penalty(
+    openings: list[Opening],
+    solutions: tuple[ArchitecturalWindowSolution, ...],
+) -> float:
+    """Compare pairwise relative dimensions, independent of absolute LEGO scale."""
+    penalty = 0.0
+    for first_index, first in enumerate(openings):
+        for second_index in range(first_index + 1, len(openings)):
+            second = openings[second_index]
+            first_solution = solutions[first_index]
+            second_solution = solutions[second_index]
+            metric_width_ratio = first.width / second.width
+            lego_width_ratio = first_solution.width_studs / second_solution.width_studs
+            metric_height_ratio = first.height / second.height
+            lego_height_ratio = first_solution.height_bricks / second_solution.height_bricks
+            penalty += abs(log(lego_width_ratio / metric_width_ratio))
+            penalty += abs(log(lego_height_ratio / metric_height_ratio))
+    return penalty
+
+
+def _family_penalty(
+    openings: list[Opening],
+    solutions: tuple[ArchitecturalWindowSolution, ...],
+) -> float:
+    """Prefer repeated LEGO families only for architecturally similar openings."""
+    penalty = 0.0
+    for first_index, first in enumerate(openings):
+        for second_index in range(first_index + 1, len(openings)):
+            second = openings[second_index]
+            metric_ratio_delta = abs(log((first.width / first.height) / (second.width / second.height)))
+            topology_matches = (
+                (first.opening_visual is None or second.opening_visual is None)
+                or (
+                    first.opening_visual.leaf_count == second.opening_visual.leaf_count
+                    and first.opening_visual.pane_count == second.opening_visual.pane_count
+                )
+            )
+            if metric_ratio_delta <= 0.12 and topology_matches:
+                first_solution = solutions[first_index]
+                second_solution = solutions[second_index]
+                if (
+                    first_solution.assembly_id != second_solution.assembly_id
+                    or first_solution.composition != second_solution.composition
+                ):
+                    penalty += 1.0
+    return penalty
+
+
+def select_facade_window_solutions(
+    *,
+    facade: Facade,
+    openings: list[Opening],
+    shell: BuildingBrickShell,
+    max_candidates_per_opening: int = 4,
+) -> FacadeWindowSelection | None:
+    """Select window solutions jointly so facade proportions survive discretization.
+
+    The shell is read-only here. The selected dimensions are future local LEGO
+    anchors; this function neither changes architectural measurements nor cuts a
+    different wall opening yet.
+    """
+    if max_candidates_per_opening <= 0:
+        raise ValueError("max_candidates_per_opening must be positive")
+    windows = [
+        opening for opening in openings
+        if opening.facade is facade and opening.type is OpeningType.WINDOW
+    ]
+    if not windows:
+        return None
+    wall = next((record for record in shell.walls if record.facade is facade), None)
+    if wall is None:
+        raise ValueError(f"shell has no wall for facade {facade.value!r}")
+    rasters = {raster.id: raster for raster in wall.grid.openings}
+
+    ranked: list[tuple[Opening, object, list[ArchitecturalWindowSolution]]] = []
+    for opening in windows:
+        raster = rasters.get(opening.id)
+        if raster is None:
+            raise ValueError(f"shell has no raster opening for {opening.id!r}")
+        visual = opening.opening_visual
+        selection = rank_window_solutions(
+            architectural_width_m=opening.width,
+            architectural_height_m=opening.height,
+            raster_width_studs=raster.width_studs,
+            raster_height_bricks=raster.height_bricks,
+            observed_leaf_count=visual.leaf_count if visual else None,
+            observed_pane_count=visual.pane_count if visual else None,
+        )
+        candidates = selection.candidates[:max_candidates_per_opening]
+        if not candidates:
+            return None
+        ranked.append((opening, raster, candidates))
+
+    best: FacadeWindowSelection | None = None
+    for combination in product(*(entry[2] for entry in ranked)):
+        architectural_openings = [entry[0] for entry in ranked]
+        individual = sum(solution.score for solution in combination)
+        proportions = _relative_proportion_penalty(architectural_openings, combination)
+        families = _family_penalty(architectural_openings, combination)
+        total = individual + 2.0 * proportions + 0.6 * families
+        candidate = FacadeWindowSelection(
+            facade=facade,
+            choices=[
+                FacadeWindowChoice(
+                    opening_id=opening.id,
+                    source_raster_width_studs=raster.width_studs,
+                    source_raster_height_bricks=raster.height_bricks,
+                    solution=solution,
+                )
+                for (opening, raster, _), solution in zip(ranked, combination)
+            ],
+            individual_score=individual,
+            proportion_penalty=proportions,
+            family_penalty=families,
+            score=total,
+        )
+        if best is None or candidate.score < best.score:
+            best = candidate
+    return best
