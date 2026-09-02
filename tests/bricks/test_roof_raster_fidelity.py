@@ -1,4 +1,5 @@
 from brickhouse.bricks.building_layout import generate_building_brick_shell
+from brickhouse.bricks.roof import _footprint, generate_spatial_gable_roof
 from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.building.models import BuildingModel
 from brickhouse.geometry import generate_building_geometry
@@ -43,9 +44,14 @@ def _building(*, width: float, depth: float) -> BuildingModel:
     )
 
 
-def _selection(building: BuildingModel, front_width_studs: int):
+def _geometry_shell(building: BuildingModel, front_width_studs: int):
     geometry = generate_building_geometry(building)
     shell = generate_building_brick_shell(geometry, front_width_studs)
+    return geometry, shell
+
+
+def _selection(building: BuildingModel, front_width_studs: int):
+    geometry, shell = _geometry_shell(building, front_width_studs)
     return select_gable_roof_raster(geometry, shell)
 
 
@@ -73,6 +79,19 @@ def test_quantized_gable_raster_exposes_both_lego_only_overhangs() -> None:
     assert selection.span_adjustment_studs == 1
     assert selection.line_adjustment_studs == 1
     assert selection.geometry_changed is True
+
+
+def test_selection_matches_the_actual_generated_roof_footprint() -> None:
+    building = _building(width=8.0, depth=6.5)
+    geometry, shell = _geometry_shell(building, 16)
+    selection = select_gable_roof_raster(geometry, shell)
+    roof = generate_spatial_gable_roof(geometry, shell)
+
+    cells = set().union(*(_footprint(placement) for placement in roof.placements))
+    assert min(x for x, _ in cells) == 0
+    assert max(x for x, _ in cells) + 1 == selection.selected_span_studs
+    assert min(y for _, y in cells) == 0
+    assert max(y for _, y in cells) + 1 == selection.selected_line_length_studs
 
 
 def test_raster_selection_is_deterministic_and_does_not_mutate_building() -> None:
