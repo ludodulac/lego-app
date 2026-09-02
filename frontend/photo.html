@@ -5,23 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Boldungo — Ma maison en briques</title>
   <link rel="stylesheet" href="./photo.css" />
-  <link rel="stylesheet" href="./mobile-shell.css" />
 </head>
 <body>
   <header class="topbar"><a href="./index.html">← Accueil</a><strong>Boldungo</strong><span>Photos → IA → maquette</span></header>
-  <nav class="shell-progress" aria-label="Progression de la maison">
-    <a class="shell-progress-step is-active" href="#capture-card"><span>1</span><strong>Photos</strong></a>
-    <a class="shell-progress-step" href="#survey-handoff-card"><span>2</span><strong>Survey</strong></a>
-    <a class="shell-progress-step" href="#analysis-panel"><span>3</span><strong>Scene</strong></a>
-    <a class="shell-progress-step" href="#build-actions"><span>4</span><strong>Maquette</strong></a>
-  </nav>
-  <main class="layout" data-boldungo-shell="single-screen">
+  <main class="layout">
     <section class="panel">
       <p class="eyebrow">Étape 1 · Photographier</p>
       <h1>Montrez votre maison</h1>
       <p class="intro">Classez d’abord les vues générales par orientation. Ajoutez ensuite, seulement si nécessaire, des groupes de détails pour les parties difficiles à comprendre.</p>
 
-      <section id="capture-card" class="simple-card">
+      <section class="simple-card">
         <div class="simple-heading"><div><h2>1. Ajouter les vues générales</h2><p>Quatre orientations simples : avant, droite, gauche et arrière. Chaque orientation accepte jusqu’à 4 photos prises depuis des positions différentes.</p></div><span class="step-badge">4 orientations</span></div>
         <div id="guided-photo-grid" class="guided-photo-grid">
           <label class="guided-photo-slot" data-slot="front" data-label="Façade avant"><strong>Façade avant</strong><span>1 à 4 vues de face ou presque</span><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple /><small class="guided-photo-name">Aucune photo</small><textarea class="guided-photo-note" rows="2" placeholder="Précision facultative sur cette orientation…"></textarea></label>
@@ -45,14 +38,14 @@
         <p class="microcopy">Un groupe de détail n’a aucune orientation de façade implicite. Son texte et ses images servent uniquement comme preuves complémentaires.</p>
       </section>
 
-      <section id="measure-card" class="simple-card">
+      <section class="simple-card">
         <div class="simple-heading"><div><h2>3. Ajouter ce que vous savez</h2><p>Ces informations sont facultatives, mais une mesure réelle améliore fortement l’échelle.</p></div></div>
         <div class="field"><label for="known-width">Largeur réelle de la façade avant (m), si connue</label><input id="known-width" type="number" min="1" max="100" step="0.1" placeholder="Ex. 9,8" /></div>
         <div class="field"><label for="notes">Informations générales</label><textarea id="notes" rows="4" placeholder="Ex. La terrasse est en bois. La rue monte fortement côté droit. La partie arrière est masquée par le bâtiment voisin."></textarea></div>
         <div class="field compact-field"><label for="studs">Taille de la future maquette</label><select id="studs"><option value="32">Petite — 32 tenons</option><option value="48" selected>Moyenne — 48 tenons</option><option value="64">Grande — 64 tenons</option></select></div>
       </section>
 
-      <section id="survey-handoff-card" class="simple-card ai-handoff-card">
+      <section class="simple-card ai-handoff-card">
         <div class="simple-heading"><div><p class="eyebrow">Sans connexion API</p><h2>4. Faire analyser avec une IA</h2><p>Boldungo crée un PDF Survey autonome contenant la commande et toutes les photos sélectionnées, dans un ordre déterministe. Ce PDF sert uniquement à produire l’ArchitecturalSurvey ; la Scene sera reconstruite après validation.</p></div></div>
         <button id="download-ai-package" class="primary big-action" type="button">Créer le PDF unique à envoyer à l’IA</button>
         <p id="ai-package-status" class="helper-status">Le fichier BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf contiendra les instructions puis les photos elles-mêmes.</p>
@@ -73,22 +66,16 @@
         <div id="photo-list" class="photo-list"></div>
         <details class="result-card external-ai"><summary>Prompts du pipeline séparés</summary><p><a class="prompt-link" href="./brickhouse-topology-prompt.txt" target="_blank" rel="noopener">Cartographie topologique ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-prompt.txt" target="_blank" rel="noopener">ArchitecturalSurvey ↗</a></p><p><a class="prompt-link" href="./brickhouse-survey-to-scene-prompt.txt" target="_blank" rel="noopener">Survey → Scene ↗</a></p></details>
         <div class="field"><label for="api-url">API Boldungo</label><input id="api-url" type="url" /></div>
-        <div id="build-actions" class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos via l’API actuelle</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="replace-survey" type="button">Remplacer par un Survey corrigé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
+        <div class="actions"><button id="analyze" class="primary" type="button" disabled>Analyser les photos via l’API actuelle</button><button id="download-survey" type="button" hidden>Télécharger le relevé validé</button><button id="replace-survey" type="button">Remplacer par un Survey corrigé</button><button id="download-model" type="button" disabled>Télécharger le modèle</button><button id="download-report" type="button" disabled>Télécharger le rapport d’essai</button><button id="build-bricks" type="button" disabled>Construire cette proposition</button></div>
       </details>
       <p id="status" class="status">Connexion au moteur…</p>
     </section>
 
-    <section id="analysis-panel" class="result-panel">
+    <section class="result-panel">
       <div class="empty" id="empty-state"><strong>Votre analyse apparaîtra ici.</strong><span>Boldungo vérifiera automatiquement ce qui est certain, incertain ou manquant avant la construction.</span></div>
       <div id="result" hidden><div class="result-header"><div><p class="eyebrow">Étape 2 · Vérifier</p><h2 id="result-name">—</h2></div><div class="confidence"><span>État</span><strong id="confidence">—</strong></div></div><section class="result-card warning" id="confirmation-card" hidden><h3>À confirmer</h3><p>Répondez seulement aux points que vous connaissez.</p></section><section class="result-card" id="proportions-card" hidden><h3>Proportions et échelle</h3><p id="scale-basis"></p><ul id="proportion-evidence"></ul></section><section class="result-card" id="questions-card"><div class="card-heading"><div><h3>Questions</h3><p>Boldungo n’affichera que les informations réellement utiles.</p></div><button id="refine" type="button" disabled>Appliquer mes réponses</button></div><div id="questions" class="questions"></div></section><section class="result-card"><h3>Contrôles automatiques</h3><ul id="assumptions"></ul></section><details class="result-card"><summary>Voir les données techniques</summary><pre id="json-preview"></pre></details></div>
     </section>
   </main>
-  <nav class="mobile-shell-nav" aria-label="Navigation principale Boldungo">
-    <a href="#capture-card"><span aria-hidden="true">⌂</span><strong>Photos</strong></a>
-    <a href="#measure-card"><span aria-hidden="true">↔</span><strong>Mesure</strong></a>
-    <a href="#survey-handoff-card"><span aria-hidden="true">◇</span><strong>Analyse</strong></a>
-    <a href="#analysis-panel"><span aria-hidden="true">✓</span><strong>Résultat</strong></a>
-  </nav>
   <script type="module" src="./brickhouse-survey-package.js?v=pdf-handoff-0.8-scene-source-lock"></script>
   <script type="module" src="./photo-simple.js?v=structured-capture-0.7"></script>
   <script type="module" src="./external-bundle-import.js"></script>

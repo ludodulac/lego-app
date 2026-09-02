@@ -1,6 +1,5 @@
 import './benchmark-test.js';
 import './scene-required-inputs.js';
-import './mobile-shell-state.js';
 import { prepareConservativePartialScene } from './partial-scene-build.js';
 
 const buildButton = document.querySelector('#build-bricks');
@@ -15,7 +14,6 @@ if (buildButton) {
   const advanced = document.querySelector('.advanced-panel');
   if (advanced?.parentNode) {
     const card = document.createElement('section');
-    card.id = 'build-ready-card';
     card.className = 'simple-card build-ready-card';
     card.innerHTML = '<div class="simple-heading"><div><p class="eyebrow">Dernière étape</p><h2>Construire la maquette</h2><p>BrickHouse construit tout ce qui est suffisamment résolu et laisse les zones encore inconnues hors de la maquette plutôt que de les inventer.</p></div></div>';
     buildButton.textContent = 'Construire ma maquette';
