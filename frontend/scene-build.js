@@ -1,6 +1,6 @@
 import './benchmark-test.js';
 import './scene-required-inputs.js';
-import { prepareConservativePartialScene } from './partial-scene-build.js';
+import './partial-scene-build.js';
 
 const buildButton = document.querySelector('#build-bricks');
 const apiInput = document.querySelector('#api-url');
@@ -34,11 +34,43 @@ function currentScene() {
   }
 }
 
-async function requestSceneBuild(base, scene, frontWidthStuds) {
+function lastSceneSurveyValidationAllowsPartial() {
+  try {
+    const payload = JSON.parse(localStorage.getItem('brickhouse.lastSceneSurveyValidation') || 'null');
+    if (!payload?.scene || payload.scene.schema_version !== '0.2') return false;
+    return !(payload.issues ?? []).some(issue => issue.severity === 'error');
+  } catch {
+    return false;
+  }
+}
+
+function exposePartialBuildWhenSafe() {
+  if (!buildButton || !currentScene() || !lastSceneSurveyValidationAllowsPartial()) return;
+  buildButton.disabled = false;
+  buildButton.textContent = 'Construire les briques fiables';
+}
+
+// The strict Scene gate can legitimately report projection blockers for an
+// unresolved roof or exterior junction while the backend partial pipeline is
+// still able to build the trustworthy shell. Keep that path available only
+// after Survey → Scene validation has succeeded without errors.
+if (jsonPreview && buildButton) {
+  new MutationObserver(() => queueMicrotask(exposePartialBuildWhenSafe))
+    .observe(jsonPreview, { childList: true, characterData: true, subtree: true });
+  new MutationObserver(() => {
+    if (buildButton.disabled) queueMicrotask(exposePartialBuildWhenSafe);
+  }).observe(buildButton, { attributes: true, attributeFilter: ['disabled'] });
+}
+
+async function requestSceneBuild(base, scene, frontWidthStuds, { allowPartial = false } = {}) {
   const response = await fetch(`${base}/api/v1/build-scene`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scene, front_width_studs: frontWidthStuds }),
+    body: JSON.stringify({
+      scene,
+      front_width_studs: frontWidthStuds,
+      allow_partial: allowPartial,
+    }),
   });
   const payload = await response.json();
   return { response, payload };
@@ -61,30 +93,20 @@ document.addEventListener('click', async event => {
   statusEl.textContent = 'BrickHouse construit la Scene complète…';
   try {
     let { response, payload } = await requestSceneBuild(base, scene, frontWidthStuds);
-    let partialOmissions = [];
 
-    if (!response.ok && response.status === 422) {
-      const partial = prepareConservativePartialScene(scene);
-      if (!partial.omitted.length) {
-        throw new Error(typeof payload.detail === 'string' ? payload.detail : `Erreur moteur HTTP ${response.status}`);
-      }
+    if (!response.ok && response.status === 422 && lastSceneSurveyValidationAllowsPartial()) {
       statusEl.textContent = 'Certaines zones restent inconnues : construction des briques déjà fiables sans inventer le reste…';
-      ({ response, payload } = await requestSceneBuild(base, partial.scene, frontWidthStuds));
-      partialOmissions = partial.omitted;
+      ({ response, payload } = await requestSceneBuild(base, scene, frontWidthStuds, { allowPartial: true }));
     }
 
     if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : `Erreur moteur HTTP ${response.status}`);
-    if (partialOmissions.length) {
-      payload.fidelity_issues = [
-        ...(payload.fidelity_issues ?? []),
-        ...partialOmissions.map(item => ({
-          code: 'partial_scene_object_omitted',
-          severity: 'warning',
-          object_id: item.object_id,
-          message: `${item.object_id} n’est pas encore construit : ${item.reason}. La géométrie n’a pas été inventée.`,
-        })),
-      ];
+    if (!Array.isArray(payload?.brick_model?.parts) || !payload.brick_model.parts.length) {
+      throw new Error('Le moteur a renvoyé une maquette sans pièces.');
     }
+    if (!payload?.assembly_plan?.steps?.length) {
+      throw new Error('Le moteur a renvoyé une maquette sans étapes de montage.');
+    }
+
     localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify({ scene }));
     localStorage.setItem('brickhouse.pendingExport', JSON.stringify(payload));
     window.location.href = './viewer.html';
