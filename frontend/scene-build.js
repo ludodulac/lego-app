@@ -1,5 +1,6 @@
 import './benchmark-test.js';
 import './scene-required-inputs.js';
+import './partial-scene-build.js';
 
 const buildButton = document.querySelector('#build-bricks');
 const apiInput = document.querySelector('#api-url');
