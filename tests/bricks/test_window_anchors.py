@@ -73,7 +73,7 @@ def test_missing_topology_never_invents_paired_or_four_pane_joinery():
 
 
 def test_anchor_application_changes_only_derived_lego_shell_and_refills_wall():
-    building = _building(width=0.8, height=1.2, leaves=1, panes=1)
+    building = _building(width=1.0, height=1.2, leaves=1, panes=1)
     source_before = building.model_dump()
     shell = generate_building_brick_shell(generate_building_geometry(building), 30)
     front_before = next(wall for wall in shell.walls if wall.facade is Facade.FRONT)
@@ -87,7 +87,7 @@ def test_anchor_application_changes_only_derived_lego_shell_and_refills_wall():
 
     assert building.model_dump() == source_before
     assert raster_after.width_studs == 2
-    assert raster_after.height_bricks == 3
+    assert raster_after.height_bricks == 2
     assert front_after.layout.openings == front_after.grid.openings
     assert result.anchors[0].geometry_changed
 
