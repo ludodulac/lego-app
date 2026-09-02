@@ -1,12 +1,5 @@
-const shellStylesheetId = 'boldungo-photo-shell-styles';
-
-if (!document.getElementById(shellStylesheetId)) {
-  const link = document.createElement('link');
-  link.id = shellStylesheetId;
-  link.rel = 'stylesheet';
-  link.href = new URL('./photo-shell.css?v=single-screen-0.6', import.meta.url).href;
-  document.head.appendChild(link);
-}
-
-import('./photo-shell.js?v=single-screen-0.7');
+// The current Boldungo mobile shell is owned by photo.html + mobile-shell.css
+// + mobile-shell-state.js. Keep this stable loader only for import feedback guards.
+// Do not load the legacy photo-shell.js/photo-shell.css cockpit: it rewrites the
+// page DOM, locks body scrolling, and can make the live workflow appear truncated.
 import('./survey-import-feedback-guard.js?v=survey-feedback-0.8');
