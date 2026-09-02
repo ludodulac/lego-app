@@ -4,6 +4,7 @@ from pathlib import Path
 STATE_JS = Path("frontend/mobile-shell-state.js").read_text(encoding="utf-8")
 SCENE_BUILD_JS = Path("frontend/scene-build.js").read_text(encoding="utf-8")
 MOBILE_SHELL_CSS = Path("frontend/mobile-shell.css").read_text(encoding="utf-8")
+SURVEY_PACKAGE_JS = Path("frontend/brickhouse-survey-package.js").read_text(encoding="utf-8")
 
 
 def test_shell_state_reuses_existing_survey_scene_and_build_signals():
@@ -41,30 +42,11 @@ def test_shell_exposes_contextual_next_action_without_parallel_workflow_state():
     assert ".shell-state-card" in MOBILE_SHELL_CSS
 
 
-def test_mobile_navigation_focuses_without_truncating_workflow_panels():
-    assert "window.matchMedia('(max-width: 620px)')" in STATE_JS
-    assert "dataset.shellPanel" in STATE_JS
-    assert "requestedView" in STATE_JS
-    assert "#detail-photo-grid" in STATE_JS
-    assert "#measure-card" in STATE_JS
-    assert "viewForTarget" in STATE_JS
-    assert "scrollIntoView" in STATE_JS
-    assert "[data-shell-panel]{display:block!important}" in MOBILE_SHELL_CSS
+def test_mobile_shell_keeps_existing_workflow_cards_visible_and_navigable():
+    assert "requestedView" not in STATE_JS
+    assert "dataset.shellPanel" not in STATE_JS
     assert "[data-shell-panel]{display:none!important}" not in MOBILE_SHELL_CSS
-    assert ".future-card{display:none!important}" in MOBILE_SHELL_CSS
-
-
-def test_optional_detail_capture_remains_a_mobile_disclosure():
-    assert "detailCaptureOpen" in STATE_JS
-    assert "#shell-detail-toggle" in STATE_JS
-    assert "detail-capture-card" in STATE_JS
-    assert "aria-expanded" in STATE_JS
-    assert "Ajouter des détails facultatifs" in STATE_JS
-    assert ".shell-detail-card:not(.is-shell-detail-open){display:none!important}" in MOBILE_SHELL_CSS
-    assert ".shell-detail-toggle{display:block" in MOBILE_SHELL_CSS
-
-
-def test_portrait_photo_capture_keeps_the_four_orientation_contract_compact():
-    assert ".guided-photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))" in MOBILE_SHELL_CSS
-    assert ".guided-photo-slot,.detail-photo-slot{min-width:0;padding:10px}" in MOBILE_SHELL_CSS
-    assert ".guided-photo-input,.detail-photo-input{min-width:0;font-size:11px" in MOBILE_SHELL_CSS
+    assert ".panel>h1,.panel>.intro,.panel>.eyebrow{display:none}" not in MOBILE_SHELL_CSS
+    assert "#measure-card" not in STATE_JS
+    assert "scrollIntoView" not in STATE_JS
+    assert "photo-shell-loader.js?v=single-screen-1.1" in SURVEY_PACKAGE_JS
