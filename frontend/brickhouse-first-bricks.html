@@ -10,13 +10,31 @@
   <main class="app-shell">
     <aside class="panel">
       <div>
-        <p class="eyebrow">BrickHouse · 5 photos de référence</p>
-        <h1>Premières briques fiables</h1>
-        <p class="intro">BrickHouse charge la partie de la maison déjà suffisamment résolue pour être convertie en briques. Le toit et les raccords encore inconnus restent volontairement absents.</p>
+        <p class="eyebrow">BrickHouse · ArchitecturalScene privée</p>
+        <h1>Construire les premières briques fiables</h1>
+        <p class="intro">Chargez ici une ArchitecturalScene v0.2. Le fichier reste hors du dépôt : le navigateur l’envoie uniquement au moteur BrickHouse configuré pour produire le vrai modèle LEGO, sa nomenclature et ses étapes de montage. Le toit ou les raccords encore insuffisamment résolus peuvent rester volontairement absents en mode partiel.</p>
       </div>
-      <p id="message" class="message" role="status">Préparation de la première maquette LEGO…</p>
-      <a class="file-button" href="./brickhouse-reference-preview.html">← Reconstruction architecturale</a>
-      <a class="file-button" href="./viewer.html">Ouvrir le viewer sans charger la référence</a>
+
+      <label class="file-button" for="scene-file">Choisir l’ArchitecturalScene JSON</label>
+      <input id="scene-file" type="file" accept="application/json,.json" />
+
+      <label for="api-url">API moteur</label>
+      <input id="api-url" type="url" value="https://brickhouse-api.onrender.com" spellcheck="false" />
+
+      <label for="front-width-studs">Largeur de façade LEGO</label>
+      <input id="front-width-studs" type="number" min="8" max="256" step="1" value="48" />
+
+      <label>
+        <input id="allow-partial" type="checkbox" checked />
+        Autoriser une construction partielle conservatrice
+      </label>
+
+      <button id="build-scene" class="file-button" type="button" disabled>Valider puis construire dans le vrai viewer</button>
+      <p id="message" class="message" role="status">Choisissez une ArchitecturalScene JSON pour commencer.</p>
+      <pre id="details" class="json-preview" hidden></pre>
+
+      <a class="file-button" href="./viewer.html">Ouvrir le viewer sans charger de scène</a>
+      <a class="file-button" href="./index.html">← Retour à l’accueil</a>
     </aside>
   </main>
   <script type="module" src="./brickhouse-first-bricks.js"></script>
