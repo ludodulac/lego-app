@@ -137,7 +137,8 @@ def _select_joint_z_starts(
     starts use the same bounded local vocabulary as historical independent
     placement. The score combines individual centre error with pairwise vertical
     centre-distance error, preserving relative levels without changing source
-    metrics or selected window dimensions.
+    metrics or selected window dimensions. Architectural order may collapse onto
+    one LEGO course when the metric separation is sub-course, but is never inverted.
     """
     if not records:
         return {}
@@ -171,10 +172,10 @@ def _select_joint_z_starts(
             for second in range(first + 1, len(records)):
                 metric_delta = target_centers[second] - target_centers[first]
                 lego_delta = centers[second] - centers[first]
-                if metric_delta > 0 and lego_delta <= 0:
+                if metric_delta > 0 and lego_delta < 0:
                     valid = False
                     break
-                if metric_delta < 0 and lego_delta >= 0:
+                if metric_delta < 0 and lego_delta > 0:
                     valid = False
                     break
                 spacing_error += abs(lego_delta - metric_delta)
