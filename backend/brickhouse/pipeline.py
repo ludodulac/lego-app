@@ -17,7 +17,7 @@ from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slop
 from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
-from brickhouse.bricks.scene_architecture import augment_brick_model_with_scene_architecture
+from brickhouse.bricks.scene_architecture_relations import augment_brick_model_with_scene_architecture_relations
 from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
@@ -285,7 +285,7 @@ def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int =
     scene_issues=_scene_export_fidelity_issues(scene,projection,front_width_studs=front_width_studs)
     base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs)
     fidelity_issues=[*base.fidelity_issues,*scene_issues]
-    enriched=augment_brick_model_with_scene_architecture(base.brick_model,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs)
+    enriched=augment_brick_model_with_scene_architecture_relations(base.brick_model,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs)
     _validate_generated_model(enriched); fidelity_issues.extend(_geometry_fidelity_issues(enriched,ldraw_root))
     if enriched is base.brick_model:
         return create_export_bundle(enriched,base.bom,base.assembly_plan,appearance=projection.building.appearance,fidelity_issues=fidelity_issues,discretization_quality=base.metadata.discretization_quality,scale_recommendation=base.metadata.scale_recommendation)
