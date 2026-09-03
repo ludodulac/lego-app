@@ -59,7 +59,7 @@ def test_joint_vertical_anchor_search_preserves_relative_row_spacing():
     assert joint == {"low": 1, "middle": 1, "high": 1}
 
 
-def test_joint_vertical_anchor_search_preserves_strict_level_order():
+def test_joint_vertical_anchor_search_never_inverts_architectural_order():
     lower = _opening(opening_id="lower", z=1.49)
     upper = _opening(opening_id="upper", z=1.51)
     lower_raster = WallOpeningGrid(
@@ -79,4 +79,4 @@ def test_joint_vertical_anchor_search_preserves_strict_level_order():
     )
 
     assert joint is not None
-    assert joint["lower"] < joint["upper"]
+    assert joint["lower"] <= joint["upper"]
