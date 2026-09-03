@@ -32,12 +32,18 @@ When an `assembly_plan` is present, an additional mounting card appears with a s
 
 ## Rendering conventions
 
+BrickHouse canonical coordinates remain authoritative in exports and BOM data: model X runs left→right when looking at the front facade, model Y runs front→rear, and model Z runs bottom→top. The viewer performs a display-only right-handed Three.js mapping:
+
 - engine X maps to Three.js X;
-- engine Y maps to Three.js Z;
+- engine Y maps to **negative** Three.js Z;
 - engine Z (plates) maps to Three.js Y;
+- the canonical front camera stands on positive Three.js Z, so increasing model X remains screen-left→screen-right;
+- this handedness transform is presentation-only and must never rewrite BrickModel placements, BOM coordinates or architectural measurements;
 - 1 stud = 1 viewer world unit;
 - 1 plate = 0.4 viewer world unit;
 - canonical dimensions are parsed from M0 ids such as `BRICK_1X6` and rotated using `rotation_quarter_turns`.
+
+The viewer frames the rendered meshes themselves rather than treating architectural `width_studs` / `depth_studs` as the complete display canvas. This keeps camera framing compatible with roof overhang and other LEGO representation extents while leaving architectural dimensions semantically unchanged.
 
 ## Current limitations
 
