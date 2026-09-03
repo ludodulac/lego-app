@@ -14,7 +14,10 @@ from brickhouse.building.models import (
     Volume,
     VolumeShape,
 )
-from brickhouse.bricks.architectural_solutions import rank_window_solutions
+from brickhouse.bricks.architectural_solutions import (
+    rank_window_solutions,
+    select_facade_window_solutions,
+)
 from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.placement import WallOpeningGrid
 from brickhouse.bricks.window_anchors import (
@@ -90,6 +93,30 @@ def test_missing_topology_never_invents_paired_or_four_pane_joinery():
     )
     assert selection.candidates
     assert {candidate.composition for candidate in selection.candidates} == {"single"}
+
+
+def test_structured_topology_mismatch_rejects_facade_instead_of_rendering_wrong_subdivision():
+    building = _building(width=1.6, height=1.2, leaves=1, panes=2)
+    source_before = building.model_dump()
+    shell = generate_building_brick_shell(generate_building_geometry(building), 24)
+    front_before = next(wall for wall in shell.walls if wall.facade is Facade.FRONT)
+    selection = select_facade_window_solutions(
+        facade=Facade.FRONT,
+        openings=building.openings,
+        shell=shell,
+    )
+    assert selection is not None
+    chosen = selection.choices[0].solution
+    assert chosen.leaf_count != 1 or chosen.pane_count != 2
+
+    result = apply_architectural_window_anchors(building, shell)
+    front_after = next(wall for wall in result.shell.walls if wall.facade is Facade.FRONT)
+
+    assert building.model_dump() == source_before
+    assert Facade.FRONT in result.rejected_facades
+    assert result.anchors == []
+    assert front_after.grid == front_before.grid
+    assert front_after.layout == front_before.layout
 
 
 def test_joint_anchor_search_preserves_spacing_when_independent_rounding_would_overlap():
