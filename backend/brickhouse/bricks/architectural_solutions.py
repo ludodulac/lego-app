@@ -111,6 +111,21 @@ def _topology_penalty(
     return penalty
 
 
+def _matches_observed_topology(
+    *,
+    leaf_count: int,
+    pane_count: int,
+    observed_leaf_count: int | None,
+    observed_pane_count: int | None,
+) -> bool:
+    """Treat known opening topology as an invariant, not a scoring preference."""
+    if observed_leaf_count is not None and leaf_count != observed_leaf_count:
+        return False
+    if observed_pane_count is not None and pane_count != observed_pane_count:
+        return False
+    return True
+
+
 def rank_window_solutions(
     *,
     architectural_width_m: float,
@@ -125,8 +140,9 @@ def rank_window_solutions(
     """Rank catalog-backed window solutions without inventing subdivisions.
 
     In the absence of explicit topology evidence only a single-module window is
-    considered. Paired/four-pane layouts become candidates only when leaf/pane
-    evidence exists; aspect ratio alone never creates architectural joinery.
+    considered. When leaf/pane evidence exists, every candidate must match every
+    known count exactly. Unsupported structured topology therefore yields no LEGO
+    candidate instead of allowing aspect ratio or grid fit to invent joinery.
     """
     if architectural_width_m <= 0 or architectural_height_m <= 0:
         raise ValueError("architectural opening dimensions must be positive")
@@ -148,6 +164,13 @@ def rank_window_solutions(
     for assembly in VALIDATED_WINDOW_ASSEMBLIES:
         for composition in compositions:
             module_count, width, height, leaves, panes = _composition_geometry(assembly, composition)
+            if not _matches_observed_topology(
+                leaf_count=leaves,
+                pane_count=panes,
+                observed_leaf_count=observed_leaf_count,
+                observed_pane_count=observed_pane_count,
+            ):
+                continue
             dx = abs(width - raster_width_studs)
             dz = abs(height - raster_height_bricks)
             if dx > max_local_adjustment_studs or dz > max_local_adjustment_bricks:
