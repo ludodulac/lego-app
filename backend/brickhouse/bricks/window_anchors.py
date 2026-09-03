@@ -4,7 +4,7 @@ Architectural measurements remain immutable. This module creates a derived LEGO
 shell whose opening voids may move/resize by the small bounds already approved by
 architectural solution selection, then regenerates wall fill around those voids.
 
-Horizontal anchor positions are selected jointly per facade. This preserves the
+Anchor positions are selected jointly per facade on both axes. This preserves the
 relative composition of openings when independent nearest-centre rounding would
 otherwise distort spacing or make an otherwise representable facade overlap.
 """
@@ -123,6 +123,85 @@ def _vertical_intervals_overlap(
     second_height: int,
 ) -> bool:
     return first_z < second_z + second_height and second_z < first_z + first_height
+
+
+def _select_joint_z_starts(
+    *,
+    records: list[tuple[object, WallOpeningGrid, int]],
+    courses_per_meter: float,
+    wall_height_bricks: int,
+) -> dict[str, int] | None:
+    """Choose facade-local Z anchors jointly while preserving row composition.
+
+    ``records`` contains ``(Opening, source raster, selected height)``. Candidate
+    starts use the same bounded local vocabulary as historical independent
+    placement. The score combines individual centre error with pairwise vertical
+    centre-distance error, preserving relative levels without changing source
+    metrics or selected window dimensions.
+    """
+    if not records:
+        return {}
+
+    candidate_sets = [
+        _candidate_starts(
+            metric_offset=opening.offset_vertical,
+            metric_size=opening.height,
+            units_per_meter=courses_per_meter,
+            span_units=selected_height,
+            wall_span_units=wall_height_bricks,
+            source_start=raster.z_bricks,
+        )
+        for opening, raster, selected_height in records
+    ]
+    target_centers = [
+        (opening.offset_vertical + opening.height / 2.0) * courses_per_meter
+        for opening, _, _ in records
+    ]
+
+    best_starts: tuple[int, ...] | None = None
+    best_key: tuple[float, float, tuple[int, ...]] | None = None
+    for starts in product(*candidate_sets):
+        centers = [
+            start + records[index][2] / 2.0
+            for index, start in enumerate(starts)
+        ]
+        valid = True
+        spacing_error = 0.0
+        for first in range(len(records)):
+            for second in range(first + 1, len(records)):
+                metric_delta = target_centers[second] - target_centers[first]
+                lego_delta = centers[second] - centers[first]
+                if metric_delta > 0 and lego_delta <= 0:
+                    valid = False
+                    break
+                if metric_delta < 0 and lego_delta >= 0:
+                    valid = False
+                    break
+                spacing_error += abs(lego_delta - metric_delta)
+            if not valid:
+                break
+        if not valid:
+            continue
+
+        center_error = sum(
+            abs(center - target)
+            for center, target in zip(centers, target_centers)
+        )
+        source_motion = sum(
+            abs(start - records[index][1].z_bricks)
+            for index, start in enumerate(starts)
+        )
+        key = (center_error + spacing_error, float(source_motion), tuple(starts))
+        if best_key is None or key < best_key:
+            best_key = key
+            best_starts = tuple(starts)
+
+    if best_starts is None:
+        return None
+    return {
+        records[index][0].id: start
+        for index, start in enumerate(best_starts)
+    }
 
 
 def _select_joint_x_starts(
@@ -259,7 +338,24 @@ def apply_architectural_window_anchors(
             continue
 
         choice_by_id = {choice.opening_id: choice for choice in selection.choices}
-        anchored_z_by_id: dict[str, int] = {}
+        vertical_records: list[tuple[object, WallOpeningGrid, int]] = []
+        for raster in wall.grid.openings:
+            choice = choice_by_id.get(raster.id)
+            opening = openings.get(raster.id)
+            if choice is None or opening is None:
+                continue
+            vertical_records.append((opening, raster, choice.solution.height_bricks))
+
+        joint_z = _select_joint_z_starts(
+            records=vertical_records,
+            courses_per_meter=wall.grid.courses_per_meter,
+            wall_height_bricks=wall.grid.height_bricks,
+        )
+        if joint_z is None:
+            rejected.append(wall.facade)
+            updated_walls.append(wall)
+            continue
+
         joint_records: list[tuple[object, WallOpeningGrid, int, int, int]] = []
         for raster in wall.grid.openings:
             choice = choice_by_id.get(raster.id)
@@ -267,17 +363,14 @@ def apply_architectural_window_anchors(
             if choice is None or opening is None:
                 continue
             solution = choice.solution
-            z = _best_start(
-                metric_offset=opening.offset_vertical,
-                metric_size=opening.height,
-                units_per_meter=wall.grid.courses_per_meter,
-                span_units=solution.height_bricks,
-                wall_span_units=wall.grid.height_bricks,
-                source_start=raster.z_bricks,
-            )
-            anchored_z_by_id[opening.id] = z
             joint_records.append(
-                (opening, raster, solution.width_studs, solution.height_bricks, z)
+                (
+                    opening,
+                    raster,
+                    solution.width_studs,
+                    solution.height_bricks,
+                    joint_z[opening.id],
+                )
             )
 
         joint_x = _select_joint_x_starts(
@@ -301,7 +394,7 @@ def apply_architectural_window_anchors(
 
             solution = choice.solution
             x = joint_x[opening.id]
-            z = anchored_z_by_id[opening.id]
+            z = joint_z[opening.id]
             anchored = raster.model_copy(update={
                 "x_studs": x,
                 "z_bricks": z,
