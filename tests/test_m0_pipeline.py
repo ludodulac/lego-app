@@ -19,6 +19,8 @@ def test_reference_house_runs_end_to_end():
     assert bundle.building_id == "building_simple_house_001"
     assert bundle.brick_model.width_studs == 48
     assert bundle.brick_model.depth_studs == 38
+    assert bundle.brick_model.canvas_width_studs >= bundle.brick_model.width_studs
+    assert bundle.brick_model.canvas_depth_studs >= bundle.brick_model.depth_studs
     assert bundle.bom.total_parts == len(bundle.brick_model.parts)
     assert bundle.bom.total_parts > 0
     assert bundle.bom.unique_part_types > 1
@@ -33,8 +35,12 @@ def test_reference_house_closes_both_gable_ends():
     assert {part.facade.value for part in gables} == {"front", "rear"}
     assert all(part.component == "wall" and part.category == "brick" for part in gables)
     assert any(part.part_id != "BRICK_1X1" for part in gables)
-    assert {part.y_studs for part in gables if part.facade.value == "front"} == {0}
-    assert {part.y_studs for part in gables if part.facade.value == "rear"} == {bundle.brick_model.depth_studs - 1}
+    assert {part.y_studs for part in gables if part.facade.value == "front"} == {
+        bundle.brick_model.origin_y_studs
+    }
+    assert {part.y_studs for part in gables if part.facade.value == "rear"} == {
+        bundle.brick_model.origin_y_studs + bundle.brick_model.depth_studs - 1
+    }
     front_levels = sorted({part.z_plates for part in gables if part.facade.value == "front"})
     rear_levels = sorted({part.z_plates for part in gables if part.facade.value == "rear"})
     assert front_levels == rear_levels

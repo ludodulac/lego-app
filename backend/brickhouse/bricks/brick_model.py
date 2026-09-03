@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building.models import Facade, RidgeDirection
 from .facade_details import FacadeDetailPlacement, TrimRole
-from .roof import SUPPORTED_SLOPE_FAMILIES, SpatialRoof, create_m0_roof_catalog
+from .roof import SUPPORTED_SLOPE_FAMILIES, SpatialRoof, _footprint, create_m0_roof_catalog
 from .spatial import SpatialBrickShell
 from .windows import WindowPartPlacement
 
@@ -78,6 +78,10 @@ class BrickModel(BaseModel):
     width_studs: int = Field(gt=0)
     depth_studs: int = Field(gt=0)
     height_plates: int = Field(gt=0)
+    canvas_width_studs: int | None = Field(default=None, gt=0)
+    canvas_depth_studs: int | None = Field(default=None, gt=0)
+    origin_x_studs: int = Field(default=0, ge=0)
+    origin_y_studs: int = Field(default=0, ge=0)
     parts: list[BrickModelPart] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -85,6 +89,30 @@ class BrickModel(BaseModel):
         ids = [part.placement_id for part in self.parts]
         if len(ids) != len(set(ids)):
             raise ValueError("BrickModel placement IDs must be unique")
+        return self
+
+    @model_validator(mode="after")
+    def normalize_canvas_to_final_model(self):
+        """Keep canvas metadata large enough for the final translated representation.
+
+        ``width_studs``/``depth_studs`` retain their architectural meaning. Scene-aware
+        augmentation may later extend those dimensions or append exterior parts after
+        the initial roof canvas is chosen, so the canvas must grow with that derived
+        LEGO representation rather than making a previously valid model impossible to
+        export. This normalization never shrinks an explicitly larger canvas.
+        """
+        required_width = max(
+            self.origin_x_studs + self.width_studs,
+            max((part.x_studs + 1 for part in self.parts), default=1),
+        )
+        required_depth = max(
+            self.origin_y_studs + self.depth_studs,
+            max((part.y_studs + 1 for part in self.parts), default=1),
+        )
+        if self.canvas_width_studs is None or self.canvas_width_studs < required_width:
+            object.__setattr__(self, "canvas_width_studs", required_width)
+        if self.canvas_depth_studs is None or self.canvas_depth_studs < required_depth:
+            object.__setattr__(self, "canvas_depth_studs", required_depth)
         return self
 
 
@@ -185,6 +213,20 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
     return result
 
 
+def _roof_model_frame(roof: SpatialRoof | None) -> tuple[int, int, int, int]:
+    """Return x/y offsets and minimum model dimensions needed by the roof footprint."""
+    if roof is None or not roof.placements:
+        return 0, 0, 0, 0
+    cells = set().union(*(_footprint(placement) for placement in roof.placements))
+    min_x = min(x for x, _ in cells)
+    min_y = min(y for _, y in cells)
+    max_x = max(x for x, _ in cells)
+    max_y = max(y for _, y in cells)
+    x_offset = max(0, -min_x)
+    y_offset = max(0, -min_y)
+    return x_offset, y_offset, max_x + x_offset + 1, max_y + y_offset + 1
+
+
 def generate_brick_model(
     shell: SpatialBrickShell,
     roof: SpatialRoof | None,
@@ -194,22 +236,29 @@ def generate_brick_model(
     if roof is not None and shell.building_id != roof.building_id:
         raise ValueError("spatial shell and roof must reference the same building")
 
+    x_offset, y_offset, roof_width, roof_depth = _roof_model_frame(roof)
     parts = []
     for index, placement in enumerate(shell.placements, start=1):
         parts.append(BrickModelPart(
             placement_id=f"wall-{index:06d}", part_id=placement.brick_id,
-            category="brick", component="wall", x_studs=placement.x_studs,
-            y_studs=placement.y_studs, z_plates=placement.z_plates,
+            category="brick", component="wall", x_studs=placement.x_studs + x_offset,
+            y_studs=placement.y_studs + y_offset, z_plates=placement.z_plates,
             rotation_quarter_turns=placement.rotation_quarter_turns, facade=placement.facade,
         ))
     if roof is not None:
-        parts.extend(_generate_gable_wall_parts(shell, roof))
+        parts.extend(
+            part.model_copy(update={
+                "x_studs": part.x_studs + x_offset,
+                "y_studs": part.y_studs + y_offset,
+            })
+            for part in _generate_gable_wall_parts(shell, roof)
+        )
 
     for index, placement in enumerate(facade_details or [], start=1):
         parts.append(BrickModelPart(
             placement_id=f"detail-{index:06d}", part_id=placement.part_id,
             category=placement.category, component="facade_detail",
-            x_studs=placement.x_studs, y_studs=placement.y_studs,
+            x_studs=placement.x_studs + x_offset, y_studs=placement.y_studs + y_offset,
             z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
             facade=placement.facade, opening_id=placement.opening_id,
             trim_role=placement.trim_role, semantic_color=placement.semantic_color,
@@ -218,7 +267,7 @@ def generate_brick_model(
         parts.append(BrickModelPart(
             placement_id=f"window-{index:06d}", part_id=placement.part_id,
             category=placement.category, component="facade_detail",
-            x_studs=placement.x_studs, y_studs=placement.y_studs,
+            x_studs=placement.x_studs + x_offset, y_studs=placement.y_studs + y_offset,
             z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
             facade=placement.facade,
         ))
@@ -227,7 +276,8 @@ def generate_brick_model(
             parts.append(BrickModelPart(
                 placement_id=f"roof-{index:06d}", part_id=placement.part_id,
                 category=_roof_category(placement.part_id, placement.side), component="roof",
-                x_studs=placement.x_studs, y_studs=placement.y_studs,
+                x_studs=placement.x_studs + x_offset,
+                y_studs=placement.y_studs + y_offset,
                 z_plates=placement.z_plates,
                 rotation_quarter_turns=placement.rotation_quarter_turns,
                 roof_side=placement.side,
@@ -243,7 +293,14 @@ def generate_brick_model(
             default=wall_top,
         )
     return BrickModel(
-        building_id=shell.building_id, volume_id=shell.volume_id,
-        width_studs=shell.width_studs, depth_studs=shell.depth_studs,
-        height_plates=max(wall_top, roof_top), parts=parts,
+        building_id=shell.building_id,
+        volume_id=shell.volume_id,
+        width_studs=shell.width_studs,
+        depth_studs=shell.depth_studs,
+        height_plates=max(wall_top, roof_top),
+        canvas_width_studs=max(shell.width_studs + x_offset, roof_width),
+        canvas_depth_studs=max(shell.depth_studs + y_offset, roof_depth),
+        origin_x_studs=x_offset,
+        origin_y_studs=y_offset,
+        parts=parts,
     )
