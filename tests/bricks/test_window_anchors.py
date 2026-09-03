@@ -16,7 +16,12 @@ from brickhouse.building.models import (
 )
 from brickhouse.bricks.architectural_solutions import rank_window_solutions
 from brickhouse.bricks.building_layout import generate_building_brick_shell
-from brickhouse.bricks.window_anchors import apply_architectural_window_anchors
+from brickhouse.bricks.placement import WallOpeningGrid
+from brickhouse.bricks.window_anchors import (
+    _best_start,
+    _select_joint_x_starts,
+    apply_architectural_window_anchors,
+)
 from brickhouse.bricks.windows import generate_window_assemblies
 from brickhouse.geometry import generate_building_geometry
 from brickhouse.pipeline import run_m0_pipeline_model
@@ -61,6 +66,21 @@ def _building(*, width=0.8, height=1.2, leaves=None, panes=None, opening_id="win
     )
 
 
+def _opening(*, opening_id, x, z=1.0, width=3.0, height=2.0):
+    source = SourceInfo(kind=SourceKind.OBSERVED, confidence=0.9)
+    return Opening(
+        id=opening_id,
+        type=OpeningType.WINDOW,
+        volume_id="main",
+        facade=Facade.FRONT,
+        offset_horizontal=x,
+        offset_vertical=z,
+        width=width,
+        height=height,
+        source=source,
+    )
+
+
 def test_missing_topology_never_invents_paired_or_four_pane_joinery():
     selection = rank_window_solutions(
         architectural_width_m=1.6,
@@ -70,6 +90,78 @@ def test_missing_topology_never_invents_paired_or_four_pane_joinery():
     )
     assert selection.candidates
     assert {candidate.composition for candidate in selection.candidates} == {"single"}
+
+
+def test_joint_anchor_search_preserves_spacing_when_independent_rounding_would_overlap():
+    left = _opening(opening_id="left", x=3.0)
+    right = _opening(opening_id="right", x=5.01)
+    left_raster = WallOpeningGrid(id="left", x_studs=3, z_bricks=1, width_studs=3, height_bricks=2)
+    right_raster = WallOpeningGrid(id="right", x_studs=6, z_bricks=1, width_studs=3, height_bricks=2)
+
+    assert _best_start(
+        metric_offset=left.offset_horizontal,
+        metric_size=left.width,
+        units_per_meter=1.0,
+        span_units=3,
+        wall_span_units=12,
+        source_start=left_raster.x_studs,
+    ) == 3
+    assert _best_start(
+        metric_offset=right.offset_horizontal,
+        metric_size=right.width,
+        units_per_meter=1.0,
+        span_units=3,
+        wall_span_units=12,
+        source_start=right_raster.x_studs,
+    ) == 5
+
+    starts = _select_joint_x_starts(
+        records=[
+            (left, left_raster, 3, 2, 1),
+            (right, right_raster, 3, 2, 1),
+        ],
+        studs_per_meter=1.0,
+        wall_width_studs=12,
+    )
+
+    assert starts == {"left": 3, "right": 6}
+    assert starts["left"] + 3 <= starts["right"]
+
+
+def test_joint_anchor_search_allows_stacked_openings_to_share_horizontal_anchor():
+    lower = _opening(opening_id="lower", x=3.0, z=1.0)
+    upper = _opening(opening_id="upper", x=3.0, z=4.0)
+    lower_raster = WallOpeningGrid(id="lower", x_studs=3, z_bricks=1, width_studs=3, height_bricks=2)
+    upper_raster = WallOpeningGrid(id="upper", x_studs=3, z_bricks=4, width_studs=3, height_bricks=2)
+
+    starts = _select_joint_x_starts(
+        records=[
+            (lower, lower_raster, 3, 2, 1),
+            (upper, upper_raster, 3, 2, 4),
+        ],
+        studs_per_meter=1.0,
+        wall_width_studs=12,
+    )
+
+    assert starts == {"lower": 3, "upper": 3}
+
+
+def test_joint_anchor_search_refuses_overlapping_same_level_openings_without_valid_alternative():
+    first = _opening(opening_id="first", x=3.0)
+    second = _opening(opening_id="second", x=3.0)
+    first_raster = WallOpeningGrid(id="first", x_studs=3, z_bricks=1, width_studs=3, height_bricks=2)
+    second_raster = WallOpeningGrid(id="second", x_studs=3, z_bricks=1, width_studs=3, height_bricks=2)
+
+    starts = _select_joint_x_starts(
+        records=[
+            (first, first_raster, 3, 2, 1),
+            (second, second_raster, 3, 2, 1),
+        ],
+        studs_per_meter=1.0,
+        wall_width_studs=12,
+    )
+
+    assert starts is None
 
 
 def test_anchor_application_changes_only_derived_lego_shell_and_refills_wall():
