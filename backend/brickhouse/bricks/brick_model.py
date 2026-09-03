@@ -92,13 +92,27 @@ class BrickModel(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_canvas_contains_architectural_shell(self):
-        canvas_width = self.canvas_width_studs or self.width_studs
-        canvas_depth = self.canvas_depth_studs or self.depth_studs
-        if canvas_width < self.origin_x_studs + self.width_studs:
-            raise ValueError("canvas_width_studs must contain the translated architectural width")
-        if canvas_depth < self.origin_y_studs + self.depth_studs:
-            raise ValueError("canvas_depth_studs must contain the translated architectural depth")
+    def normalize_canvas_to_final_model(self):
+        """Keep canvas metadata large enough for the final translated representation.
+
+        ``width_studs``/``depth_studs`` retain their architectural meaning. Scene-aware
+        augmentation may later extend those dimensions or append exterior parts after
+        the initial roof canvas is chosen, so the canvas must grow with that derived
+        LEGO representation rather than making a previously valid model impossible to
+        export. This normalization never shrinks an explicitly larger canvas.
+        """
+        required_width = max(
+            self.origin_x_studs + self.width_studs,
+            max((part.x_studs + 1 for part in self.parts), default=1),
+        )
+        required_depth = max(
+            self.origin_y_studs + self.depth_studs,
+            max((part.y_studs + 1 for part in self.parts), default=1),
+        )
+        if self.canvas_width_studs is None or self.canvas_width_studs < required_width:
+            object.__setattr__(self, "canvas_width_studs", required_width)
+        if self.canvas_depth_studs is None or self.canvas_depth_studs < required_depth:
+            object.__setattr__(self, "canvas_depth_studs", required_depth)
         return self
 
 
