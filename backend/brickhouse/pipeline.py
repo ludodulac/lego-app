@@ -17,7 +17,10 @@ from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slop
 from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
-from brickhouse.bricks.scene_platform_connectivity import augment_brick_model_with_scene_platform_connectivity
+from brickhouse.bricks.scene_platform_connectivity import (
+    augment_brick_model_with_scene_platform_connectivity,
+    platform_connectivity_fidelity_issues,
+)
 from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
@@ -251,6 +254,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection, *, fron
             issue=_source_confidence_issue(kind,obj)
             if issue is not None: issues.append(issue)
     issues.extend(_chimney_footprint_issues(scene, front_width_studs))
+    issues.extend(platform_connectivity_fidelity_issues(scene, front_width_studs=front_width_studs))
     for mismatch in platform_support_level_mismatches(scene):
         issues.append(BrickExportFidelityIssue(
             code="platform_support_level_mismatch",
