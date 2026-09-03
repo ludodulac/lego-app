@@ -14,10 +14,21 @@ from .wall_depth import augment_brick_model_with_wall_depth
 
 
 FOUR_PANE_TALL_OVER_SQUARER = "two_over_two_upper_rectangular_lower_squarer"
+_GLASS_BLOCK_GLAZING = {
+    "glass block",
+    "glass blocks",
+    "pave de verre",
+    "paves de verre",
+}
 
 
 def _normalized(value: str) -> str:
     return " ".join(unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii").lower().split())
+
+
+def _normalized_glazing_token(value: str) -> str:
+    """Normalize one structured glazing descriptor without broad fuzzy matching."""
+    return " ".join(_normalized(value).replace("_", " ").replace("-", " ").split())
 
 
 def _opening_text(opening: SceneOpening) -> str:
@@ -25,7 +36,24 @@ def _opening_text(opening: SceneOpening) -> str:
     return _normalized(f"{opening.id} {evidence}")
 
 
+def _structured_glass_block_state(opening: SceneOpening) -> bool | None:
+    """Return structured glass-block evidence, or None when the field is absent.
+
+    A populated ``opening_visual.glazing`` field is authoritative. The accepted
+    vocabulary stays deliberately small: a different structured glazing value is
+    a real negative decision for glass-block classification and suppresses the
+    legacy free-text heuristic.
+    """
+    if opening.opening_visual is None or opening.opening_visual.glazing is None:
+        return None
+    value = _normalized_glazing_token(opening.opening_visual.glazing)
+    return value in _GLASS_BLOCK_GLAZING
+
+
 def _is_glass_block(opening: SceneOpening) -> bool:
+    structured = _structured_glass_block_state(opening)
+    if structured is not None:
+        return structured
     text = _opening_text(opening)
     return any(token in text for token in ("paves de verre", "pave de verre", "glass block", "glass-block"))
 
