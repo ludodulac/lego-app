@@ -12,6 +12,7 @@ import unicodedata
 from brickhouse.building.models import Facade
 from brickhouse.scene.models import (
     ArchitecturalScene,
+    CONNECTIVITY_TOLERANCE_M,
     DeckBoardDirection,
     EdgeTreatment,
     ExteriorMaterial,
@@ -611,6 +612,43 @@ def _stair_tread_geometry(
     return (cells, low, high) if dy >= 0 else (cells, high, low)
 
 
+def _connected_platform_course(
+    point,
+    scene: ArchitecturalScene,
+    *,
+    origin_z: float,
+    plates_per_meter: float,
+) -> int | None:
+    """Return the shared LEGO course for a Scene-validated platform connection.
+
+    This repeats the Scene contract's point-on-platform tolerance deliberately at
+    representation time. It never creates a new connection: only endpoints already
+    inside a platform footprint and within the declared metric level tolerance are
+    eligible. When tolerances admit more than one platform, nearest metric level and
+    then stable ID make the representation deterministic.
+    """
+    matches = [
+        platform
+        for platform in scene.platforms
+        if (
+            platform.position.x - CONNECTIVITY_TOLERANCE_M
+            <= point.x
+            <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
+            and platform.position.y - CONNECTIVITY_TOLERANCE_M
+            <= point.y
+            <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
+            and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
+        )
+    ]
+    if not matches:
+        return None
+    platform = min(
+        matches,
+        key=lambda item: (abs(point.z - item.position.z), item.id),
+    )
+    return _course_z(platform.position.z, origin_z, plates_per_meter)
+
+
 def _stair_parts(
     stair: StairRun,
     scene: ArchitecturalScene,
@@ -623,10 +661,24 @@ def _stair_parts(
 ) -> list[BrickModelPart]:
     sx = _round_half_up((stair.start.x - origin_x) * studs_per_meter)
     sy = _round_half_up((stair.start.y - origin_y) * studs_per_meter)
-    sz = _course_z(stair.start.z, origin_z, plates_per_meter)
+    sz = _connected_platform_course(
+        stair.start,
+        scene,
+        origin_z=origin_z,
+        plates_per_meter=plates_per_meter,
+    )
+    if sz is None:
+        sz = _course_z(stair.start.z, origin_z, plates_per_meter)
     ex = _round_half_up((stair.end.x - origin_x) * studs_per_meter)
     ey = _round_half_up((stair.end.y - origin_y) * studs_per_meter)
-    ez = _course_z(stair.end.z, origin_z, plates_per_meter)
+    ez = _connected_platform_course(
+        stair.end,
+        scene,
+        origin_z=origin_z,
+        plates_per_meter=plates_per_meter,
+    )
+    if ez is None:
+        ez = _course_z(stair.end.z, origin_z, plates_per_meter)
     dx, dy = ex - sx, ey - sy
     steps = max(abs(dx), abs(dy), 1)
     width = max(1, _round_half_up(stair.width * studs_per_meter))
