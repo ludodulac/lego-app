@@ -30,13 +30,14 @@ def _shell(facade: Facade, *, width_studs: int = 2):
     return SimpleNamespace(walls=walls)
 
 
-def _building(*, sill: bool, surround: bool = True):
+def _building(*, sill: bool, surround: bool = True, sill_description: str | None = None):
     opening = SimpleNamespace(
         id="window-a",
         type=OpeningType.WINDOW,
         has_sill=sill,
         has_decorative_surround=surround,
         opening_visual=SimpleNamespace(
+            sill=sill_description,
             surround_material="stone",
             surround_color="cream",
         ),
@@ -106,6 +107,57 @@ def test_sill_replaces_only_surround_base_and_keeps_lower_jamb_corners() -> None
         (4, 0, 6, "left_jamb", "stone", "cream"),
         (7, 0, 6, "right_jamb", "stone", "cream"),
     }
+
+
+@pytest.mark.parametrize(
+    ("description", "expected_category"),
+    [
+        ("stone", "stone"),
+        ("natural-stone", "stone"),
+        ("dressed stone", "stone"),
+        ("masonry", "masonry"),
+        ("rendered masonry", "masonry"),
+    ],
+)
+def test_sill_preserves_explicit_structured_material_without_changing_geometry(
+    description,
+    expected_category,
+) -> None:
+    placements = generate_window_surrounds(
+        _building(sill=True, surround=False, sill_description=description),
+        _shell(Facade.FRONT),
+    )
+
+    sill = [part for part in placements if part.trim_role == "sill"]
+    assert len(sill) == 1
+    assert sill[0].part_id == "BRICK_1X2"
+    assert (sill[0].x_studs, sill[0].y_studs, sill[0].z_plates) == (5, 0, 6)
+    assert sill[0].rotation_quarter_turns == 1
+    assert sill[0].category == expected_category
+    assert sill[0].semantic_color is None
+
+
+@pytest.mark.parametrize("description", ["stone_like", "cream stone", "painted concrete"])
+def test_sill_does_not_promote_ambiguous_or_appearance_only_descriptors(description) -> None:
+    placements = generate_window_surrounds(
+        _building(sill=True, surround=False, sill_description=description),
+        _shell(Facade.FRONT),
+    )
+
+    sill = [part for part in placements if part.trim_role == "sill"]
+    assert len(sill) == 1
+    assert sill[0].category == "facade_detail"
+
+
+def test_existing_surround_stone_like_semantics_are_preserved() -> None:
+    building = _building(sill=False)
+    building.openings[0].opening_visual.surround_material = "stone_like"
+
+    placements = generate_window_surrounds(building, _shell(Facade.FRONT))
+
+    surround = [part for part in placements if part.trim_role != "sill"]
+    assert surround
+    assert {part.category for part in surround} == {"masonry"}
 
 
 def test_surround_never_fills_the_window_void() -> None:

@@ -45,6 +45,31 @@ def _normalized_material(value: str) -> str:
     return "_".join(value.strip().lower().replace("-", "_").split())
 
 
+def _material_category(value: str | None) -> FacadeDetailCategory:
+    """Classify only exact structured material assertions for dedicated fields."""
+    if value is None:
+        return "facade_detail"
+
+    material = _normalized_material(value)
+    explicit_stone = {
+        "stone",
+        "natural_stone",
+        "cut_stone",
+        "dressed_stone",
+        "masonry_stone",
+    }
+    explicit_masonry = {
+        "masonry",
+        "mineral",
+        "rendered_masonry",
+    }
+    if material in explicit_stone:
+        return "stone"
+    if material in explicit_masonry:
+        return "masonry"
+    return "facade_detail"
+
+
 def _surround_category(opening) -> FacadeDetailCategory:
     """Translate only explicit surround material evidence into a LEGO category.
 
@@ -70,6 +95,14 @@ def _surround_category(opening) -> FacadeDetailCategory:
     if any(token in material for token in ("masonry", "mineral", "stone_like", "rendered")):
         return "masonry"
     return "facade_detail"
+
+
+def _sill_category(opening) -> FacadeDetailCategory:
+    """Translate dedicated sill material evidence without changing sill geometry."""
+    visual = opening.opening_visual
+    if visual is None:
+        return "facade_detail"
+    return _material_category(visual.sill)
 
 
 def _surround_semantic_color(opening) -> str | None:
@@ -235,9 +268,9 @@ def generate_window_surrounds(
     A decorative surround owns the full ring immediately outside the opening:
     horizontal head/base runs include the two corner cells shared with the jamb
     columns. When a separately observed sill replaces the surround base, the
-    sill remains limited to the opening width and generic sill evidence, while
-    the surround keeps only the two lower corner cells so its jambs stay visually
-    continuous without borrowing sill material/color evidence.
+    sill remains limited to the opening width and its own structured evidence,
+    while the surround keeps only the two lower corner cells so its jambs stay
+    visually continuous without borrowing sill material/color evidence.
 
     Horizontal runs use the longest placement-approved canonical 1xN bricks that
     preserve the exact occupied cells. Vertical jambs remain 1x1-per-course
@@ -302,6 +335,7 @@ def generate_window_surrounds(
             top = raster.z_bricks + raster.height_bricks
             surround_category = _surround_category(opening)
             surround_color = _surround_semantic_color(opening)
+            sill_category = _sill_category(opening)
             if opening.has_decorative_surround:
                 add_run(
                     facade,
@@ -341,5 +375,6 @@ def generate_window_surrounds(
                     bottom,
                     "sill",
                     wall,
+                    sill_category,
                 )
     return placements
