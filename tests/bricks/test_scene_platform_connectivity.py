@@ -4,6 +4,7 @@ from brickhouse.bricks.scene_architecture_relations import _platform_representat
 from brickhouse.bricks.scene_platform_connectivity import (
     _rooted_platform_pair_shifts,
     augment_brick_model_with_scene_platform_connectivity,
+    platform_connectivity_fidelity_issues,
 )
 from brickhouse.building.models import Facade
 from brickhouse.scene import ArchitecturalScene
@@ -62,10 +63,10 @@ def _scene(platforms):
     )
 
 
-def _platform(platform_id, x, y, *, support=False):
+def _platform(platform_id, x, y, *, z=1.0, support=False):
     result = {
         "id": platform_id,
-        "position": {"x": x, "y": y, "z": 1.0},
+        "position": {"x": x, "y": y, "z": z},
         "width": 0.2,
         "depth": 1.0,
         "thickness": 0.2,
@@ -160,3 +161,67 @@ def test_diagonal_tolerance_contact_is_not_reinterpreted_as_edge_contact():
     )
 
     assert _extra_shifts(scene)["diagonal"] == (0, 0)
+
+
+def test_repaired_rooted_contact_does_not_emit_horizontal_fidelity_warning():
+    scene = _scene(
+        [
+            _platform("landing", -0.3, 2.0),
+            _platform("extension", -0.6, 2.0),
+        ]
+    )
+
+    issues = platform_connectivity_fidelity_issues(scene, front_width_studs=50)
+
+    assert not any(issue.code == "lego_platform_contact_not_preserved" for issue in issues)
+    assert not any(issue.code == "lego_platform_contact_level_not_preserved" for issue in issues)
+
+
+def test_floating_unresolved_contact_is_reported_without_mutating_scene():
+    scene = _scene(
+        [
+            _platform("first", -1.99, 2.0),
+            _platform("second", -2.3, 2.0),
+        ]
+    )
+    source_before = scene.model_dump()
+
+    issues = platform_connectivity_fidelity_issues(scene, front_width_studs=50)
+    horizontal = [issue for issue in issues if issue.code == "lego_platform_contact_not_preserved"]
+
+    assert len(horizontal) == 1
+    assert "first" in horizontal[0].message
+    assert "second" in horizontal[0].message
+    assert scene.model_dump() == source_before
+
+
+def test_diagonal_scene_contact_is_reported_instead_of_inventing_edge_axis():
+    scene = _scene(
+        [
+            _platform("root", -0.3, 2.0),
+            _platform("diagonal", -0.6, 0.9),
+        ]
+    )
+
+    issues = platform_connectivity_fidelity_issues(scene, front_width_studs=50)
+    horizontal = [issue for issue in issues if issue.code == "lego_platform_contact_not_preserved"]
+
+    assert len(horizontal) == 1
+    assert "root" in horizontal[0].message
+    assert "diagonal" in horizontal[0].message
+
+
+def test_scene_connected_platforms_on_different_lego_courses_are_reported():
+    scene = _scene(
+        [
+            _platform("lower", -0.3, 2.0, z=1.0),
+            _platform("higher", -0.6, 2.0, z=1.11),
+        ]
+    )
+
+    issues = platform_connectivity_fidelity_issues(scene, front_width_studs=50)
+    vertical = [issue for issue in issues if issue.code == "lego_platform_contact_level_not_preserved"]
+
+    assert len(vertical) == 1
+    assert "lower" in vertical[0].message
+    assert "higher" in vertical[0].message
