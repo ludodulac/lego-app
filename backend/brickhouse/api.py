@@ -454,6 +454,26 @@ def validate_architectural_scene(scene: ArchitecturalScene) -> SceneValidationRe
 def validate_architectural_scene_against_survey(
     request: SceneSurveyValidationRequest,
 ) -> SceneSurveyValidationResponse:
+    survey_issues: list[SurveyValidationIssue] = validate_survey_semantics(request.survey)
+    blocking_survey_issues = [issue for issue in survey_issues if issue.severity == "error"]
+    if blocking_survey_issues:
+        return SceneSurveyValidationResponse(
+            scene=request.scene,
+            issues=[
+                SceneSurveyIssueModel(
+                    code=f"survey_{issue.code}",
+                    severity=issue.severity,
+                    message=(
+                        "The Survey must pass deterministic validation before Survey → Scene fusion: "
+                        f"{issue.message}"
+                    ),
+                    object_id=issue.observation_id,
+                )
+                for issue in blocking_survey_issues
+            ],
+            valid_for_projection=False,
+        )
+
     raw_issues: list[SceneSurveyIssue] = validate_scene_against_survey(
         request.survey,
         request.scene,
