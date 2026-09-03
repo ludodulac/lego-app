@@ -34,3 +34,11 @@ def test_changing_named_size_profile_recomputes_estimate() -> None:
 
     assert "document.querySelector('#studs').addEventListener('change'" in source
     assert "if(currentModel)estimatePartCount(currentModel)" in source
+
+
+def test_estimate_errors_are_rendered_as_text_not_api_html() -> None:
+    source = JS.read_text(encoding="utf-8")
+
+    assert "function setEstimateText(message)" in source
+    assert "p.textContent=message" in source
+    assert "setEstimateText(`Estimation indisponible : ${error.message}`)" in source
