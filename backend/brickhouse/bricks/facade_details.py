@@ -110,7 +110,16 @@ def _surround_semantic_color(opening) -> str | None:
     visual = opening.opening_visual
     if visual is None or visual.surround_color is None:
         return None
-    value = opening.opening_visual.surround_color.strip()
+    value = visual.surround_color.strip()
+    return value or None
+
+
+def _sill_semantic_color(opening) -> str | None:
+    """Return only explicit structured sill color evidence."""
+    visual = opening.opening_visual
+    if visual is None or visual.sill_color is None:
+        return None
+    value = visual.sill_color.strip()
     return value or None
 
 
@@ -336,6 +345,7 @@ def generate_window_surrounds(
             surround_category = _surround_category(opening)
             surround_color = _surround_semantic_color(opening)
             sill_category = _sill_category(opening)
+            sill_color = _sill_semantic_color(opening)
             if opening.has_decorative_surround:
                 add_run(
                     facade,
@@ -376,5 +386,6 @@ def generate_window_surrounds(
                     "sill",
                     wall,
                     sill_category,
+                    sill_color,
                 )
     return placements

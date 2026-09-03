@@ -76,6 +76,7 @@ class OpeningVisualDescription(BaseModel):
     mullion_count: int | None = Field(default=None, ge=0, le=16)
     glazing: str | None = None
     sill: str | None = None
+    sill_color: str | None = None
     surround_material: str | None = None
     surround_color: str | None = None
     shutter_count: int | None = Field(default=None, ge=0, le=8)

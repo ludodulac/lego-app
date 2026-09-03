@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from brickhouse.bricks.facade_details import generate_window_surrounds
-from brickhouse.building.models import Facade, OpeningType
+from brickhouse.building.models import Facade, OpeningType, OpeningVisualDescription
 
 
 def _shell(facade: Facade, *, width_studs: int = 2):
@@ -30,7 +30,13 @@ def _shell(facade: Facade, *, width_studs: int = 2):
     return SimpleNamespace(walls=walls)
 
 
-def _building(*, sill: bool, surround: bool = True, sill_description: str | None = None):
+def _building(
+    *,
+    sill: bool,
+    surround: bool = True,
+    sill_description: str | None = None,
+    sill_color: str | None = None,
+):
     opening = SimpleNamespace(
         id="window-a",
         type=OpeningType.WINDOW,
@@ -38,6 +44,7 @@ def _building(*, sill: bool, surround: bool = True, sill_description: str | None
         has_decorative_surround=surround,
         opening_visual=SimpleNamespace(
             sill=sill_description,
+            sill_color=sill_color,
             surround_material="stone",
             surround_color="cream",
         ),
@@ -147,6 +154,76 @@ def test_sill_does_not_promote_ambiguous_or_appearance_only_descriptors(descript
     sill = [part for part in placements if part.trim_role == "sill"]
     assert len(sill) == 1
     assert sill[0].category == "facade_detail"
+
+
+def test_structured_sill_color_round_trips_through_opening_visual_contract() -> None:
+    visual = OpeningVisualDescription(sill="stone", sill_color="warm_gray")
+
+    dumped = visual.model_dump()
+    assert dumped["sill"] == "stone"
+    assert dumped["sill_color"] == "warm_gray"
+    assert OpeningVisualDescription.model_validate(dumped).sill_color == "warm_gray"
+
+
+def test_sill_color_changes_only_semantics_not_geometry_or_part_selection() -> None:
+    without_color = generate_window_surrounds(
+        _building(sill=True, surround=False, sill_description="stone"),
+        _shell(Facade.FRONT),
+    )
+    with_color = generate_window_surrounds(
+        _building(
+            sill=True,
+            surround=False,
+            sill_description="stone",
+            sill_color="warm_gray",
+        ),
+        _shell(Facade.FRONT),
+    )
+
+    def geometry(parts):
+        return [
+            (
+                part.part_id,
+                part.category,
+                part.facade,
+                part.x_studs,
+                part.y_studs,
+                part.z_plates,
+                part.rotation_quarter_turns,
+                part.opening_id,
+                part.trim_role,
+            )
+            for part in parts
+        ]
+
+    assert geometry(with_color) == geometry(without_color)
+    assert [part.semantic_color for part in without_color] == [None]
+    assert [part.semantic_color for part in with_color] == ["warm_gray"]
+
+
+def test_sill_color_does_not_bleed_into_surround_color() -> None:
+    placements = generate_window_surrounds(
+        _building(sill=True, surround=True, sill_color="warm_gray"),
+        _shell(Facade.FRONT),
+    )
+
+    sill = [part for part in placements if part.trim_role == "sill"]
+    surround = [part for part in placements if part.trim_role != "sill"]
+    assert sill and surround
+    assert {part.semantic_color for part in sill} == {"warm_gray"}
+    assert {part.semantic_color for part in surround} == {"cream"}
+
+
+@pytest.mark.parametrize("sill_color", [None, "", "   "])
+def test_missing_or_blank_sill_color_preserves_none_semantics(sill_color) -> None:
+    placements = generate_window_surrounds(
+        _building(sill=True, surround=False, sill_color=sill_color),
+        _shell(Facade.FRONT),
+    )
+
+    sill = [part for part in placements if part.trim_role == "sill"]
+    assert len(sill) == 1
+    assert sill[0].semantic_color is None
 
 
 def test_existing_surround_stone_like_semantics_are_preserved() -> None:
