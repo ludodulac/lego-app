@@ -89,8 +89,13 @@ def _volume_endpoint_shift(
     origin_y: float,
     studs_per_meter: float,
 ) -> tuple[int, int]:
-    """Snap a Scene-valid direct stair endpoint to its quantized volume boundary."""
-    if _connected_platform(point, scene) is not None:
+    """Snap an unambiguous Scene-valid stair endpoint to a quantized volume boundary.
+
+    Platform and ground contacts are stronger endpoint interpretations in the Scene
+    contract. A point already connected by either must not be reinterpreted as a
+    building-boundary connection merely because it also lies inside the tolerance.
+    """
+    if _connected_platform(point, scene) is not None or point.z <= base.CONNECTIVITY_TOLERANCE_M:
         return 0, 0
     connection = _connected_volume_boundary(point, scene)
     if connection is None:
