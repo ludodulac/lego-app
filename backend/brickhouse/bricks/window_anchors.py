@@ -115,18 +115,19 @@ def _vertical_intervals_overlap(
 
 def _select_joint_x_starts(
     *,
-    records: list[tuple[object, WallOpeningGrid, int, int]],
+    records: list[tuple[object, WallOpeningGrid, int, int, int]],
     studs_per_meter: float,
     wall_width_studs: int,
 ) -> dict[str, int] | None:
     """Choose facade-local X anchors jointly while preserving architectural composition.
 
-    ``records`` contains ``(Opening, source raster, selected width, anchored z)``.
-    Candidate X starts remain the same conservative local choices used by the
-    historical independent placement. The joint score adds pairwise centre-distance
-    error, so the LEGO facade preserves opening spacing as well as each individual
-    centre. Openings whose vertical spans overlap may never overlap horizontally.
-    Architectural order is also preserved; no candidate may swap left/right identity.
+    ``records`` contains ``(Opening, source raster, selected width, selected height,
+    anchored z)``. Candidate X starts remain the same conservative local choices
+    used by the historical independent placement. The joint score adds pairwise
+    centre-distance error, so the LEGO facade preserves opening spacing as well as
+    each individual centre. Openings whose selected vertical spans overlap may never
+    overlap horizontally. Architectural order is also preserved; no candidate may
+    swap left/right identity.
     """
     if not records:
         return {}
@@ -140,11 +141,11 @@ def _select_joint_x_starts(
             wall_span_units=wall_width_studs,
             source_start=raster.x_studs,
         )
-        for opening, raster, selected_width, _ in records
+        for opening, raster, selected_width, _, _ in records
     ]
     target_centers = [
         (opening.offset_horizontal + opening.width / 2.0) * studs_per_meter
-        for opening, _, _, _ in records
+        for opening, _, _, _, _ in records
     ]
 
     best_starts: tuple[int, ...] | None = None
@@ -157,9 +158,9 @@ def _select_joint_x_starts(
         valid = True
         spacing_error = 0.0
         for first in range(len(records)):
-            first_opening, _, first_width, first_z = records[first]
+            _, _, first_width, first_height, first_z = records[first]
             for second in range(first + 1, len(records)):
-                second_opening, _, second_width, second_z = records[second]
+                _, _, second_width, second_height, second_z = records[second]
                 metric_delta = target_centers[second] - target_centers[first]
                 lego_delta = centers[second] - centers[first]
                 if metric_delta > 0 and lego_delta <= 0:
@@ -170,9 +171,9 @@ def _select_joint_x_starts(
                     break
                 if _vertical_intervals_overlap(
                     first_z,
-                    records[first][1].height_bricks,
+                    first_height,
                     second_z,
-                    records[second][1].height_bricks,
+                    second_height,
                 ):
                     first_end = starts[first] + first_width
                     second_end = starts[second] + second_width
@@ -237,7 +238,7 @@ def apply_architectural_window_anchors(
 
         choice_by_id = {choice.opening_id: choice for choice in selection.choices}
         anchored_z_by_id: dict[str, int] = {}
-        joint_records: list[tuple[object, WallOpeningGrid, int, int]] = []
+        joint_records: list[tuple[object, WallOpeningGrid, int, int, int]] = []
         for raster in wall.grid.openings:
             choice = choice_by_id.get(raster.id)
             opening = openings.get(raster.id)
@@ -253,7 +254,9 @@ def apply_architectural_window_anchors(
                 source_start=raster.z_bricks,
             )
             anchored_z_by_id[opening.id] = z
-            joint_records.append((opening, raster, solution.width_studs, z))
+            joint_records.append(
+                (opening, raster, solution.width_studs, solution.height_bricks, z)
+            )
 
         joint_x = _select_joint_x_starts(
             records=joint_records,
