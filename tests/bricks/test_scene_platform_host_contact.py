@@ -41,7 +41,7 @@ def _scene(*, with_stair=False):
                 "id": "run",
                 "start": {"x": -0.3, "y": 1.0, "z": 0.0},
                 "end": {"x": -0.3, "y": 2.0, "z": 1.0},
-                "width": 0.2,
+                "width": 0.01,
                 "source": SOURCE,
             }
         )
