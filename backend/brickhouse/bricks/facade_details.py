@@ -45,19 +45,17 @@ def _normalized_material(value: str) -> str:
     return "_".join(value.strip().lower().replace("-", "_").split())
 
 
-def _surround_category(opening) -> FacadeDetailCategory:
-    """Translate only explicit surround material evidence into a LEGO category.
+def _material_category(value: str | None) -> FacadeDetailCategory:
+    """Classify only exact structured material assertions.
 
-    A descriptor such as ``stone_like`` describes appearance, not geological
-    certainty, so it remains the conservative masonry family. Only descriptors
-    that explicitly assert stone are classified as stone. Unknown descriptors
-    stay generic instead of being guessed from surround color or facade style.
+    Appearance-like descriptors deliberately remain generic. This keeps the
+    dedicated visual fields useful without turning loose prose into geological
+    certainty or a LEGO part-family decision.
     """
-    visual = opening.opening_visual
-    if visual is None or visual.surround_material is None:
+    if value is None:
         return "facade_detail"
 
-    material = _normalized_material(visual.surround_material)
+    material = _normalized_material(value)
     explicit_stone = {
         "stone",
         "natural_stone",
@@ -65,11 +63,38 @@ def _surround_category(opening) -> FacadeDetailCategory:
         "dressed_stone",
         "masonry_stone",
     }
+    explicit_masonry = {
+        "masonry",
+        "mineral",
+        "rendered_masonry",
+    }
     if material in explicit_stone:
         return "stone"
-    if any(token in material for token in ("masonry", "mineral", "stone_like", "rendered")):
+    if material in explicit_masonry:
         return "masonry"
     return "facade_detail"
+
+
+def _surround_category(opening) -> FacadeDetailCategory:
+    """Translate only explicit surround material evidence into a LEGO category.
+
+    A descriptor such as ``stone_like`` describes appearance, not geological
+    certainty, so it remains the conservative generic detail family. Unknown
+    descriptors stay generic instead of being guessed from surround color or
+    facade style.
+    """
+    visual = opening.opening_visual
+    if visual is None:
+        return "facade_detail"
+    return _material_category(visual.surround_material)
+
+
+def _sill_category(opening) -> FacadeDetailCategory:
+    """Translate dedicated sill material evidence without changing sill geometry."""
+    visual = opening.opening_visual
+    if visual is None:
+        return "facade_detail"
+    return _material_category(visual.sill)
 
 
 def _surround_semantic_color(opening) -> str | None:
@@ -302,6 +327,7 @@ def generate_window_surrounds(
             top = raster.z_bricks + raster.height_bricks
             surround_category = _surround_category(opening)
             surround_color = _surround_semantic_color(opening)
+            sill_category = _sill_category(opening)
             if opening.has_decorative_surround:
                 add_run(
                     facade,
@@ -341,5 +367,6 @@ def generate_window_surrounds(
                     bottom,
                     "sill",
                     wall,
+                    sill_category,
                 )
     return placements
