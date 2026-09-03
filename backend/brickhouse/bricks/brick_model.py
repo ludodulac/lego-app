@@ -78,6 +78,10 @@ class BrickModel(BaseModel):
     width_studs: int = Field(gt=0)
     depth_studs: int = Field(gt=0)
     height_plates: int = Field(gt=0)
+    canvas_width_studs: int | None = Field(default=None, gt=0)
+    canvas_depth_studs: int | None = Field(default=None, gt=0)
+    origin_x_studs: int = Field(default=0, ge=0)
+    origin_y_studs: int = Field(default=0, ge=0)
     parts: list[BrickModelPart] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -85,6 +89,16 @@ class BrickModel(BaseModel):
         ids = [part.placement_id for part in self.parts]
         if len(ids) != len(set(ids)):
             raise ValueError("BrickModel placement IDs must be unique")
+        return self
+
+    @model_validator(mode="after")
+    def validate_canvas_contains_architectural_shell(self):
+        canvas_width = self.canvas_width_studs or self.width_studs
+        canvas_depth = self.canvas_depth_studs or self.depth_studs
+        if canvas_width < self.origin_x_studs + self.width_studs:
+            raise ValueError("canvas_width_studs must contain the translated architectural width")
+        if canvas_depth < self.origin_y_studs + self.depth_studs:
+            raise ValueError("canvas_depth_studs must contain the translated architectural depth")
         return self
 
 
@@ -265,8 +279,14 @@ def generate_brick_model(
             default=wall_top,
         )
     return BrickModel(
-        building_id=shell.building_id, volume_id=shell.volume_id,
-        width_studs=max(shell.width_studs + x_offset, roof_width),
-        depth_studs=max(shell.depth_studs + y_offset, roof_depth),
-        height_plates=max(wall_top, roof_top), parts=parts,
+        building_id=shell.building_id,
+        volume_id=shell.volume_id,
+        width_studs=shell.width_studs,
+        depth_studs=shell.depth_studs,
+        height_plates=max(wall_top, roof_top),
+        canvas_width_studs=max(shell.width_studs + x_offset, roof_width),
+        canvas_depth_studs=max(shell.depth_studs + y_offset, roof_depth),
+        origin_x_studs=x_offset,
+        origin_y_studs=y_offset,
+        parts=parts,
     )
