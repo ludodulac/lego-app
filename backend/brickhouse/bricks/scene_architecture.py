@@ -468,6 +468,79 @@ def _masonry_platform_course_bases(
     return [z for z in range(z0 - 3 * (courses - 1), z0 + 1, 3) if z >= 0]
 
 
+def _point_on_platform(point, platform: Platform) -> bool:
+    return (
+        platform.position.x - CONNECTIVITY_TOLERANCE_M
+        <= point.x
+        <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
+        and platform.position.y - CONNECTIVITY_TOLERANCE_M
+        <= point.y
+        <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
+        and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
+    )
+
+
+def _platform_has_connected_stair(platform: Platform, scene: ArchitecturalScene) -> bool:
+    return any(
+        _point_on_platform(point, platform)
+        for stair in scene.stairs
+        for point in (stair.start, stair.end)
+    )
+
+
+def _platform_host_contact_shift(
+    platform: Platform,
+    scene: ArchitecturalScene,
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+    width: int,
+    depth: int,
+) -> tuple[int, int]:
+    """Return a safe facade-normal LEGO shift that preserves validated host contact.
+
+    Only metric platform↔host contacts already admitted by the Scene tolerance are
+    eligible. Platforms carrying an existing stair connection are deliberately left
+    unchanged in this slice so closing a host gap cannot break or bend that stair.
+    """
+    if _platform_has_connected_stair(platform, scene):
+        return 0, 0
+
+    host = _host_volume(scene, platform.host_volume_id)
+    px0 = platform.position.x
+    px1 = px0 + platform.width
+    py0 = platform.position.y
+    py1 = py0 + platform.depth
+    vx0 = host.position.x
+    vx1 = vx0 + host.width.value
+    vy0 = host.position.y
+    vy1 = vy0 + host.depth.value
+    x_overlap = min(px1, vx1) >= max(px0, vx0) - CONNECTIVITY_TOLERANCE_M
+    y_overlap = min(py1, vy1) >= max(py0, vy0) - CONNECTIVITY_TOLERANCE_M
+
+    current_x = _round_half_up((px0 - origin_x) * studs_per_meter)
+    current_y = _round_half_up((py0 - origin_y) * studs_per_meter)
+    host_left = _round_half_up((vx0 - origin_x) * studs_per_meter)
+    host_right = _round_half_up((vx1 - origin_x) * studs_per_meter)
+    host_front = _round_half_up((vy0 - origin_y) * studs_per_meter)
+    host_rear = _round_half_up((vy1 - origin_y) * studs_per_meter)
+
+    if px1 <= vx0 + EPSILON and vx0 - px1 <= CONNECTIVITY_TOLERANCE_M and y_overlap:
+        desired_x = host_left - width
+        return (desired_x - current_x, 0) if desired_x >= 0 else (0, 0)
+    if px0 >= vx1 - EPSILON and px0 - vx1 <= CONNECTIVITY_TOLERANCE_M and y_overlap:
+        desired_x = host_right
+        return desired_x - current_x, 0
+    if py1 <= vy0 + EPSILON and vy0 - py1 <= CONNECTIVITY_TOLERANCE_M and x_overlap:
+        desired_y = host_front - depth
+        return (0, desired_y - current_y) if desired_y >= 0 else (0, 0)
+    if py0 >= vy1 - EPSILON and py0 - vy1 <= CONNECTIVITY_TOLERANCE_M and x_overlap:
+        desired_y = host_rear
+        return 0, desired_y - current_y
+    return 0, 0
+
+
 def _add_supports(
     parts,
     seen,
@@ -480,10 +553,12 @@ def _add_supports(
     studs_per_meter,
     plates_per_meter,
     platform_z,
+    raster_shift_x=0,
+    raster_shift_y=0,
 ):
     for support_index, support in enumerate(platform.supports, start=1):
-        x0 = _round_half_up((support.position.x - origin_x) * studs_per_meter)
-        y0 = _round_half_up((support.position.y - origin_y) * studs_per_meter)
+        x0 = _round_half_up((support.position.x - origin_x) * studs_per_meter) + raster_shift_x
+        y0 = _round_half_up((support.position.y - origin_y) * studs_per_meter) + raster_shift_y
         width = max(1, ceil(support.width * studs_per_meter))
         depth = max(1, ceil(support.depth * studs_per_meter))
         base_z = max(0, _round_half_up((support.position.z - origin_z) * plates_per_meter))
@@ -527,6 +602,17 @@ def _platform_parts(
     # This preserves stair/landing topology without changing the source Scene.
     width = max(1, ceil(platform.width * studs_per_meter - EPSILON))
     depth = max(1, ceil(platform.depth * studs_per_meter - EPSILON))
+    raster_shift_x, raster_shift_y = _platform_host_contact_shift(
+        platform,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+        width=width,
+        depth=depth,
+    )
+    x0 += raster_shift_x
+    y0 += raster_shift_y
 
     host_id = platform.host_volume_id or scene.volumes[0].id
     facade = _nearest_facade(
@@ -568,6 +654,8 @@ def _platform_parts(
         studs_per_meter=studs_per_meter,
         plates_per_meter=plates_per_meter,
         platform_z=z0,
+        raster_shift_x=raster_shift_x,
+        raster_shift_y=raster_shift_y,
     )
 
     legacy = _legacy_platform_treatment(platform, scene)
@@ -627,19 +715,7 @@ def _connected_platform_course(
     eligible. When tolerances admit more than one platform, nearest metric level and
     then stable ID make the representation deterministic.
     """
-    matches = [
-        platform
-        for platform in scene.platforms
-        if (
-            platform.position.x - CONNECTIVITY_TOLERANCE_M
-            <= point.x
-            <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
-            and platform.position.y - CONNECTIVITY_TOLERANCE_M
-            <= point.y
-            <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
-            and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
-        )
-    ]
+    matches = [platform for platform in scene.platforms if _point_on_platform(point, platform)]
     if not matches:
         return None
     platform = min(
