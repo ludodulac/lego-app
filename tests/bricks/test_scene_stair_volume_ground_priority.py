@@ -27,7 +27,7 @@ def test_ground_endpoint_is_not_reinterpreted_as_volume_boundary_anchor():
                 {
                     "id": "run",
                     "start": {"x": -0.1, "y": 2.0, "z": 0.0},
-                    "end": {"x": -1.1, "y": 2.0, "z": 1.0},
+                    "end": {"x": -0.1, "y": 3.0, "z": 1.0},
                     "width": 0.01,
                     "material": "concrete",
                     "source": SOURCE,
