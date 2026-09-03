@@ -102,7 +102,13 @@ def test_brick_model_reserves_non_negative_canvas_for_symmetric_roof_overhang(di
     wall_parts = [part for part in model.parts if part.component == "wall"]
     assert min(part.x_studs for part in wall_parts) == 1
     assert min(part.y_studs for part in wall_parts) == 1
-    assert model.width_studs >= shell.reference_width_studs + 2
+    # Architectural dimensions stay stable; only the representation canvas grows.
+    assert model.width_studs == shell.reference_width_studs
+    assert model.canvas_width_studs is not None
+    assert model.canvas_depth_studs is not None
+    assert model.canvas_width_studs >= model.origin_x_studs + model.width_studs
+    assert model.canvas_depth_studs >= model.origin_y_studs + model.depth_studs
+    assert model.canvas_width_studs >= shell.reference_width_studs + 2
 
 
 def test_declared_overhang_is_not_reported_as_lego_only_quantization():
@@ -142,6 +148,8 @@ def test_zero_overhang_keeps_historical_zero_origin_layout():
     wall_parts = [part for part in model.parts if part.component == "wall"]
     assert min(part.x_studs for part in wall_parts) == 0
     assert min(part.y_studs for part in wall_parts) == 0
+    assert model.origin_x_studs == 0
+    assert model.origin_y_studs == 0
     assert selection.architectural_span_studs == selection.wall_span_studs
     assert selection.architectural_line_length_studs == selection.wall_line_length_studs
 
