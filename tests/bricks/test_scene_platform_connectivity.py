@@ -180,7 +180,7 @@ def test_repaired_rooted_contact_does_not_emit_horizontal_fidelity_warning():
 def test_floating_unresolved_contact_is_reported_without_mutating_scene():
     scene = _scene(
         [
-            _platform("first", -2.0, 2.0),
+            _platform("first", -1.99, 2.0),
             _platform("second", -2.3, 2.0),
         ]
     )
@@ -215,7 +215,7 @@ def test_scene_connected_platforms_on_different_lego_courses_are_reported():
     scene = _scene(
         [
             _platform("lower", -0.3, 2.0, z=1.0),
-            _platform("higher", -0.6, 2.0, z=1.12),
+            _platform("higher", -0.6, 2.0, z=1.11),
         ]
     )
 
