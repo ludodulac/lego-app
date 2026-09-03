@@ -83,7 +83,7 @@ def _scene(*, stair_axis="x"):
                     "id": "run",
                     "start": start,
                     "end": end,
-                    "width": 0.2,
+                    "width": 0.01,
                     "material": "concrete",
                     "source": SOURCE,
                 }
