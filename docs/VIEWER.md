@@ -43,8 +43,12 @@ BrickHouse canonical coordinates remain authoritative in exports and BOM data: m
 - 1 plate = 0.4 viewer world unit;
 - canonical dimensions are parsed from M0 ids such as `BRICK_1X6` and rotated using `rotation_quarter_turns`.
 
+Standard brick-like parts receive cylindrical top studs in the display layer. To keep mobile rendering bounded, large stud fields are suppressed on narrow screens while small parts keep their studs. Sloped roof parts expose their visible top stud row separately. These details never alter BrickModel geometry, BOM quantities or placement coordinates.
+
+Materials use category-specific `MeshStandardMaterial` properties: glazing is transparent with low roughness, timber is rougher, metal carries explicit metalness, and semantic colors clone the same material behavior rather than flattening every category to one generic surface. Assembly highlighting derives faded/current variants from those same category materials.
+
 The viewer frames the rendered meshes themselves rather than treating architectural `width_studs` / `depth_studs` as the complete display canvas. This keeps camera framing compatible with roof overhang and other LEGO representation extents while leaving architectural dimensions semantically unchanged.
 
 ## Current limitations
 
-This remains a geometry/debug viewer rather than the final product UI. Parts are boxes rather than exact supplier meshes. Studs/tubes, realistic roof slopes, click selection, editing, animation and human-optimized instruction steps are not implemented yet.
+This remains a geometry/debug viewer rather than the final product UI. Bodies are simplified procedural solids rather than exact supplier meshes; underside tubes and internal LEGO geometry are not modeled. Click selection, editing, animation and human-optimized instruction steps are not implemented yet.
