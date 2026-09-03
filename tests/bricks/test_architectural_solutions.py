@@ -113,6 +113,49 @@ def test_invalid_observed_topology_is_rejected_instead_of_invented():
         )
 
 
+def test_known_topology_filters_contradictory_candidates_before_scoring():
+    selection = rank_window_solutions(
+        architectural_width_m=1.6,
+        architectural_height_m=1.2,
+        raster_width_studs=4,
+        raster_height_bricks=3,
+        observed_leaf_count=2,
+        observed_pane_count=2,
+    )
+
+    assert selection.candidates
+    assert all(candidate.leaf_count == 2 for candidate in selection.candidates)
+    assert all(candidate.pane_count == 2 for candidate in selection.candidates)
+    assert all(candidate.topology_penalty == 0 for candidate in selection.candidates)
+
+
+def test_partial_topology_constrains_only_the_known_count():
+    selection = rank_window_solutions(
+        architectural_width_m=1.6,
+        architectural_height_m=1.2,
+        raster_width_studs=4,
+        raster_height_bricks=3,
+        observed_leaf_count=2,
+    )
+
+    assert selection.candidates
+    assert all(candidate.leaf_count == 2 for candidate in selection.candidates)
+
+
+def test_unsupported_structured_topology_returns_no_candidate():
+    selection = rank_window_solutions(
+        architectural_width_m=0.8,
+        architectural_height_m=1.2,
+        raster_width_studs=2,
+        raster_height_bricks=3,
+        observed_leaf_count=1,
+        observed_pane_count=2,
+    )
+
+    assert selection.candidates == []
+    assert selection.recommended is None
+
+
 def _building_with_front_windows(specs):
     source = SourceInfo(kind=SourceKind.OBSERVED, confidence=0.9)
     return BuildingModel(
@@ -153,6 +196,19 @@ def test_facade_selection_preserves_relative_window_proportions_and_observed_top
     assert choices["narrow"].composition == "single"
     assert choices["wide"].width_studs / choices["narrow"].width_studs == pytest.approx(2.0)
     assert selection.proportion_penalty == pytest.approx(0.0)
+
+
+def test_facade_selection_returns_none_when_structured_topology_is_unsupported():
+    building = _building_with_front_windows([
+        ("unsupported", 1.0, 1.0, 0.8, 1.2, 1, 2),
+    ])
+    shell = generate_building_brick_shell(generate_building_geometry(building), 25)
+
+    selection = select_facade_window_solutions(
+        facade=Facade.FRONT, openings=building.openings, shell=shell
+    )
+
+    assert selection is None
 
 
 def test_facade_selection_does_not_mutate_source_or_raster_geometry():
