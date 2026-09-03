@@ -52,6 +52,18 @@ class WindowAnchorApplication(BaseModel):
     rejected_facades: list[Facade] = Field(default_factory=list)
 
 
+def _matches_structured_topology(opening, solution) -> bool:
+    """Refuse LEGO subdivisions that contradict structured opening evidence."""
+    visual = opening.opening_visual
+    if visual is None:
+        return True
+    if visual.leaf_count is not None and solution.leaf_count != visual.leaf_count:
+        return False
+    if visual.pane_count is not None and solution.pane_count != visual.pane_count:
+        return False
+    return True
+
+
 def _candidate_starts(
     *,
     metric_offset: float,
@@ -213,9 +225,10 @@ def apply_architectural_window_anchors(
 ) -> WindowAnchorApplication:
     """Return a LEGO-derived shell with facade-consistent window anchors applied.
 
-    A facade is atomic: if the proposed openings overlap, exceed the wall, or
-    otherwise fail the existing wall-layout validator, that facade keeps its
-    original raster rather than partially applying a misleading solution.
+    A facade is atomic: if the proposed openings overlap, exceed the wall, contradict
+    structured opening topology, or otherwise fail the existing wall-layout validator,
+    that facade keeps its original raster rather than partially applying a misleading
+    solution.
     """
     openings = {
         opening.id: opening
@@ -233,6 +246,15 @@ def apply_architectural_window_anchors(
             shell=shell,
         )
         if selection is None:
+            updated_walls.append(wall)
+            continue
+
+        if any(
+            (opening := openings.get(choice.opening_id)) is not None
+            and not _matches_structured_topology(opening, choice.solution)
+            for choice in selection.choices
+        ):
+            rejected.append(wall.facade)
             updated_walls.append(wall)
             continue
 
