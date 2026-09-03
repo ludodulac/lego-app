@@ -1,8 +1,9 @@
-"""Preserve rooted platform-to-platform contact across LEGO quantization.
+"""Preserve and audit platform-to-platform contact across LEGO quantization.
 
 The general ArchitecturalScene relation stage remains authoritative for platform↔host
-and stair endpoint anchors. This layer only propagates an already-rooted horizontal
-representation through unambiguous coplanar platform contacts. Metric Scene geometry
+and stair endpoint anchors. This layer propagates an already-rooted horizontal
+representation through unambiguous coplanar platform contacts, then reports any
+Scene-valid contact that still cannot be represented faithfully. Metric Scene geometry
 is never mutated and floating platform-only components are deliberately left alone.
 """
 from __future__ import annotations
@@ -13,6 +14,8 @@ from brickhouse.scene.models import ArchitecturalScene, Platform
 
 from . import scene_architecture as base
 from .brick_model import BrickModel
+from .export import BrickExportFidelityIssue
+from .scaling import COURSES_PER_STUD_RATIO
 from .scene_architecture_relations import (
     _platform_representation_shifts,
     augment_brick_model_with_scene_architecture_relations,
@@ -52,6 +55,19 @@ def _strong_platform_roots(scene: ArchitecturalScene) -> set[str]:
         if _platform_touches_volume(platform, scene)
         or base._platform_has_connected_stair(platform, scene)
     }
+
+
+def _scene_platforms_touch(first: Platform, second: Platform) -> bool:
+    """Mirror the Scene platform-connectivity tolerance without changing its truth."""
+    if abs(first.position.z - second.position.z) > base.CONNECTIVITY_TOLERANCE_M:
+        return False
+    ax0, ax1 = first.position.x, first.position.x + first.width
+    ay0, ay1 = first.position.y, first.position.y + first.depth
+    bx0, bx1 = second.position.x, second.position.x + second.width
+    by0, by1 = second.position.y, second.position.y + second.depth
+    x_gap = max(0.0, max(ax0, bx0) - min(ax1, bx1))
+    y_gap = max(0.0, max(ay0, by0) - min(ay1, by1))
+    return x_gap <= base.CONNECTIVITY_TOLERANCE_M and y_gap <= base.CONNECTIVITY_TOLERANCE_M
 
 
 def _metric_contact_axis(first: Platform, second: Platform) -> str | None:
@@ -224,6 +240,114 @@ def _rooted_platform_pair_shifts(
             progress = True
         if not progress:
             return extra
+
+
+def _raster_contact_preserved(
+    first: Platform,
+    second: Platform,
+    shifts: dict[str, tuple[int, int]],
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> bool:
+    ax, ay, aw, ad = _platform_raster_rect(
+        first,
+        shifts.get(first.id, (0, 0)),
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    bx, by, bw, bd = _platform_raster_rect(
+        second,
+        shifts.get(second.id, (0, 0)),
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    ax1, ay1 = ax + aw - 1, ay + ad - 1
+    bx1, by1 = bx + bw - 1, by + bd - 1
+    overlap_x = _intervals_overlap(ax, ax1, bx, bx1)
+    overlap_y = _intervals_overlap(ay, ay1, by, by1)
+    adjacent_x = ax1 + 1 == bx or bx1 + 1 == ax
+    adjacent_y = ay1 + 1 == by or by1 + 1 == ay
+    return (overlap_x and (overlap_y or adjacent_y)) or (overlap_y and adjacent_x)
+
+
+def platform_connectivity_fidelity_issues(
+    scene: ArchitecturalScene,
+    *,
+    front_width_studs: int,
+) -> list[BrickExportFidelityIssue]:
+    """Report Scene-valid platform contacts not preserved by the final LEGO raster."""
+    if front_width_studs <= 0 or len(scene.platforms) < 2:
+        return []
+    main = scene.volumes[0]
+    studs_per_meter = front_width_studs / main.width.value
+    plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
+    origin_x, origin_y, origin_z = base._scene_bounds(scene)
+    existing = _platform_representation_shifts(
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    extra = _rooted_platform_pair_shifts(
+        scene,
+        existing,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    combined = {
+        platform.id: (
+            existing.get(platform.id, (0, 0))[0] + extra.get(platform.id, (0, 0))[0],
+            existing.get(platform.id, (0, 0))[1] + extra.get(platform.id, (0, 0))[1],
+        )
+        for platform in scene.platforms
+    }
+
+    issues: list[BrickExportFidelityIssue] = []
+    for index, first in enumerate(scene.platforms):
+        for second in scene.platforms[index + 1 :]:
+            if not _scene_platforms_touch(first, second):
+                continue
+            first_course = base._course_z(first.position.z, origin_z, plates_per_meter)
+            second_course = base._course_z(second.position.z, origin_z, plates_per_meter)
+            if first_course != second_course:
+                issues.append(
+                    BrickExportFidelityIssue(
+                        code="lego_platform_contact_level_not_preserved",
+                        severity="warning",
+                        object_id=first.id,
+                        message=(
+                            f"ArchitecturalScene treats platforms {first.id!r} and {second.id!r} as connected, "
+                            f"but their LEGO walkable surfaces quantize to different courses "
+                            f"({first_course} vs {second_course} plates). Source platform levels remain unchanged."
+                        ),
+                    )
+                )
+            if not _raster_contact_preserved(
+                first,
+                second,
+                combined,
+                origin_x=origin_x,
+                origin_y=origin_y,
+                studs_per_meter=studs_per_meter,
+            ):
+                issues.append(
+                    BrickExportFidelityIssue(
+                        code="lego_platform_contact_not_preserved",
+                        severity="warning",
+                        object_id=first.id,
+                        message=(
+                            f"ArchitecturalScene treats platforms {first.id!r} and {second.id!r} as connected, "
+                            "but the conservative LEGO relation solver leaves their horizontal raster disconnected. "
+                            "No bridge or arbitrary platform movement was invented."
+                        ),
+                    )
+                )
+    return issues
 
 
 def augment_brick_model_with_scene_platform_connectivity(
