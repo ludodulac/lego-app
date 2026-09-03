@@ -95,7 +95,7 @@ def test_missing_topology_never_invents_paired_or_four_pane_joinery():
     assert {candidate.composition for candidate in selection.candidates} == {"single"}
 
 
-def test_structured_topology_mismatch_rejects_facade_instead_of_rendering_wrong_subdivision():
+def test_unsupported_structured_topology_rejects_facade_without_false_candidate():
     building = _building(width=1.6, height=1.2, leaves=1, panes=2)
     source_before = building.model_dump()
     shell = generate_building_brick_shell(generate_building_geometry(building), 24)
@@ -105,9 +105,7 @@ def test_structured_topology_mismatch_rejects_facade_instead_of_rendering_wrong_
         openings=building.openings,
         shell=shell,
     )
-    assert selection is not None
-    chosen = selection.choices[0].solution
-    assert chosen.leaf_count != 1 or chosen.pane_count != 2
+    assert selection is None
 
     result = apply_architectural_window_anchors(building, shell)
     front_after = next(wall for wall in result.shell.walls if wall.facade is Facade.FRONT)

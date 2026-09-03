@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from brickhouse.building.models import BuildingModel, Facade
+from brickhouse.building.models import BuildingModel, Facade, OpeningType
 from .architectural_solutions import select_facade_window_solutions
 from .building_layout import BuildingBrickShell
 from .placement import WallOpeningGrid, generate_wall_layout_with_openings
@@ -50,6 +50,13 @@ class WindowAnchorApplication(BaseModel):
     shell: BuildingBrickShell
     anchors: list[AppliedWindowAnchor] = Field(default_factory=list)
     rejected_facades: list[Facade] = Field(default_factory=list)
+
+
+def _has_structured_topology(opening) -> bool:
+    visual = opening.opening_visual
+    return visual is not None and (
+        visual.leaf_count is not None or visual.pane_count is not None
+    )
 
 
 def _matches_structured_topology(opening, solution) -> bool:
@@ -305,10 +312,10 @@ def apply_architectural_window_anchors(
 ) -> WindowAnchorApplication:
     """Return a LEGO-derived shell with facade-consistent window anchors applied.
 
-    A facade is atomic: if the proposed openings overlap, exceed the wall, contradict
-    structured opening topology, or otherwise fail the existing wall-layout validator,
-    that facade keeps its original raster rather than partially applying a misleading
-    solution.
+    A facade is atomic: if no valid solution exists for structured window topology,
+    or if proposed openings overlap, exceed the wall, contradict topology at the
+    application boundary, or otherwise fail the wall-layout validator, that facade
+    keeps its original raster rather than partially applying a misleading solution.
     """
     openings = {
         opening.id: opening
@@ -326,6 +333,13 @@ def apply_architectural_window_anchors(
             shell=shell,
         )
         if selection is None:
+            if any(
+                (opening := openings.get(raster.id)) is not None
+                and opening.type is OpeningType.WINDOW
+                and _has_structured_topology(opening)
+                for raster in wall.grid.openings
+            ):
+                rejected.append(wall.facade)
             updated_walls.append(wall)
             continue
 
