@@ -1,14 +1,15 @@
 """Preserve validated ArchitecturalScene relations across horizontal LEGO quantization.
 
 The base scene renderer remains responsible for geometry generation. This layer
-coordinates representation-only platform host snaps with stair endpoints so one
-validated relation is never repaired by breaking another. ArchitecturalScene
-metric coordinates are never mutated.
+coordinates representation-only platform host snaps and direct volume-boundary
+contacts with stair endpoints so one validated relation is never repaired by
+breaking another. ArchitecturalScene metric coordinates are never mutated.
 """
 from __future__ import annotations
 
 from math import ceil
 
+from brickhouse.building.models import Facade
 from brickhouse.scene.models import ArchitecturalScene, Platform, StairRun
 
 from .brick_model import BrickModel
@@ -22,6 +23,30 @@ def _connected_platform(point, scene: ArchitecturalScene) -> Platform | None:
     if not matches:
         return None
     return min(matches, key=lambda item: (abs(point.z - item.position.z), item.id))
+
+
+def _connected_volume_boundary(point, scene: ArchitecturalScene):
+    """Return the deterministic Scene volume/facade already touched by ``point``."""
+    matches = []
+    for volume in scene.volumes:
+        if not scene._point_on_volume_boundary(point, volume):
+            continue
+        x0 = volume.position.x
+        x1 = x0 + volume.width.value
+        y0 = volume.position.y
+        y1 = y0 + volume.depth.value
+        boundaries = (
+            (abs(point.x - x0), Facade.LEFT),
+            (abs(point.x - x1), Facade.RIGHT),
+            (abs(point.y - y0), Facade.FRONT),
+            (abs(point.y - y1), Facade.REAR),
+        )
+        distance, facade = min(boundaries, key=lambda item: (item[0], item[1].value))
+        matches.append((distance, volume.id, facade.value, volume, facade))
+    if not matches:
+        return None
+    _, _, _, volume, facade = min(matches, key=lambda item: item[:3])
+    return volume, facade
 
 
 def _platform_candidate_shift(
@@ -47,7 +72,7 @@ def _platform_candidate_shift(
     )
 
 
-def _endpoint_shift(
+def _platform_endpoint_shift(
     point,
     scene: ArchitecturalScene,
     shifts: dict[str, tuple[int, int]],
@@ -56,18 +81,70 @@ def _endpoint_shift(
     return shifts.get(platform.id, (0, 0)) if platform is not None else (0, 0)
 
 
-def _stair_axis_preserved(
-    stair: StairRun,
+def _volume_endpoint_shift(
+    point,
+    scene: ArchitecturalScene,
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> tuple[int, int]:
+    """Snap a Scene-valid direct stair endpoint to its quantized volume boundary."""
+    if _connected_platform(point, scene) is not None:
+        return 0, 0
+    connection = _connected_volume_boundary(point, scene)
+    if connection is None:
+        return 0, 0
+    volume, facade = connection
+    current_x = base._round_half_up((point.x - origin_x) * studs_per_meter)
+    current_y = base._round_half_up((point.y - origin_y) * studs_per_meter)
+    if facade is Facade.LEFT:
+        target = base._round_half_up((volume.position.x - origin_x) * studs_per_meter)
+        return target - current_x, 0
+    if facade is Facade.RIGHT:
+        target = base._round_half_up(
+            (volume.position.x + volume.width.value - origin_x) * studs_per_meter
+        )
+        return target - current_x, 0
+    if facade is Facade.FRONT:
+        target = base._round_half_up((volume.position.y - origin_y) * studs_per_meter)
+        return 0, target - current_y
+    target = base._round_half_up(
+        (volume.position.y + volume.depth.value - origin_y) * studs_per_meter
+    )
+    return 0, target - current_y
+
+
+def _proposed_endpoint_shift(
+    point,
     scene: ArchitecturalScene,
     shifts: dict[str, tuple[int, int]],
     *,
     origin_x: float,
     origin_y: float,
     studs_per_meter: float,
+) -> tuple[int, int]:
+    platform = _connected_platform(point, scene)
+    if platform is not None:
+        return shifts.get(platform.id, (0, 0))
+    return _volume_endpoint_shift(
+        point,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+
+
+def _axis_preserved_for_endpoint_shifts(
+    stair: StairRun,
+    *,
+    start_shift: tuple[int, int],
+    end_shift: tuple[int, int],
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
 ) -> bool:
-    """Check proposed endpoint anchors keep the Scene run axis and ordering."""
-    start_shift = _endpoint_shift(stair.start, scene, shifts)
-    end_shift = _endpoint_shift(stair.end, scene, shifts)
     sx = base._round_half_up((stair.start.x - origin_x) * studs_per_meter) + start_shift[0]
     sy = base._round_half_up((stair.start.y - origin_y) * studs_per_meter) + start_shift[1]
     ex = base._round_half_up((stair.end.x - origin_x) * studs_per_meter) + end_shift[0]
@@ -86,6 +163,63 @@ def _stair_axis_preserved(
     return sx == ex and sy == ey
 
 
+def _stair_proposed_endpoint_shifts(
+    stair: StairRun,
+    scene: ArchitecturalScene,
+    shifts: dict[str, tuple[int, int]],
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    return (
+        _proposed_endpoint_shift(
+            stair.start,
+            scene,
+            shifts,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        ),
+        _proposed_endpoint_shift(
+            stair.end,
+            scene,
+            shifts,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        ),
+    )
+
+
+def _stair_axis_preserved(
+    stair: StairRun,
+    scene: ArchitecturalScene,
+    shifts: dict[str, tuple[int, int]],
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> bool:
+    """Check all proposed relation anchors keep the Scene run axis and ordering."""
+    start_shift, end_shift = _stair_proposed_endpoint_shifts(
+        stair,
+        scene,
+        shifts,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    return _axis_preserved_for_endpoint_shifts(
+        stair,
+        start_shift=start_shift,
+        end_shift=end_shift,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+
+
 def _platform_representation_shifts(
     scene: ArchitecturalScene,
     *,
@@ -95,11 +229,11 @@ def _platform_representation_shifts(
 ) -> dict[str, tuple[int, int]]:
     """Return globally compatible platform host snaps for this LEGO representation.
 
-    Candidate snaps come from the exact BH-110 host-contact rule. Stair constraints
-    are then solved monotonically: if current candidate endpoint shifts would change
-    a run's architectural axis or ordering, every non-zero platform snap affecting
-    that stair is disabled. Repeating to a fixed point handles shared platforms and
-    chains of stairs deterministically without inventing a compromise geometry.
+    Candidate snaps come from the exact BH-110 host-contact rule. Stair constraints,
+    including direct Scene-valid volume-boundary anchors, are then solved monotonically:
+    if the current candidates would change a run's architectural axis or ordering,
+    every non-zero platform snap affecting that stair is disabled. Direct volume
+    anchors are never forced; a still-incompatible volume anchor is dropped later.
     """
     shifts = {
         platform.id: _platform_candidate_shift(
@@ -137,6 +271,50 @@ def _platform_representation_shifts(
             return shifts
 
 
+def _safe_stair_endpoint_shifts(
+    stair: StairRun,
+    scene: ArchitecturalScene,
+    shifts: dict[str, tuple[int, int]],
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Use direct volume anchors only when they preserve the run's identity."""
+    proposed = _stair_proposed_endpoint_shifts(
+        stair,
+        scene,
+        shifts,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    if _axis_preserved_for_endpoint_shifts(
+        stair,
+        start_shift=proposed[0],
+        end_shift=proposed[1],
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    ):
+        return proposed
+
+    platform_only = (
+        _platform_endpoint_shift(stair.start, scene, shifts),
+        _platform_endpoint_shift(stair.end, scene, shifts),
+    )
+    if _axis_preserved_for_endpoint_shifts(
+        stair,
+        start_shift=platform_only[0],
+        end_shift=platform_only[1],
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    ):
+        return platform_only
+    return (0, 0), (0, 0)
+
+
 def _shifted_point(point, shift: tuple[int, int], studs_per_meter: float):
     if shift == (0, 0):
         return point
@@ -171,22 +349,15 @@ def _scene_with_representation_platform_positions(
 
 def _shifted_stair(
     stair: StairRun,
-    scene: ArchitecturalScene,
-    shifts: dict[str, tuple[int, int]],
+    *,
+    start_shift: tuple[int, int],
+    end_shift: tuple[int, int],
     studs_per_meter: float,
 ) -> StairRun:
     return stair.model_copy(
         update={
-            "start": _shifted_point(
-                stair.start,
-                _endpoint_shift(stair.start, scene, shifts),
-                studs_per_meter,
-            ),
-            "end": _shifted_point(
-                stair.end,
-                _endpoint_shift(stair.end, scene, shifts),
-                studs_per_meter,
-            ),
+            "start": _shifted_point(stair.start, start_shift, studs_per_meter),
+            "end": _shifted_point(stair.end, end_shift, studs_per_meter),
         }
     )
 
@@ -197,13 +368,13 @@ def augment_brick_model_with_scene_architecture_relations(
     *,
     front_width_studs: int,
 ) -> BrickModel:
-    """Render scene architecture while preserving compatible host/stair relations."""
+    """Render scene architecture while preserving compatible horizontal relations."""
     rendered = base.augment_brick_model_with_scene_architecture(
         model,
         scene,
         front_width_studs=front_width_studs,
     )
-    if not scene.platforms or front_width_studs <= 0:
+    if front_width_studs <= 0:
         return rendered
 
     main = scene.volumes[0]
@@ -222,7 +393,23 @@ def augment_brick_model_with_scene_architecture_relations(
         if shifts.get(platform.id, (0, 0)) != (0, 0)
         and base._platform_has_connected_stair(platform, scene)
     }
-    if not connected_platform_shifts:
+    stair_endpoint_shifts = {
+        stair.id: _safe_stair_endpoint_shifts(
+            stair,
+            scene,
+            shifts,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        )
+        for stair in scene.stairs
+    }
+    affected_stairs = {
+        stair_id
+        for stair_id, (start_shift, end_shift) in stair_endpoint_shifts.items()
+        if start_shift != (0, 0) or end_shift != (0, 0)
+    }
+    if not connected_platform_shifts and not affected_stairs:
         return rendered
 
     updated_parts = []
@@ -238,12 +425,6 @@ def augment_brick_model_with_scene_architecture_relations(
                 break
         updated_parts.append(moved)
 
-    affected_stairs = {
-        stair.id
-        for stair in scene.stairs
-        if _endpoint_shift(stair.start, scene, shifts) != (0, 0)
-        or _endpoint_shift(stair.end, scene, shifts) != (0, 0)
-    }
     if affected_stairs:
         updated_parts = [
             part
@@ -261,7 +442,13 @@ def augment_brick_model_with_scene_architecture_relations(
         for stair in scene.stairs:
             if stair.id not in affected_stairs:
                 continue
-            adjusted = _shifted_stair(stair, scene, shifts, studs_per_meter)
+            start_shift, end_shift = stair_endpoint_shifts[stair.id]
+            adjusted = _shifted_stair(
+                stair,
+                start_shift=start_shift,
+                end_shift=end_shift,
+                studs_per_meter=studs_per_meter,
+            )
             updated_parts.extend(
                 base._stair_parts(
                     adjusted,
