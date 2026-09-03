@@ -46,12 +46,7 @@ def _normalized_material(value: str) -> str:
 
 
 def _material_category(value: str | None) -> FacadeDetailCategory:
-    """Classify only exact structured material assertions.
-
-    Appearance-like descriptors deliberately remain generic. This keeps the
-    dedicated visual fields useful without turning loose prose into geological
-    certainty or a LEGO part-family decision.
-    """
+    """Classify only exact structured material assertions for dedicated fields."""
     if value is None:
         return "facade_detail"
 
@@ -79,14 +74,27 @@ def _surround_category(opening) -> FacadeDetailCategory:
     """Translate only explicit surround material evidence into a LEGO category.
 
     A descriptor such as ``stone_like`` describes appearance, not geological
-    certainty, so it remains the conservative generic detail family. Unknown
-    descriptors stay generic instead of being guessed from surround color or
-    facade style.
+    certainty, so it remains the conservative masonry family. Only descriptors
+    that explicitly assert stone are classified as stone. Unknown descriptors
+    stay generic instead of being guessed from surround color or facade style.
     """
     visual = opening.opening_visual
-    if visual is None:
+    if visual is None or visual.surround_material is None:
         return "facade_detail"
-    return _material_category(visual.surround_material)
+
+    material = _normalized_material(visual.surround_material)
+    explicit_stone = {
+        "stone",
+        "natural_stone",
+        "cut_stone",
+        "dressed_stone",
+        "masonry_stone",
+    }
+    if material in explicit_stone:
+        return "stone"
+    if any(token in material for token in ("masonry", "mineral", "stone_like", "rendered")):
+        return "masonry"
+    return "facade_detail"
 
 
 def _sill_category(opening) -> FacadeDetailCategory:
@@ -260,9 +268,9 @@ def generate_window_surrounds(
     A decorative surround owns the full ring immediately outside the opening:
     horizontal head/base runs include the two corner cells shared with the jamb
     columns. When a separately observed sill replaces the surround base, the
-    sill remains limited to the opening width and generic sill evidence, while
-    the surround keeps only the two lower corner cells so its jambs stay visually
-    continuous without borrowing sill material/color evidence.
+    sill remains limited to the opening width and its own structured evidence,
+    while the surround keeps only the two lower corner cells so its jambs stay
+    visually continuous without borrowing sill material/color evidence.
 
     Horizontal runs use the longest placement-approved canonical 1xN bricks that
     preserve the exact occupied cells. Vertical jambs remain 1x1-per-course
