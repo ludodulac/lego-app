@@ -3,6 +3,7 @@ import pytest
 from brickhouse.bricks.brick_model import generate_brick_model
 from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.roof import _footprint, generate_spatial_gable_roof, validate_roof_support
+from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.building.models import BuildingModel, RidgeDirection
 from brickhouse.geometry import generate_building_geometry
@@ -104,6 +105,29 @@ def test_brick_model_reserves_non_negative_canvas_for_symmetric_roof_overhang(di
     assert model.width_studs >= shell.reference_width_studs + 2
 
 
+def test_declared_overhang_is_not_reported_as_lego_only_quantization():
+    building = _building(RidgeDirection.DEPTH, overhang=0.5)
+    geometry = generate_building_geometry(building)
+    shell = generate_building_brick_shell(geometry, 16)
+
+    selection = select_gable_roof_raster(geometry, shell)
+
+    assert selection.wall_span_studs == 16
+    assert selection.architectural_span_studs == 18
+    assert selection.declared_span_overhang_studs == 2
+    assert selection.wall_line_length_studs == 12
+    assert selection.architectural_line_length_studs == 14
+    assert selection.declared_line_overhang_studs == 2
+    assert selection.selected_span_studs >= selection.architectural_span_studs
+    assert selection.selected_line_length_studs >= selection.architectural_line_length_studs
+    assert selection.span_adjustment_studs == (
+        selection.selected_span_studs - selection.architectural_span_studs
+    )
+    assert selection.line_adjustment_studs == (
+        selection.selected_line_length_studs - selection.architectural_line_length_studs
+    )
+
+
 def test_zero_overhang_keeps_historical_zero_origin_layout():
     building = _building(RidgeDirection.DEPTH, overhang=0.0)
     geometry = generate_building_geometry(building)
@@ -111,12 +135,15 @@ def test_zero_overhang_keeps_historical_zero_origin_layout():
     roof = generate_spatial_gable_roof(geometry, shell)
     cells = _roof_cells(roof)
     model = generate_brick_model(generate_spatial_brick_shell(shell), roof)
+    selection = select_gable_roof_raster(geometry, shell)
 
     assert min(x for x, _ in cells) == 0
     assert min(y for _, y in cells) == 0
     wall_parts = [part for part in model.parts if part.component == "wall"]
     assert min(part.x_studs for part in wall_parts) == 0
     assert min(part.y_studs for part in wall_parts) == 0
+    assert selection.architectural_span_studs == selection.wall_span_studs
+    assert selection.architectural_line_length_studs == selection.wall_line_length_studs
 
 
 def test_declared_overhang_is_not_silently_shrunk_when_eave_support_is_impossible():
