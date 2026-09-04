@@ -7,13 +7,12 @@ breaking another. ArchitecturalScene metric coordinates are never mutated.
 """
 from __future__ import annotations
 
-from math import ceil
-
 from brickhouse.building.models import Facade
 from brickhouse.scene.models import ArchitecturalScene, Platform, StairRun
 
 from .brick_model import BrickModel
 from .scaling import COURSES_PER_STUD_RATIO
+from .scene_platform_footprints import select_platform_footprint
 from . import scene_architecture as base
 
 
@@ -57,9 +56,14 @@ def _platform_candidate_shift(
     origin_y: float,
     studs_per_meter: float,
 ) -> tuple[int, int]:
-    """Reuse BH-110's host-contact decision without its stair safety veto."""
-    width = max(1, ceil(platform.width * studs_per_meter - base.EPSILON))
-    depth = max(1, ceil(platform.depth * studs_per_meter - base.EPSILON))
+    """Reuse BH-110's host-contact decision with BH-133's shared footprint."""
+    footprint = select_platform_footprint(
+        platform,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
     stairless_scene = scene.model_copy(update={"stairs": []})
     return base._platform_host_contact_shift(
         platform,
@@ -67,8 +71,8 @@ def _platform_candidate_shift(
         origin_x=origin_x,
         origin_y=origin_y,
         studs_per_meter=studs_per_meter,
-        width=width,
-        depth=depth,
+        width=footprint.width_studs,
+        depth=footprint.depth_studs,
     )
 
 

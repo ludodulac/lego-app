@@ -8,7 +8,7 @@ no object is moved or resized here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil, hypot
+from math import hypot
 
 from brickhouse.scene.models import ArchitecturalScene
 
@@ -26,6 +26,7 @@ from .scene_architecture_relations import (
     _safe_stair_endpoint_shifts,
 )
 from .scene_chimney_solutions import select_scene_chimney_footprints
+from .scene_platform_footprints import select_platform_footprints
 
 
 MATERIAL_CHARACTERISTIC_ERROR = 0.20
@@ -86,23 +87,26 @@ def characteristic_distortions(
         origin_y=origin_y,
         studs_per_meter=studs_per_meter,
     )
+    platform_footprints = select_platform_footprints(
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
     metrics: list[CharacteristicDistortion] = []
 
     for platform in scene.platforms:
-        target_width = platform.width * studs_per_meter
-        target_depth = platform.depth * studs_per_meter
-        raster_width = max(1, ceil(target_width - EPSILON))
-        raster_depth = max(1, ceil(target_depth - EPSILON))
-        width_error = _relative_error(target_width, raster_width)
-        depth_error = _relative_error(target_depth, raster_depth)
+        solution = platform_footprints[platform.id]
+        width_error = _relative_error(solution.target_width_studs, solution.width_studs)
+        depth_error = _relative_error(solution.target_depth_studs, solution.depth_studs)
         metrics.append(
             CharacteristicDistortion(
                 object_id=platform.id,
                 kind="platform",
                 worst_relative_error=max(width_error, depth_error),
                 details=(
-                    f"width {target_width:.3f}->{raster_width} studs; "
-                    f"depth {target_depth:.3f}->{raster_depth} studs"
+                    f"width {solution.target_width_studs:.3f}->{solution.width_studs} studs; "
+                    f"depth {solution.target_depth_studs:.3f}->{solution.depth_studs} studs"
                 ),
             )
         )

@@ -123,15 +123,18 @@ def test_characteristic_metrics_mirror_renderer_quantization_without_mutating_sc
     assert scene.model_dump(mode="json", by_alias=True) == before
 
 
-def test_severe_platform_extent_quantization_is_a_blocker():
+def test_platform_diagnostic_uses_nearest_relation_safe_footprint():
     scene = _scene(platform_width=0.26)
 
+    metrics = characteristic_distortions(scene, front_width_studs=32)
+    platform = next(metric for metric in metrics if metric.object_id == "deck")
     issues = characteristic_fidelity_issues(scene, front_width_studs=32)
-    platform = next(issue for issue in issues if issue.object_id == "deck")
+    platform_issue = next(issue for issue in issues if issue.object_id == "deck")
 
-    assert platform.code == "lego_platform_proportion_distortion"
-    assert platform.severity == "blocker"
-    assert "1.040->2 studs" in platform.message
+    assert platform.worst_relative_error < MATERIAL_CHARACTERISTIC_ERROR
+    assert "width 1.040->1 studs" in platform.details
+    assert platform_issue.code == "lego_platform_proportion_distortion"
+    assert platform_issue.severity == "info"
 
 
 def test_severe_stair_width_quantization_is_a_blocker():
@@ -160,7 +163,7 @@ def test_relation_snap_distortion_uses_final_adjusted_stair_run():
     assert stair_issue.severity == "warning"
 
 
-def test_scene_pipeline_surfaces_characteristic_distortion_diagnostics():
+def test_scene_pipeline_surfaces_selected_platform_distortion_diagnostics():
     scene = _scene(platform_width=0.26)
     before = scene.model_dump(mode="json", by_alias=True)
 
@@ -172,5 +175,6 @@ def test_scene_pipeline_surfaces_characteristic_distortion_diagnostics():
         if item.code == "lego_platform_proportion_distortion"
     )
     assert issue.object_id == "deck"
-    assert issue.severity == "blocker"
+    assert issue.severity == "info"
+    assert "width 1.040->1 studs" in issue.message
     assert scene.model_dump(mode="json", by_alias=True) == before
