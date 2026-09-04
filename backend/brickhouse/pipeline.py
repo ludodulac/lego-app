@@ -22,6 +22,7 @@ from brickhouse.bricks.scene_platform_connectivity import (
     augment_brick_model_with_scene_platform_connectivity,
     platform_connectivity_fidelity_issues,
 )
+from brickhouse.bricks.scene_characteristic_fidelity import characteristic_fidelity_issues
 from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
@@ -191,7 +192,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection, *, fron
         for obj in collection:
             issue=_source_confidence_issue(kind,obj)
             if issue is not None: issues.append(issue)
-    issues.extend(_chimney_footprint_issues(scene,front_width_studs)); issues.extend(platform_connectivity_fidelity_issues(scene,front_width_studs=front_width_studs)); issues.extend(stair_connectivity_fidelity_issues(scene,front_width_studs=front_width_studs))
+    issues.extend(_chimney_footprint_issues(scene,front_width_studs)); issues.extend(characteristic_fidelity_issues(scene,front_width_studs=front_width_studs)); issues.extend(platform_connectivity_fidelity_issues(scene,front_width_studs=front_width_studs)); issues.extend(stair_connectivity_fidelity_issues(scene,front_width_studs=front_width_studs))
     for mismatch in platform_support_level_mismatches(scene): issues.append(BrickExportFidelityIssue(code="platform_support_level_mismatch",severity="warning",object_id=mismatch.support_id,message=(f"Support {mismatch.support_id!r} on platform {mismatch.platform_id!r} ends at {mismatch.support_top_m:g}m while the platform level is {mismatch.platform_level_m:g}m (difference {mismatch.delta_m:g}m). The ArchitecturalScene values are preserved; the LEGO renderer must not silently extend the support to hide this mismatch.")))
     for roof in scene.roofs:
         if roof.type not in {SceneRoofType.GABLE,SceneRoofType.SHED} or roof.pitch_degrees is None: continue
