@@ -66,6 +66,7 @@ def test_nonzero_metric_rise_collapsed_to_same_course_is_reported():
     issues = _rise_issues(scene)
 
     assert len(issues) == 1
+    assert issues[0].severity == "blocker"
     assert issues[0].object_id == "run"
     assert "0.11m vertical rise" in issues[0].message
     assert "course Z=0 plates" in issues[0].message
