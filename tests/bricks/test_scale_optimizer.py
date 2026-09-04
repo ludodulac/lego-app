@@ -1,6 +1,10 @@
 from pathlib import Path
 
-from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.scale_optimizer import (
+    VOLUME_PROPORTION_TOLERANCE,
+    ScaleCandidateScore,
+    recommend_front_width_studs,
+)
 from brickhouse.building.validation import load_building_model
 
 
@@ -18,18 +22,31 @@ def _scale_sensitive_building():
     return building.model_copy(update={"openings": [opening]})
 
 
-def test_recommender_finds_nearby_scale_that_materially_improves_opening_grid_fit():
+def test_recommender_finds_nearby_scale_without_sacrificing_global_proportions():
     recommendation = recommend_front_width_studs(
         _scale_sensitive_building(),
         preferred_front_width_studs=48,
         search_radius_studs=4,
     )
 
-    assert recommendation.recommended_front_width_studs == 50
-    assert recommendation.recommended.score_m < recommendation.baseline.score_m
-    assert recommendation.improvement_fraction > 0.5
-    assert recommendation.recommended.mean_opening_error_m == 0
-    assert recommendation.recommended.worst_opening_error_m == 0
+    best_proportion_error = min(c.worst_volume_proportion_error for c in recommendation.candidates)
+    assert recommendation.recommended.worst_volume_proportion_error <= (
+        best_proportion_error + VOLUME_PROPORTION_TOLERANCE
+    )
+    safe = [
+        c for c in recommendation.candidates
+        if c.worst_volume_proportion_error <= best_proportion_error + VOLUME_PROPORTION_TOLERANCE
+    ]
+    assert recommendation.recommended.score_m == min(c.score_m for c in safe)
+    assert recommendation.recommended.score_m <= recommendation.baseline.score_m
+
+
+def test_scale_candidate_records_global_proportion_error():
+    recommendation = recommend_front_width_studs(
+        _scale_sensitive_building(), preferred_front_width_studs=48, search_radius_studs=1
+    )
+    assert all(candidate.worst_volume_proportion_error >= 0 for candidate in recommendation.candidates)
+    assert isinstance(recommendation.recommended, ScaleCandidateScore)
 
 
 def test_recommendation_is_deterministic_and_stays_inside_requested_size_band():
@@ -40,7 +57,10 @@ def test_recommendation_is_deterministic_and_stays_inside_requested_size_band():
     assert first == second
     assert 45 <= first.recommended_front_width_studs <= 51
     assert [c.front_width_studs for c in first.candidates] == list(range(45, 52))
-    assert first.recommended.score_m <= first.baseline.score_m
+    best_proportion_error = min(c.worst_volume_proportion_error for c in first.candidates)
+    assert first.recommended.worst_volume_proportion_error <= (
+        best_proportion_error + VOLUME_PROPORTION_TOLERANCE
+    )
 
 
 def test_zero_radius_preserves_explicit_fixed_scale():
