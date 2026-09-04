@@ -9,8 +9,6 @@ alone.
 """
 from __future__ import annotations
 
-from math import ceil
-
 from brickhouse.scene.models import ArchitecturalScene, Platform
 
 from . import scene_architecture as base
@@ -22,6 +20,7 @@ from .scene_architecture_relations import (
     _platform_representation_shifts,
     augment_brick_model_with_scene_architecture_relations,
 )
+from .scene_platform_footprints import select_platform_footprint
 
 
 def _platform_touches_volume(platform: Platform, scene: ArchitecturalScene) -> bool:
@@ -107,6 +106,7 @@ def _metric_contact_axis(first: Platform, second: Platform) -> str | None:
 
 def _platform_raster_rect(
     platform: Platform,
+    scene: ArchitecturalScene,
     shift: tuple[int, int],
     *,
     origin_x: float,
@@ -115,9 +115,14 @@ def _platform_raster_rect(
 ) -> tuple[int, int, int, int]:
     x0 = base._round_half_up((platform.position.x - origin_x) * studs_per_meter) + shift[0]
     y0 = base._round_half_up((platform.position.y - origin_y) * studs_per_meter) + shift[1]
-    width = max(1, ceil(platform.width * studs_per_meter - base.EPSILON))
-    depth = max(1, ceil(platform.depth * studs_per_meter - base.EPSILON))
-    return x0, y0, width, depth
+    footprint = select_platform_footprint(
+        platform,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    return x0, y0, footprint.width_studs, footprint.depth_studs
 
 
 def _intervals_overlap(first0: int, first1: int, second0: int, second1: int) -> bool:
@@ -127,6 +132,7 @@ def _intervals_overlap(first0: int, first1: int, second0: int, second1: int) -> 
 def _contact_shift(
     moving: Platform,
     fixed: Platform,
+    scene: ArchitecturalScene,
     shifts: dict[str, tuple[int, int]],
     *,
     origin_x: float,
@@ -143,6 +149,7 @@ def _contact_shift(
         return None
     mx, my, mw, md = _platform_raster_rect(
         moving,
+        scene,
         shifts.get(moving.id, (0, 0)),
         origin_x=origin_x,
         origin_y=origin_y,
@@ -150,6 +157,7 @@ def _contact_shift(
     )
     fx, fy, fw, fd = _platform_raster_rect(
         fixed,
+        scene,
         shifts.get(fixed.id, (0, 0)),
         origin_x=origin_x,
         origin_y=origin_y,
@@ -213,6 +221,7 @@ def _rooted_platform_pair_shifts(
                 candidate = _contact_shift(
                     by_id[platform_id],
                     by_id[neighbor_id],
+                    scene,
                     combined,
                     origin_x=origin_x,
                     origin_y=origin_y,
@@ -229,6 +238,7 @@ def _rooted_platform_pair_shifts(
             proposed = current[0] + delta[0], current[1] + delta[1]
             x0, y0, _, _ = _platform_raster_rect(
                 by_id[platform_id],
+                scene,
                 proposed,
                 origin_x=origin_x,
                 origin_y=origin_y,
@@ -247,6 +257,7 @@ def _rooted_platform_pair_shifts(
 def _raster_contact_preserved(
     first: Platform,
     second: Platform,
+    scene: ArchitecturalScene,
     shifts: dict[str, tuple[int, int]],
     *,
     origin_x: float,
@@ -255,6 +266,7 @@ def _raster_contact_preserved(
 ) -> bool:
     ax, ay, aw, ad = _platform_raster_rect(
         first,
+        scene,
         shifts.get(first.id, (0, 0)),
         origin_x=origin_x,
         origin_y=origin_y,
@@ -262,6 +274,7 @@ def _raster_contact_preserved(
     )
     bx, by, bw, bd = _platform_raster_rect(
         second,
+        scene,
         shifts.get(second.id, (0, 0)),
         origin_x=origin_x,
         origin_y=origin_y,
@@ -393,6 +406,7 @@ def platform_connectivity_fidelity_issues(
             if not _raster_contact_preserved(
                 first,
                 second,
+                scene,
                 combined,
                 origin_x=origin_x,
                 origin_y=origin_y,
