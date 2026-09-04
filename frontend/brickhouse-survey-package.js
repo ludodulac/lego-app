@@ -10,3 +10,6 @@ import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audi
 import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
 // Load the restored phone-first cockpit with a fresh cache key.
 import './photo-shell-loader.js?v=single-screen-1.1';
+// Dedicated opt-in benchmark preload. Normal photo.html visits remain untouched;
+// only ?benchmark=real-house-5 loads the five versioned reference photos.
+import './real-house-benchmark-loader.js?v=real-house-5-preload-0.1';
