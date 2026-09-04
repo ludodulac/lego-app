@@ -119,12 +119,28 @@ def test_gable_rise_error_measures_silhouette_not_only_angle_delta() -> None:
     assert gable_rise_error_severity(selection) == "warning"
 
 
-def test_severe_taller_gable_distortion_is_a_blocker() -> None:
+def test_proportion_first_selection_avoids_a_worse_taller_gable_at_angle_crossover() -> None:
     building = _building(width=8.0, depth=6.5, pitch=25.6)
+    geometry, shell = _geometry_shell(building, 16)
+    selection = select_gable_roof_raster(geometry, shell)
+    roof = generate_spatial_gable_roof(geometry, shell)
+
+    # 33° is 0.2° closer by angle, but 18° preserves the architectural
+    # rise/run better at this crossover and avoids a >35% taller pignon.
+    assert selection.slope_family_id == "18"
+    assert 0.31 < selection.relative_gable_rise_error < 0.33
+    assert selection.gable_rise_direction == "lower"
+    assert gable_rise_error_severity(selection) == "warning"
+    slope_ids = {part.part_id for part in roof.placements if part.side != "ridge"}
+    assert slope_ids == {"BRICK_SLOPED_18_4X2"}
+
+
+def test_residual_severe_gable_distortion_still_becomes_a_blocker() -> None:
+    building = _building(width=8.0, depth=6.5, pitch=10.0)
     selection = _selection(building, 16)
 
-    assert selection.slope_family_id == "33"
-    assert selection.relative_gable_rise_error > 0.35
+    assert selection.slope_family_id == "18"
+    assert selection.relative_gable_rise_error > 0.80
     assert selection.gable_rise_direction == "taller"
     assert gable_rise_error_severity(selection) == "blocker"
 
