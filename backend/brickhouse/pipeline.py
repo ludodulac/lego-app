@@ -14,7 +14,7 @@ from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
 from brickhouse.bricks.facade_details import generate_window_surrounds
 from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
 from brickhouse.bricks.roof import generate_spatial_gable_roof, select_roof_slope_family
-from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
+from brickhouse.bricks.roof_raster_fidelity import gable_rise_error_severity, select_gable_roof_raster
 from brickhouse.bricks.scale_optimizer import ScaleRecommendation, recommend_front_width_studs
 from brickhouse.bricks.scaling import COURSES_PER_STUD_RATIO
 from brickhouse.bricks.scene_platform_connectivity import (
@@ -119,6 +119,20 @@ def _roof_raster_issues(geometry, shell, roof) -> list[BrickExportFidelityIssue]
                 f"from {selection.wall_line_length_studs} to {selection.selected_line_length_studs} studs "
                 f"(+{selection.line_adjustment_studs}) to tile the selected slope and ridge families exactly. "
                 "This is representation-only gable-end overhang."
+            ),
+        ))
+    rise_severity = gable_rise_error_severity(selection)
+    if rise_severity is not None:
+        direction = "taller/steeper" if selection.gable_rise_direction == "taller" else "lower/flatter"
+        issues.append(BrickExportFidelityIssue(
+            code="lego_gable_rise_distortion",
+            severity=rise_severity,
+            object_id=roof.id,
+            message=(
+                f"Architectural roof {roof.id!r} remains unchanged at {selection.target_pitch_degrees:.2f}°; "
+                f"the validated LEGO {selection.selected_pitch_degrees:.2f}° family makes the gable "
+                f"{direction} by {selection.relative_gable_rise_error * 100:.1f}% for the same half-span. "
+                "This is a representation-fidelity diagnostic, not a mutation of architectural geometry."
             ),
         ))
     return issues
