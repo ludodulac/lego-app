@@ -8,6 +8,9 @@ import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audi
 // Also lock Survey → Scene prompt fetches to the currently validated Survey so
 // stale browser state or a model's remembered IDs cannot silently replace it.
 import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
+// Render the images actually selected in every capture slot, including files
+// inserted programmatically by the benchmark preloader.
+import './photo-slot-previews.js?v=photo-slot-previews-0.1';
 // Load the restored phone-first cockpit with a fresh cache key.
 import './photo-shell-loader.js?v=single-screen-1.1';
 // Dedicated opt-in benchmark preload. Normal photo.html visits remain untouched;
