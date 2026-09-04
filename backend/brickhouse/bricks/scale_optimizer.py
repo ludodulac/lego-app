@@ -12,6 +12,12 @@ from .discretization_report import build_discretization_quality
 from .scaling import COURSES_PER_STUD_RATIO
 
 
+# Global proportions are a higher fidelity tier, but quantized candidates whose
+# worst ratio error differs by at most one percentage point are architecturally
+# equivalent for scale selection. Inside that gate, opening/grid fidelity decides.
+VOLUME_PROPORTION_TOLERANCE = 0.01
+
+
 class ScaleCandidateScore(BaseModel):
     front_width_studs: int = Field(gt=0)
     score_m: float = Field(ge=0)
@@ -71,8 +77,8 @@ def _score_candidate(building: BuildingModel, front_width_studs: int) -> ScaleCa
     proportion_error = _worst_volume_proportion_error(building, front_width_studs)
 
     # This scalar remains useful for reporting local discretization improvement.
-    # Candidate selection below is lexicographic: global proportions are a higher
-    # fidelity tier than opening/grid exactness and therefore gate this score.
+    # Candidate selection below first gates material global-proportion loss, then
+    # optimizes opening/grid exactness inside the architecturally equivalent band.
     score = 3.0 * mean_opening + 2.0 * worst_opening + mean_all
     return ScaleCandidateScore(
         front_width_studs=front_width_studs,
@@ -101,11 +107,18 @@ def recommend_front_width_studs(
     upper = preferred_front_width_studs + search_radius_studs
     candidates = [_score_candidate(building, width) for width in range(lower, upper + 1)]
     baseline = next(candidate for candidate in candidates if candidate.front_width_studs == preferred_front_width_studs)
+    best_proportion_error = min(candidate.worst_volume_proportion_error for candidate in candidates)
+    proportion_gate = best_proportion_error + VOLUME_PROPORTION_TOLERANCE
+    proportion_safe = [
+        candidate
+        for candidate in candidates
+        if candidate.worst_volume_proportion_error <= proportion_gate
+    ]
     recommended = min(
-        candidates,
+        proportion_safe,
         key=lambda candidate: (
-            candidate.worst_volume_proportion_error,
             candidate.score_m,
+            candidate.worst_volume_proportion_error,
             abs(candidate.front_width_studs - preferred_front_width_studs),
             candidate.front_width_studs,
         ),
