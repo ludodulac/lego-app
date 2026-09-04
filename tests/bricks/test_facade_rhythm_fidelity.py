@@ -10,12 +10,12 @@ def _anchor(opening_id, source_x, source_w, anchored_x, anchored_w):
 
 
 def test_facade_rhythm_measures_margins_and_inter_window_gap() -> None:
-    metric = measure_facade_rhythm([_anchor("left", 2, 3, 2, 4), _anchor("right", 9, 3, 9, 4)], wall_width_studs=16)
+    metric = measure_facade_rhythm([_anchor("left", 2, 3, 2, 5), _anchor("right", 9, 3, 9, 5)], wall_width_studs=16)
     assert metric is not None
     assert metric.opening_ids == ("left", "right")
     assert metric.source_segments_studs == (2, 4, 4)
-    assert metric.anchored_segments_studs == (2, 3, 3)
-    assert metric.max_segment_distortion == pytest.approx(1 / 16)
+    assert metric.anchored_segments_studs == (2, 2, 2)
+    assert metric.max_segment_distortion == pytest.approx(2 / 16)
     assert facade_rhythm_severity(metric) == "warning"
 
 
@@ -27,7 +27,7 @@ def test_small_local_redistribution_remains_acceptable() -> None:
 
 
 def test_severe_rhythm_change_is_blocker() -> None:
-    metric = measure_facade_rhythm([_anchor("left", 3, 3, 6, 5), _anchor("right", 14, 3, 15, 5)], wall_width_studs=24)
+    metric = measure_facade_rhythm([_anchor("left", 3, 3, 8, 5), _anchor("right", 14, 3, 17, 5)], wall_width_studs=24)
     assert metric is not None
     assert metric.max_segment_distortion >= 0.20
     assert facade_rhythm_severity(metric) == "blocker"
