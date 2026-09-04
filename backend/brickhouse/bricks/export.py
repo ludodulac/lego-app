@@ -28,6 +28,15 @@ class PhysicalModelSummary(BaseModel):
     approximate_scale_denominator: float | None = Field(default=None, gt=0)
 
 
+class BrickExportFidelitySummary(BaseModel):
+    """Machine-readable severity aggregate for the final serialized issue list."""
+
+    info_count: int = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    blocker_count: int = Field(ge=0)
+    has_blockers: bool
+
+
 class BrickExportMetadata(BaseModel):
     generator: Literal["brickhouse-engine"] = "brickhouse-engine"
     coordinate_system: Literal["stud-grid"] = "stud-grid"
@@ -36,6 +45,9 @@ class BrickExportMetadata(BaseModel):
     discretization_quality: list[BuildingDiscretizationQuality] = Field(default_factory=list)
     scale_recommendation: ScaleRecommendation | None = None
     physical_model: PhysicalModelSummary | None = None
+    # Metadata is the additive extension surface for schema v0.1. Historical
+    # bundles without this field remain valid.
+    fidelity_summary: BrickExportFidelitySummary | None = None
 
 
 class BrickExportFidelityIssue(BaseModel):
@@ -45,15 +57,6 @@ class BrickExportFidelityIssue(BaseModel):
     severity: Literal["info", "warning", "blocker"] = "warning"
     message: str
     object_id: str | None = None
-
-
-class BrickExportFidelitySummary(BaseModel):
-    """Machine-readable severity aggregate for the final serialized issue list."""
-
-    info_count: int = Field(ge=0)
-    warning_count: int = Field(ge=0)
-    blocker_count: int = Field(ge=0)
-    has_blockers: bool
 
 
 class BrickExportBundle(BaseModel):
@@ -68,8 +71,6 @@ class BrickExportBundle(BaseModel):
     instruction_plan: InstructionPlan | None = None
     bag_plan: BagPlan | None = None
     fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
-    # Optional so historical schema_version 0.1 bundles remain valid when parsed.
-    fidelity_summary: BrickExportFidelitySummary | None = None
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "BrickExportBundle":
@@ -118,10 +119,10 @@ class BrickExportBundle(BaseModel):
                 bag_step_ids = [step_id for bag in self.bag_plan.bags for step_id in bag.assembly_step_ids]
                 if bag_step_ids != assembly_step_ids:
                     raise ValueError("BagPlan step ordering does not match AssemblyPlan")
-        if self.fidelity_summary is not None:
+        if self.metadata.fidelity_summary is not None:
             expected = _fidelity_summary(self.fidelity_issues)
-            if self.fidelity_summary != expected:
-                raise ValueError("fidelity_summary does not match fidelity_issues severities")
+            if self.metadata.fidelity_summary != expected:
+                raise ValueError("metadata fidelity_summary does not match fidelity_issues severities")
         return self
 
 
@@ -221,6 +222,7 @@ def create_export_bundle(
             discretization_quality=resolved_quality,
             scale_recommendation=scale_recommendation,
             physical_model=_physical_model_summary(model, resolved_quality),
+            fidelity_summary=_fidelity_summary(resolved_fidelity_issues),
         ),
         appearance=appearance,
         brick_model=model,
@@ -229,7 +231,6 @@ def create_export_bundle(
         instruction_plan=instruction_plan,
         bag_plan=bag_plan,
         fidelity_issues=resolved_fidelity_issues,
-        fidelity_summary=_fidelity_summary(resolved_fidelity_issues),
     )
 
 
