@@ -21,6 +21,7 @@ from brickhouse.scene.models import (
 )
 from .brick_model import BrickModel, BrickModelPart
 from .scaling import COURSES_PER_STUD_RATIO
+from .scene_platform_footprints import select_platform_footprint
 
 EPSILON = 1e-6
 RAILING_HEIGHT_PLATES = 6
@@ -596,12 +597,15 @@ def _platform_parts(
     y0 = _round_half_up((platform.position.y - origin_y) * studs_per_meter)
     z0 = _course_z(platform.position.z, origin_z, plates_per_meter)
 
-    # A walkable platform must never become *smaller* than its metric footprint
-    # merely because its dimension lies just above a half-stud boundary. Ceil is
-    # deliberately used for extents while positions keep nearest-grid rounding.
-    # This preserves stair/landing topology without changing the source Scene.
-    width = max(1, ceil(platform.width * studs_per_meter - EPSILON))
-    depth = max(1, ceil(platform.depth * studs_per_meter - EPSILON))
+    footprint = select_platform_footprint(
+        platform,
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    width = footprint.width_studs
+    depth = footprint.depth_studs
     raster_shift_x, raster_shift_y = _platform_host_contact_shift(
         platform,
         scene,
