@@ -227,6 +227,73 @@ def _roof_model_frame(roof: SpatialRoof | None) -> tuple[int, int, int, int]:
     return x_offset, y_offset, max_x + x_offset + 1, max_y + y_offset + 1
 
 
+def _model_roof_footprint(part: BrickModelPart) -> set[tuple[int, int]]:
+    """Return a roof part footprint in final BrickModel stud coordinates."""
+    definition = create_m0_roof_catalog().get(part.part_id)
+    footprint_x, footprint_y = (
+        (definition.length_studs, definition.width_studs)
+        if part.rotation_quarter_turns % 2
+        else (definition.width_studs, definition.length_studs)
+    )
+    return {
+        (part.x_studs + dx, part.y_studs + dy)
+        for dx in range(footprint_x)
+        for dy in range(footprint_y)
+    }
+
+
+def _validate_final_gable_roof_host_contact(
+    model: BrickModel,
+    shell: SpatialBrickShell,
+    roof: SpatialRoof,
+) -> None:
+    """Verify both eaves still touch their host after final canvas translation.
+
+    ``validate_roof_support`` checks SpatialRoof before BrickModel framing. This
+    second contract intentionally works from the final translated placements so a
+    later offset/canvas change cannot make a locally valid roof float beside its
+    architectural host.
+    """
+    wall_top = shell.height_bricks * 3
+    for side in ("negative", "positive"):
+        side_parts = [
+            part for part in model.parts
+            if part.component == "roof" and part.roof_side == side
+        ]
+        if not side_parts:
+            raise ValueError(f"final gable roof side {side!r} has no slope placements")
+        eave_z = min(part.z_plates for part in side_parts)
+        if eave_z != wall_top:
+            raise ValueError(
+                f"final gable roof side {side!r} eave is at {eave_z} plates, "
+                f"expected host wall top {wall_top}"
+            )
+        eave_cells = set().union(*(
+            _model_roof_footprint(part)
+            for part in side_parts
+            if part.z_plates == eave_z
+        ))
+        if roof.ridge_direction is RidgeDirection.DEPTH:
+            host_axis = (
+                model.origin_x_studs
+                if side == "negative"
+                else model.origin_x_studs + shell.width_studs - 1
+            )
+            touches = any(x == host_axis for x, _ in eave_cells)
+        else:
+            host_axis = (
+                model.origin_y_studs
+                if side == "negative"
+                else model.origin_y_studs + shell.depth_studs - 1
+            )
+            touches = any(y == host_axis for _, y in eave_cells)
+        if not touches:
+            raise ValueError(
+                f"final gable roof side {side!r} lost contact with host boundary "
+                f"at stud axis {host_axis} after BrickModel translation"
+            )
+
+
 def generate_brick_model(
     shell: SpatialBrickShell,
     roof: SpatialRoof | None,
@@ -292,7 +359,7 @@ def generate_brick_model(
              for placement in roof.placements),
             default=wall_top,
         )
-    return BrickModel(
+    model = BrickModel(
         building_id=shell.building_id,
         volume_id=shell.volume_id,
         width_studs=shell.width_studs,
@@ -304,3 +371,6 @@ def generate_brick_model(
         origin_y_studs=y_offset,
         parts=parts,
     )
+    if roof is not None:
+        _validate_final_gable_roof_host_contact(model, shell, roof)
+    return model
