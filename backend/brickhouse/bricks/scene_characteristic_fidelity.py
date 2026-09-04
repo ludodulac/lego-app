@@ -21,6 +21,10 @@ from .scene_architecture import (
     _round_half_up,
     _scene_bounds,
 )
+from .scene_architecture_relations import (
+    _platform_representation_shifts,
+    _safe_stair_endpoint_shifts,
+)
 from .scene_chimney_solutions import select_scene_chimney_footprints
 
 
@@ -76,6 +80,12 @@ def characteristic_distortions(
     studs_per_meter = front_width_studs / main.width.value
     plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
     origin_x, origin_y, origin_z = _scene_bounds(scene)
+    platform_shifts = _platform_representation_shifts(
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
     metrics: list[CharacteristicDistortion] = []
 
     for platform in scene.platforms:
@@ -98,10 +108,18 @@ def characteristic_distortions(
         )
 
     for stair in scene.stairs:
-        sx = _round_half_up((stair.start.x - origin_x) * studs_per_meter)
-        sy = _round_half_up((stair.start.y - origin_y) * studs_per_meter)
-        ex = _round_half_up((stair.end.x - origin_x) * studs_per_meter)
-        ey = _round_half_up((stair.end.y - origin_y) * studs_per_meter)
+        start_shift, end_shift = _safe_stair_endpoint_shifts(
+            stair,
+            scene,
+            platform_shifts,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        )
+        sx = _round_half_up((stair.start.x - origin_x) * studs_per_meter) + start_shift[0]
+        sy = _round_half_up((stair.start.y - origin_y) * studs_per_meter) + start_shift[1]
+        ex = _round_half_up((stair.end.x - origin_x) * studs_per_meter) + end_shift[0]
+        ey = _round_half_up((stair.end.y - origin_y) * studs_per_meter) + end_shift[1]
         target_run = max(
             abs(stair.end.x - stair.start.x),
             abs(stair.end.y - stair.start.y),
