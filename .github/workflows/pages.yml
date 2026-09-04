@@ -95,6 +95,28 @@ jobs:
               assert data['brick_model']['width_studs'] == 48
           PY
 
+      - name: Generate generic rich Scene viewer export
+        run: >-
+          brickhouse-scene-build
+          docs/examples/architectural-scene-rich-exterior.json
+          frontend/brickhouse-rich-scene-export.json
+          --front-width-studs 48
+
+      - name: Verify generic rich Scene viewer export
+        run: |
+          test -s frontend/brickhouse-rich-scene-export.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('frontend/brickhouse-rich-scene-export.json').read_text())
+          parts = data['brick_model']['parts']
+          ids = [part['placement_id'] for part in parts]
+          assert any(value.startswith('scene-platform:deck:') for value in ids)
+          assert any(value.startswith('scene-stair:deck_stair:') for value in ids)
+          assert any(value.startswith('scene-terrain:right:') for value in ids)
+          assert data['bom']['total_parts'] == len(parts)
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
