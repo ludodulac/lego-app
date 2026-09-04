@@ -106,7 +106,7 @@ class BrickExportBundle(BaseModel):
             if self.bag_plan.building_id != self.building_id:
                 raise ValueError("BagPlan building_id does not match export building_id")
             if self.bag_plan.volume_id != self.volume_id:
-                raise ValueError("BagPlan volume_id does not match BrickModel volume_id")
+                raise ValueError("BagPlan volume_id does not match export volume_id")
             if self.bag_plan.total_parts != len(self.brick_model.parts):
                 raise ValueError("BagPlan total_parts does not match BrickModel part count")
             if self.assembly_plan is not None:
