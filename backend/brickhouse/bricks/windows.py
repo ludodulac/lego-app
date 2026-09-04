@@ -41,6 +41,7 @@ class WindowPartPlacement(BaseModel):
     y_studs: int = Field(ge=0)
     z_plates: int = Field(ge=0)
     rotation_quarter_turns: Literal[0, 1, 2, 3] = 0
+    opening_id: str | None = None
 
 
 def _to_global(facade: Facade, local_x: int, opening_width: int, z_bricks: int, width_studs: int, depth_studs: int) -> tuple[int, int, int, Literal[0, 1, 2, 3]]:
@@ -112,19 +113,19 @@ def _selected_layout(composition: str, assembly_id: str, width_studs: int, heigh
     return layout
 
 
-def _emit_pair(placements: list[WindowPartPlacement], assembly: WindowAssemblyDefinition, facade: Facade, local_x: int, z_bricks: int, front: int, depth: int) -> None:
+def _emit_pair(placements: list[WindowPartPlacement], assembly: WindowAssemblyDefinition, facade: Facade, local_x: int, z_bricks: int, front: int, depth: int, *, opening_id: str | None = None) -> None:
     x, y, z, rotation = _to_global(facade, local_x, assembly.width_studs, z_bricks, front, depth)
     placements.extend((
-        WindowPartPlacement(part_id=assembly.frame_part_id, category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation),
-        WindowPartPlacement(part_id=assembly.pane_part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation),
+        WindowPartPlacement(part_id=assembly.frame_part_id, category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=opening_id),
+        WindowPartPlacement(part_id=assembly.pane_part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=opening_id),
     ))
 
 
-def _emit_joinery_free_glazing(placements: list[WindowPartPlacement], *, facade: Facade, local_x: int, z_bricks: int, width_studs: int, height_bricks: int, front: int, depth: int) -> None:
+def _emit_joinery_free_glazing(placements: list[WindowPartPlacement], *, facade: Facade, local_x: int, z_bricks: int, width_studs: int, height_bricks: int, front: int, depth: int, opening_id: str | None = None) -> None:
     for dx in range(width_studs):
         for dz in range(height_bricks):
             x, y, z, rotation = _to_global(facade, local_x + dx, 1, z_bricks + dz, front, depth)
-            placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation))
+            placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=opening_id))
 
 
 def generate_window_assemblies(
@@ -156,11 +157,11 @@ def generate_window_assemblies(
                 layout = choose_window_layout(style, raster.width_studs, raster.height_bricks)
             if layout:
                 for assembly, x_offset, z_offset in layout:
-                    _emit_pair(placements, assembly, facade, raster.x_studs + x_offset, raster.z_bricks + z_offset, front, depth)
+                    _emit_pair(placements, assembly, facade, raster.x_studs + x_offset, raster.z_bricks + z_offset, front, depth, opening_id=raster.id)
                 fitted.add(raster.id)
                 continue
             style = opening.window_style or WindowStyle.SIMPLE
             if style in {WindowStyle.SIMPLE, WindowStyle.TRADITIONAL_TALL}:
-                _emit_joinery_free_glazing(placements, facade=facade, local_x=raster.x_studs, z_bricks=raster.z_bricks, width_studs=raster.width_studs, height_bricks=raster.height_bricks, front=front, depth=depth)
+                _emit_joinery_free_glazing(placements, facade=facade, local_x=raster.x_studs, z_bricks=raster.z_bricks, width_studs=raster.width_studs, height_bricks=raster.height_bricks, front=front, depth=depth, opening_id=raster.id)
                 fitted.add(raster.id)
     return placements, fitted
