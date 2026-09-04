@@ -3,7 +3,10 @@ from brickhouse.bricks.scene_architecture import (
     _scene_bounds,
     augment_brick_model_with_scene_architecture,
 )
-from brickhouse.bricks.scene_platform_footprints import select_platform_footprint
+from brickhouse.bricks.scene_platform_footprints import (
+    select_platform_footprint,
+    select_platform_footprints,
+)
 from brickhouse.building.models import Facade
 from brickhouse.scene import ArchitecturalScene
 
@@ -95,6 +98,16 @@ def _select(scene):
     )
 
 
+def _select_all(scene):
+    origin_x, origin_y, _ = _scene_bounds(scene)
+    return select_platform_footprints(
+        scene,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=4.0,
+    )
+
+
 def test_free_platform_prefers_nearest_proportional_footprint_over_outward_ceil():
     scene = _scene()
     before = scene.model_dump(mode="json", by_alias=True)
@@ -127,13 +140,40 @@ def test_declared_support_can_force_conservative_outward_footprint():
     assert solution.used_legacy_fallback
 
 
-def test_platform_contact_keeps_legacy_footprint_until_joint_contact_solve():
+def test_contacting_platforms_choose_smaller_footprints_jointly_when_contact_survives():
     scene = _scene(second_platform=True)
+    before = scene.model_dump(mode="json", by_alias=True)
 
-    solution = _select(scene)
+    solutions = _select_all(scene)
 
-    assert (solution.width_studs, solution.depth_studs) == (2, 4)
-    assert solution.used_legacy_fallback
+    assert (solutions["neighbor"].width_studs, solutions["neighbor"].depth_studs) == (1, 4)
+    assert (solutions["deck"].width_studs, solutions["deck"].depth_studs) == (1, 4)
+    assert not solutions["neighbor"].used_legacy_fallback
+    assert not solutions["deck"].used_legacy_fallback
+    assert scene.model_dump(mode="json", by_alias=True) == before
+
+
+def test_joint_contact_keeps_larger_member_when_declared_support_requires_it():
+    scene = _scene(
+        second_platform=True,
+        supports=[
+            {
+                "id": "support-east",
+                "position": {"x": -0.05, "y": 1.0, "z": 0.0},
+                "width": 0.05,
+                "depth": 0.2,
+                "height": 1.0,
+                "source": SOURCE,
+            }
+        ],
+    )
+
+    solutions = _select_all(scene)
+
+    assert (solutions["neighbor"].width_studs, solutions["neighbor"].depth_studs) == (1, 4)
+    assert (solutions["deck"].width_studs, solutions["deck"].depth_studs) == (2, 4)
+    assert not solutions["neighbor"].used_legacy_fallback
+    assert solutions["deck"].used_legacy_fallback
 
 
 def test_renderer_consumes_the_selected_platform_footprint():
