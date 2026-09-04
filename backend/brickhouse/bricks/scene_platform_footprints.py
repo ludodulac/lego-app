@@ -11,10 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import ceil, floor
 
-from brickhouse.scene.models import ArchitecturalScene, Platform
+from brickhouse.scene.models import ArchitecturalScene, CONNECTIVITY_TOLERANCE_M, Platform
 
 EPSILON = 1e-6
-CONNECTIVITY_TOLERANCE_M = 0.10
 
 
 @dataclass(frozen=True)
@@ -140,8 +139,6 @@ def _fidelity_key(
     aspect_error = _relative_error(target_aspect, represented_aspect)
     target_area = target_width * target_depth
     area_error = _relative_error(target_area, width * depth)
-    # Hierarchical, deterministic comparison: no flat score can trade a severe
-    # dimension error against several lower-priority improvements.
     return (
         max(width_error, depth_error),
         aspect_error,
@@ -165,7 +162,6 @@ def select_platform_footprint(
     target_depth = platform.depth * studs_per_meter
     legacy_width, legacy_depth = _legacy_footprint(platform, studs_per_meter)
 
-    # BH-133 intentionally does not attempt a joint platform-contact solve yet.
     if any(
         other.id != platform.id and _scene_platforms_touch(platform, other)
         for other in scene.platforms
