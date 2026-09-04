@@ -29,9 +29,9 @@ def test_real_house_benchmark_loader_is_opt_in_and_preserves_capture_uncertainty
     assert "if (requestedBenchmark() !== BENCHMARK_ID) return;" in loader
     assert "[1, { slot: 'front', detail: false }]" in loader
     assert "[2, { slot: 'right', detail: false }]" in loader
-    assert "[3, { slot: 'rear', detail: false }]" in loader
-    assert "[4, { slot: 'detail_1', detail: true }]" in loader
-    assert "[5, { slot: 'detail_1', detail: true }]" in loader
+    assert "[3, { slot: 'left', detail: false }]" in loader
+    assert "[4, { slot: 'left', detail: false }]" in loader
+    assert "[5, { slot: 'rear', detail: false }]" in loader
     assert "manifest.orientation_authority !== 'capture_hint'" in loader
     assert "orientationCheckbox.checked = false" in loader
     assert "knownWidth.value = ''" in loader
