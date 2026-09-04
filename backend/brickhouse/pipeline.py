@@ -32,7 +32,7 @@ from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
 from brickhouse.bricks.shed_roof import generate_spatial_shed_roof
 from brickhouse.bricks.spatial import generate_spatial_brick_shell
 from brickhouse.bricks.window_anchors import apply_architectural_window_anchors
-from brickhouse.bricks.windows import generate_window_assemblies
+from brickhouse.bricks.windows import generate_window_assemblies_with_status
 from brickhouse.geometry import generate_building_geometry
 from brickhouse.scene.models import ArchitecturalScene, SceneRoofType
 from brickhouse.scene.topology_projection import project_scene_to_building
@@ -151,6 +151,25 @@ def _window_anchor_issues(application) -> list[BrickExportFidelityIssue]:
     return issues
 
 
+def _window_representation_issues(statuses) -> list[BrickExportFidelityIssue]:
+    """Known architectural windows may not silently disappear from a successful export."""
+    return [
+        BrickExportFidelityIssue(
+            code="lego_architectural_window_unrepresented",
+            severity="blocker",
+            object_id=status.opening_id,
+            message=(
+                f"Architectural window {status.opening_id!r} remains preserved as an opening void on the "
+                f"{status.facade.value} facade, but the current validated LEGO vocabulary cannot represent "
+                "its known composition. The wall must not be treated as a successful blind facade and no "
+                "unsupported joinery is invented."
+            ),
+        )
+        for status in statuses
+        if not status.represented
+    ]
+
+
 def _prepare_window_shell(building: BuildingModel, shell):
     application = apply_architectural_window_anchors(building, shell)
     selected = {
@@ -164,7 +183,7 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
     shell = generate_building_brick_shell(geometry, front_width_studs)
     shell, selected_windows, anchor_issues = _prepare_window_shell(building, shell)
     spatial_shell = generate_spatial_brick_shell(shell)
-    window_parts, fitted_window_ids = generate_window_assemblies(building, shell, selected_solutions=selected_windows)
+    window_parts, fitted_window_ids, window_statuses = generate_window_assemblies_with_status(building, shell, selected_solutions=selected_windows)
     facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
     roof = building.roofs[0] if building.roofs else None
     roof_issues = _roof_raster_issues(geometry, shell, roof)
@@ -178,7 +197,12 @@ def _single_volume_bundle(building: BuildingModel, geometry, front_width_studs: 
         appearance=building.appearance,
         discretization_quality=quality,
         scale_recommendation=scale_recommendation,
-        fidelity_issues=[*anchor_issues, *roof_issues, *_geometry_fidelity_issues(brick_model, ldraw_root)],
+        fidelity_issues=[
+            *anchor_issues,
+            *_window_representation_issues(window_statuses),
+            *roof_issues,
+            *_geometry_fidelity_issues(brick_model, ldraw_root),
+        ],
     )
 
 
@@ -203,7 +227,8 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
         shell, selected_windows, anchor_issues = _prepare_window_shell(building, shell)
         fidelity_issues.extend(anchor_issues)
         spatial_shell = generate_spatial_brick_shell(shell)
-        window_parts, fitted_window_ids = generate_window_assemblies(building, shell, selected_solutions=selected_windows)
+        window_parts, fitted_window_ids, window_statuses = generate_window_assemblies_with_status(building, shell, selected_solutions=selected_windows)
+        fidelity_issues.extend(_window_representation_issues(window_statuses))
         facade_details = generate_window_surrounds(building, shell, skip_opening_ids=fitted_window_ids)
         roof = roofs_by_volume.get(volume.id)
         fidelity_issues.extend(_roof_raster_issues(subgeometry, shell, roof))
