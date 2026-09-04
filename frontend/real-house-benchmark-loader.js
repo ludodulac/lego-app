@@ -3,9 +3,9 @@ const MANIFEST_URL = `./benchmarks/${BENCHMARK_ID}/manifest.json`;
 const SLOT_MAPPING = new Map([
   [1, { slot: 'front', detail: false }],
   [2, { slot: 'right', detail: false }],
-  [3, { slot: 'rear', detail: false }],
-  [4, { slot: 'detail_1', detail: true }],
-  [5, { slot: 'detail_1', detail: true }],
+  [3, { slot: 'left', detail: false }],
+  [4, { slot: 'left', detail: false }],
+  [5, { slot: 'rear', detail: false }],
 ]);
 
 function requestedBenchmark() {
