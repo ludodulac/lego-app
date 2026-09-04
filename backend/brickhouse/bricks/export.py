@@ -47,6 +47,15 @@ class BrickExportFidelityIssue(BaseModel):
     object_id: str | None = None
 
 
+class BrickExportFidelitySummary(BaseModel):
+    """Machine-readable severity aggregate for the final serialized issue list."""
+
+    info_count: int = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    blocker_count: int = Field(ge=0)
+    has_blockers: bool
+
+
 class BrickExportBundle(BaseModel):
     schema_version: Literal["0.1"] = "0.1"
     building_id: str
@@ -59,6 +68,8 @@ class BrickExportBundle(BaseModel):
     instruction_plan: InstructionPlan | None = None
     bag_plan: BagPlan | None = None
     fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
+    # Optional so historical schema_version 0.1 bundles remain valid when parsed.
+    fidelity_summary: BrickExportFidelitySummary | None = None
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "BrickExportBundle":
@@ -95,7 +106,7 @@ class BrickExportBundle(BaseModel):
             if self.bag_plan.building_id != self.building_id:
                 raise ValueError("BagPlan building_id does not match export building_id")
             if self.bag_plan.volume_id != self.volume_id:
-                raise ValueError("BagPlan volume_id does not match export volume_id")
+                raise ValueError("BagPlan volume_id does not match BrickModel volume_id")
             if self.bag_plan.total_parts != len(self.brick_model.parts):
                 raise ValueError("BagPlan total_parts does not match BrickModel part count")
             if self.assembly_plan is not None:
@@ -107,6 +118,10 @@ class BrickExportBundle(BaseModel):
                 bag_step_ids = [step_id for bag in self.bag_plan.bags for step_id in bag.assembly_step_ids]
                 if bag_step_ids != assembly_step_ids:
                     raise ValueError("BagPlan step ordering does not match AssemblyPlan")
+        if self.fidelity_summary is not None:
+            expected = _fidelity_summary(self.fidelity_issues)
+            if self.fidelity_summary != expected:
+                raise ValueError("fidelity_summary does not match fidelity_issues severities")
         return self
 
 
@@ -149,6 +164,18 @@ def _merge_fidelity_issues(
         seen.add(key)
         merged.append(issue)
     return merged
+
+
+def _fidelity_summary(issues: list[BrickExportFidelityIssue]) -> BrickExportFidelitySummary:
+    info_count = sum(issue.severity == "info" for issue in issues)
+    warning_count = sum(issue.severity == "warning" for issue in issues)
+    blocker_count = sum(issue.severity == "blocker" for issue in issues)
+    return BrickExportFidelitySummary(
+        info_count=info_count,
+        warning_count=warning_count,
+        blocker_count=blocker_count,
+        has_blockers=blocker_count > 0,
+    )
 
 
 def _physical_model_summary(
@@ -202,6 +229,7 @@ def create_export_bundle(
         instruction_plan=instruction_plan,
         bag_plan=bag_plan,
         fidelity_issues=resolved_fidelity_issues,
+        fidelity_summary=_fidelity_summary(resolved_fidelity_issues),
     )
 
 
