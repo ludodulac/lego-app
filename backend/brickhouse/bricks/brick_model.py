@@ -168,38 +168,53 @@ def _tile_gable_course(start: int, end: int, reverse: bool):
 def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
     family = _roof_family(roof)
     wall_top = shell.height_bricks * 3
-    ridge = next(placement for placement in roof.placements if placement.side == "ridge")
-    ridge_center = ridge.x_studs if roof.ridge_direction is RidgeDirection.DEPTH else ridge.y_studs
-    out = []
-    index = 0
-    for facade in (Facade.FRONT, Facade.REAR):
-        if roof.ridge_direction is not RidgeDirection.DEPTH:
-            continue
-        reverse = facade is Facade.REAR
-        y = shell.depth_studs - 1 if facade is Facade.REAR else 0
-        for course in range(1, family.rise_bricks + 1):
-            inset = course * family.run_studs / family.rise_bricks
-            start = max(0, round(ridge_center - (shell.width_studs / 2 - inset)))
-            end = min(shell.width_studs, round(ridge_center + (shell.width_studs / 2 - inset)))
-            for x, part_id, _ in _tile_gable_course(start, end, reverse):
+    negative = [placement for placement in roof.placements if placement.side == "negative"]
+    if not negative:
+        return []
+    if roof.ridge_direction is RidgeDirection.DEPTH:
+        slope_axes = sorted({placement.x_studs for placement in negative})
+        span = shell.width_studs
+        facades = (Facade.FRONT, Facade.REAR)
+    else:
+        slope_axes = sorted({placement.y_studs for placement in negative})
+        span = shell.depth_studs
+        facades = (Facade.LEFT, Facade.RIGHT)
+
+    result = []
+    index = 1
+    for facade in facades:
+        for level in range(len(slope_axes)):
+            # The roof piece occupies its complete physical footprint, not only the
+            # advance to the next course. Keep gable masonry inside that footprint
+            # boundary so real sloped solids cannot penetrate the wall infill.
+            trim = family.footprint_depth_studs + level * family.course_advance_studs
+            start, end = trim, span - trim
+            if end <= start:
+                continue
+            for local, part_id, brick_span in _tile_gable_course(start, end, bool(level % 2)):
+                if roof.ridge_direction is RidgeDirection.DEPTH:
+                    x = local
+                    y = 0 if facade is Facade.FRONT else shell.depth_studs - 1
+                else:
+                    x = 0 if facade is Facade.LEFT else shell.width_studs - 1
+                    y = local
+                result.append(
+                    BrickModelPart(
+                        placement_id=f"gable-{index:06d}", part_id=part_id,
+                        category="brick", component="wall", x_studs=x, y_studs=y,
+                        z_plates=wall_top + level * family.rise_plates,
+                        rotation_quarter_turns=(
+                            1 if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR} else 0
+                        ),
+                        facade=facade,
+                    )
+                )
                 index += 1
-                out.append(BrickModelPart(placement_id=f"gable-{index:06d}", part_id=part_id, category="brick", component="wall", x_studs=x, y_studs=y, z_plates=wall_top + (course - 1) * 3, rotation_quarter_turns=1, facade=facade))
-    for facade in (Facade.LEFT, Facade.RIGHT):
-        if roof.ridge_direction is not RidgeDirection.WIDTH:
-            continue
-        reverse = facade is Facade.LEFT
-        x = 0 if facade is Facade.LEFT else shell.width_studs - 1
-        for course in range(1, family.rise_bricks + 1):
-            inset = course * family.run_studs / family.rise_bricks
-            start = max(0, round(ridge_center - (shell.depth_studs / 2 - inset)))
-            end = min(shell.depth_studs, round(ridge_center + (shell.depth_studs / 2 - inset)))
-            for y, part_id, _ in _tile_gable_course(start, end, reverse):
-                index += 1
-                out.append(BrickModelPart(placement_id=f"gable-{index:06d}", part_id=part_id, category="brick", component="wall", x_studs=x, y_studs=y, z_plates=wall_top + (course - 1) * 3, rotation_quarter_turns=0, facade=facade))
-    return out
+    return result
 
 
-def _roof_model_frame(roof: SpatialRoof | None):
+def _roof_model_frame(roof: SpatialRoof | None) -> tuple[int, int, int, int]:
+    """Return x/y offsets and minimum model dimensions needed by the roof footprint."""
     if roof is None or not roof.placements:
         return 0, 0, 0, 0
     cells = set().union(*(_footprint(placement) for placement in roof.placements))
@@ -254,7 +269,7 @@ def generate_brick_model(
             category=placement.category, component="facade_detail",
             x_studs=placement.x_studs + x_offset, y_studs=placement.y_studs + y_offset,
             z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
-            facade=placement.facade, opening_id=placement.opening_id,
+            facade=placement.facade,
         ))
     if roof is not None:
         for index, placement in enumerate(roof.placements, start=1):
