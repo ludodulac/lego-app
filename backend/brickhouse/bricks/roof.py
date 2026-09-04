@@ -1,7 +1,7 @@
 """Support-aware gable roof using slope families from the processed piece catalog."""
 from __future__ import annotations
 
-from math import atan2, ceil, degrees, hypot
+from math import atan2, ceil, degrees, hypot, radians, tan
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -81,12 +81,14 @@ SUPPORTED_SLOPE_FAMILIES: tuple[RoofSlopeFamily, ...] = (
 
 
 def select_roof_slope_family(target_pitch_degrees: float) -> RoofSlopeFamily:
-    """Return the closest structurally modeled slope family; lower pitch wins exact ties."""
+    """Preserve gable rise/run first; use angle and lower pitch only as tie-breakers."""
     if target_pitch_degrees <= 0:
         raise ValueError("roof pitch must be positive")
+    target_ratio = tan(radians(target_pitch_degrees))
     return min(
         SUPPORTED_SLOPE_FAMILIES,
         key=lambda family: (
+            abs(tan(radians(family.pitch_degrees)) - target_ratio),
             abs(family.pitch_degrees - target_pitch_degrees),
             family.pitch_degrees,
         ),
