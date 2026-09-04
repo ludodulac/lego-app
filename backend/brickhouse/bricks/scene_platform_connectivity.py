@@ -1,10 +1,11 @@
-"""Preserve and audit platform-to-platform contact across LEGO quantization.
+"""Preserve and audit platform connectivity across LEGO quantization.
 
 The general ArchitecturalScene relation stage remains authoritative for platform↔host
 and stair endpoint anchors. This layer propagates an already-rooted horizontal
 representation through unambiguous coplanar platform contacts, then reports any
-Scene-valid contact that still cannot be represented faithfully. Metric Scene geometry
-is never mutated and floating platform-only components are deliberately left alone.
+Scene-valid platform contact that still cannot be represented faithfully. Metric Scene
+geometry is never mutated and floating platform-only components are deliberately left
+alone.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from .brick_model import BrickModel
 from .export import BrickExportFidelityIssue
 from .scaling import COURSES_PER_STUD_RATIO
 from .scene_architecture_relations import (
+    _platform_candidate_shift,
     _platform_representation_shifts,
     augment_brick_model_with_scene_architecture_relations,
 )
@@ -274,13 +276,65 @@ def _raster_contact_preserved(
     return (overlap_x and (overlap_y or adjacent_y)) or (overlap_y and adjacent_x)
 
 
+def _candidate_host_facade(candidate: tuple[int, int]) -> str:
+    shift_x, shift_y = candidate
+    if shift_x > 0:
+        return "left"
+    if shift_x < 0:
+        return "right"
+    if shift_y > 0:
+        return "front"
+    if shift_y < 0:
+        return "rear"
+    raise ValueError("host contact facade requires a non-zero candidate shift")
+
+
+def _platform_host_fidelity_issues(
+    scene: ArchitecturalScene,
+    shifts: dict[str, tuple[int, int]],
+    *,
+    origin_x: float,
+    origin_y: float,
+    studs_per_meter: float,
+) -> list[BrickExportFidelityIssue]:
+    """Report host contacts whose required BH-110 snap was conservatively refused."""
+    issues: list[BrickExportFidelityIssue] = []
+    main = scene.volumes[0]
+    for platform in scene.platforms:
+        candidate = _platform_candidate_shift(
+            platform,
+            scene,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        )
+        if candidate == (0, 0) or shifts.get(platform.id, (0, 0)) == candidate:
+            continue
+        host_volume_id = getattr(platform, "host_volume_id", None) or main.id
+        facade = _candidate_host_facade(candidate)
+        issues.append(
+            BrickExportFidelityIssue(
+                code="lego_platform_host_contact_not_preserved",
+                severity="warning",
+                object_id=platform.id,
+                message=(
+                    f"ArchitecturalScene places platform {platform.id!r} against {facade} facade of "
+                    f"host volume {host_volume_id!r}, but the conservative LEGO relation solver leaves "
+                    "their horizontal raster disconnected because applying the required host snap would "
+                    "break a stronger stair relation. Source platform geometry remains unchanged."
+                ),
+            )
+        )
+    return issues
+
+
 def platform_connectivity_fidelity_issues(
     scene: ArchitecturalScene,
     *,
     front_width_studs: int,
 ) -> list[BrickExportFidelityIssue]:
     """Report Scene-valid platform contacts not preserved by the final LEGO raster."""
-    if front_width_studs <= 0 or len(scene.platforms) < 2:
+    if front_width_studs <= 0 or not scene.platforms:
         return []
     main = scene.volumes[0]
     studs_per_meter = front_width_studs / main.width.value
@@ -292,6 +346,16 @@ def platform_connectivity_fidelity_issues(
         origin_y=origin_y,
         studs_per_meter=studs_per_meter,
     )
+    issues = _platform_host_fidelity_issues(
+        scene,
+        existing,
+        origin_x=origin_x,
+        origin_y=origin_y,
+        studs_per_meter=studs_per_meter,
+    )
+    if len(scene.platforms) < 2:
+        return issues
+
     extra = _rooted_platform_pair_shifts(
         scene,
         existing,
@@ -307,7 +371,6 @@ def platform_connectivity_fidelity_issues(
         for platform in scene.platforms
     }
 
-    issues: list[BrickExportFidelityIssue] = []
     for index, first in enumerate(scene.platforms):
         for second in scene.platforms[index + 1 :]:
             if not _scene_platforms_touch(first, second):
