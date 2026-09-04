@@ -48,6 +48,7 @@ jobs:
           node --check frontend/scene-handoff-photo-evidence.js
           node --check frontend/scene-survey-gate.js
           node --check frontend/scene-build.js
+          node --check frontend/brickhouse-rich-scene-preview.js
 
       - name: Verify Boldungo phone shell is wired and HUD-only
         run: |
