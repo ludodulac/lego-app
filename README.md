@@ -4,7 +4,7 @@
 
 Boldüngo transforme des photos réelles d’un bâtiment en une représentation architecturale structurée, puis en une approximation LEGO déterministe, vérifiable et exportable.
 
-Pour toute reprise par une IA, commencer par **`AI_START_HERE.md`**.
+Pour toute reprise par une IA, commencer par **`AI_START_HERE.md`** puis consulter **`PROGRESSION.md`** pour l’état opérationnel et les prochaines briques.
 
 ## Pipeline actuel
 
@@ -94,10 +94,10 @@ Il constitue une brique du système actuel, pas la description complète du prod
 5. Une couche basse ne modifie pas un fait certain d’une couche haute pour faciliter la construction.
 6. Le catalogue et les IDs internes restent indépendants des fournisseurs.
 7. Toute décision architecturale structurante doit être indexée dans `docs/DECISIONS.md`.
-8. Toute passation substantielle doit suivre `AI_START_HERE.md` et mettre à jour `docs/CURRENT_PROJECT_STATE.md` / `NEXT_CONVERSATION.md`.
+8. Toute passation substantielle doit suivre `AI_START_HERE.md` et mettre à jour `PROGRESSION.md` ; les chronologies détaillées peuvent rester dans `docs/CURRENT_PROJECT_STATE.md` ou des documents spécialisés.
 
 ## Reprise du projet
 
 La source de reprise courte est :
 
-> Lis `AI_START_HERE.md`, vérifie l’état réel de `main` et reprends le projet.
+> Lis `AI_START_HERE.md`, vérifie l’état réel de `main`, puis lis `PROGRESSION.md` et reprends la première brique non résolue.
