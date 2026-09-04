@@ -1,9 +1,9 @@
 """Audit StairRun raster fidelity after conservative LEGO relation anchoring.
 
-BH-111/BH-112 own representation decisions. This module only reports when the
-final derived raster no longer preserves a Scene-valid endpoint relation or the
-stair's own horizontal travel; it never changes ArchitecturalScene geometry or
-invents a compensating connection or run length.
+BH-108/BH-111/BH-112 own representation decisions. This module only reports when
+the final derived raster no longer preserves a Scene-valid endpoint relation or the
+stair's own horizontal/vertical travel; it never changes ArchitecturalScene geometry
+or invents a compensating connection, run length, or rise.
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from brickhouse.scene.models import ArchitecturalScene, Platform
 
 from . import scene_architecture as base
 from .export import BrickExportFidelityIssue
+from .scaling import COURSES_PER_STUD_RATIO
 from .scene_architecture_relations import (
     _connected_platform,
     _connected_volume_boundary,
@@ -49,6 +50,24 @@ def _endpoint_raster(
         base._round_half_up((point.x - origin_x) * studs_per_meter) + shift[0],
         base._round_half_up((point.y - origin_y) * studs_per_meter) + shift[1],
     )
+
+
+def _endpoint_course(
+    point,
+    scene: ArchitecturalScene,
+    *,
+    origin_z: float,
+    plates_per_meter: float,
+) -> int:
+    shared = base._connected_platform_course(
+        point,
+        scene,
+        origin_z=origin_z,
+        plates_per_meter=plates_per_meter,
+    )
+    if shared is not None:
+        return shared
+    return base._course_z(point.z, origin_z, plates_per_meter)
 
 
 def _point_inside_platform_raster(
@@ -124,18 +143,39 @@ def _stair_run_collapse_issue(
     return None
 
 
+def _stair_rise_collapse_issue(
+    stair,
+    start_course: int,
+    end_course: int,
+) -> BrickExportFidelityIssue | None:
+    metric_dz = stair.end.z - stair.start.z
+    if abs(metric_dz) <= base.EPSILON or start_course != end_course:
+        return None
+    return BrickExportFidelityIssue(
+        code="lego_stair_vertical_rise_collapsed",
+        severity="warning",
+        object_id=stair.id,
+        message=(
+            f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dz):g}m vertical rise, but its final "
+            f"LEGO start and end both quantize to course Z={start_course} plates. The source levels remain "
+            "unchanged; no artificial extra brick course was invented."
+        ),
+    )
+
+
 def stair_connectivity_fidelity_issues(
     scene: ArchitecturalScene,
     *,
     front_width_studs: int,
 ) -> list[BrickExportFidelityIssue]:
-    """Report Scene-valid stair relations or horizontal travel lost in the final raster."""
+    """Report Scene-valid stair relations or travel lost in the final LEGO raster."""
     if front_width_studs <= 0 or not scene.stairs:
         return []
 
     main = scene.volumes[0]
     studs_per_meter = front_width_studs / main.width.value
-    origin_x, origin_y, _ = base._scene_bounds(scene)
+    plates_per_meter = studs_per_meter * COURSES_PER_STUD_RATIO * 3
+    origin_x, origin_y, origin_z = base._scene_bounds(scene)
     platform_shifts = _platform_representation_shifts(
         scene,
         origin_x=origin_x,
@@ -170,6 +210,22 @@ def stair_connectivity_fidelity_issues(
         collapse_issue = _stair_run_collapse_issue(stair, start_xy, end_xy)
         if collapse_issue is not None:
             issues.append(collapse_issue)
+
+        start_course = _endpoint_course(
+            stair.start,
+            scene,
+            origin_z=origin_z,
+            plates_per_meter=plates_per_meter,
+        )
+        end_course = _endpoint_course(
+            stair.end,
+            scene,
+            origin_z=origin_z,
+            plates_per_meter=plates_per_meter,
+        )
+        rise_issue = _stair_rise_collapse_issue(stair, start_course, end_course)
+        if rise_issue is not None:
+            issues.append(rise_issue)
 
         for endpoint_name, point, endpoint_shift, (x, y) in (
             ("start", stair.start, start_shift, start_xy),
