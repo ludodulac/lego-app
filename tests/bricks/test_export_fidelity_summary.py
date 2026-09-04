@@ -12,6 +12,7 @@ from brickhouse.building.models import Facade
 
 
 def _model(*, semantic_color: str | None = None) -> BrickModel:
+    is_detail = semantic_color is not None
     return BrickModel(
         building_id="generic-building",
         volume_id="main",
@@ -20,15 +21,17 @@ def _model(*, semantic_color: str | None = None) -> BrickModel:
         height_plates=9,
         parts=[
             BrickModelPart(
-                placement_id="detail-1" if semantic_color is not None else "wall-1",
+                placement_id="detail-1" if is_detail else "wall-1",
                 part_id="BRICK_1X1",
-                category="brick",
-                component="facade_detail" if semantic_color is not None else "wall",
+                category="masonry" if is_detail else "brick",
+                component="facade_detail" if is_detail else "wall",
                 x_studs=0,
                 y_studs=0,
                 z_plates=0,
                 rotation_quarter_turns=0,
                 facade=Facade.FRONT,
+                opening_id="window-1" if is_detail else None,
+                trim_role="left_jamb" if is_detail else None,
                 semantic_color=semantic_color,
             )
         ],
