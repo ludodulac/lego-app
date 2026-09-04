@@ -1,8 +1,8 @@
 """Choose explicit LEGO footprints for ArchitecturalScene platforms.
 
-ArchitecturalScene remains immutable and authoritative.  This module makes a
+ArchitecturalScene remains immutable and authoritative. This module makes a
 representation-only decision: nearby integer footprints may improve proportional
-fidelity, but only after support and stair topology pass hard gates.  Platform-to-
+fidelity, but only after support and stair topology pass hard gates. Platform-to-
 platform contacts deliberately retain the legacy outward-ceil footprint until those
 relations are solved jointly.
 """
@@ -82,8 +82,8 @@ def _candidate_contains_declared_supports(
     for support in platform.supports:
         support_x = _round_half_up((support.position.x - origin_x) * studs_per_meter)
         support_y = _round_half_up((support.position.y - origin_y) * studs_per_meter)
-        support_width = max(1, ceil(support.width * studs_per_meter - EPSILON))
-        support_depth = max(1, ceil(support.depth * studs_per_meter - EPSILON))
+        support_width = max(1, ceil(support.width * studs_per_meter))
+        support_depth = max(1, ceil(support.depth * studs_per_meter))
         if support_x < platform_x or support_y < platform_y:
             return False
         if support_x + support_width > platform_x + width:
@@ -91,6 +91,24 @@ def _candidate_contains_declared_supports(
         if support_y + support_depth > platform_y + depth:
             return False
     return True
+
+
+def _stair_endpoint_cells(stair, point, *, origin_x, origin_y, studs_per_meter):
+    endpoint_x = _round_half_up((point.x - origin_x) * studs_per_meter)
+    endpoint_y = _round_half_up((point.y - origin_y) * studs_per_meter)
+    stair_width = max(1, _round_half_up(stair.width * studs_per_meter))
+    start_offset = -(stair_width // 2)
+    dx = abs(stair.end.x - stair.start.x)
+    dy = abs(stair.end.y - stair.start.y)
+    if dx >= dy:
+        return [
+            (endpoint_x, endpoint_y + start_offset + offset)
+            for offset in range(stair_width)
+        ]
+    return [
+        (endpoint_x + start_offset + offset, endpoint_y)
+        for offset in range(stair_width)
+    ]
 
 
 def _candidate_contains_connected_stair_endpoints(
@@ -109,13 +127,18 @@ def _candidate_contains_connected_stair_endpoints(
         for point in (stair.start, stair.end):
             if not _point_on_platform(point, platform):
                 continue
-            endpoint_x = _round_half_up((point.x - origin_x) * studs_per_meter)
-            endpoint_y = _round_half_up((point.y - origin_y) * studs_per_meter)
-            if not (
-                platform_x <= endpoint_x < platform_x + width
-                and platform_y <= endpoint_y < platform_y + depth
+            for endpoint_x, endpoint_y in _stair_endpoint_cells(
+                stair,
+                point,
+                origin_x=origin_x,
+                origin_y=origin_y,
+                studs_per_meter=studs_per_meter,
             ):
-                return False
+                if not (
+                    platform_x <= endpoint_x < platform_x + width
+                    and platform_y <= endpoint_y < platform_y + depth
+                ):
+                    return False
     return True
 
 
