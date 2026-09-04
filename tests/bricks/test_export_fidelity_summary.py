@@ -20,10 +20,10 @@ def _model(*, semantic_color: str | None = None) -> BrickModel:
         height_plates=9,
         parts=[
             BrickModelPart(
-                placement_id="wall-1",
+                placement_id="detail-1" if semantic_color is not None else "wall-1",
                 part_id="BRICK_1X1",
                 category="brick",
-                component="wall",
+                component="facade_detail" if semantic_color is not None else "wall",
                 x_studs=0,
                 y_studs=0,
                 z_plates=0,
