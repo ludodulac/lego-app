@@ -26,6 +26,7 @@ from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chim
 from brickhouse.bricks.scene_glazing import augment_brick_model_with_scene_glazing
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
+from brickhouse.bricks.scene_stair_connectivity_fidelity import stair_connectivity_fidelity_issues
 from brickhouse.bricks.scene_supports import platform_support_level_mismatches, validate_platform_support_footprints
 from brickhouse.bricks.shed_infill import augment_brick_model_with_shed_roof
 from brickhouse.bricks.shed_roof import generate_spatial_shed_roof
@@ -255,6 +256,7 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection, *, fron
             if issue is not None: issues.append(issue)
     issues.extend(_chimney_footprint_issues(scene, front_width_studs))
     issues.extend(platform_connectivity_fidelity_issues(scene, front_width_studs=front_width_studs))
+    issues.extend(stair_connectivity_fidelity_issues(scene, front_width_studs=front_width_studs))
     for mismatch in platform_support_level_mismatches(scene):
         issues.append(BrickExportFidelityIssue(
             code="platform_support_level_mismatch",
