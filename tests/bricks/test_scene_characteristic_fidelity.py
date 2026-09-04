@@ -65,6 +65,50 @@ def _scene(*, platform_width=0.50, stair_width=0.50, chimney_width=0.30):
     )
 
 
+def _relation_shift_scene():
+    prop = lambda value: {"value": value, "source": SOURCE, "evidence": []}
+    return ArchitecturalScene.model_validate(
+        {
+            "schema_version": "0.2",
+            "id": "generic-relation-shift-fidelity",
+            "name": "Generic relation shift fidelity",
+            "volumes": [
+                {
+                    "id": "main",
+                    "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    "width": prop(10.0),
+                    "depth": prop(8.0),
+                    "height": prop(6.0),
+                    "floors": 2,
+                    "source": SOURCE,
+                }
+            ],
+            "platforms": [
+                {
+                    "id": "landing",
+                    "position": {"x": -0.3, "y": 2.0, "z": 1.0},
+                    "width": 0.2,
+                    "depth": 1.0,
+                    "thickness": 0.2,
+                    "material": "concrete",
+                    "source": SOURCE,
+                }
+            ],
+            "stairs": [
+                {
+                    "id": "run",
+                    "start": {"x": -1.3, "y": 2.5, "z": 0.0},
+                    "end": {"x": -0.3, "y": 2.5, "z": 1.0},
+                    "width": 0.2,
+                    "material": "concrete",
+                    "source": SOURCE,
+                }
+            ],
+            "appearance": {},
+        }
+    )
+
+
 def test_characteristic_metrics_mirror_renderer_quantization_without_mutating_scene():
     scene = _scene()
     before = scene.model_dump(mode="json", by_alias=True)
@@ -101,6 +145,19 @@ def test_severe_stair_width_quantization_is_a_blocker():
     assert stair.worst_relative_error >= SEVERE_CHARACTERISTIC_ERROR
     assert stair_issue.code == "lego_stair_proportion_distortion"
     assert stair_issue.severity == "blocker"
+
+
+def test_relation_snap_distortion_uses_final_adjusted_stair_run():
+    scene = _relation_shift_scene()
+
+    metrics = characteristic_distortions(scene, front_width_studs=50)
+    stair = next(metric for metric in metrics if metric.object_id == "run")
+    issues = characteristic_fidelity_issues(scene, front_width_studs=50)
+    stair_issue = next(issue for issue in issues if issue.object_id == "run")
+
+    assert "run 5.000->6 studs" in stair.details
+    assert stair.worst_relative_error >= MATERIAL_CHARACTERISTIC_ERROR
+    assert stair_issue.severity == "warning"
 
 
 def test_scene_pipeline_surfaces_characteristic_distortion_diagnostics():
