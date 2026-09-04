@@ -20,7 +20,7 @@ Avant toute modification :
 1. lire `PROJECT_PRINCIPLES.md` ;
 2. vérifier l’état réel de `main`, les commits récents, les PR/issues pertinentes et la CI/déploiement concernés ;
 3. lire `README.md` ;
-4. lire `NEXT_CONVERSATION.md` pour identifier le chantier prioritaire, puis vérifier chacun de ses faits changeants contre le dépôt ;
+4. lire `PROGRESSION.md` pour identifier le chantier prioritaire, puis vérifier chacun de ses faits changeants contre le dépôt ;
 5. consulter `docs/CURRENT_PROJECT_STATE.md` et `HANDOFF.md` seulement comme contexte/passation, jamais comme substitut à cette vérification ;
 6. lire `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` et les contrats spécialisés concernés par la tâche ;
 7. rechercher dans le code, les tests, les docs et les issues si le concept demandé existe déjà.
@@ -49,7 +49,7 @@ Ne pas considérer un SHA, numéro de PR, nombre de tests ou statut CI recopié 
 
 - Constitution du projet : `PROJECT_PRINCIPLES.md`.
 - Vision et pipeline : `README.md`.
-- Reprise immédiate : `NEXT_CONVERSATION.md`.
+- Progression opérationnelle et reprise immédiate : `PROGRESSION.md`.
 - Contexte récent et archives d’état : `docs/CURRENT_PROJECT_STATE.md`, `HANDOFF.md` et documents de tranche datés/spécialisés.
 - Architecture et raisons des décisions : `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`.
 - Survey / Scene / raisonnement photo : `docs/ARCHITECTURAL_SURVEY_V01.md`, `docs/ARCHITECTURAL_SCENE_V02.md`, `docs/ARCHITECTURAL_ANALYSIS_PIPELINE.md`, `docs/ARCHITECTURAL_REASONING_PASS.md`.
@@ -85,7 +85,7 @@ Classer chaque information dans sa bonne source :
 - décision architecturale → `docs/DECISIONS.md` / documentation d’architecture ;
 - contrat durable → document/contrat canonique + tests ;
 - tâche ou dette restante → issue lorsque pertinent ;
-- point de reprise temporaire → `NEXT_CONVERSATION.md` ;
+- progression opérationnelle et point de reprise → `PROGRESSION.md` ;
 - compte-rendu de tranche/historique → document spécialisé ou `docs/CURRENT_PROJECT_STATE.md` ;
 - comportement garanti → test automatisé lorsque possible.
 
@@ -99,7 +99,7 @@ Avant de terminer une tranche substantielle :
 3. vérifier que toute décision durable est documentée dans sa source canonique ;
 4. vérifier que les nouvelles régressions sont couvertes par des tests ;
 5. rechercher les références devenues obsolètes ou contradictoires ;
-6. garder `NEXT_CONVERSATION.md` court : chantier prioritaire, blocage humain éventuel, fichiers/sources à lire et choses à ne pas refaire ;
+6. garder `PROGRESSION.md` lisible et centré sur les progrès réels, les régressions, le chantier prioritaire, les blocages humains éventuels et les choses à ne pas refaire ;
 7. éviter d’y recopier les faits calculables sauf comme repère explicitement daté ;
 8. conserver les chronologies détaillées dans les ADR, PR/issues ou documents de tranche plutôt que dans le prompt de reprise ;
 9. relire la reprise comme si le prochain agent n’avait accès à aucune conversation précédente ;
