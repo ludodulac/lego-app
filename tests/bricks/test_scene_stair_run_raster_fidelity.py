@@ -102,6 +102,7 @@ def test_short_metric_run_collapsed_to_one_stud_coordinate_is_reported():
     issues = _collapse_issues(scene)
 
     assert len(issues) == 1
+    assert issues[0].severity == "blocker"
     assert issues[0].object_id == "run"
     assert "0.08m horizontal X run" in issues[0].message
     assert "both quantize to X=10" in issues[0].message
