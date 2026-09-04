@@ -1,12 +1,15 @@
 from brickhouse.bricks.building_layout import generate_building_brick_shell
 from brickhouse.bricks.roof import _footprint, generate_spatial_gable_roof
-from brickhouse.bricks.roof_raster_fidelity import select_gable_roof_raster
+from brickhouse.bricks.roof_raster_fidelity import (
+    gable_rise_error_severity,
+    select_gable_roof_raster,
+)
 from brickhouse.building.models import BuildingModel
 from brickhouse.geometry import generate_building_geometry
 from brickhouse.pipeline import run_m0_pipeline_model
 
 
-def _building(*, width: float, depth: float) -> BuildingModel:
+def _building(*, width: float, depth: float, pitch: float = 18.0) -> BuildingModel:
     return BuildingModel.model_validate(
         {
             "schema_version": "0.1",
@@ -34,7 +37,7 @@ def _building(*, width: float, depth: float) -> BuildingModel:
                     "type": "gable",
                     "overhang": 0.0,
                     "ridge_direction": "depth",
-                    "pitch_degrees": 18.0,
+                    "pitch_degrees": pitch,
                     "source": {"kind": "inferred", "confidence": 0.9},
                 }
             ],
@@ -66,6 +69,8 @@ def test_exact_gable_raster_reports_no_representation_adjustment() -> None:
     assert selection.span_adjustment_studs == 0
     assert selection.line_adjustment_studs == 0
     assert selection.geometry_changed is False
+    assert selection.relative_gable_rise_error < 1e-9
+    assert gable_rise_error_severity(selection) is None
 
 
 def test_quantized_gable_raster_exposes_both_lego_only_overhangs() -> None:
@@ -105,6 +110,31 @@ def test_raster_selection_is_deterministic_and_does_not_mutate_building() -> Non
     assert building.model_dump(mode="json") == before
 
 
+def test_gable_rise_error_measures_silhouette_not_only_angle_delta() -> None:
+    selection = _selection(_building(width=8.0, depth=6.5, pitch=25.0), 16)
+
+    assert selection.slope_family_id == "18"
+    assert 0.30 < selection.relative_gable_rise_error < 0.31
+    assert selection.gable_rise_direction == "lower"
+    assert gable_rise_error_severity(selection) == "warning"
+
+
+def test_severe_taller_gable_distortion_is_a_blocker() -> None:
+    building = _building(width=8.0, depth=6.5, pitch=25.6)
+    selection = _selection(building, 16)
+
+    assert selection.slope_family_id == "33"
+    assert selection.relative_gable_rise_error > 0.35
+    assert selection.gable_rise_direction == "taller"
+    assert gable_rise_error_severity(selection) == "blocker"
+
+    bundle = run_m0_pipeline_model(building, front_width_studs=16)
+    issue = next(issue for issue in bundle.fidelity_issues if issue.code == "lego_gable_rise_distortion")
+    assert issue.object_id == "roof"
+    assert issue.severity == "blocker"
+    assert "taller/steeper" in issue.message
+
+
 def test_pipeline_surfaces_quantized_roof_raster_as_representation_only_fidelity() -> None:
     building = _building(width=8.0, depth=6.5)
     before = building.model_dump(mode="json")
@@ -116,6 +146,7 @@ def test_pipeline_surfaces_quantized_roof_raster_as_representation_only_fidelity
     assert issues["lego_roof_eave_span_adjustment"].severity == "info"
     assert issues["lego_roof_gable_line_adjustment"].object_id == "roof"
     assert issues["lego_roof_gable_line_adjustment"].severity == "info"
+    assert "lego_gable_rise_distortion" not in issues
     assert building.model_dump(mode="json") == before
 
 
@@ -128,3 +159,4 @@ def test_pipeline_emits_no_roof_raster_adjustment_when_catalog_tiles_exactly() -
 
     assert "lego_roof_eave_span_adjustment" not in codes
     assert "lego_roof_gable_line_adjustment" not in codes
+    assert "lego_gable_rise_distortion" not in codes

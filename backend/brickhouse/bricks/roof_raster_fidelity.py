@@ -7,7 +7,7 @@ reported separately as representation-only fidelity information.
 """
 from __future__ import annotations
 
-from math import atan2, degrees
+from math import atan2, degrees, radians, tan
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +24,11 @@ from .roof import (
     select_roof_slope_family,
 )
 
+# Architectural silhouette guardrails. These compare gable rise for the same
+# half-span; they are intentionally independent from angle-delta diagnostics.
+MATERIAL_GABLE_RISE_ERROR = 0.20
+SEVERE_GABLE_RISE_ERROR = 0.35
+
 
 class GableRoofRasterSelection(BaseModel):
     roof_id: str
@@ -37,6 +42,29 @@ class GableRoofRasterSelection(BaseModel):
     wall_line_length_studs: int = Field(gt=0)
     architectural_line_length_studs: int = Field(gt=0)
     selected_line_length_studs: int = Field(gt=0)
+
+    @property
+    def target_rise_run_ratio(self) -> float:
+        """Architectural gable rise per unit horizontal run."""
+        return tan(radians(self.target_pitch_degrees))
+
+    @property
+    def selected_rise_run_ratio(self) -> float:
+        """Rise/run imposed by the selected validated LEGO slope family."""
+        return tan(radians(self.selected_pitch_degrees))
+
+    @property
+    def relative_gable_rise_error(self) -> float:
+        """Relative pignon-height distortion for an unchanged half-span."""
+        return abs(self.selected_rise_run_ratio - self.target_rise_run_ratio) / self.target_rise_run_ratio
+
+    @property
+    def gable_rise_direction(self) -> str:
+        if self.selected_rise_run_ratio > self.target_rise_run_ratio:
+            return "taller"
+        if self.selected_rise_run_ratio < self.target_rise_run_ratio:
+            return "lower"
+        return "unchanged"
 
     @property
     def declared_span_overhang_studs(self) -> int:
@@ -57,6 +85,18 @@ class GableRoofRasterSelection(BaseModel):
     @property
     def geometry_changed(self) -> bool:
         return self.span_adjustment_studs != 0 or self.line_adjustment_studs != 0
+
+
+def gable_rise_error_severity(selection: GableRoofRasterSelection) -> str | None:
+    """Classify perceptual gable distortion without changing architectural truth."""
+    error = selection.relative_gable_rise_error
+    if error >= SEVERE_GABLE_RISE_ERROR:
+        return "blocker"
+    if error >= MATERIAL_GABLE_RISE_ERROR:
+        return "warning"
+    if error > 0.01:
+        return "info"
+    return None
 
 
 def select_gable_roof_raster(
