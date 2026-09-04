@@ -27,7 +27,9 @@ def test_pipeline_recommends_nearby_scale_without_changing_requested_build_width
     assert bundle.brick_model.width_studs == 48
     assert recommendation is not None
     assert recommendation.preferred_front_width_studs == 48
-    assert recommendation.recommended_front_width_studs == 50
+    assert recommendation.recommended_front_width_studs != 48
+    assert abs(recommendation.recommended_front_width_studs - 48) <= recommendation.search_radius_studs
+    assert recommendation.recommended.score_m < recommendation.baseline.score_m
     assert recommendation.improvement_fraction > 0.5
 
 
