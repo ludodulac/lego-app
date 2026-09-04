@@ -56,8 +56,12 @@ Exemples de coût d'erreur : déplacer légèrement un trumeau pour faire tenir 
 - Les collapses intrinsèques d'un StairRun sont classés comme blockers de fidélité.
 - La CI publie un export riche générique `ArchitecturalScene → LEGO` comme artefact.
 - GitHub Pages expose une prévisualisation du rich Scene dans le viewer existant.
-- BH-125 est fusionné : chaque fenêtre architecturale générée possède désormais un statut explicite de représentation (`validated_assembly`, `joinery_free_glazing`, `void_only`). Une composition connue mais non représentable par le vocabulaire LEGO validé produit le blocker `lego_architectural_window_unrepresented` au lieu d'être considérée comme une façade aveugle réussie. Les subdivisions non supportées ne sont pas inventées.
-- La CI de BH-125 était verte sur la PR #424 avant fusion ; `main` est au SHA `0088d7b0f80fea8bc1c39702d70dcd76f23df71f` au moment de cette mise à jour.
+- **BH-125** : chaque fenêtre architecturale générée possède un statut explicite de représentation (`validated_assembly`, `joinery_free_glazing`, `void_only`). Une composition connue mais non représentable produit le blocker `lego_architectural_window_unrepresented` au lieu d'être considérée comme une façade aveugle réussie. Les subdivisions non supportées ne sont pas inventées.
+- **BH-126** : la toiture à deux pans est revalidée après translation dans le repère final du `BrickModel`. Les deux lignes d'égout doivent encore toucher les limites finales du bâtiment et rester au niveau supérieur du mur ; un pan déplacé ou flottant est rejeté. Le débord architectural déclaré est conservé.
+- **BH-127** : la fidélité du pignon n'est plus jugée seulement par l'écart angulaire. Le moteur mesure la variation de hauteur de pignon pour une même demi-portée via le rapport montée/course. Une déformation matérielle devient un warning et une déformation sévère un blocker.
+- **BH-128** : le choix de famille de pente LEGO privilégie désormais la fidélité montée/course (`tan(pitch)`) avant la proximité en degrés. Au voisinage d'une frontière de catalogue, le moteur choisit donc la pièce qui conserve le mieux la proportion du pignon plutôt que celle qui gagne seulement quelques dixièmes de degré.
+- Les CI des PR #427, #429 et #431 étaient vertes avant fusion.
+- `main` est au SHA `1ae1922bce7b39840447a0633d40cf6fd3ac8f6f` au moment de cette mise à jour.
 
 ### Régression constatée le 2026-09-04 — encore ouverte
 
@@ -66,44 +70,46 @@ Le premier contrôle visuel humain du résultat riche a montré que le moteur es
 - perte importante de la composition visuelle des ouvertures ;
 - grandes façades aveugles ou trop génériques ;
 - reconnaissance de la maison insuffisante ;
-- toiture visuellement désolidarisée des murs sur certaines vues : pans flottants/décalés au lieu de reposer correctement sur les lignes d'appui ;
-- proportions du pignon/toiture susceptibles d'être trop hautes/aiguës par rapport à la preuve photographique ;
+- toiture visuellement désolidarisée des murs sur certaines vues ;
+- proportions du pignon/toiture susceptibles d'être trop hautes/aiguës ;
 - terrasse/escalier présents mais insuffisants pour compenser la perte de l'identité architecturale.
 
-BH-125 empêche désormais qu'une ouverture connue et non représentable soit silencieusement déclarée réussie. Cela ferme le contrat de sécurité de la Brique 1, mais ne suffit pas encore à restaurer toute la composition visuelle du rendu. La régression globale reste donc ouverte.
+Les contrats BH-125 à BH-128 ferment maintenant plusieurs voies de régression silencieuse : disparition d'une fenêtre connue, toiture perdant son appui final, pignon fortement déformé sans diagnostic et mauvais choix de pente autour d'une frontière de catalogue.
 
-Conclusion : le rendu actuel n'est pas une référence produit acceptable. Une CI verte ne suffit pas si le résultat architectural régresse.
+Ils ne démontrent toutefois pas encore que le rendu riche est redevenu suffisamment reconnaissable. La régression globale reste ouverte jusqu'à un nouveau contrôle visuel sur un rendu réellement amélioré.
+
+Conclusion : une CI verte reste nécessaire mais n'est pas suffisante si le résultat architectural régresse.
 
 ## Prochaines briques de travail — ordre strict
 
 ### Brique 1 — contrat de fidélité architecturale avant remplissage LEGO — RÉSOLUE AU NIVEAU OUVERTURES
 
-Les ouvertures connues sont désormais des ancres explicites : le raster de mur conserve le vide, les solutions LEGO validées sont choisies avant le remplissage, les parties générées gardent leur provenance d'ouverture et une composition connue non représentable devient un blocker de fidélité au lieu de disparaître silencieusement.
+Les ouvertures connues sont des ancres explicites : le raster de mur conserve le vide, les solutions LEGO validées sont choisies avant le remplissage, les parties générées gardent leur provenance d'ouverture et une composition connue non représentable devient un blocker de fidélité au lieu de disparaître silencieusement.
 
-Ce contrat doit rester la règle pour les futures ancres architecturales, mais le critère de sortie initial est rempli.
+### Brique 2 — appui géométrique et proportion de la toiture — RÉSOLUE AU NIVEAU DU CONTRAT
 
-### Brique 2 — corriger l'appui géométrique et la proportion de la toiture — EN COURS
+BH-126 impose l'appui dans les coordonnées finales. BH-127 mesure la déformation réelle du pignon. BH-128 choisit la famille de pente qui minimise cette déformation avant l'écart angulaire.
 
-La toiture doit être dérivée du même repère final que les murs/pignons. Les lignes d'égout/appui, le faîtage, la pente et le débord doivent rester cohérents après quantification LEGO.
+Critère atteint au niveau moteur : un pan supporté ne peut plus perdre silencieusement son appui final, et une quantification de pente qui déforme le pignon est soit mieux évitée par le choix de famille, soit diagnostiquée avec une sévérité explicite.
 
-Le contrôle doit distinguer deux problèmes :
+Ce statut ne vaut pas validation photographique finale : la toiture devra encore être revue dans le prochain rendu humain.
 
-- **contact/appui** : un pan censé être porté par le bâtiment ne peut pas flotter, se décaler ou perdre sa ligne d'appui ;
-- **proportion** : le choix d'une famille de pente LEGO ne doit pas produire un pignon manifestement plus haut/aigu que l'architecture source sans diagnostic explicite ni recherche d'une solution de représentation meilleure.
+### Brique 3 — restaurer la composition complète des ouvertures — EN COURS
 
-Ajouter des régressions génériques qui couvrent la continuité toiture-host et le rapport hauteur de pignon / demi-portée après quantification.
+Les fenêtres et portes structurées doivent rester des ancres prioritaires. Le remplissage des murs doit se faire autour d'elles, pas l'inverse.
 
-Critère de sortie : aucun pan de toiture supporté par le volume principal ne flotte visuellement au-dessus ou à côté de son appui final, et une quantification de pente qui déforme fortement le pignon n'est pas silencieusement acceptée.
+Priorité de reconnaissance :
 
-### Brique 3 — restaurer la composition complète des ouvertures
+- positions relatives et ordre gauche/droite ;
+- alignements horizontaux et verticaux ;
+- rythme des centres et des espaces libres entre ouvertures ;
+- rapports largeur/hauteur ;
+- relation portes ↔ fenêtres ↔ terrasse/escalier ;
+- seulement ensuite cadres, appuis et linteaux.
 
-Les fenêtres et portes structurées dans la Scene doivent rester des ancres prioritaires. Le remplissage des murs doit se faire autour d'elles, pas l'inverse.
+BH-105/BH-107 conservent déjà les centres relatifs X/Z lors de l'ancrage conjoint et BH-125 garantit la non-disparition. Le prochain travail doit mesurer puis protéger explicitement le **rythme de façade** lorsque les dimensions des vraies pièces LEGO changent les largeurs d'ouverture : conserver seulement les centres ne suffit pas si les trumeaux/espaces libres deviennent visuellement faux.
 
-Priorité de reconnaissance : positions relatives, alignements horizontaux/verticaux, rapports de largeur/hauteur, rythmes de façade, puis détails de cadres/appuis/linteaux.
-
-BH-125 fournit le contrat de non-disparition. Cette brique doit maintenant améliorer la fidélité compositionnelle réelle lorsque plusieurs solutions LEGO sont possibles.
-
-Critère de sortie : la façade reste identifiable par sa composition même sans textures ni petits détails.
+Critère de sortie : la façade reste identifiable par sa composition même sans textures ni petits détails, et une optimisation locale de taille/position ne peut pas dégrader fortement son rythme sans diagnostic ou recherche d'une meilleure solution.
 
 ### Brique 4 — verrouiller silhouette et proportions à l'échelle LEGO
 
