@@ -1,8 +1,9 @@
-"""Audit StairRun endpoint connectivity after conservative LEGO relation anchoring.
+"""Audit StairRun raster fidelity after conservative LEGO relation anchoring.
 
 BH-111/BH-112 own representation decisions. This module only reports when the
-final derived raster no longer preserves a Scene-valid endpoint relation; it never
-changes ArchitecturalScene geometry or invents a compensating connection.
+final derived raster no longer preserves a Scene-valid endpoint relation or the
+stair's own horizontal travel; it never changes ArchitecturalScene geometry or
+invents a compensating connection or run length.
 """
 from __future__ import annotations
 
@@ -91,12 +92,44 @@ def _volume_boundary_target(
     )
 
 
+def _stair_run_collapse_issue(
+    stair,
+    start_xy: tuple[int, int],
+    end_xy: tuple[int, int],
+) -> BrickExportFidelityIssue | None:
+    metric_dx = stair.end.x - stair.start.x
+    metric_dy = stair.end.y - stair.start.y
+    if abs(metric_dx) > base.EPSILON and start_xy[0] == end_xy[0]:
+        return BrickExportFidelityIssue(
+            code="lego_stair_horizontal_run_collapsed",
+            severity="warning",
+            object_id=stair.id,
+            message=(
+                f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dx):g}m horizontal X run, "
+                f"but its final LEGO start and end both quantize to X={start_xy[0]}. The source run remains "
+                "unchanged; no artificial extra stud of travel was invented."
+            ),
+        )
+    if abs(metric_dy) > base.EPSILON and start_xy[1] == end_xy[1]:
+        return BrickExportFidelityIssue(
+            code="lego_stair_horizontal_run_collapsed",
+            severity="warning",
+            object_id=stair.id,
+            message=(
+                f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dy):g}m horizontal Y run, "
+                f"but its final LEGO start and end both quantize to Y={start_xy[1]}. The source run remains "
+                "unchanged; no artificial extra stud of travel was invented."
+            ),
+        )
+    return None
+
+
 def stair_connectivity_fidelity_issues(
     scene: ArchitecturalScene,
     *,
     front_width_studs: int,
 ) -> list[BrickExportFidelityIssue]:
-    """Report Scene-valid stair endpoint relations lost in the final LEGO raster."""
+    """Report Scene-valid stair relations or horizontal travel lost in the final raster."""
     if front_width_studs <= 0 or not scene.stairs:
         return []
 
@@ -120,18 +153,28 @@ def stair_connectivity_fidelity_issues(
             origin_y=origin_y,
             studs_per_meter=studs_per_meter,
         )
-        for endpoint_name, point, endpoint_shift in (
-            ("start", stair.start, start_shift),
-            ("end", stair.end, end_shift),
-        ):
-            x, y = _endpoint_raster(
-                point,
-                endpoint_shift,
-                origin_x=origin_x,
-                origin_y=origin_y,
-                studs_per_meter=studs_per_meter,
-            )
+        start_xy = _endpoint_raster(
+            stair.start,
+            start_shift,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        )
+        end_xy = _endpoint_raster(
+            stair.end,
+            end_shift,
+            origin_x=origin_x,
+            origin_y=origin_y,
+            studs_per_meter=studs_per_meter,
+        )
+        collapse_issue = _stair_run_collapse_issue(stair, start_xy, end_xy)
+        if collapse_issue is not None:
+            issues.append(collapse_issue)
 
+        for endpoint_name, point, endpoint_shift, (x, y) in (
+            ("start", stair.start, start_shift, start_xy),
+            ("end", stair.end, end_shift, end_xy),
+        ):
             platform = _connected_platform(point, scene)
             if platform is not None:
                 if not _point_inside_platform_raster(
