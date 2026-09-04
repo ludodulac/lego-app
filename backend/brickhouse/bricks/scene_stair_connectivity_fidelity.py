@@ -121,7 +121,7 @@ def _stair_run_collapse_issue(
     if abs(metric_dx) > base.EPSILON and start_xy[0] == end_xy[0]:
         return BrickExportFidelityIssue(
             code="lego_stair_horizontal_run_collapsed",
-            severity="warning",
+            severity="blocker",
             object_id=stair.id,
             message=(
                 f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dx):g}m horizontal X run, "
@@ -132,7 +132,7 @@ def _stair_run_collapse_issue(
     if abs(metric_dy) > base.EPSILON and start_xy[1] == end_xy[1]:
         return BrickExportFidelityIssue(
             code="lego_stair_horizontal_run_collapsed",
-            severity="warning",
+            severity="blocker",
             object_id=stair.id,
             message=(
                 f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dy):g}m horizontal Y run, "
@@ -153,7 +153,7 @@ def _stair_rise_collapse_issue(
         return None
     return BrickExportFidelityIssue(
         code="lego_stair_vertical_rise_collapsed",
-        severity="warning",
+        severity="blocker",
         object_id=stair.id,
         message=(
             f"ArchitecturalScene stair {stair.id!r} has a {abs(metric_dz):g}m vertical rise, but its final "
