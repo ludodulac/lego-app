@@ -5,8 +5,11 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from brickhouse.building.models import BuildingModel
+from brickhouse.geometry import generate_building_geometry
 
+from .building_layout import generate_building_brick_shell
 from .discretization_report import build_discretization_quality
+from .scaling import COURSES_PER_STUD_RATIO
 
 
 class ScaleCandidateScore(BaseModel):
@@ -16,6 +19,7 @@ class ScaleCandidateScore(BaseModel):
     worst_opening_error_m: float = Field(ge=0)
     mean_all_error_m: float = Field(ge=0)
     worst_all_error_m: float = Field(ge=0)
+    worst_volume_proportion_error: float = Field(ge=0)
 
 
 class ScaleRecommendation(BaseModel):
@@ -26,6 +30,31 @@ class ScaleRecommendation(BaseModel):
     recommended: ScaleCandidateScore
     candidates: list[ScaleCandidateScore]
     improvement_fraction: float = Field(ge=0, le=1)
+
+
+def _worst_volume_proportion_error(building: BuildingModel, front_width_studs: int) -> float:
+    """Measure final shell width/depth/height ratios against immutable metric volumes."""
+    geometry = generate_building_geometry(building)
+    primary = building.volumes[0]
+    studs_per_meter = front_width_studs / primary.width
+    worst = 0.0
+    for volume in building.volumes:
+        walls = [wall for wall in geometry.walls if wall.volume_id == volume.id]
+        roof_planes = [plane for plane in geometry.roof_planes if plane.volume_id == volume.id]
+        subgeometry = geometry.model_copy(update={"walls": walls, "roof_planes": roof_planes})
+        shell = generate_building_brick_shell(subgeometry, studs_per_meter=studs_per_meter)
+        by_facade = {wall.facade.value: wall for wall in shell.walls}
+        width_studs = by_facade["front"].grid.width_studs
+        depth_studs = by_facade["left"].grid.width_studs
+        height_studs = by_facade["front"].grid.height_bricks / COURSES_PER_STUD_RATIO
+        lego = (width_studs, depth_studs, height_studs)
+        metric = (volume.width, volume.depth, volume.height)
+        for index in range(3):
+            for other in range(index + 1, 3):
+                target_ratio = metric[index] / metric[other]
+                represented_ratio = lego[index] / lego[other]
+                worst = max(worst, abs(represented_ratio / target_ratio - 1.0))
+    return worst
 
 
 def _score_candidate(building: BuildingModel, front_width_studs: int) -> ScaleCandidateScore:
@@ -39,9 +68,11 @@ def _score_candidate(building: BuildingModel, front_width_studs: int) -> ScaleCa
     worst_all = max(all_abs, default=0.0)
     mean_opening = sum(opening_abs) / len(opening_abs) if opening_abs else mean_all
     worst_opening = max(opening_abs, default=worst_all)
+    proportion_error = _worst_volume_proportion_error(building, front_width_studs)
 
-    # Openings carry the visual identity of a facade, so their average and worst
-    # rounding losses dominate the score; blank wall-span rounding still matters.
+    # This scalar remains useful for reporting local discretization improvement.
+    # Candidate selection below is lexicographic: global proportions are a higher
+    # fidelity tier than opening/grid exactness and therefore gate this score.
     score = 3.0 * mean_opening + 2.0 * worst_opening + mean_all
     return ScaleCandidateScore(
         front_width_studs=front_width_studs,
@@ -50,6 +81,7 @@ def _score_candidate(building: BuildingModel, front_width_studs: int) -> ScaleCa
         worst_opening_error_m=worst_opening,
         mean_all_error_m=mean_all,
         worst_all_error_m=worst_all,
+        worst_volume_proportion_error=proportion_error,
     )
 
 
@@ -72,6 +104,7 @@ def recommend_front_width_studs(
     recommended = min(
         candidates,
         key=lambda candidate: (
+            candidate.worst_volume_proportion_error,
             candidate.score_m,
             abs(candidate.front_width_studs - preferred_front_width_studs),
             candidate.front_width_studs,
@@ -79,7 +112,7 @@ def recommend_front_width_studs(
     )
     improvement = (
         max(0.0, (baseline.score_m - recommended.score_m) / baseline.score_m)
-        if baseline.score_m > 0
+        if baseline.score_m > 0 and recommended.score_m <= baseline.score_m
         else 0.0
     )
     return ScaleRecommendation(
