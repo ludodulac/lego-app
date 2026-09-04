@@ -111,6 +111,7 @@ def test_declared_support_can_force_conservative_outward_footprint():
     scene = _scene(
         supports=[
             {
+                "id": "support-east",
                 "position": {"x": -0.05, "y": 1.0, "z": 0.0},
                 "width": 0.05,
                 "depth": 0.2,
