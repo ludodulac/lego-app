@@ -12,6 +12,8 @@ def test_photo_page_cache_buster_matches_active_survey_package_layer():
     assert "pdf-handoff-0.7-coverage-audit" in entry
     assert "brickhouse-survey-package-v08.js" in entry
     assert "pdf-handoff-0.8-final-contract-audit" in entry
+    assert "brickhouse-survey-package-v11.js" in entry
+    assert "pdf-handoff-0.11-orientation-provenance" in entry
     assert "scene-handoff-source-lock.js" in entry
-    assert 'brickhouse-survey-package.js?v=pdf-handoff-0.8-scene-source-lock' in page
+    assert 'brickhouse-survey-package.js?v=pdf-handoff-0.11-orientation-provenance' in page
     assert 'brickhouse-survey-package.js?v=pdf-handoff-0.7-coverage-preflight' not in page
