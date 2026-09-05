@@ -22,7 +22,9 @@ def test_real_house_scene_stage_seeds_accepted_checkpoint_without_api_round_trip
     assert "fetch(ACCEPTED_SURVEY_URL, { cache: 'no-store' })" in ui
 
 
-def test_scene_entry_injects_scene_only_ui():
+def test_scene_entry_injects_current_scene_only_ui_with_revisioned_cache_key():
     scene = (ROOT / "frontend/scene.html").read_text(encoding="utf-8")
-    assert "scene-stage-ui.js" in scene
+    assert "scene-stage-ui.js?v=scene-stage-ui-bh144-guaranteed-action" in scene
+    assert "scene-stage-ui-0.1" not in scene
+    assert "html.includes('scene-stage-ui-bh144-guaranteed-action')" in scene
     assert "</body>" in scene
