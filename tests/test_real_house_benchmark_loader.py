@@ -37,3 +37,14 @@ def test_real_house_benchmark_loader_is_opt_in_and_preserves_capture_uncertainty
     assert "knownWidth.value = ''" in loader
     assert "notes.value = ''" in loader
     assert "real-house-benchmark-loader.js" in package
+
+
+def test_scene_stage_reuses_accepted_survey_through_normal_validation_path():
+    loader = (ROOT / "frontend/real-house-benchmark-loader.js").read_text(encoding="utf-8")
+
+    assert "accepted-survey-v0.1.json" in loader
+    assert "requestedStage() !== 'scene'" in loader
+    assert "textarea.value = JSON.stringify(survey, null, 2)" in loader
+    assert "importButton.click()" in loader
+    assert "pendingArchitecturalSurvey" not in loader
+    assert "5 photos prêtes pour le PDF Survey → Scene" in loader
