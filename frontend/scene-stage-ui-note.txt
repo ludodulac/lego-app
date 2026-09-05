@@ -1,0 +1,1 @@
+BH-144 scene-only UI guard: the Scene entry hides the Photos→Survey export button so users cannot accidentally download BRICKHOUSE-SURVEY-pdf-handoff-0.10 while performing Survey→Scene.
