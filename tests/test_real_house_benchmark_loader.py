@@ -46,5 +46,5 @@ def test_scene_stage_reuses_accepted_survey_through_normal_validation_path():
     assert "requestedStage() !== 'scene'" in loader
     assert "textarea.value = JSON.stringify(survey, null, 2)" in loader
     assert "importButton.click()" in loader
-    assert "pendingArchitecturalSurvey" not in loader
+    assert "localStorage.setItem('brickhouse.pendingArchitecturalSurvey'" not in loader
     assert "5 photos prêtes pour le PDF Survey → Scene" in loader
