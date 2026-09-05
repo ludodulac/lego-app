@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Boldungo — Survey → Scene</title>
+  <title>Boldungo — Relevé → Scene 3D</title>
   <style>
     :root { font-family: system-ui, sans-serif; color: #132039; background: #f3f6fa; }
     body { margin: 0; }
@@ -27,8 +27,8 @@
   <main>
     <section class="card">
       <p><strong>Boldungo · benchmark réel</strong></p>
-      <h1>Survey → Scene</h1>
-      <p>Le relevé validé est déjà figé. Les cinq photos servent maintenant uniquement à reconstruire la géométrie 3D. Il n’y a rien à réimporter et aucun nouveau Survey à produire.</p>
+      <h1>Relevé → Scene 3D</h1>
+      <p>Le relevé validé est déjà figé. Les cinq photos servent maintenant uniquement à reconstruire la géométrie 3D. Il n’y a rien à réimporter et aucun nouveau relevé à produire.</p>
 
       <div class="photos" aria-label="Photos du benchmark chargées automatiquement">
         <label class="guided-photo-slot" data-slot="front"><strong>Avant</strong><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
@@ -39,22 +39,16 @@
 
       <p id="ai-package-status">Chargement du relevé accepté et des cinq photos…</p>
       <div id="scene-handoff-home" class="scene-only">
-        <button id="download-scene-handoff" class="primary big-action" type="button">Créer le PDF unique Survey → Scene</button>
+        <button id="download-scene-handoff" class="primary big-action" type="button" disabled>Créer le PDF Relevé → Scene 3D</button>
       </div>
       <p id="status">Préparation du benchmark…</p>
 
       <div class="hidden-contract" aria-hidden="true">
         <input id="confirm-guided-orientations" type="checkbox">
-        <input id="known-width" type="number">
-        <textarea id="notes"></textarea>
-        <textarea id="external-analysis"></textarea>
-        <button id="import-analysis" type="button">Import interne</button>
       </div>
     </section>
   </main>
 
-  <script type="module" src="./brickhouse-survey-package.js?v=scene-stage-bh146-standalone"></script>
-  <script type="module" src="./scene-handoff-photo-evidence.js?v=scene-stage-bh146-standalone"></script>
-  <script type="module" src="./scene-stage-ui.js?v=scene-stage-ui-bh146-standalone"></script>
+  <script type="module" src="./scene-benchmark-runtime.js?v=bh147-scene-runtime-1"></script>
 </body>
 </html>
