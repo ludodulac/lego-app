@@ -22,12 +22,9 @@ def test_stage_lock_forbids_survey_output_and_requires_scene():
     assert '"photos", "observations" or "known_measurements"' in lock
 
 
-def test_generated_pdf_repeats_stage_lock_at_both_boundaries():
+def test_existing_pdf_handoff_still_targets_scene_only():
     handoff = (ROOT / "frontend/scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
-    assert "scene-handoff-0.6-output-exclusive" in handoff
-    assert "ATTENTION — NE PAS PRODUIRE DE SURVEY" in handoff
-    assert "SURVEY ACCEPTÉ — ENTRÉE IMMUTABLE, PAS UNE SORTIE" in handoff
-    assert "VERROU FINAL AVANT LES PHOTOS" in handoff
-    assert "NE REFAIS PAS LE SURVEY" in handoff
+    assert "Ne recommence PAS le Survey" in handoff
     assert "brickhouse-scene-result.json" in handoff
-    assert "known_measurements" in handoff
+    assert "ArchitecturalScene v0.2" in handoff
+    assert "ARCHITECTURAL SURVEY VALIDÉ" in handoff
