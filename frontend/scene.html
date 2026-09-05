@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boldungo — Survey → Scene</title>
+</head>
+<body>
+  <p id="boot">Chargement de l’étape Survey → Scene…</p>
+  <script>
+    (async () => {
+      const boot = document.querySelector('#boot');
+      try {
+        const response = await fetch('./photo.html', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`photo.html HTTP ${response.status}`);
+        let html = await response.text();
+        html = html.replace(
+          './brickhouse-survey-package.js?v=pdf-handoff-0.11-orientation-provenance',
+          './brickhouse-survey-package.js?v=scene-stage-4.6-output-frame',
+        );
+        html = html.replace(
+          './scene-handoff-photo-evidence.js?v=scene-handoff-0.5-single-hybrid-pdf',
+          './scene-handoff-photo-evidence.js?v=scene-stage-bh143-fresh',
+        );
+        if (!html.includes('scene-stage-4.6-output-frame') || !html.includes('scene-stage-bh143-fresh')) {
+          throw new Error('cache-bust Survey → Scene non appliqué');
+        }
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        if (boot) boot.textContent = `Impossible de charger l’étape Survey → Scene : ${error.message}`;
+      }
+    })();
+  </script>
+</body>
+</html>
