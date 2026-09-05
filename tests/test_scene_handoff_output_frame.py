@@ -25,9 +25,10 @@ def test_output_frame_keeps_v43_header_first_and_rejects_survey_output():
     assert "Keep the authoritative v4.3 header as the literal first line" in frame
 
 
-def test_scene_stage_entry_point_forces_fresh_runtime_modules():
+def test_scene_stage_entry_point_uses_fresh_standalone_runtime_modules():
     scene = (ROOT / "frontend/scene.html").read_text(encoding="utf-8")
-    assert "fetch('./photo.html', { cache: 'no-store' })" in scene
-    assert "scene-stage-4.6-output-frame" in scene
-    assert "scene-stage-bh143-fresh" in scene
-    assert "document.write(html)" in scene
+    assert "fetch('./photo.html'" not in scene
+    assert "document.write" not in scene
+    assert "scene-stage-bh146-standalone" in scene
+    assert "scene-stage-ui-bh146-standalone" in scene
+    assert 'id="download-scene-handoff"' in scene
