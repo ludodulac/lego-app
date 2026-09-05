@@ -1,0 +1,24 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.5 — PROVENANCE DES MESURES UTILISATEUR
+
+Cet addendum est strictement additif. Il ne change aucune vérité architecturale et ne crée aucune mesure.
+
+RÈGLE ABSOLUE — `source.kind:"user_provided"`
+Une entrée de `known_measurements` peut porter `source.kind:"user_provided"` UNIQUEMENT si cette mesure exacte est explicitement présente dans les informations utilisateur du handoff courant. Les pixels, les proportions visuelles, les dimensions usuelles d'une porte/fenêtre/brique, une ancienne conversation, une mémoire du modèle, un exemple du prompt ou une supposition ne constituent JAMAIS une mesure utilisateur.
+
+Pour chaque mesure `user_provided`, vérifie AVANT sérialisation :
+- même `kind` que l'entrée utilisateur explicite ;
+- même valeur numérique ;
+- mêmes unités ;
+- aucune conversion, arrondi, estimation ou substitution silencieuse ;
+- provenance issue uniquement du handoff courant.
+
+Si le handoff dit qu'une mesure est inconnue, `null`, absente ou non fournie, AUCUNE entrée correspondante ne doit apparaître dans `known_measurements`. En particulier, si `known_front_width_m` / « Largeur avant connue » est inconnue, `known_measurements` ne doit contenir AUCUN `front_width` marqué `user_provided`.
+
+Si une dimension paraît estimable depuis les images, conserve-la comme question/hypothèse qualitative si le contrat le permet, mais ne la transforme jamais en `known_measurements` et ne lui attribue jamais `source.kind:"user_provided"`.
+
+PRÉFLIGHT PROVENANCE OBLIGATOIRE
+Juste avant le JSON final, compare CHAQUE `known_measurements[*]` dont `source.kind == "user_provided"` aux faits utilisateur explicitement fournis dans le handoff courant. Au moindre élément sans correspondance exacte, SUPPRIME cette mesure du Survey final. Ne corrige pas sa valeur en l'estimant.
+
+Cas témoin obligatoire : si le handoff contient « Largeur avant connue : inconnue » ou `known_front_width_m:null`, le Survey final doit avoir zéro mesure `front_width` de provenance `user_provided`.
+
+Cette vérification est prioritaire sur tout désir de compléter l'échelle ou de rendre la future Scene plus déterminée.
