@@ -5,6 +5,10 @@ import './brickhouse-survey-package-v05.js?v=pdf-handoff-0.5-terrain-audit';
 import './brickhouse-survey-package-v06.js?v=pdf-handoff-0.6-topology-audit';
 import './brickhouse-survey-package-v07.js?v=pdf-handoff-0.7-coverage-audit';
 import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audit';
+import './brickhouse-survey-package-v09.js?v=pdf-handoff-0.9-measurement-provenance';
+// Reject any AI-claimed user measurement that is not exactly authorized by the
+// current capture inputs before Survey validation or Scene handoff can run.
+import './survey-measurement-provenance-gate.js?v=measurement-provenance-gate-0.1';
 // Also lock Survey → Scene prompt fetches to the currently validated Survey so
 // stale browser state or a model's remembered IDs cannot silently replace it.
 import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
