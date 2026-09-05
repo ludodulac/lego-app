@@ -1,3 +1,5 @@
+import './site-nav.js?v=bh147-global-nav-1';
+
 const API_URL='https://brickhouse-api.onrender.com';
 const engine=document.querySelector('#engine-status');
 const api=document.querySelector('#api-status');

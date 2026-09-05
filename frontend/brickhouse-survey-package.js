@@ -36,3 +36,5 @@ import './photo-shell-loader.js?v=single-screen-1.1';
 // ?benchmark=real-house-5 loads the five versioned photos, while &stage=scene
 // additionally reuses the accepted Survey through the normal validation path.
 import './real-house-benchmark-loader.js?v=real-house-5-preload-0.2-scene-checkpoint';
+// Global product navigation is injected last and survives shell DOM changes.
+import './site-nav.js?v=bh147-global-nav-1';
