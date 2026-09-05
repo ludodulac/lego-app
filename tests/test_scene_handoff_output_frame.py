@@ -25,10 +25,12 @@ def test_output_frame_keeps_v43_header_first_and_rejects_survey_output():
     assert "Keep the authoritative v4.3 header as the literal first line" in frame
 
 
-def test_scene_stage_entry_point_uses_fresh_standalone_runtime_modules():
+def test_scene_stage_entry_point_uses_fresh_dedicated_runtime_modules():
     scene = (ROOT / "frontend/scene.html").read_text(encoding="utf-8")
+    runtime = (ROOT / "frontend/scene-benchmark-runtime.js").read_text(encoding="utf-8")
     assert "fetch('./photo.html'" not in scene
     assert "document.write" not in scene
-    assert "scene-stage-bh146-standalone" in scene
-    assert "scene-stage-ui-bh146-standalone" in scene
+    assert "scene-benchmark-runtime.js?v=bh147-scene-runtime-1" in scene
+    assert "scene-handoff-stage-lock-v45.js" in runtime
+    assert "scene-handoff-output-frame-v46.js" in runtime
     assert 'id="download-scene-handoff"' in scene
