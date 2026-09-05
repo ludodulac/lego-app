@@ -1,0 +1,33 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.6 — PROVENANCE D’ORIENTATION DE CAPTURE
+
+Cet addendum est strictement additif. Il ne change aucune vérité architecturale visible. Il fixe uniquement la provenance et la sérialisation de l’identité de capture des photos.
+
+RÈGLE ABSOLUE — `orientation_authority:capture_hint`
+Pour une photo fournie dans une case de façade Avant / Droite / Gauche / Arrière avec `capture_role=facade_view`, le libellé de cette case est la provenance de son identité de capture. Dans `photos[]`, conserve donc `facade` exactement égal à la case fournie dans le handoff courant et conserve le même `photo_index`. Ne permute, renomme, échange ni réordonne silencieusement ces identités après analyse visuelle.
+
+`capture_hint` NE signifie PAS que l’orientation architecturale est certaine ou confirmée par l’utilisateur. Cela signifie que le Survey doit préserver la métadonnée de capture fournie. Le raisonnement visuel peut la contester, mais il ne peut pas l’écraser.
+
+Si le recoupement multi-vues semble contredire un `capture_hint` :
+- garde malgré tout `photos[].facade` égal au libellé de capture fourni ;
+- n’élève pas ce hint à `user_confirmed` ;
+- conserve la contradiction comme réserve explicite dans `notes` ou dans les énoncés de preuve concernés, sans inventer une nouvelle façade ;
+- baisse la certitude des attributs ou relations qui dépendent de cette orientation si nécessaire ;
+- ne déplace pas automatiquement les observations d’une façade vers une autre uniquement pour résoudre la contradiction.
+
+RÈGLE — `orientation_authority:user_confirmed`
+Une orientation `user_confirmed` est une contrainte plus forte : conserve exactement la façade fournie et traite-la comme fait utilisateur prioritaire.
+
+RÈGLE — `targeted_detail`
+Une photo `capture_role=targeted_detail` garde toujours `facade:null` et `image_left_maps_to_facade_offset:null`. Elle peut contribuer à des observations multi-vues sans recevoir une façade implicite.
+
+PRÉFLIGHT D’IDENTITÉ PHOTO OBLIGATOIRE
+Juste avant le JSON final, compare `photos[]` à la liste « PHOTOS, DANS L’ORDRE DU PDF » du handoff courant :
+- même nombre de photos ;
+- même `photo_index` ;
+- même `capture_role` ;
+- pour chaque `facade_view`, même façade que le groupe de capture fourni, y compris lorsqu’il existe plusieurs photos du même côté ;
+- pour chaque `targeted_detail`, `facade:null`.
+
+Exemple générique : si le handoff contient successivement front, right, left, left, rear, le Survey final conserve exactement front, right, left, left, rear. Une hypothèse visuelle différente peut être signalée, jamais substituée silencieusement.
+
+Cette règle de provenance est prioritaire sur toute instruction antérieure invitant à « vérifier » ou « corriger » les libellés par recoupement : vérifier signifie désormais évaluer leur cohérence, pas réécrire leur identité de capture.
