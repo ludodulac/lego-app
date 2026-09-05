@@ -4,38 +4,57 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Boldungo — Survey → Scene</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #132039; background: #f3f6fa; }
+    body { margin: 0; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 18px 48px; }
+    .card { background: white; border-radius: 18px; padding: 24px; box-shadow: 0 8px 30px #13203914; }
+    h1 { margin: 0 0 8px; font-size: 1.65rem; }
+    p { line-height: 1.5; }
+    .photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 22px 0; }
+    .guided-photo-slot { border: 1px solid #d9e1ec; border-radius: 12px; padding: 12px; }
+    .guided-photo-slot strong { display: block; }
+    .guided-photo-input { width: 100%; margin-top: 8px; }
+    button.primary { width: 100%; border: 0; border-radius: 12px; padding: 16px; font: inherit; font-weight: 750; background: #132039; color: white; cursor: pointer; }
+    button.primary:disabled { opacity: .55; cursor: wait; }
+    #status, #ai-package-status { font-size: .92rem; color: #526078; }
+    .scene-only { margin-top: 18px; }
+    .hidden-contract { display: none !important; }
+    @media (max-width: 560px) { .photos { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
-  <p id="boot">Chargement de l’étape Survey → Scene…</p>
-  <script>
-    (async () => {
-      const boot = document.querySelector('#boot');
-      try {
-        const response = await fetch('./photo.html', { cache: 'no-store' });
-        if (!response.ok) throw new Error(`photo.html HTTP ${response.status}`);
-        let html = await response.text();
-        html = html.replace(
-          './brickhouse-survey-package.js?v=pdf-handoff-0.11-orientation-provenance',
-          './brickhouse-survey-package.js?v=scene-stage-4.6-output-frame',
-        );
-        html = html.replace(
-          './scene-handoff-photo-evidence.js?v=scene-handoff-0.5-single-hybrid-pdf',
-          './scene-handoff-photo-evidence.js?v=scene-stage-bh143-fresh',
-        );
-        html = html.replace(
-          '</body>',
-          '<script type="module" src="./scene-stage-ui.js?v=scene-stage-ui-bh144-guaranteed-action"><\/script></body>',
-        );
-        if (!html.includes('scene-stage-4.6-output-frame') || !html.includes('scene-stage-bh143-fresh') || !html.includes('scene-stage-ui-bh144-guaranteed-action')) {
-          throw new Error('verrou Survey → Scene non appliqué');
-        }
-        document.open();
-        document.write(html);
-        document.close();
-      } catch (error) {
-        if (boot) boot.textContent = `Impossible de charger l’étape Survey → Scene : ${error.message}`;
-      }
-    })();
-  </script>
+  <main>
+    <section class="card">
+      <p><strong>Boldungo · benchmark réel</strong></p>
+      <h1>Survey → Scene</h1>
+      <p>Le relevé validé est déjà figé. Les cinq photos servent maintenant uniquement à reconstruire la géométrie 3D. Il n’y a rien à réimporter et aucun nouveau Survey à produire.</p>
+
+      <div class="photos" aria-label="Photos du benchmark chargées automatiquement">
+        <label class="guided-photo-slot" data-slot="front"><strong>Avant</strong><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+        <label class="guided-photo-slot" data-slot="right"><strong>Droite</strong><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+        <label class="guided-photo-slot" data-slot="left"><strong>Gauche · 2 vues</strong><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+        <label class="guided-photo-slot" data-slot="rear"><strong>Arrière</strong><input class="guided-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+      </div>
+
+      <p id="ai-package-status">Chargement du relevé accepté et des cinq photos…</p>
+      <div id="scene-handoff-home" class="scene-only">
+        <button id="download-scene-handoff" class="primary big-action" type="button">Créer le PDF unique Survey → Scene</button>
+      </div>
+      <p id="status">Préparation du benchmark…</p>
+
+      <div class="hidden-contract" aria-hidden="true">
+        <input id="confirm-guided-orientations" type="checkbox">
+        <input id="known-width" type="number">
+        <textarea id="notes"></textarea>
+        <textarea id="external-analysis"></textarea>
+        <button id="import-analysis" type="button">Import interne</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./brickhouse-survey-package.js?v=scene-stage-bh146-standalone"></script>
+  <script type="module" src="./scene-handoff-photo-evidence.js?v=scene-stage-bh146-standalone"></script>
+  <script type="module" src="./scene-stage-ui.js?v=scene-stage-ui-bh146-standalone"></script>
 </body>
 </html>
