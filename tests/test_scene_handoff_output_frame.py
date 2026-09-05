@@ -21,7 +21,8 @@ def test_output_frame_keeps_v43_header_first_and_rejects_survey_output():
     assert "brickhouse-survey-result.json" in frame
     assert 'schema_version="0.2"' in frame
     assert "firstBreak + 1" in frame
-    assert "rawPrompt.startsWith" not in frame
+    assert "text.slice(0, firstBreak + 1)" in frame
+    assert "Keep the authoritative v4.3 header as the literal first line" in frame
 
 
 def test_scene_stage_entry_point_forces_fresh_runtime_modules():
