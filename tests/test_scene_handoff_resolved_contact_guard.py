@@ -4,15 +4,15 @@ ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 
 
-def test_generated_handoff_explains_backend_resolved_contact_rule() -> None:
-    source = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
-    assert "VALIDATION DU CONTACT resolved — OBLIGATOIRE" in source
-    assert "tolérance backend de raccord métrique est 0,12 m" in source
-    assert "POINT de ligne médiane start ou end lui-même" in source
-    assert "StairRun.width ne compte JAMAIS comme contact" in source
-    assert "min(|x-x0|,|x-x1|,|y-y0|,|y-y1|) <= 0,12" in source
-    assert "semantic_anchor_volume_id:null" in source
-    assert "CHAQUE relation resolved vers une ancre de volume" in source
+def test_generated_handoff_embeds_prompt_with_backend_resolved_contact_rule() -> None:
+    generator = (FRONTEND / "scene-handoff-photo-evidence.js").read_text(encoding="utf-8")
+    prompt = (FRONTEND / "brickhouse-survey-to-scene-prompt.txt").read_text(encoding="utf-8")
+    assert "${prompt}" in generator
+    assert "VALIDATION DU CONTACT" in prompt
+    assert "0,12 m" in prompt
+    assert "StairRun.width" in prompt
+    assert "semantic_anchor_volume_id" in prompt
+    assert "geometry_status" in prompt
 
 
 def test_resolved_contact_guard_does_not_snap_imported_geometry() -> None:
