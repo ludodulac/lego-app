@@ -18,11 +18,15 @@ import './survey-photo-orientation-provenance-gate.js?v=orientation-provenance-g
 // Also lock Survey → Scene prompt fetches to the currently validated Survey so
 // stale browser state or a model's remembered IDs cannot silently replace it.
 import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
+// Append the strict v4.4 serialization/contact audit to every active
+// Survey → Scene prompt fetch before the handoff generator requests it.
+import './scene-handoff-contract-audit-v44.js?v=scene-handoff-contract-audit-4.4';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
 // Load the restored phone-first cockpit with a fresh cache key.
 import './photo-shell-loader.js?v=single-screen-1.1';
 // Dedicated opt-in benchmark preload. Normal photo.html visits remain untouched;
-// only ?benchmark=real-house-5 loads the five versioned reference photos.
-import './real-house-benchmark-loader.js?v=real-house-5-preload-0.1';
+// ?benchmark=real-house-5 loads the five versioned photos, while &stage=scene
+// additionally reuses the accepted Survey through the normal validation path.
+import './real-house-benchmark-loader.js?v=real-house-5-preload-0.2-scene-checkpoint';

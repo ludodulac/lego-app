@@ -1,5 +1,6 @@
 const BENCHMARK_ID = 'real-house-5';
 const MANIFEST_URL = `./benchmarks/${BENCHMARK_ID}/manifest.json`;
+const ACCEPTED_SURVEY_URL = `./benchmarks/${BENCHMARK_ID}/accepted-survey-v0.1.json`;
 const SLOT_MAPPING = new Map([
   [1, { slot: 'front', detail: false }],
   [2, { slot: 'right', detail: false }],
@@ -8,8 +9,16 @@ const SLOT_MAPPING = new Map([
   [5, { slot: 'rear', detail: false }],
 ]);
 
+function params() {
+  return new URLSearchParams(globalThis.location?.search || '');
+}
+
 function requestedBenchmark() {
-  return new URLSearchParams(globalThis.location?.search || '').get('benchmark');
+  return params().get('benchmark');
+}
+
+function requestedStage() {
+  return params().get('stage');
 }
 
 function inputFor(slot, detail) {
@@ -30,6 +39,26 @@ async function fetchAsFile(path) {
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
   const blob = await response.blob();
   return new File([blob], path, { type: blob.type || 'image/jpeg' });
+}
+
+async function loadAcceptedSurveyCheckpoint() {
+  if (requestedStage() !== 'scene') return false;
+  const response = await fetch(ACCEPTED_SURVEY_URL, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`accepted Survey: HTTP ${response.status}`);
+  const survey = await response.json();
+  const textarea = document.querySelector('#external-analysis');
+  const importButton = document.querySelector('#import-analysis');
+  if (!textarea || !importButton) throw new Error('interface d’import Survey indisponible');
+  textarea.value = JSON.stringify(survey, null, 2);
+  textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+  // survey-import.js and photo.js are regular module scripts loaded after the
+  // package module that imports this loader. Yield once so their listeners and
+  // API URL initialization are installed before invoking the normal validation
+  // path. This deliberately does not write pendingArchitecturalSurvey itself.
+  await new Promise(resolve => setTimeout(resolve, 0));
+  importButton.click();
+  return true;
 }
 
 async function preloadBenchmark() {
@@ -73,8 +102,11 @@ async function preloadBenchmark() {
     const notes = document.querySelector('#notes');
     if (notes) notes.value = '';
 
+    const sceneStage = await loadAcceptedSurveyCheckpoint();
     if (status) {
-      status.textContent = `Benchmark ${BENCHMARK_ID} chargé · 5 photos originales · orientations = indices de capture · largeur inconnue · prêt à créer le PDF Survey.`;
+      status.textContent = sceneStage
+        ? `Benchmark ${BENCHMARK_ID} chargé · checkpoint Survey accepté injecté dans le chemin de validation · 5 photos prêtes pour le PDF Survey → Scene.`
+        : `Benchmark ${BENCHMARK_ID} chargé · 5 photos originales · orientations = indices de capture · largeur inconnue · prêt à créer le PDF Survey.`;
     }
   } catch (error) {
     if (status) status.textContent = `Benchmark ${BENCHMARK_ID} NON chargé : ${error.message}`;

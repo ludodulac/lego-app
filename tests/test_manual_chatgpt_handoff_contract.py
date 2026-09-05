@@ -53,10 +53,11 @@ def test_active_manual_handoff_uses_two_stage_survey_then_scene_flow() -> None:
     assert 'AUCUN objet parent "ArchitecturalSurvey"' in output_contract
     assert "/api/v1/validate-survey" in survey_importer
     assert "valid_for_scene_fusion" in survey_importer
-    assert "const PHOTO_EVIDENCE_FILENAME = 'BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf'" in scene_handoff
-    assert "const SCENE_HANDOFF_FILENAME = 'BRICKHOUSE-SURVEY-TO-SCENE.txt'" in scene_handoff
-    assert "const SCENE_HANDOFF_VERSION = 'scene-handoff-0.4-photo-evidence'" in scene_handoff
-    assert "deux fichiers" in scene_handoff.lower()
+    assert "BRICKHOUSE-SURVEY-TO-SCENE-pdf-handoff-0.2.pdf" in scene_handoff
+    assert "scene-handoff-0.5-single-hybrid-pdf" in scene_handoff
+    assert "PDF HYBRIDE UNIQUE" in scene_handoff
+    assert "BRICKHOUSE-SURVEY-TO-SCENE.txt" in scene_handoff
+    assert "BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf" in scene_handoff
     assert "brickhouse-scene-result.json" in scene_handoff
     assert "/api/v1/validate-scene-against-survey" in scene_gate
     assert "/api/v1/validate-scene" in scene_gate

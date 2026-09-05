@@ -45,6 +45,7 @@ jobs:
           node --check frontend/brickhouse-survey-package.js
           node --check frontend/external-bundle-import.js
           node --check frontend/survey-import.js
+          node --check frontend/scene-handoff-contract-audit-v44.js
           node --check frontend/scene-handoff-photo-evidence.js
           node --check frontend/scene-survey-gate.js
           node --check frontend/scene-build.js
@@ -88,17 +89,22 @@ jobs:
 
           html = Path('frontend/photo.html').read_text(encoding='utf-8')
           survey_import = Path('frontend/survey-import.js').read_text(encoding='utf-8')
+          package = Path('frontend/brickhouse-survey-package.js').read_text(encoding='utf-8')
           evidence = Path('frontend/scene-handoff-photo-evidence.js').read_text(encoding='utf-8')
+          audit = Path('frontend/scene-handoff-contract-audit-v44.js').read_text(encoding='utf-8')
           prompt = Path('frontend/brickhouse-survey-to-scene-prompt.txt').read_text(encoding='utf-8')
 
           assert 'id="scene-handoff-home"' in html
           assert 'Créer le fichier Survey → Scene à envoyer à l’IA' in survey_import
           assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.1'" in survey_import
-          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.4-photo-evidence'" in evidence
-          assert 'Créer le fichier Survey → Scene v4.3' in evidence
-          assert 'PROMPT_VERSION=4.3' in evidence
-          assert 'start_elevation:null' in evidence
-          assert 'end_elevation:null' in evidence
+          assert "SCENE_HANDOFF_VERSION = 'scene-handoff-0.5-single-hybrid-pdf'" in evidence
+          assert 'Créer le PDF unique Survey → Scene' in evidence
+          assert "const PROMPT_VERSION = '4.3'" in evidence
+          assert 'BRICKHOUSE-SURVEY-TO-SCENE-pdf-handoff-0.2.pdf' in evidence
+          assert 'start_elevation:null' in prompt
+          assert 'end_elevation:null' in prompt
+          assert 'scene-handoff-contract-audit-v44.js' in package
+          assert 'SURVEY → SCENE STRICT OUTPUT AUDIT v4.4' in audit
           assert prompt.startswith('BRICKHOUSE — PROMPT DE RECONSTRUCTION SURVEY → SCENE v4.3')
           PY
 

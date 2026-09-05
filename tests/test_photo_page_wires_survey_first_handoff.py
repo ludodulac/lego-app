@@ -6,7 +6,7 @@ FRONTEND = ROOT / "frontend"
 
 def test_photo_page_loads_survey_first_handoff_instead_of_legacy_bundle_handoff() -> None:
     html = (FRONTEND / "photo.html").read_text(encoding="utf-8")
-    assert 'src="./brickhouse-survey-package.js?v=pdf-handoff-0.8-scene-source-lock"' in html
+    assert 'src="./brickhouse-survey-package.js?v=pdf-handoff-0.11-orientation-provenance"' in html
     assert 'src="./brickhouse-single-package.js"' not in html
 
 
@@ -16,5 +16,6 @@ def test_survey_first_handoff_entry_point_forwards_to_expected_version() -> None
     assert "brickhouse-survey-package-v04.js?v=pdf-handoff-0.4" in loader
     assert "brickhouse-survey-package-v07.js?v=pdf-handoff-0.7-coverage-audit" in loader
     assert "brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audit" in loader
+    assert "brickhouse-survey-package-v11.js?v=pdf-handoff-0.11-orientation-provenance" in loader
     assert "pdf-handoff-0.4" in implementation
     assert "brickhouse-survey-result.json" in implementation
