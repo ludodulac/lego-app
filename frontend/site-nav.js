@@ -19,6 +19,18 @@ function currentFile() {
   return name || 'index.html';
 }
 
+function normalizePrimaryActions() {
+  const file = currentFile();
+  if (file === 'photo.html') {
+    const surveyButton = document.querySelector('#download-ai-package');
+    if (surveyButton) surveyButton.textContent = 'Créer le PDF Photos → Relevé';
+  }
+  if (file === 'scene.html') {
+    const sceneButton = document.querySelector('#download-scene-handoff');
+    if (sceneButton) sceneButton.textContent = 'Créer le PDF Relevé → Scene 3D';
+  }
+}
+
 function addStyles() {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
@@ -100,6 +112,7 @@ function buildNav() {
 
 function ensureNav() {
   if (!document.body) return;
+  normalizePrimaryActions();
   buildNav();
 }
 
