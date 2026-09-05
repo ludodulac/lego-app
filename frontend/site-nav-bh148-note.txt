@@ -1,0 +1,1 @@
+BH-148 intentionally makes the fixed navigation root pointer-transparent. Only the hamburger button and the visible navigation panel accept pointer events. This prevents the global navigation layer from blocking the phone-shell controls underneath it.
