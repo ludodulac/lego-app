@@ -1,1 +1,0 @@
-BH-146 invariant: scene.html is a standalone Survey→Scene benchmark entry point. It must not fetch or rewrite photo.html, and it must expose exactly one primary download-scene-handoff action.
