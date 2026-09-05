@@ -5,7 +5,9 @@
   "status": "accepted",
   "accepted_at": "2026-09-05",
   "survey_schema_version": "0.1",
-  "survey_sha256": "b19ed423d24d640d6fe8d5ea30102bb6da189684abcc75297a98d1cc9a1ede9a",
+  "source_upload_sha256": "b19ed423d24d640d6fe8d5ea30102bb6da189684abcc75297a98d1cc9a1ede9a",
+  "canonical_json_sha256": "018c4f04f9661dde9cac875ed3d28a5c5051ce78156476a56957bff561ea5c01",
+  "fixture": "accepted-survey-v0.1.json",
   "invariants": {
     "photo_facades": ["front", "right", "left", "left", "rear"],
     "known_measurements_count": 0,
