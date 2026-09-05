@@ -28,6 +28,16 @@ def test_global_menu_lists_every_user_facing_page():
     assert "event.key === 'Escape'" in nav
 
 
+def test_closed_menu_cannot_block_underlying_page_controls():
+    nav = text('site-nav.js')
+    assert '.site-nav-root{position:fixed' in nav
+    assert 'pointer-events:none' in nav
+    assert '.site-nav-toggle{' in nav and 'pointer-events:auto' in nav
+    assert '.site-nav-panel{' in nav and 'pointer-events:auto' in nav
+    assert '.site-nav-panel[hidden]{display:none;pointer-events:none}' in nav
+    assert 'z-index:2147483000' not in nav
+
+
 def test_primary_handoff_actions_have_unambiguous_names():
     nav = text('site-nav.js')
     scene = text('scene.html')
