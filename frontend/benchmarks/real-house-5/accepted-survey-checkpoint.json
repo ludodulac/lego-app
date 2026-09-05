@@ -1,0 +1,27 @@
+{
+  "schema_version": "brickhouse-benchmark-checkpoint-0.1",
+  "benchmark_id": "real-house-5",
+  "stage": "photos_to_survey",
+  "status": "accepted",
+  "accepted_at": "2026-09-05",
+  "survey_schema_version": "0.1",
+  "survey_sha256": "b19ed423d24d640d6fe8d5ea30102bb6da189684abcc75297a98d1cc9a1ede9a",
+  "invariants": {
+    "photo_facades": ["front", "right", "left", "left", "rear"],
+    "known_measurements_count": 0,
+    "observation_count": 19,
+    "relation_count": 4,
+    "observation_kinds": {
+      "building_boundary": 1,
+      "opening": 11,
+      "roof": 1,
+      "chimney": 1,
+      "platform": 2,
+      "volume": 1,
+      "stair": 1,
+      "terrain": 1
+    }
+  },
+  "next_stage": "survey_to_scene",
+  "rerun_policy": "Do not rerun Photos -> Survey for routine downstream development. Reopen this stage only if its contract or source photos intentionally change."
+}
