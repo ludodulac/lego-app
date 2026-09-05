@@ -21,6 +21,9 @@ import './scene-handoff-source-lock.js?v=scene-handoff-source-lock-0.1';
 // Append the strict v4.4 serialization/contact audit to every active
 // Survey → Scene prompt fetch before the handoff generator requests it.
 import './scene-handoff-contract-audit-v44.js?v=scene-handoff-contract-audit-4.4';
+// Make the Scene stage output-exclusive after all prior reasoning/audit layers:
+// the accepted Survey is immutable input and only ArchitecturalScene may leave.
+import './scene-handoff-stage-lock-v45.js?v=scene-handoff-stage-lock-4.5';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
