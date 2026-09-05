@@ -1,5 +1,7 @@
-// Stable entry point loaded by photo.html. Keep the proven v0.4 PDF generator
-// active, then layer the terrain, topology, coverage and final contract audits.
+// Stable entry point loaded by photo.html. Register the hybrid PDF generator
+// first so its capture listener owns the download while the proven v0.4
+// implementation remains available as historical fallback code.
+import './brickhouse-survey-hybrid-pdf.js?v=pdf-handoff-0.10-hybrid-text';
 import './brickhouse-survey-package-v04.js?v=pdf-handoff-0.4';
 import './brickhouse-survey-package-v05.js?v=pdf-handoff-0.5-terrain-audit';
 import './brickhouse-survey-package-v06.js?v=pdf-handoff-0.6-topology-audit';
