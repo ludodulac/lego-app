@@ -22,8 +22,12 @@
           './scene-handoff-photo-evidence.js?v=scene-handoff-0.5-single-hybrid-pdf',
           './scene-handoff-photo-evidence.js?v=scene-stage-bh143-fresh',
         );
-        if (!html.includes('scene-stage-4.6-output-frame') || !html.includes('scene-stage-bh143-fresh')) {
-          throw new Error('cache-bust Survey → Scene non appliqué');
+        html = html.replace(
+          '</body>',
+          '<script type="module" src="./scene-stage-ui.js?v=scene-stage-ui-0.1"><\/script></body>',
+        );
+        if (!html.includes('scene-stage-4.6-output-frame') || !html.includes('scene-stage-bh143-fresh') || !html.includes('scene-stage-ui-0.1')) {
+          throw new Error('verrou Survey → Scene non appliqué');
         }
         document.open();
         document.write(html);
