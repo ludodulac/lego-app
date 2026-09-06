@@ -1,0 +1,114 @@
+name: Verify deployed Scene API E2E
+
+on:
+  workflow_run:
+    workflows: ["Deploy viewer to GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-scene-api-e2e:
+    name: Verify Scene validation and LEGO build
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install browser driver
+        run: python -m pip install 'playwright>=1.50,<2'
+
+      - name: Exercise public Scene validation and build
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          PAGE_URL: https://ludodulac.github.io/lego-app/
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from urllib.parse import urljoin
+
+          from playwright.sync_api import sync_playwright
+
+          base = os.environ['PAGE_URL']
+          deploy_sha = os.environ['DEPLOY_SHA']
+          route = f'scene.html?benchmark=real-house-5&stage=scene&runtime-check={deploy_sha}'
+          url = urljoin(base if base.endswith('/') else base + '/', route)
+          browser_path = next((shutil.which(name) for name in (
+              'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
+          ) if shutil.which(name)), None)
+          if not browser_path:
+              raise AssertionError('No Chromium/Chrome binary is available on the Scene API E2E runner')
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(
+                  headless=True,
+                  executable_path=browser_path,
+                  args=['--no-sandbox'],
+              )
+              page = browser.new_page(viewport={'width': 390, 'height': 844})
+              page.set_default_timeout(120000)
+              runtime_errors = []
+              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
+
+              response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
+              assert response and response.ok, (
+                  f'scene.html HTTP failure: {response.status if response else "no response"}'
+              )
+
+              page.wait_for_function(
+                  """() => document.querySelector('#scene-result-json')?.dataset.sceneApiE2e === 'bh156'""",
+                  timeout=30000,
+              )
+              scene = json.loads(page.locator('#scene-result-json').input_value())
+              assert scene['id'] == 'brickhouse-scene-real-house-5-candidate'
+
+              page.locator('#scene-import-result').click()
+              page.wait_for_function(
+                  """() => {
+                    const button = document.querySelector('#scene-build-bricks');
+                    const status = document.querySelector('#scene-result-status')?.textContent || '';
+                    if (status.includes('Import impossible') || status.includes('Validation interrompue')) {
+                      throw new Error(status);
+                    }
+                    return button && !button.disabled;
+                  }""",
+                  timeout=120000,
+              )
+
+              validation_status = page.locator('#scene-result-status').text_content().strip()
+              assert 'Import impossible' not in validation_status, validation_status
+              assert 'Validation interrompue' not in validation_status, validation_status
+              assert page.locator('#scene-build-bricks').is_enabled()
+
+              page.locator('#scene-build-bricks').click()
+              try:
+                  page.wait_for_url('**/viewer.html*', timeout=180000)
+              except Exception as exc:
+                  build_status = page.locator('#scene-result-status').text_content().strip()
+                  raise AssertionError(f'Build did not reach viewer.html: {build_status}') from exc
+
+              export_raw = page.evaluate("localStorage.getItem('brickhouse.pendingExport')")
+              assert export_raw, 'viewer reached without brickhouse.pendingExport'
+              export = json.loads(export_raw)
+              parts = export.get('brick_model', {}).get('parts') or []
+              steps = export.get('assembly_plan', {}).get('steps') or []
+              total_parts = export.get('bom', {}).get('total_parts')
+              assert parts, 'deployed build returned no LEGO parts'
+              assert total_parts == len(parts), (total_parts, len(parts))
+              assert steps, 'deployed build returned no assembly steps'
+              assert not runtime_errors, runtime_errors
+              browser.close()
+
+          print(
+              'deployed Scene API E2E passed: '
+              f'{url} -> viewer.html with {len(parts)} parts and {len(steps)} assembly steps'
+          )
+          PY
