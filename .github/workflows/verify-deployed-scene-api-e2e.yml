@@ -108,6 +108,10 @@ jobs:
               canvas = page.locator('#viewer')
               canvas.wait_for(state='visible', timeout=10000)
               assert page.locator('#assembly-card').is_visible(), 'viewer has no visible assembly plan'
+              assert page.locator('#assembly-title').text_content().strip() == 'Modèle complet'
+              canvas_box = canvas.bounding_box()
+              assert canvas_box, 'viewer canvas has no layout box'
+              assert canvas_box['height'] <= 1005, canvas_box
 
               export_raw = page.evaluate("localStorage.getItem('brickhouse.currentExport')")
               assert export_raw, 'viewer rendered without brickhouse.currentExport'
@@ -129,6 +133,7 @@ jobs:
                   ('right', '#view-right'),
               ]
               for name, selector in views:
+                  assert page.locator('#assembly-title').text_content().strip() == 'Modèle complet'
                   page.locator(selector).click()
                   page.wait_for_timeout(800)
                   canvas.screenshot(path=str(out / f'{name}.png'))
@@ -139,6 +144,7 @@ jobs:
                   'building_id': export.get('building_id'),
                   'parts': len(parts),
                   'assembly_steps': len(steps),
+                  'viewer_canvas_height': canvas_box['height'],
                   'source_url': url,
               }
               (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
@@ -148,7 +154,7 @@ jobs:
           print(
               'deployed Scene API E2E passed: '
               f'{url} -> viewer.html with {len(parts)} parts and {len(steps)} assembly steps; '
-              'captured perspective/front/rear/left/right'
+              'captured perspective/front/rear/left/right from Modèle complet'
           )
           PY
 
