@@ -13,6 +13,7 @@ const summary = document.querySelector('#scene-result-summary');
 
 let acceptedScene = null;
 let surveyValidation = null;
+let architecturalReady = false;
 
 function apiBase() {
   return (localStorage.getItem('brickhouse.engineApiUrl') || DEFAULT_API_URL).replace(/\/$/, '');
@@ -109,8 +110,24 @@ function setSummary(lines) {
 function resetAcceptedScene() {
   acceptedScene = null;
   surveyValidation = null;
+  architecturalReady = false;
   buildButton.disabled = true;
   setSummary([]);
+}
+
+function architecturalReadiness(validation, sceneValidation) {
+  const surveyErrors = (validation?.issues || []).filter(issue => issue.severity === 'error');
+  const projectionIssues = sceneValidation?.projection?.issues || [];
+  const projectionBlockers = projectionIssues.filter(issue => issue.severity === 'blocker');
+  const requiredInputs = sceneValidation?.required_inputs || [];
+  const compatibilityBlockers = sceneValidation?.m0_compatibility?.blockers || [];
+  const reasons = [
+    ...surveyErrors.map(issue => `${issue.code || 'survey_scene'}${issue.object_id ? ` [${issue.object_id}]` : ''} : ${issue.message}`),
+    ...projectionBlockers.map(issue => issue.message || issue.code).filter(Boolean),
+    ...requiredInputs.map(item => item.label || item.message || item.code).filter(Boolean),
+    ...compatibilityBlockers.filter(Boolean),
+  ];
+  return { ready: reasons.length === 0, reasons };
 }
 
 async function readCandidateText() {
@@ -152,35 +169,34 @@ async function importScene() {
     if (!second.response.ok) throw new Error(formatDetail(second.payload?.detail));
 
     acceptedScene = second.payload?.scene || scene;
+    const readiness = architecturalReadiness(surveyValidation, second.payload);
+    architecturalReady = readiness.ready;
     localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify({
       scene: acceptedScene,
       survey_validation: surveyValidation,
       scene_validation: second.payload,
+      architectural_readiness: readiness,
       source: 'scene_result_import',
     }));
 
     const projectionIssues = second.payload?.projection?.issues || [];
-    const blockers = projectionIssues.filter(issue => issue.severity === 'blocker').map(issue => issue.message);
     const warnings = projectionIssues.filter(issue => issue.severity === 'warning').map(issue => issue.message);
-    const required = (second.payload?.required_inputs || []).map(item => item.label || item.message || item.code).filter(Boolean);
-    const compatibility = second.payload?.m0_compatibility;
-    const compatibilityBlockers = compatibility?.blockers || [];
-    const compatibilityWarnings = compatibility?.warnings || [];
-    const allBlockers = [...compatibilityBlockers, ...blockers];
+    const compatibilityWarnings = second.payload?.m0_compatibility?.warnings || [];
     const allWarnings = [...compatibilityWarnings, ...warnings];
 
     setSummary([
-      `Scene acceptée : ${acceptedScene.name || acceptedScene.id || 'ArchitecturalScene v0.2'}`,
-      allBlockers.length ? `Construction complète bloquée : ${allBlockers.join(' ')}` : 'Construction complète : préflight sans blocage.',
+      `Scene contrôlée : ${acceptedScene.name || acceptedScene.id || 'ArchitecturalScene v0.2'}`,
+      architecturalReady
+        ? 'Maturité architecturale : prête pour adaptation LEGO.'
+        : `Maturité architecturale insuffisante — LEGO bloqué : ${readiness.reasons.join(' ')}`,
       allWarnings.length ? `Avertissements : ${allWarnings.join(' ')}` : '',
-      required.length ? `Entrées encore requises : ${required.join(' · ')}` : '',
     ]);
 
-    buildButton.disabled = false;
-    buildButton.textContent = allBlockers.length ? 'Construire les briques fiables' : 'Construire la maquette LEGO';
-    status.textContent = allBlockers.length
-      ? 'Scene fidèle au Survey. La construction complète est bloquée, mais Boldungo peut tenter la maquette partielle sans inventer les zones inconnues.'
-      : 'Scene validée. Vous pouvez lancer l’adaptation LEGO.';
+    buildButton.disabled = !architecturalReady;
+    buildButton.textContent = architecturalReady ? 'Construire la maquette LEGO' : 'LEGO bloqué — Scene à résoudre';
+    status.textContent = architecturalReady
+      ? 'Scene validée et architecturalement prête. Vous pouvez lancer l’adaptation LEGO.'
+      : 'Scene valide syntaxiquement, mais pas assez résolue architecturalement. Corrigez la Scene avant toute adaptation LEGO.';
   } catch (error) {
     const timeout = error?.name === 'AbortError';
     status.textContent = timeout
@@ -192,7 +208,7 @@ async function importScene() {
 }
 
 async function buildScene() {
-  if (!acceptedScene || !surveyValidation) return;
+  if (!acceptedScene || !surveyValidation || !architecturalReady) return;
   buildButton.disabled = true;
   status.textContent = 'Adaptation LEGO de la Scene en cours…';
   const baseRequest = {
@@ -201,11 +217,7 @@ async function buildScene() {
     allow_partial: false,
   };
   try {
-    let result = await postJson('/api/v1/build-scene', baseRequest);
-    if (!result.response.ok && result.response.status === 422) {
-      status.textContent = 'La Scene complète reste bloquée : construction des seules briques fiables…';
-      result = await postJson('/api/v1/build-scene', { ...baseRequest, allow_partial: true });
-    }
+    const result = await postJson('/api/v1/build-scene', baseRequest);
     if (!result.response.ok) throw new Error(formatDetail(result.payload?.detail));
     if (!Array.isArray(result.payload?.brick_model?.parts) || !result.payload.brick_model.parts.length) {
       throw new Error('Le moteur a renvoyé une maquette sans pièces.');
@@ -217,6 +229,7 @@ async function buildScene() {
     localStorage.setItem('brickhouse.pendingArchitecturalScene', JSON.stringify({
       scene: acceptedScene,
       survey_validation: surveyValidation,
+      architectural_readiness: { ready: true, reasons: [] },
       source: 'scene_result_import',
     }));
     globalThis.location.href = './viewer.html';
@@ -240,3 +253,5 @@ fileInput?.addEventListener('change', async () => {
 jsonInput?.addEventListener('input', resetAcceptedScene);
 importButton?.addEventListener('click', importScene);
 buildButton?.addEventListener('click', buildScene);
+
+export { architecturalReadiness };
