@@ -21,7 +21,11 @@ def test_scene_api_e2e_uses_public_ui_and_production_validation_flow() -> None:
     assert "#scene-import-result" in source
     assert "#scene-build-bricks" in source
     assert "wait_for_url('**/viewer.html*'" in source
-    assert "brickhouse.pendingExport" in source
+    assert "brickhouse.currentExport" in source
+    assert "#model-summary dd" in source
+    assert "#assembly-card" in source
+    assert "#viewer" in source
+    assert "Votre maquette BrickHouse est prête." in source
     assert "bom" in source
     assert "assembly_plan" in source
     assert "pageerror" in source
