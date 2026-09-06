@@ -187,6 +187,71 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             or (z_boundary and x_overlap and y_overlap)
         )
 
+    @staticmethod
+    def _volume_has_boundary_geometry(volume) -> bool:
+        return all(value is not None for value in (volume.width.value, volume.depth.value, volume.height.value))
+
+    def _resolved_connects_to_holds(self, subject_id: str, object_id: str) -> bool | None:
+        """Audit concrete ``connects_to`` endpoints when their metric geometry is sufficient.
+
+        ``None`` means this pair is not yet supported by the deterministic contact
+        helpers or does not contain enough metric geometry. It must stay uncertainty,
+        rather than turning missing measurements into a fabricated contradiction.
+        """
+        platforms = {item.id: item for item in self.platforms}
+        stairs = {item.id: item for item in self.stairs}
+        volumes = {item.id: item for item in self.volumes}
+
+        if subject_id in platforms and object_id in platforms:
+            return self._platforms_touch(platforms[subject_id], platforms[object_id])
+
+        platform_id = subject_id if subject_id in platforms else object_id if object_id in platforms else None
+        volume_id = subject_id if subject_id in volumes else object_id if object_id in volumes else None
+        stair_id = subject_id if subject_id in stairs else object_id if object_id in stairs else None
+
+        if platform_id is not None and volume_id is not None:
+            volume = volumes[volume_id]
+            if volume.width.value is None or volume.depth.value is None:
+                return None
+            return self._platform_touches_volume(platforms[platform_id], volume)
+
+        if stair_id is not None and platform_id is not None:
+            stair = stairs[stair_id]
+            platform = platforms[platform_id]
+            return self._point_on_platform(stair.start, platform) or self._point_on_platform(stair.end, platform)
+
+        if stair_id is not None and volume_id is not None:
+            volume = volumes[volume_id]
+            if not self._volume_has_boundary_geometry(volume):
+                return None
+            stair = stairs[stair_id]
+            return self._point_on_volume_boundary(stair.start, volume) or self._point_on_volume_boundary(stair.end, volume)
+
+        if subject_id in volumes and object_id in volumes:
+            first = volumes[subject_id]
+            second = volumes[object_id]
+            if not self._volume_has_boundary_geometry(first) or not self._volume_has_boundary_geometry(second):
+                return None
+            return self._volumes_touch(first, second)
+
+        return None
+
+    def _validate_resolved_scene_relations(self) -> None:
+        """Reject resolved concrete connectivity claims contradicted by metric geometry."""
+        for relation in self.relations:
+            if (
+                relation.geometry_status != "resolved"
+                or relation.semantic_anchor_volume_id is not None
+                or relation.kind is not RelationKind.CONNECTS_TO
+            ):
+                continue
+            holds = self._resolved_connects_to_holds(relation.subject_id, relation.object_id)
+            if holds is False:
+                raise ValueError(
+                    f"resolved scene relation {relation.id!r} connects_to is not reflected by metric contact "
+                    f"between {relation.subject_id!r} and {relation.object_id!r}"
+                )
+
     def _validate_resolved_semantic_anchors(self) -> None:
         """Require a claimed semantic-boundary resolution to exist in metric geometry."""
         platforms = {item.id: item for item in self.platforms}
@@ -229,6 +294,7 @@ class ArchitecturalScene(_MetricArchitecturalScene):
 
     def _validate_external_connectivity(self):
         """Allow evidenced hidden junctions but verify all claimed metric resolutions."""
+        self._validate_resolved_scene_relations()
         self._validate_resolved_semantic_anchors()
         if not self.platforms and not self.stairs:
             return
