@@ -11,7 +11,7 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .topology import SceneRelation
 from .wall_profile import WallProfileObservation
 from .wall_profile_scene import ArchitecturalScene
-from .roof_fidelity import validate_scene_against_survey
+from .platform_structure_fidelity import validate_scene_against_survey
 from .topology_projection import project_scene_to_building
 __all__=[
     "ArchitecturalScene","Chimney","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial",
