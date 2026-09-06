@@ -9,7 +9,10 @@
     body { margin: 0; }
     main { max-width: 760px; margin: 0 auto; padding: 28px 18px 48px; }
     .card { background: white; border-radius: 18px; padding: 24px; box-shadow: 0 8px 30px #13203914; }
-    h1 { margin: 0 0 8px; font-size: 1.65rem; }
+    .card + .card { margin-top: 18px; }
+    h1, h2 { margin: 0 0 8px; }
+    h1 { font-size: 1.65rem; }
+    h2 { font-size: 1.25rem; }
     p { line-height: 1.5; }
     .photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 22px 0; }
     .guided-photo-slot { border: 1px solid #d9e1ec; border-radius: 12px; padding: 12px; }
@@ -17,7 +20,14 @@
     .guided-photo-input { width: 100%; margin-top: 8px; }
     button.primary { width: 100%; border: 0; border-radius: 12px; padding: 16px; font: inherit; font-weight: 750; background: #132039; color: white; cursor: pointer; }
     button.primary:disabled { opacity: .55; cursor: wait; }
-    #status, #ai-package-status { font-size: .92rem; color: #526078; }
+    .field { margin-top: 16px; }
+    .field label { display: block; margin-bottom: 7px; font-weight: 700; }
+    .field input, .field select, .field textarea { box-sizing: border-box; width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; font: inherit; background: #fff; }
+    .field textarea { resize: vertical; min-height: 120px; }
+    .secondary-action { margin-top: 12px; }
+    #status, #ai-package-status, #scene-result-status { font-size: .92rem; color: #526078; }
+    #scene-result-summary { margin-top: 14px; padding: 12px; border-radius: 10px; background: #f3f6fa; white-space: pre-wrap; }
+    #scene-result-summary[hidden] { display: none; }
     .scene-only { margin-top: 18px; }
     .hidden-contract { display: none !important; }
     @media (max-width: 560px) { .photos { grid-template-columns: 1fr; } }
@@ -47,9 +57,38 @@
         <input id="confirm-guided-orientations" type="checkbox">
       </div>
     </section>
+
+    <section class="card" id="scene-result-card">
+      <p><strong>Étape suivante · Scene 3D → LEGO</strong></p>
+      <h2>Remettre le résultat de l’IA à Boldungo</h2>
+      <p>Importez <code>brickhouse-scene-result.json</code>. Boldungo vérifie d’abord le contrat ArchitecturalScene v0.2, puis sa fidélité au relevé accepté, avant d’autoriser la construction LEGO. Aucune géométrie manquante n’est inventée côté navigateur.</p>
+
+      <div class="field">
+        <label for="scene-result-file">Fichier Scene produit par l’IA</label>
+        <input id="scene-result-file" type="file" accept="application/json,.json" />
+      </div>
+      <details class="field">
+        <summary>Coller le JSON à la place</summary>
+        <label for="scene-result-json">ArchitecturalScene v0.2</label>
+        <textarea id="scene-result-json" spellcheck="false" placeholder="Collez ici le contenu de brickhouse-scene-result.json…"></textarea>
+      </details>
+      <div class="field">
+        <label for="scene-build-size">Taille de la future maquette</label>
+        <select id="scene-build-size">
+          <option value="32">Petite — 32 tenons</option>
+          <option value="48" selected>Moyenne — 48 tenons</option>
+          <option value="64">Grande — 64 tenons</option>
+        </select>
+      </div>
+      <button id="scene-import-result" class="primary big-action secondary-action" type="button">Importer et vérifier la Scene</button>
+      <p id="scene-result-status">En attente de brickhouse-scene-result.json.</p>
+      <div id="scene-result-summary" hidden></div>
+      <button id="scene-build-bricks" class="primary big-action secondary-action" type="button" disabled>Construire les briques fiables</button>
+    </section>
   </main>
 
-  <script type="module" src="./scene-benchmark-runtime.js?v=bh147-scene-runtime-1"></script>
-  <script type="module" src="./site-nav.js?v=bh147-global-nav-1"></script>
+  <script type="module" src="./scene-benchmark-runtime.js?v=bh150-scene-result-import-1"></script>
+  <script type="module" src="./scene-result-import.js?v=bh150-scene-result-import-1"></script>
+  <script type="module" src="./site-nav.js?v=bh149-runtime-lock-1"></script>
 </body>
 </html>
