@@ -18,6 +18,22 @@ def _survey() -> dict:
     return json.loads((FIXTURES / "brickhouse_survey_current.json").read_text(encoding="utf-8"))
 
 
+def _scene_with_preserved_terrace_structure() -> dict:
+    scene = _scene()
+    scene["platform_structure_observations"] = [{
+        "id": "timber-deck-supports-observed",
+        "platform_id": "timber_deck",
+        "kind": "vertical_post",
+        "statement": "support structure is known to exist; exact count and coordinates remain unresolved",
+        "source": {"kind": "inferred", "confidence": 0.6},
+        "evidence": [{
+            "photo_index": 3,
+            "observation": "timber support structure visible below the deck",
+        }],
+    }]
+    return scene
+
+
 def expected_missing_roof_geometry() -> list[dict]:
     return [
         {"object_id": "roof_main", "field": "down_slope_direction", "kind": "categorical_geometry", "reason": "shed_construction_requires_fall_direction"},
@@ -36,10 +52,10 @@ def test_validate_scene_reports_missing_roof_geometry_without_invented_range() -
     assert payload["required_inputs"] == expected_missing_roof_geometry()
 
 
-def test_validate_scene_against_survey_reports_same_missing_inputs() -> None:
+def test_validate_scene_against_survey_reports_same_missing_inputs_after_fidelity_is_preserved() -> None:
     response = client.post(
         "/api/v1/validate-scene-against-survey",
-        json={"survey": _survey(), "scene": _scene()},
+        json={"survey": _survey(), "scene": _scene_with_preserved_terrace_structure()},
     )
     assert response.status_code == 200
     payload = response.json()

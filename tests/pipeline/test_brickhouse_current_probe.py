@@ -34,12 +34,16 @@ def test_current_brickhouse_preserves_unresolved_shed_without_inventing_geometry
     assert roof.pitch_range_degrees is None
 
 
-def test_current_brickhouse_probe_reports_all_known_projection_blockers() -> None:
+def test_current_brickhouse_probe_stops_at_lost_terrace_structure_before_projection() -> None:
     survey = _survey()
     scene = _scene()
     fidelity_issues = validate_scene_against_survey(survey, scene)
-    assert [issue.code for issue in fidelity_issues if issue.severity.value == "error"] == []
+    error_codes = [issue.code for issue in fidelity_issues if issue.severity.value == "error"]
+    assert error_codes == ["certain_platform_support_structure_lost"]
 
+    # Projection still exposes its own blockers when called directly, but the public
+    # pipeline probe must stop earlier: known architectural truth cannot be discarded
+    # merely because downstream geometry could otherwise be projected.
     projection = project_scene_to_building(scene)
     blockers = [issue for issue in projection.issues if issue.severity.value == "blocker"]
     assert [issue.code for issue in blockers].count("shed_geometry_incomplete") == 1
@@ -52,8 +56,8 @@ def test_current_brickhouse_probe_reports_all_known_projection_blockers() -> Non
     assert "10–35°" not in roof_blocker.message
 
     report = probe_pipeline(survey, scene)
-    assert report["first_blocking_stage"] == "scene_to_building_projection"
-    assert "shed_geometry_incomplete" in report["projection_issue_codes"]
-    assert report["projection_issue_codes"].count("topological_relation_geometry_unresolved") == 2
-    assert report["required_inputs"] == expected_roof_inputs()
+    assert report["first_blocking_stage"] == "survey_fidelity"
+    assert "certain_platform_support_structure_lost" in report["survey_issue_codes"]
+    assert report["projection_issue_codes"] == []
+    assert report["required_inputs"] == []
     assert report["m0_error"] is None
