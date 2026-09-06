@@ -77,6 +77,14 @@ class ArchitecturalScene(_TopologyArchitecturalScene):
         overlap_y = min(vy1, py1) - max(vy0, py0)
         return overlap_x > EPSILON and overlap_y > EPSILON
 
+    @staticmethod
+    def _platform_touches_volume(platform, volume):
+        """Treat both facade attachment and genuine top bearing as connectivity."""
+        if _TopologyArchitecturalScene._platform_touches_volume(platform, volume):
+            return True
+        bearing = ArchitecturalScene._volume_supports_platform(volume, platform)
+        return bearing is True
+
     def _validate_resolved_scene_relations(self) -> None:
         """Extend resolved topology auditing to directional ``supports`` claims."""
         super()._validate_resolved_scene_relations()
