@@ -114,6 +114,19 @@ def _is_glazed_door(opening: SceneOpening) -> bool:
     return any(token in text for token in ("porte-fenetre", "porte fenetre", "glazed", "vitree", "vitrage"))
 
 
+def _is_observed_glazed_unknown(opening: SceneOpening) -> bool:
+    """Render proven glazing without inventing a window/door semantic type.
+
+    UNKNOWN openings are deliberately ineligible for the legacy free-text
+    heuristic. Only the structured ``opening_visual.glazing`` field may make
+    their visible glazing representable, and door leaf/frame assumptions stay
+    disabled until the opening type itself is proven.
+    """
+    if opening.type is not OpeningType.UNKNOWN:
+        return False
+    return _structured_glazing_state(opening) is True
+
+
 def _part(
     placement_id: str,
     *,
@@ -199,7 +212,7 @@ def _qualitative_horizontal_divider_dz(
 
     ideal_square_courses = pane_width_studs * COURSES_PER_STUD_RATIO
     lower_courses = _round_half_up(ideal_square_courses)
-    upper_courses = height - lower_courses - 1  # reserve one course for the divider
+    upper_courses = height - lower_courses - 1
     if lower_courses < 1 or upper_courses <= lower_courses:
         return None
 
@@ -216,7 +229,8 @@ def _qualitative_horizontal_divider_dz(
 def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x: float, origin_y: float, origin_z: float, studs_per_meter: float) -> list[BrickModelPart]:
     glass_blocks = _is_glass_block(opening)
     glazed_door = _is_glazed_door(opening)
-    if not glass_blocks and not glazed_door:
+    observed_glazing = _is_observed_glazed_unknown(opening)
+    if not glass_blocks and not glazed_door and not observed_glazing:
         return []
     house_x, house_y, house_width, house_depth, local, z0, width, height = _opening_grid(
         opening,
@@ -227,10 +241,8 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
         studs_per_meter=studs_per_meter,
     )
 
-    # A two-leaf observation proves a vertical meeting line, but only place it
-    # when the LEGO raster contains one exact central stud column. Even widths
-    # have their geometric center between studs; shifting the divider would be a
-    # fabricated joinery decision, so those openings remain fully glazed.
+    # Internal joinery remains door-specific: structured glazing on an UNKNOWN
+    # opening proves transparent material, not leaf count or frame topology.
     has_exact_two_leaf_centerline = (
         glazed_door
         and opening.opening_visual is not None
@@ -251,9 +263,6 @@ def _opening_parts(opening: SceneOpening, scene: ArchitecturalScene, *, origin_x
     index = 1
     for dx in range(width):
         for dz in range(height):
-            # A structured two-leaf/four-pane topology can justify internal
-            # meeting members when their discrete location is constrained. It
-            # still does not justify a perimeter frame.
             is_internal_frame = dx == centerline_dx or dz == horizontal_divider_dz
             category = "window_frame" if is_internal_frame else "window_pane"
             gx, gy, gz, rotation = _global_cell(
@@ -286,16 +295,17 @@ def augment_brick_model_with_scene_glazing(model: BrickModel, scene: Architectur
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
 
-    # Chimneys are independent of glazing but belong to the same final
-    # Scene-aware detail pass in the current M0 orchestration. Their renderer uses
-    # only explicit metric Scene geometry and never infers roof shape or caps.
     model = augment_brick_model_with_scene_chimneys(
         model,
         scene,
         front_width_studs=front_width_studs,
     )
 
-    targets = [opening for opening in scene.openings if _is_glass_block(opening) or _is_glazed_door(opening)]
+    targets = [
+        opening
+        for opening in scene.openings
+        if _is_glass_block(opening) or _is_glazed_door(opening) or _is_observed_glazed_unknown(opening)
+    ]
     if targets:
         main = scene.volumes[0]
         studs_per_meter = front_width_studs / main.width.value
@@ -325,10 +335,6 @@ def augment_brick_model_with_scene_glazing(model: BrickModel, scene: Architectur
             ]
             model = model.model_copy(update={"parts": [*kept, *extra]})
 
-    # Wall thickness/reveal observations are applied last so every glazing path,
-    # including Scene-only glass blocks and glazed doors, moves to the same
-    # evidence-backed recessed plane. Unknown or low-confidence metric depth is
-    # intentionally ignored by the wall-depth projector.
     return augment_brick_model_with_wall_depth(
         model,
         scene,
