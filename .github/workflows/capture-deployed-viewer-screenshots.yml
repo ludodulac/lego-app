@@ -1,0 +1,136 @@
+name: Capture deployed real-house-5 viewer screenshots
+
+on:
+  workflow_run:
+    workflows: ["Deploy viewer to GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  capture-viewer-screenshots:
+    name: Capture deployed viewer screenshots
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install browser driver
+        run: python -m pip install 'playwright>=1.50,<2'
+
+      - name: Build deployed benchmark and capture canonical views
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          PAGE_URL: https://ludodulac.github.io/lego-app/
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+          from urllib.parse import urljoin
+
+          from playwright.sync_api import sync_playwright
+
+          deploy_sha = os.environ['DEPLOY_SHA']
+          base = os.environ['PAGE_URL']
+          url = urljoin(
+              base if base.endswith('/') else base + '/',
+              f'scene.html?benchmark=real-house-5&stage=scene&runtime-check={deploy_sha}',
+          )
+          out = Path('viewer-screenshots')
+          out.mkdir(parents=True, exist_ok=True)
+          browser_path = next((shutil.which(name) for name in (
+              'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
+          ) if shutil.which(name)), None)
+          if not browser_path:
+              raise AssertionError('No Chromium/Chrome binary is available on the screenshot runner')
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(
+                  headless=True,
+                  executable_path=browser_path,
+                  args=['--no-sandbox'],
+              )
+              page = browser.new_page(viewport={'width': 1440, 'height': 1000}, device_scale_factor=1)
+              page.set_default_timeout(120000)
+              runtime_errors = []
+              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
+
+              response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
+              assert response and response.ok, f'scene.html HTTP failure: {response.status if response else "no response"}'
+              page.wait_for_function(
+                  """() => document.querySelector('#scene-result-json')?.dataset.sceneApiE2e === 'bh156'""",
+                  timeout=30000,
+              )
+              scene = json.loads(page.locator('#scene-result-json').input_value())
+              assert scene['id'] == 'brickhouse-scene-real-house-5-candidate'
+
+              page.locator('#scene-import-result').click()
+              page.wait_for_function(
+                  """() => {
+                    const button = document.querySelector('#scene-build-bricks');
+                    const status = document.querySelector('#scene-result-status')?.textContent || '';
+                    if (status.includes('Import impossible') || status.includes('Validation interrompue')) {
+                      throw new Error(status);
+                    }
+                    return button && !button.disabled;
+                  }""",
+                  timeout=120000,
+              )
+              page.locator('#scene-build-bricks').click()
+              page.wait_for_url('**/viewer.html*', timeout=180000)
+              page.wait_for_function(
+                  """() => {
+                    const values = [...document.querySelectorAll('#model-summary dd')].map(node => node.textContent.trim());
+                    return values.length >= 4 && values[0] !== '—' && values[1] !== '—';
+                  }""",
+                  timeout=30000,
+              )
+              canvas = page.locator('#viewer')
+              canvas.wait_for(state='visible', timeout=10000)
+              page.wait_for_timeout(1500)
+
+              views = [
+                  ('perspective', '#reset-view'),
+                  ('front', '#view-front'),
+                  ('rear', '#view-rear'),
+                  ('left', '#view-left'),
+                  ('right', '#view-right'),
+              ]
+              for name, selector in views:
+                  page.locator(selector).click()
+                  page.wait_for_timeout(800)
+                  canvas.screenshot(path=str(out / f'{name}.png'))
+
+              export_raw = page.evaluate("localStorage.getItem('brickhouse.currentExport')")
+              assert export_raw, 'viewer rendered without brickhouse.currentExport'
+              export = json.loads(export_raw)
+              summary = {
+                  'deploy_sha': deploy_sha,
+                  'scene_id': scene['id'],
+                  'building_id': export.get('building_id'),
+                  'parts': len(export.get('brick_model', {}).get('parts') or []),
+                  'assembly_steps': len(export.get('assembly_plan', {}).get('steps') or []),
+                  'source_url': url,
+              }
+              (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
+              assert not runtime_errors, runtime_errors
+              browser.close()
+
+          print(json.dumps(summary, sort_keys=True))
+          PY
+
+      - name: Upload deployed viewer screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-house-5-viewer-${{ github.event.workflow_run.head_sha }}
+          path: viewer-screenshots/
+          if-no-files-found: error
+          retention-days: 14
