@@ -49,7 +49,7 @@ def test_primary_handoff_actions_have_unambiguous_names():
 
 def test_menu_is_loaded_by_all_user_facing_pages():
     assert "site-nav.js?v=bh147-global-nav-1" in text('app.js')
-    assert "site-nav.js?v=bh147-global-nav-1" in text('brickhouse-survey-package.js')
+    assert "site-nav.js?v=bh149-runtime-lock-1" in text('brickhouse-survey-package.js')
     for page in (
         'scene.html',
         'configurator.html',
