@@ -13,7 +13,6 @@ on:
       - '.github/workflows/pages.yml'
       - '.github/workflows/verify-deployed-scene.yml'
       - '.github/workflows/verify-deployed-scene-api-e2e.yml'
-      - '.github/workflows/capture-deployed-viewer-screenshots.yml'
   workflow_dispatch:
 
 permissions:
