@@ -24,7 +24,7 @@ jobs:
       - name: Install browser driver
         run: python -m pip install 'playwright>=1.50,<2'
 
-      - name: Exercise public Scene validation and build
+      - name: Exercise public Scene validation, build, and capture canonical views
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           PAGE_URL: https://ludodulac.github.io/lego-app/
@@ -33,6 +33,7 @@ jobs:
           import json
           import os
           import shutil
+          from pathlib import Path
           from urllib.parse import urljoin
 
           from playwright.sync_api import sync_playwright
@@ -41,6 +42,8 @@ jobs:
           deploy_sha = os.environ['DEPLOY_SHA']
           route = f'scene.html?benchmark=real-house-5&stage=scene&runtime-check={deploy_sha}'
           url = urljoin(base if base.endswith('/') else base + '/', route)
+          out = Path('viewer-screenshots')
+          out.mkdir(parents=True, exist_ok=True)
           browser_path = next((shutil.which(name) for name in (
               'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
           ) if shutil.which(name)), None)
@@ -53,7 +56,7 @@ jobs:
                   executable_path=browser_path,
                   args=['--no-sandbox'],
               )
-              page = browser.new_page(viewport={'width': 390, 'height': 844})
+              page = browser.new_page(viewport={'width': 1440, 'height': 1000}, device_scale_factor=1)
               page.set_default_timeout(120000)
               runtime_errors = []
               page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
@@ -102,7 +105,8 @@ jobs:
                   }""",
                   timeout=30000,
               )
-              page.locator('#viewer').wait_for(state='visible', timeout=10000)
+              canvas = page.locator('#viewer')
+              canvas.wait_for(state='visible', timeout=10000)
               assert page.locator('#assembly-card').is_visible(), 'viewer has no visible assembly plan'
 
               export_raw = page.evaluate("localStorage.getItem('brickhouse.currentExport')")
@@ -115,11 +119,43 @@ jobs:
               assert total_parts == len(parts), (total_parts, len(parts))
               assert steps, 'deployed build returned no assembly steps'
               assert page.locator('#message').text_content().strip() == 'Votre maquette BrickHouse est prête.'
+
+              page.wait_for_timeout(1500)
+              views = [
+                  ('perspective', '#reset-view'),
+                  ('front', '#view-front'),
+                  ('rear', '#view-rear'),
+                  ('left', '#view-left'),
+                  ('right', '#view-right'),
+              ]
+              for name, selector in views:
+                  page.locator(selector).click()
+                  page.wait_for_timeout(800)
+                  canvas.screenshot(path=str(out / f'{name}.png'))
+
+              summary = {
+                  'deploy_sha': deploy_sha,
+                  'scene_id': scene['id'],
+                  'building_id': export.get('building_id'),
+                  'parts': len(parts),
+                  'assembly_steps': len(steps),
+                  'source_url': url,
+              }
+              (out / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
               assert not runtime_errors, runtime_errors
               browser.close()
 
           print(
               'deployed Scene API E2E passed: '
-              f'{url} -> viewer.html with {len(parts)} parts and {len(steps)} assembly steps'
+              f'{url} -> viewer.html with {len(parts)} parts and {len(steps)} assembly steps; '
+              'captured perspective/front/rear/left/right'
           )
           PY
+
+      - name: Upload deployed viewer screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-house-5-viewer-${{ github.event.workflow_run.head_sha }}
+          path: viewer-screenshots/
+          if-no-files-found: error
+          retention-days: 14
