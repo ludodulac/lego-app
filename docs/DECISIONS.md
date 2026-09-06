@@ -111,3 +111,20 @@ Le flux historique `external-bundle-0.1` reste seulement une compatibilité d’
 - le ré-audit ne produit ni n’applique une nouvelle correction ; il retourne seulement `pass|needs_correction` et des findings diagnostiques ;
 - `merge` et la réorientation de relations restent manuels en `SurveyCorrection v0.1` ; `lower_certainty` et la réorientation d’observations sont limités par des scopes de mutation déterministes ;
 - l’objectif est de vérifier qu’une correction ciblée a résolu son défaut sans introduire de régression locale, tout en empêchant une boucle IA ouverte et non bornée.
+
+## ADR-016 — Vérité spatiale puis plan LEGO, avant remplissage
+
+**Décision :** `ArchitecturalScene` doit être traitée comme l'autorité de géométrie **et de topologie spatiale**. La projection LEGO ne commence pas tant que les relations architecturales certaines nécessaires à la reconstruction ne sont pas cohérentes. Entre Scene et `BrickModel`, le moteur doit progressivement rendre explicite un **plan de représentation LEGO** qui choisit les assemblages architecturaux supportés et réserve leur empreinte avant le remplissage résiduel.
+
+**Motivation :** un modèle peut être localement propre en briques tout en étant architecturalement faux si une terrasse, un escalier, une cheminée, une ouverture ou une toiture sont mal situés les uns par rapport aux autres. De même, construire un mur puis y découper des trous inverse la contrainte : une vraie fenêtre LEGO possède une empreinte connue qui doit influencer l'espace restant du mur.
+
+**Conséquences :**
+- la Scene doit exprimer/valider, selon les preuves disponibles, enveloppes, orientations, avant/arrière, dessus/dessous, contacts, supports, chevauchements, retraits, débords et traversées ;
+- une relation certaine ne peut pas être considérée résolue par simple proximité visuelle ;
+- fenêtres, portes, toiture, cheminée, terrasse, garde-corps et escalier sont des ancres de représentation à résoudre contre le vocabulaire de pièces/assemblages réellement validé avant l'infill ;
+- les ajustements LEGO sont locaux, bornés et tracés ; ils ne changent jamais côté, ordre, niveau ou topologie de la Scene ;
+- les contraintes physiques sont une porte de sortie : une pièce ou un sous-assemblage qui n'a pas de support/connexion modélisé ne peut pas être accepté parce qu'il paraît visuellement en place ;
+- la validation doit évoluer vers une chaîne de support/connexion jusqu'à une structure porteuse et distinguer collision, contact, connexion et support ;
+- les tests de cette doctrine utilisent des scènes génériques/anonymisées ; les preuves privées ne sont pas publiées.
+
+**Ordre de priorité :** vérité spatiale → choix d'ancres LEGO → résolution des empreintes/conflits → remplissage → détails → validation physique → instructions. Le rythme de façade et les détails restent importants, mais ne peuvent plus être traités comme substituts à une Scene spatialement correcte.
