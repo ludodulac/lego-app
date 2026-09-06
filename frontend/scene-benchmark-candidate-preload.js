@@ -27,6 +27,7 @@ async function preloadValidatedCandidate() {
     jsonInput.value = JSON.stringify(scene, null, 2);
     jsonInput.dataset.preloadedCandidate = 'bh-151';
     jsonInput.dataset.preloadedCandidateSha = VALIDATED_CANDIDATE_SHA;
+    jsonInput.dataset.sceneApiE2e = 'bh156';
     jsonInput.closest('details')?.setAttribute('open', '');
     jsonInput.dispatchEvent(new Event('input', { bubbles: true }));
     status.textContent = 'Candidat Scene BH-151 préchargé. Cliquez sur « Importer et vérifier la Scene » pour exécuter les contrôles Survey → Scene.';
