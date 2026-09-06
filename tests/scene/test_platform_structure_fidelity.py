@@ -17,6 +17,11 @@ def _survey(*, supports_certainty="certain", guardrail=False):
         "name": "Terrace survey",
         "photos": [{
             "photo_index": 1,
+            "facade": "front",
+            "description": "canonical front context for the synthetic survey",
+            "source": SOURCE,
+        }, {
+            "photo_index": 2,
             "facade": "left",
             "description": "left exterior",
             "source": SOURCE,
@@ -27,7 +32,7 @@ def _survey(*, supports_certainty="certain", guardrail=False):
             "facade": "left",
             "certainty": "certain",
             "statement": "raised timber terrace",
-            "evidence": EVIDENCE,
+            "evidence": [{"photo_index": 2, "observation": "raised timber platform structure visible"}],
             "attributes": attributes,
             "attribute_certainty": attribute_certainty,
         }],
