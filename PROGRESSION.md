@@ -1,6 +1,6 @@
 # Boldüngo / BrickHouse — progression
 
-Dernière mise à jour : 2026-09-04
+Dernière mise à jour : 2026-09-06
 
 Ce fichier est la source unique de progression opérationnelle à consulter pour savoir où en est réellement le projet et quelles sont les prochaines briques de travail. Il ne remplace pas `PROJECT_PRINCIPLES.md`, les ADR, les contrats ou les tests. L'état réel de `main`, des PR/issues, de la CI et de Pages reste à revérifier avant toute action.
 
@@ -8,15 +8,18 @@ Ce fichier est la source unique de progression opérationnelle à consulter pour
 
 La mission reste : transformer des preuves architecturales, notamment des photos, en une représentation structurée et traçable permettant de produire une maquette LEGO fidèle et des instructions de construction, sans inventer ce que les preuves ne permettent pas d'établir.
 
+Le contrôle visuel humain du cas réel a clarifié une condition préalable : **avant de chercher à embellir ou remplir en LEGO, le logiciel doit savoir précisément où sont les objets architecturaux, quelle place ils occupent et comment ils s'imbriquent.** Une terrasse, un escalier, une cheminée, une toiture ou une ouverture correctement nommés mais mal situés constituent une reconstruction fausse.
+
 Ordre de priorité du résultat :
 
-1. reconnaissance de la silhouette et des volumes ;
-2. proportions architecturales ;
-3. composition des ouvertures ;
-4. relations spatiales et éléments caractéristiques de la maison ;
-5. matériaux/couleurs lorsqu'ils sont établis ;
-6. détails architecturaux ;
-7. exactitude locale du choix/placement des briques.
+1. vérité spatiale/topologique de la Scene : objets, extents, côté, ordre, niveaux, contacts, supports, débords/retraits et relations ;
+2. reconnaissance de la silhouette et des volumes ;
+3. proportions architecturales ;
+4. composition des ouvertures ;
+5. relations et éléments caractéristiques de la maison ;
+6. matériaux/couleurs lorsqu'ils sont établis ;
+7. détails architecturaux ;
+8. exactitude locale du choix/placement des briques.
 
 La géométrie LEGO ne doit jamais devenir plus importante que la fidélité architecturale. Une amélioration de placement de briques qui rend la maison moins reconnaissable est une régression produit.
 
@@ -31,18 +34,19 @@ Le moteur doit maintenir quatre niveaux distincts et traçables :
 
 Objectif : **maximiser la fidélité perceptive et architecturale sous contraintes LEGO réellement validées**.
 
-La sélection ne doit pas être un simple score qui permet à un gain de détail de détruire une priorité supérieure. Le comportement cible est hiérarchique/gardé : silhouette → proportions → ouvertures → relations/éléments caractéristiques → matériaux → détails → exactitude locale des briques. Une passe tardive ne doit pas dégrader un niveau supérieur au-delà d'une tolérance explicite.
+La sélection ne doit pas être un simple score qui permet à un gain de détail de détruire une priorité supérieure. Une passe tardive ne doit pas dégrader un niveau supérieur au-delà d'une tolérance explicite.
 
-Exemples de coût d'erreur : déplacer légèrement un trumeau pour faire tenir une vraie fenêtre LEGO peut être acceptable et doit être tracé ; faire disparaître la fenêtre ne l'est pas. Simplifier un garde-corps peut être nécessaire ; déplacer la terrasse du mauvais côté ne l'est pas. Une toiture constructible qui transforme un pignon peu pentu en triangle très aigu reste une mauvaise représentation.
+Exemples : déplacer légèrement un trumeau pour faire tenir une vraie fenêtre LEGO peut être acceptable et doit être tracé ; faire disparaître la fenêtre ne l'est pas. Simplifier un garde-corps peut être nécessaire ; déplacer la terrasse du mauvais côté ne l'est pas. Une toiture constructible qui transforme un pignon peu pentu en triangle très aigu reste une mauvaise représentation. Une tuile sans chaîne d'appui/connexion n'est jamais acceptable parce qu'elle semble visuellement en place.
 
 ## Pipeline de référence
 
-`preuves multi-vues → observations → correspondances entre vues → ArchitecturalSurvey → topologie/géométrie → ArchitecturalScene → importance architecturale → recherche de solutions LEGO → optimisation relative → remplissage autour des ancres → détails → validations de fidélité/constructibilité → BrickModel → BOM / AssemblyPlan / InstructionPlan / BagPlan → viewer`
+`preuves multi-vues → observations → correspondances entre vues → ArchitecturalSurvey → reconstruction topologique/géométrique → ArchitecturalScene → validation de vérité spatiale → importance architecturale → plan de représentation LEGO / choix de familles → réservation des empreintes des ancres → optimisation locale bornée → remplissage autour des ancres → détails → validation fidélité + support/connectivité/collisions → BrickModel → BOM / AssemblyPlan / InstructionPlan / BagPlan → viewer`
 
 - `ArchitecturalSurvey` est l'autorité sémantique/observée.
-- `ArchitecturalScene` est l'autorité métrique/géométrique.
+- `ArchitecturalScene` est l'autorité métrique, géométrique et spatiale/topologique.
+- Le futur plan de représentation LEGO explicite les choix de familles/assemblages avant remplissage.
 - Les contraintes LEGO ne réécrivent jamais silencieusement Survey ou Scene.
-- Les écarts introduits par la représentation LEGO doivent rester explicites et, quand possible, reliés à l'objet architectural source.
+- Les écarts introduits par la représentation LEGO doivent rester explicites et reliés, quand possible, à l'objet architectural source.
 - L'inconnu reste inconnu.
 - Les données privées restent hors du dépôt sans autorisation explicite.
 
@@ -50,90 +54,70 @@ Exemples de coût d'erreur : déplacer légèrement un trumeau pour faire tenir 
 
 ### Acquis solides
 
-- Survey et Scene sont validés par contrats déterministes.
+- Survey et Scene possèdent des contrats déterministes et plusieurs validations inter-couches.
 - Le pipeline Scene → LEGO → export → viewer fonctionne de bout en bout sur des références génériques.
 - Les relations de plateforme, escalier, bâtiment et terrain ont plusieurs garde-fous de quantification et de fidélité.
 - Les collapses intrinsèques d'un StairRun sont classés comme blockers de fidélité.
-- La CI publie un export riche générique `ArchitecturalScene → LEGO` comme artefact.
-- GitHub Pages expose une prévisualisation du rich Scene dans le viewer existant.
-- **BH-125** : chaque fenêtre architecturale générée possède un statut explicite de représentation (`validated_assembly`, `joinery_free_glazing`, `void_only`). Une composition connue mais non représentable produit le blocker `lego_architectural_window_unrepresented` au lieu d'être considérée comme une façade aveugle réussie. Les subdivisions non supportées ne sont pas inventées.
-- **BH-126** : la toiture à deux pans est revalidée après translation dans le repère final du `BrickModel`. Les deux lignes d'égout doivent encore toucher les limites finales du bâtiment et rester au niveau supérieur du mur ; un pan déplacé ou flottant est rejeté. Le débord architectural déclaré est conservé.
-- **BH-127** : la fidélité du pignon n'est plus jugée seulement par l'écart angulaire. Le moteur mesure la variation de hauteur de pignon pour une même demi-portée via le rapport montée/course. Une déformation matérielle devient un warning et une déformation sévère un blocker.
-- **BH-128** : le choix de famille de pente LEGO privilégie désormais la fidélité montée/course (`tan(pitch)`) avant la proximité en degrés. Au voisinage d'une frontière de catalogue, le moteur choisit donc la pièce qui conserve le mieux la proportion du pignon plutôt que celle qui gagne seulement quelques dixièmes de degré.
-- Les CI des PR #427, #429 et #431 étaient vertes avant fusion.
-- `main` est au SHA `1ae1922bce7b39840447a0633d40cf6fd3ac8f6f` au moment de cette mise à jour.
+- Les ouvertures ont déjà des statuts de représentation et plusieurs garde-fous de non-disparition.
+- La toiture à deux pans possède des garde-fous d'appui final, de proportion de pignon et de choix de famille de pente.
+- Le viewer et le workflow déployé permettent désormais un contrôle humain réel du résultat.
 
-### Régression constatée le 2026-09-04 — encore ouverte
+### Régression produit confirmée par contrôle humain — ouverte
 
-Le premier contrôle visuel humain du résultat riche a montré que le moteur est devenu plus propre sur certains placements LEGO mais moins fidèle architecturalement :
+Le contrôle du cas réel a montré qu'une CI verte et un modèle techniquement généré ne suffisent pas. Les défauts observés incluent :
 
-- perte importante de la composition visuelle des ouvertures ;
-- grandes façades aveugles ou trop génériques ;
-- reconnaissance de la maison insuffisante ;
-- toiture visuellement désolidarisée des murs sur certaines vues ;
-- proportions du pignon/toiture susceptibles d'être trop hautes/aiguës ;
-- terrasse/escalier présents mais insuffisants pour compenser la perte de l'identité architecturale.
+- terrasse et escalier insuffisamment fidèles dans leur géométrie/implantation ;
+- portes et fenêtres mal représentées ou mal composées ;
+- cheminée mal placée ;
+- toiture/éléments de toiture pouvant sembler sans appui correct ;
+- relations entre éléments caractéristiques insuffisamment protégées ;
+- résultat global encore trop proche d'une coque remplie de briques et pas assez d'une interprétation LEGO architecturale.
 
-Les contrats BH-125 à BH-128 ferment maintenant plusieurs voies de régression silencieuse : disparition d'une fenêtre connue, toiture perdant son appui final, pignon fortement déformé sans diagnostic et mauvais choix de pente autour d'une frontière de catalogue.
-
-Ils ne démontrent toutefois pas encore que le rendu riche est redevenu suffisamment reconnaissable. La régression globale reste ouverte jusqu'à un nouveau contrôle visuel sur un rendu réellement amélioré.
-
-Conclusion : une CI verte reste nécessaire mais n'est pas suffisante si le résultat architectural régresse.
+Cette régression ne doit plus être traitée par retouches visuelles isolées. Le chantier prioritaire devient la chaîne de vérité spatiale → plan LEGO → constructibilité décrite par ADR-016 et l'issue BH-153.
 
 ## Prochaines briques de travail — ordre strict
 
-### Brique 1 — contrat de fidélité architecturale avant remplissage LEGO — RÉSOLUE AU NIVEAU OUVERTURES
+### Brique 1 — vérité spatiale/topologique de la Scene — PRIORITÉ ACTIVE (BH-153)
 
-Les ouvertures connues sont des ancres explicites : le raster de mur conserve le vide, les solutions LEGO validées sont choisies avant le remplissage, les parties générées gardent leur provenance d'ouverture et une composition connue non représentable devient un blocker de fidélité au lieu de disparaître silencieusement.
+Auditer les contrats et validateurs actuels puis combler les trous génériques nécessaires pour que les objets architecturaux ne soient plus seulement des coordonnées indépendantes.
 
-### Brique 2 — appui géométrique et proportion de la toiture — RÉSOLUE AU NIVEAU DU CONTRAT
+À protéger selon les preuves : enveloppes, orientations, gauche/droite, avant/arrière, dessus/dessous, niveaux, contacts, connexions, supports, chevauchements, retraits, débords, traversées et ancrage à la bonne façade/surface/volume.
 
-BH-126 impose l'appui dans les coordonnées finales. BH-127 mesure la déformation réelle du pignon. BH-128 choisit la famille de pente qui minimise cette déformation avant l'écart angulaire.
+Critère de sortie : une relation certaine qui a une conséquence spatiale ne peut pas être marquée résolue si la géométrie la contredit ; un conflit bloquant empêche la projection LEGO avec un diagnostic explicite.
 
-Critère atteint au niveau moteur : un pan supporté ne peut plus perdre silencieusement son appui final, et une quantification de pente qui déforme le pignon est soit mieux évitée par le choix de famille, soit diagnostiquée avec une sévérité explicite.
+### Brique 2 — plan de représentation LEGO avant remplissage (BH-153)
 
-Ce statut ne vaut pas validation photographique finale : la toiture devra encore être revue dans le prochain rendu humain.
+Introduire progressivement une frontière explicite entre Scene et BrickModel pour choisir les familles/assemblages architecturaux réellement supportés avant l'infill.
 
-### Brique 3 — restaurer la composition complète des ouvertures — EN COURS
+Les fenêtres et portes sont des exemples prioritaires : le moteur choisit une solution LEGO compatible, connaît son empreinte, la réserve, puis résout les trumeaux/allèges/linteaux restants. Même principe pour toiture, cheminée, terrasse, garde-corps et escalier lorsque le vocabulaire le permet.
 
-Les fenêtres et portes structurées doivent rester des ancres prioritaires. Le remplissage des murs doit se faire autour d'elles, pas l'inverse.
+Critère de sortie : le remplissage ne peut plus dicter a posteriori la taille/position des ancres architecturales.
 
-Priorité de reconnaissance :
+### Brique 3 — tolérances d'adaptation et résolution des conflits
 
-- positions relatives et ordre gauche/droite ;
-- alignements horizontaux et verticaux ;
-- rythme des centres et des espaces libres entre ouvertures ;
-- rapports largeur/hauteur ;
-- relation portes ↔ fenêtres ↔ terrasse/escalier ;
-- seulement ensuite cadres, appuis et linteaux.
+Formaliser les invariants intouchables (côté, ordre, niveau, topologie, relations certaines) et les ajustements locaux autorisés. Toute redistribution doit être bornée, quantifiée et traçable sans mutation de Survey/Scene.
 
-BH-105/BH-107 conservent déjà les centres relatifs X/Z lors de l'ancrage conjoint et BH-125 garantit la non-disparition. Le prochain travail doit mesurer puis protéger explicitement le **rythme de façade** lorsque les dimensions des vraies pièces LEGO changent les largeurs d'ouverture : conserver seulement les centres ne suffit pas si les trumeaux/espaces libres deviennent visuellement faux.
+### Brique 4 — chaîne physique de support/connectivité
 
-Critère de sortie : la façade reste identifiable par sa composition même sans textures ni petits détails, et une optimisation locale de taille/position ne peut pas dégrader fortement son rythme sans diagnostic ou recherche d'une meilleure solution.
+Étendre les validations existantes pour qu'une pièce ou un sous-assemblage ne soit accepté que s'il possède un support/une connexion modélisée appropriée. Distinguer proximité, contact, connectabilité, support et collision. À terme, vérifier la chaîne vers une structure porteuse.
 
-### Brique 4 — verrouiller silhouette et proportions à l'échelle LEGO
+Critère de sortie : une tuile, un plateau, un garde-corps ou un détail flottant devient un blocker déterministe avant export.
 
-Auditer la quantification globale pour éviter qu'une optimisation locale de briques déforme les rapports principaux : largeur/hauteur, étagement, pente de toiture et positions relatives des volumes.
+### Brique 5 — composition complète des ouvertures
 
-Les ajustements LEGO doivent rester des décisions de représentation explicites ; la vérité métrique Scene reste immuable.
+Avec la planification d'empreintes en place, protéger rythme de façade, alignements, rapports largeur/hauteur, trumeaux et relations portes ↔ fenêtres ↔ terrasse/escalier. Les cadres/appuis/linteaux viennent ensuite.
 
-### Brique 5 — éléments caractéristiques
+### Brique 6 — silhouette, proportions et éléments caractéristiques
 
-Une fois silhouette/proportions/ouvertures stables, consolider les objets qui donnent son caractère au bâtiment : plateforme/terrasse, escalier, cheminées, retraits, annexes et terrain lorsqu'ils sont établis par la Scene.
+Verrouiller largeur/hauteur, étagement, pente, volumes secondaires, terrasse, escalier, cheminées, retraits/annexes et terrain sans laisser une optimisation locale dégrader l'identité.
 
-Ne jamais inventer un élément ou une dimension pour embellir le résultat.
+### Brique 7 — détails architecturaux et finition de type set LEGO
 
-### Brique 6 — détails architecturaux
-
-Seulement après les cinq briques précédentes : cadres, retraits, appuis, linteaux, entourages, subdivisions de fenêtres lorsque le vocabulaire LEGO les représente réellement.
-
-### Brique 7 — qualité physique LEGO
-
-Poursuivre collisions, contacts, supports, connecteurs, stabilité et choix de pièces sans sacrifier les ancres architecturales précédentes.
+Seulement après les portes précédentes : encadrements, appuis, linteaux, subdivisions réellement supportées, garde-corps détaillés, rives/faîtage, texture/composition des façades et autres détails qui donnent une finition de maquette architecturale plutôt qu'une voxelisation.
 
 ### Brique 8 — validation humaine du premier vrai rendu
 
-Quand le pipeline génère une version où la maison est reconnaissable avant même d'examiner les briques, demander une validation visuelle humaine sur : silhouette, proportions, ouvertures, toiture et éléments caractéristiques.
+Quand le pipeline génère une version où la maison est reconnaissable avant même d'examiner les petites briques et où les contrôles de support passent, demander une validation visuelle humaine sur : implantation des objets, silhouette, proportions, ouvertures, toiture et éléments caractéristiques.
 
 Ce jalon précède l'optimisation fine de BOM/notice.
 
@@ -141,7 +125,7 @@ Ce jalon précède l'optimisation fine de BOM/notice.
 
 - BH-090 / round-trip humain Photos → Survey → Scene reste un jalon de validation externe ; ne pas inventer de données pour le fermer.
 - SurveyAudit / SurveyCorrection restent bornés, diagnostiques et traçables ; ne pas les utiliser pour masquer une régression du moteur LEGO.
-- SceneAudit reste HOLD tant qu'un gain non redondant n'est pas démontré.
+- SceneAudit reste conditionnel à la preuve d'un gain non redondant ; les nouveaux contrôles déterministes de topologie ne nécessitent pas de transformer SceneAudit en boucle IA.
 - L'analyse multi-vues privée peut exploiter les photos fournies dans une session de travail, mais ces photos, leurs dérivés privés et les mesures exactes ne doivent pas être commis dans le dépôt sans autorisation explicite.
 
 ## Ce qui compte comme progression réelle
@@ -150,15 +134,15 @@ Une PR fusionnée ou un nombre de tests plus élevé n'est pas, seul, une progre
 
 Une progression réelle doit améliorer au moins un de ces axes sans dégrader les précédents :
 
-- vérité architecturale préservée ;
+- vérité architecturale et spatiale préservée ;
 - reconnaissance visuelle ;
 - fidélité métrique/proportionnelle ;
-- représentation LEGO cohérente ;
+- représentation LEGO cohérente et planifiée ;
 - constructibilité/validation physique ;
 - reproductibilité et diagnostic ;
 - expérience de validation dans le viewer.
 
-Toute régression visuelle ou architecturale observée doit être inscrite ici jusqu'à sa résolution.
+Toute régression visuelle ou architecturale observée doit rester inscrite ici jusqu'à sa résolution.
 
 ## Données privées
 
@@ -166,4 +150,4 @@ Les photos de maison, PDF, Survey, Scene privés et mesures exactes privées ne 
 
 ## Instruction de reprise
 
-> Lis `AI_START_HERE.md`, vérifie l'état réel de `main`, puis lis `PROGRESSION.md`. Reprends la première brique non résolue dans l'ordre indiqué, en privilégiant toujours la fidélité architecturale avant l'optimisation LEGO.
+> Lis `AI_START_HERE.md`, vérifie l'état réel de `main`, puis lis `PROGRESSION.md`. Reprends la première brique non résolue dans l'ordre indiqué. Ne relance pas un rendu réel avant d'avoir avancé sur la vérité spatiale, la planification LEGO et les portes de constructibilité décrites par ADR-016/BH-153.
