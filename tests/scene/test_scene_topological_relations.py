@@ -121,3 +121,34 @@ def test_scene_rejects_fully_floating_stair_even_with_unresolved_relation():
         assert "does not connect" in str(exc)
     else:
         raise AssertionError("a fully floating stair must remain invalid")
+
+
+def test_resolved_scene_connection_passes_when_metric_contact_exists():
+    payload = _scene().model_dump(mode="json")
+    payload["stairs"][0]["end"] = {"x": -1, "y": 3, "z": 1.4}
+    payload["relations"][0]["geometry_status"] = "resolved"
+
+    scene = ArchitecturalScene.model_validate(payload)
+
+    assert scene.relations[0].geometry_status == "resolved"
+
+
+def test_resolved_scene_connection_rejects_metric_contradiction():
+    payload = _scene().model_dump(mode="json")
+    payload["relations"][0]["geometry_status"] = "resolved"
+
+    try:
+        ArchitecturalScene.model_validate(payload)
+    except ValueError as exc:
+        message = str(exc)
+        assert "resolved scene relation 'stair_to_landing' connects_to" in message
+        assert "not reflected by metric contact" in message
+    else:
+        raise AssertionError("a resolved connects_to claim must match concrete Scene geometry")
+
+
+def test_unresolved_scene_connection_keeps_metric_gap_as_uncertainty():
+    scene = _scene()
+
+    assert scene.relations[0].geometry_status == "unresolved"
+    assert scene.stairs[0].end.y < scene.platforms[0].position.y
