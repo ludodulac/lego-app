@@ -1,0 +1,91 @@
+name: Verify deployed Scene benchmark
+
+on:
+  workflow_run:
+    workflows: ["Deploy viewer to GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-scene-runtime:
+    name: Verify deployed Scene candidate preload
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install browser driver
+        run: python -m pip install 'playwright>=1.50,<2'
+
+      - name: Verify public Scene candidate preload
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          PAGE_URL: https://ludodulac.github.io/lego-app/
+          CANDIDATE_SHA: 5cf374b0c8a70bb9823c2e69a1367461d75508f9
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          from urllib.parse import urljoin
+
+          from playwright.sync_api import sync_playwright
+
+          base = os.environ['PAGE_URL']
+          deploy_sha = os.environ['DEPLOY_SHA']
+          candidate_sha = os.environ['CANDIDATE_SHA']
+          route = f'scene.html?benchmark=real-house-5&stage=scene&runtime-check={deploy_sha}'
+          url = urljoin(base if base.endswith('/') else base + '/', route)
+          browser_path = next((shutil.which(name) for name in (
+              'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
+          ) if shutil.which(name)), None)
+          if not browser_path:
+              raise AssertionError('No Chromium/Chrome binary is available on the Scene verification runner')
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(
+                  headless=True,
+                  executable_path=browser_path,
+                  args=['--no-sandbox'],
+              )
+              page = browser.new_page(viewport={'width': 390, 'height': 844})
+              runtime_errors = []
+              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
+
+              response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
+              assert response and response.ok, (
+                  f'scene.html HTTP failure: {response.status if response else "no response"}'
+              )
+
+              textarea = page.locator('#scene-result-json')
+              textarea.wait_for(state='attached', timeout=10000)
+              page.wait_for_function(
+                  """() => document.querySelector('#scene-result-json')?.dataset.preloadedCandidate === 'bh-151'""",
+                  timeout=30000,
+              )
+
+              raw = textarea.input_value()
+              scene = json.loads(raw)
+              assert scene['schema_version'] == '0.2'
+              assert scene['id'] == 'brickhouse-scene-real-house-5-candidate'
+              assert textarea.get_attribute('data-preloaded-candidate-sha') == candidate_sha
+
+              status = page.locator('#scene-result-status').text_content().strip()
+              assert 'Candidat Scene BH-151 préchargé' in status, status
+              assert 'indisponible' not in status, status
+              assert page.locator('#scene-result-file').count() == 1
+              assert page.locator('#scene-import-result').count() == 1
+              assert page.locator('#scene-build-bricks').is_disabled()
+              assert page.locator('meta[name="brickhouse-scene-runtime-check"]').get_attribute('content') == 'bh155'
+              assert not runtime_errors, runtime_errors
+              browser.close()
+
+          print(f'deployed Scene preload verification passed: {url}')
+          PY
