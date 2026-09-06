@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>BH-149 interaction fixture</title></head>
+<body>
+  <button id="download-ai-package" type="button">Créer le PDF</button>
+  <button id="ordinary-control" type="button">Contrôle ordinaire</button>
+  <output id="interaction-result">pending</output>
+  <script type="module" src="../../frontend/site-nav.js?v=bh149-runtime-lock-test"></script>
+  <script>
+    const ordinary = document.querySelector('#ordinary-control');
+    const result = document.querySelector('#interaction-result');
+    ordinary.addEventListener('click', () => {
+      result.textContent = 'clicked';
+      document.documentElement.dataset.bh149Interaction = 'clicked';
+    });
+    setTimeout(() => ordinary.click(), 50);
+  </script>
+</body>
+</html>
