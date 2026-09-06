@@ -95,8 +95,18 @@ jobs:
                   build_status = page.locator('#scene-result-status').text_content().strip()
                   raise AssertionError(f'Build did not reach viewer.html: {build_status}') from exc
 
-              export_raw = page.evaluate("localStorage.getItem('brickhouse.pendingExport')")
-              assert export_raw, 'viewer reached without brickhouse.pendingExport'
+              page.wait_for_function(
+                  """() => {
+                    const values = [...document.querySelectorAll('#model-summary dd')].map(node => node.textContent.trim());
+                    return values.length >= 4 && values[0] !== '—' && values[1] !== '—';
+                  }""",
+                  timeout=30000,
+              )
+              page.locator('#viewer').wait_for(state='visible', timeout=10000)
+              assert page.locator('#assembly-card').is_visible(), 'viewer has no visible assembly plan'
+
+              export_raw = page.evaluate("localStorage.getItem('brickhouse.currentExport')")
+              assert export_raw, 'viewer rendered without brickhouse.currentExport'
               export = json.loads(export_raw)
               parts = export.get('brick_model', {}).get('parts') or []
               steps = export.get('assembly_plan', {}).get('steps') or []
@@ -104,6 +114,7 @@ jobs:
               assert parts, 'deployed build returned no LEGO parts'
               assert total_parts == len(parts), (total_parts, len(parts))
               assert steps, 'deployed build returned no assembly steps'
+              assert page.locator('#message').text_content().strip() == 'Votre maquette BrickHouse est prête.'
               assert not runtime_errors, runtime_errors
               browser.close()
 
