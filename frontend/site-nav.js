@@ -19,15 +19,17 @@ function currentFile() {
   return name || 'index.html';
 }
 
+function setTextIfChanged(element, text) {
+  if (element && element.textContent !== text) element.textContent = text;
+}
+
 function normalizePrimaryActions() {
   const file = currentFile();
   if (file === 'photo.html') {
-    const surveyButton = document.querySelector('#download-ai-package');
-    if (surveyButton) surveyButton.textContent = 'Créer le PDF Photos → Relevé';
+    setTextIfChanged(document.querySelector('#download-ai-package'), 'Créer le PDF Photos → Relevé');
   }
   if (file === 'scene.html') {
-    const sceneButton = document.querySelector('#download-scene-handoff');
-    if (sceneButton) sceneButton.textContent = 'Créer le PDF Relevé → Scene 3D';
+    setTextIfChanged(document.querySelector('#download-scene-handoff'), 'Créer le PDF Relevé → Scene 3D');
   }
 }
 
@@ -119,4 +121,8 @@ function ensureNav() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureNav, { once: true });
 else ensureNav();
 
+// The shell can move controls after initial load, so keep a small observer. Every
+// normalization above is idempotent: the observer must never mutate the DOM when
+// the requested label/navigation already exists, otherwise it can starve the
+// browser event loop and make the entire deployed page appear unclickable.
 new MutationObserver(ensureNav).observe(document.documentElement, { childList: true, subtree: true });
