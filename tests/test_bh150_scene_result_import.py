@@ -26,7 +26,10 @@ def test_scene_result_import_validates_against_accepted_survey_before_building()
     assert "brickhouse.lastSceneSurveyValidation" in source
     assert "brickhouse.pendingArchitecturalScene" in source
     assert "brickhouse.pendingExport" in source
-    assert "allow_partial: true" in source
+    # BH-161: unresolved architecture is now a hard pre-LEGO gate. The old
+    # automatic partial-build fallback must not return under the BH-150 path.
+    assert "allow_partial: true" not in source
+    assert "architectural_readiness" in source
 
 
 def test_scene_result_import_rejects_survey_shaped_payloads_client_side():
