@@ -10,10 +10,10 @@ def test_pages_redeploys_when_postdeploy_scene_workflows_change() -> None:
     expected = {
         ".github/workflows/verify-deployed-scene.yml",
         ".github/workflows/verify-deployed-scene-api-e2e.yml",
-        ".github/workflows/capture-deployed-viewer-screenshots.yml",
     }
     for path in expected:
         assert f"- '{path}'" in source
+    assert "capture-deployed-viewer-screenshots.yml" not in source
 
 
 def test_pages_trigger_remains_scoped_not_repository_wide() -> None:
