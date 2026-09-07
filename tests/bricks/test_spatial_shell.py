@@ -117,6 +117,40 @@ def test_front_opening_remains_empty_in_global_shell():
             assert (x, 0, z) not in cells
 
 
+def test_first_course_above_opening_uses_real_bearing_instead_of_floating_infill():
+    opening = WallOpeningGrid(
+        id="wide-opening",
+        x_studs=5,
+        z_bricks=1,
+        width_studs=6,
+        height_bricks=2,
+    )
+    spatial = generate_spatial_brick_shell(_shell([opening]))
+    catalog = create_m0_brick_catalog()
+
+    lower_cells = {
+        (x, y)
+        for x, y, z, _ in _occupied_by_placement(spatial)
+        if z == 2
+    }
+    lintels = [
+        placement
+        for placement in spatial.placements
+        if placement.facade is Facade.FRONT and placement.z_plates == 9
+    ]
+    assert lintels
+    for placement in lintels:
+        width, depth = catalog.get(placement.brick_id).footprint(
+            placement.rotation_quarter_turns
+        )
+        footprint = {
+            (placement.x_studs + dx, placement.y_studs + dy)
+            for dx in range(width)
+            for dy in range(depth)
+        }
+        assert footprint & lower_cells
+
+
 def test_front_and_rear_run_on_x_axis_and_sides_on_y_axis():
     spatial = generate_spatial_brick_shell(_shell())
     catalog = create_m0_brick_catalog()
