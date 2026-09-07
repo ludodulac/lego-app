@@ -89,8 +89,33 @@ def test_floating_chain_does_not_become_valid_by_supporting_itself_above_ground(
     ])
     report = analyze_standard_brick_support_chain(model)
     assert report.unsupported_placement_ids == ["floating-base", "floating-top"]
-    with pytest.raises(ValueError, match="continuous stud/tube support chain to ground"):
+    with pytest.raises(ValueError, match="continuous stud/tube support chain to their structural datum"):
         validate_standard_brick_support_chain(model)
+
+
+def test_scene_terrain_below_architectural_zero_preserves_shifted_wall_datum():
+    model = _model([
+        _part("wall-base", "BRICK_2X2", x=0, y=0, z=6),
+        _part("wall-top", "BRICK_2X2", x=0, y=0, z=9),
+        BrickModelPart(
+            placement_id="scene-terrain:right:000001",
+            part_id="BRICK_1X1",
+            category="terrain",
+            component="facade_detail",
+            x_studs=10,
+            y_studs=0,
+            z_plates=0,
+            rotation_quarter_turns=0,
+            facade=Facade.RIGHT,
+        ),
+    ])
+    report = analyze_standard_brick_support_chain(model)
+    assert report.valid is True
+    base = next(node for node in report.nodes if node.placement_id == "wall-base")
+    top = next(node for node in report.nodes if node.placement_id == "wall-top")
+    assert base.reaches_ground is True
+    assert top.supporters == ["wall-base"]
+    assert top.reaches_ground is True
 
 
 def test_noncanonical_parts_are_not_claimed_by_this_first_support_slice():
@@ -158,5 +183,5 @@ def test_existing_placement_capability_gate_rejects_a_floating_canonical_wall_br
         ]
     )
     model = _model([_part("floating", "BRICK_1X1", x=0, y=0, z=3)])
-    with pytest.raises(ValueError, match="continuous stud/tube support chain to ground"):
+    with pytest.raises(ValueError, match="continuous stud/tube support chain to their structural datum"):
         validate_model_part_capabilities(model, registry)
