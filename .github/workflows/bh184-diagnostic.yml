@@ -1,0 +1,30 @@
+name: BH-184 diagnostic
+
+on:
+  push:
+    branches:
+      - bh-184-export-capability-summary
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - test_full_export_reports_artifact_contracts_without_mechanical_overclaim
+          - test_export_without_assembly_does_not_claim_downstream_plans
+          - test_historical_schema_01_bundle_can_omit_additive_capability_summary
+          - test_warning_only_fidelity_is_degraded_but_not_blocked
+          - test_blocker_fidelity_is_explicitly_blocked
+          - test_info_only_fidelity_does_not_promote_or_degrade_guarantees
+          - test_scoped_mechanical_claim_requires_named_validator_and_scope
+          - test_capability_summary_cannot_disagree_with_bundle_artifacts
+          - test_capability_summary_is_deterministic_in_export_json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - run: pytest -q "tests/bricks/test_bh184_export_capabilities.py::${{ matrix.test }}"
