@@ -16,16 +16,45 @@ jobs:
       - run: |
           python -m pip install -e '.[dev]'
           python -m pip install -e './lego_geometry_engine[dev]'
-      - name: Probe accepted Survey against current Scene candidate
+      - name: Inspect strict accepted-Survey/current-candidate boundary
         run: |
-          python -m brickhouse.pipeline_probe \
-            frontend/benchmarks/real-house-5/accepted-survey-v0.1.json \
-            tests/fixtures/real_house_5_scene_candidate.json \
-            > real-house-5-readiness.json
-          cat real-house-5-readiness.json
-      - name: Upload readiness report
+          python - <<'PY' > real-house-5-strict-readiness.json
+          import json
+          from pathlib import Path
+          from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
+          from brickhouse.scene.human_input_requests import derive_minimal_human_input_requests
+          from brickhouse.scene.physical_support import analyze_physical_support
+          from brickhouse.scene.readiness_api import evaluate_strict_scene_readiness
+          from brickhouse.survey import ArchitecturalSurvey
+
+          survey = ArchitecturalSurvey.model_validate_json(
+              Path('frontend/benchmarks/real-house-5/accepted-survey-v0.1.json').read_text(encoding='utf-8')
+          )
+          scene = ArchitecturalScene.model_validate_json(
+              Path('tests/fixtures/real_house_5_scene_candidate.json').read_text(encoding='utf-8')
+          )
+          survey_issues = validate_scene_against_survey(survey, scene)
+          projection, required_inputs, compatibility, readiness = evaluate_strict_scene_readiness(scene)
+          support_facts, support_issues = analyze_physical_support(scene)
+          requests = derive_minimal_human_input_requests(readiness, required_inputs)
+          payload = {
+              'survey_known_measurements': [item.model_dump(mode='json') for item in survey.known_measurements],
+              'survey_to_scene_issues': [item.model_dump(mode='json') for item in survey_issues],
+              'projection_blocked': projection.blocked,
+              'projection_issues': [item.model_dump(mode='json') for item in projection.issues],
+              'required_inputs': required_inputs,
+              'human_input_requests': [item.model_dump(mode='json') for item in requests],
+              'm0_compatibility': compatibility.model_dump(mode='json') if compatibility is not None else None,
+              'strict_readiness': readiness.model_dump(mode='json'),
+              'physical_support_facts': [item.model_dump(mode='json') for item in support_facts],
+              'physical_support_issues': [item.model_dump(mode='json') for item in support_issues],
+          }
+          print(json.dumps(payload, indent=2, ensure_ascii=False))
+          PY
+          cat real-house-5-strict-readiness.json
+      - name: Upload strict readiness report
         uses: actions/upload-artifact@v4
         with:
-          name: real-house-5-readiness
-          path: real-house-5-readiness.json
+          name: real-house-5-strict-readiness
+          path: real-house-5-strict-readiness.json
           if-no-files-found: error
