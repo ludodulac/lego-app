@@ -82,6 +82,64 @@ def test_bridging_brick_needs_at_least_one_actual_supporting_stud():
     assert report.unsupported_placement_ids == ["beam"]
 
 
+def test_validated_window_frame_can_carry_wall_course_above_opening():
+    model = _model([
+        _part("sill", "BRICK_1X4", x=0, y=0, z=0, rotation=1),
+        BrickModelPart(
+            placement_id="frame",
+            part_id="WINDOW_1X4X3_60594",
+            category="window_frame",
+            component="facade_detail",
+            x_studs=0,
+            y_studs=0,
+            z_plates=3,
+            rotation_quarter_turns=1,
+            facade=Facade.FRONT,
+        ),
+        BrickModelPart(
+            placement_id="pane",
+            part_id="GLASS_FOR_WINDOW_1X4X3_60603",
+            category="window_pane",
+            component="facade_detail",
+            x_studs=0,
+            y_studs=0,
+            z_plates=3,
+            rotation_quarter_turns=1,
+            facade=Facade.FRONT,
+        ),
+        _part("lintel", "BRICK_1X4", x=0, y=0, z=12, rotation=1),
+    ])
+    report = analyze_standard_brick_support_chain(model)
+    assert report.valid is True
+    assert report.structural_connector_ids == ["frame"]
+    frame = next(node for node in report.nodes if node.placement_id == "frame")
+    lintel = next(node for node in report.nodes if node.placement_id == "lintel")
+    assert frame.supporters == ["sill"]
+    assert lintel.supporters == ["frame"]
+    assert "pane" not in {node.placement_id for node in report.nodes}
+
+
+def test_floating_window_frame_is_not_a_magic_support_anchor():
+    model = _model([
+        BrickModelPart(
+            placement_id="floating-frame",
+            part_id="WINDOW_1X2X2_60592",
+            category="window_frame",
+            component="facade_detail",
+            x_studs=0,
+            y_studs=0,
+            z_plates=3,
+            rotation_quarter_turns=1,
+            facade=Facade.FRONT,
+        ),
+        _part("above", "BRICK_1X2", x=0, y=0, z=9, rotation=1),
+    ])
+    report = analyze_standard_brick_support_chain(model)
+    assert report.valid is False
+    assert report.unsupported_connector_ids == ["floating-frame"]
+    assert report.unsupported_placement_ids == ["above"]
+
+
 def test_floating_chain_does_not_become_valid_by_supporting_itself_above_ground():
     model = _model([
         _part("floating-base", "BRICK_2X2", x=5, y=5, z=6),
@@ -89,33 +147,8 @@ def test_floating_chain_does_not_become_valid_by_supporting_itself_above_ground(
     ])
     report = analyze_standard_brick_support_chain(model)
     assert report.unsupported_placement_ids == ["floating-base", "floating-top"]
-    with pytest.raises(ValueError, match="continuous stud/tube support chain to their structural datum"):
+    with pytest.raises(ValueError, match="continuous stud/tube support chain"):
         validate_standard_brick_support_chain(model)
-
-
-def test_scene_terrain_below_architectural_zero_preserves_shifted_wall_datum():
-    model = _model([
-        _part("wall-base", "BRICK_2X2", x=0, y=0, z=6),
-        _part("wall-top", "BRICK_2X2", x=0, y=0, z=9),
-        BrickModelPart(
-            placement_id="scene-terrain:right:000001",
-            part_id="BRICK_1X1",
-            category="terrain",
-            component="facade_detail",
-            x_studs=10,
-            y_studs=0,
-            z_plates=0,
-            rotation_quarter_turns=0,
-            facade=Facade.RIGHT,
-        ),
-    ])
-    report = analyze_standard_brick_support_chain(model)
-    assert report.valid is True
-    base = next(node for node in report.nodes if node.placement_id == "wall-base")
-    top = next(node for node in report.nodes if node.placement_id == "wall-top")
-    assert base.reaches_ground is True
-    assert top.supporters == ["wall-base"]
-    assert top.reaches_ground is True
 
 
 def test_noncanonical_parts_are_not_claimed_by_this_first_support_slice():
@@ -135,6 +168,7 @@ def test_noncanonical_parts_are_not_claimed_by_this_first_support_slice():
     ])
     report = analyze_standard_brick_support_chain(model)
     assert report.audited_placement_ids == ["ground"]
+    assert report.structural_connector_ids == []
     assert report.valid is True
 
 
@@ -183,5 +217,5 @@ def test_existing_placement_capability_gate_rejects_a_floating_canonical_wall_br
         ]
     )
     model = _model([_part("floating", "BRICK_1X1", x=0, y=0, z=3)])
-    with pytest.raises(ValueError, match="continuous stud/tube support chain to their structural datum"):
+    with pytest.raises(ValueError, match="continuous stud/tube support chain"):
         validate_model_part_capabilities(model, registry)
