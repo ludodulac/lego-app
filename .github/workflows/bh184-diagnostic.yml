@@ -12,16 +12,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: bh184-file
-            command: pytest -q tests/bricks/test_bh184_export_capabilities.py
-          - name: legacy-export-file
-            command: pytest -q tests/bricks/test_export.py
-          - name: legacy-then-bh184
-            command: pytest -q tests/bricks/test_export.py tests/bricks/test_bh184_export_capabilities.py
-          - name: bh184-then-legacy
-            command: pytest -q tests/bricks/test_bh184_export_capabilities.py tests/bricks/test_export.py
-          - name: all-bricks
+          - name: bricks
             command: pytest -q tests/bricks
+          - name: building-geometry
+            command: pytest -q tests/building tests/geometry
+          - name: pipeline-scene-survey
+            command: pytest -q tests/pipeline tests/scene tests/survey
+          - name: root-tests
+            command: pytest -q tests/*.py
+          - name: bricks-plus-building-geometry
+            command: pytest -q tests/bricks tests/building tests/geometry
+          - name: bricks-plus-pipeline-scene-survey
+            command: pytest -q tests/bricks tests/pipeline tests/scene tests/survey
+          - name: bricks-plus-root-tests
+            command: pytest -q tests/bricks tests/*.py
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
