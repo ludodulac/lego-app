@@ -1,0 +1,45 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.8 — APPARTENANCE CIBLE / CONTEXTE
+
+Cet addendum est strictement additif. Il ne remplace aucune règle existante de topologie, orientation, couverture, métrique ou provenance. Son objectif est d'empêcher qu'un objet visible dans les photos soit attribué au bâtiment cible uniquement parce qu'il est proche, superposé dans l'image, aligné avec une façade ou visible dans la même vue.
+
+PRINCIPE CENTRAL
+Chaque observation architecturale visible susceptible d'être reconstruite dans la Scene doit porter `attributes.subject_ownership` lorsque les preuves permettent une classification :
+- `"target_building"` : l'objet appartient au bâtiment étudié ;
+- `"external_context"` : l'objet appartient à un bâtiment voisin, au contexte extérieur ou à une structure distincte qui ne doit pas devenir géométrie du bâtiment cible ;
+- `"unresolved"` : l'appartenance ne peut pas être établie honnêtement avec les vues disponibles.
+
+Ajoute toujours `attribute_certainty.subject_ownership` avec `certain`, `plausible` ou `unproven`. `subject_ownership:"unresolved"` ne doit jamais être déclaré `certain`.
+
+CE QUI NE PROUVE PAS L'APPARTENANCE
+Ne déduis jamais `target_building` à partir d'un seul de ces indices :
+- l'objet touche ou semble toucher le bâtiment en projection 2D ;
+- l'objet est sur la même façade apparente ou le même côté de l'image ;
+- l'objet possède un matériau ou une couleur similaire ;
+- l'objet est derrière/devant le bâtiment selon une seule vue ;
+- la continuité architecturale est simplement plausible ;
+- l'objet aide à fermer une géométrie ou rend la reconstruction plus simple.
+
+PREUVES D'APPARTENANCE ADMISSIBLES
+Une appartenance peut devenir plus forte lorsqu'elle est soutenue par une ou plusieurs preuves réellement discriminantes : continuité physique visible, jonction structurelle claire, même objet suivi dans plusieurs vues, relation `part_of` ou `same_physical_object` soutenue par les pixels, ou information utilisateur explicite.
+
+MULTI-VUES
+Si un même élément apparaît dans plusieurs photos, utilise les détails stables de forme, position relative, occultation et jonction pour déterminer s'il s'agit réellement du même objet. Ne fusionne pas deux cheminées, toitures, fenêtres, volumes ou équipements simplement parce qu'ils se ressemblent.
+
+Quand plusieurs observations représentent certainement le même objet physique, conserve cette identité avec une relation `same_physical_object` seulement si les preuves la soutiennent. Une relation `same_physical_object` ou `part_of` certaine ne doit jamais relier un objet certainement `target_building` à un objet certainement `external_context`.
+
+OBJETS DE CONTEXTE
+Un objet certainement `external_context` peut rester dans le Survey comme preuve de séparation, d'occlusion ou de voisinage, mais il ne doit jamais être converti en primitive cible de l'ArchitecturalScene sous le même ID. Cela vaut notamment pour volumes voisins, ouvertures voisines, cheminées, toitures, escaliers, plateformes et équipements n'appartenant pas à la cible.
+
+INCERTITUDE
+Si l'appartenance est seulement plausible ou non prouvée, conserve cette incertitude dans le Survey. Ne métrifie pas cet objet comme géométrie cible pour satisfaire une reconstruction. L'absence de décision est préférable à une attribution fausse.
+
+PRÉFLIGHT OBLIGATOIRE
+Avant sortie Survey :
+1. inspecter chaque primitive architecturale potentiellement reconstructible et décider si son appartenance est cible, contexte ou non résolue ;
+2. vérifier qu'aucune classification ne repose uniquement sur proximité ou projection 2D ;
+3. vérifier les objets similaires visibles dans plusieurs vues avant de les fusionner ;
+4. vérifier qu'aucune relation certaine `part_of` / `same_physical_object` ne contredit des appartenances certaines ;
+5. vérifier qu'un objet du contexte ne reçoit pas un ID destiné à une primitive cible ;
+6. conserver `unresolved` ou une certitude faible si les preuves ne permettent pas une décision robuste.
+
+Le Survey est incomplet s'il contient des objets architecturaux visiblement voisins ou ambigus mais les traite implicitement comme appartenant tous au bâtiment cible sans conserver l'appartenance et sa certitude.

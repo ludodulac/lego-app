@@ -10,6 +10,7 @@ import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audi
 import './brickhouse-survey-package-v09.js?v=pdf-handoff-0.9-measurement-provenance';
 import './brickhouse-survey-package-v11.js?v=pdf-handoff-0.11-orientation-provenance';
 import './brickhouse-survey-package-v12.js?v=pdf-handoff-0.12-stair-topology';
+import './brickhouse-survey-package-v13.js?v=pdf-handoff-0.13-target-context-ownership';
 // Reject any AI-claimed user measurement that is not exactly authorized by the
 // current capture inputs before Survey validation or Scene handoff can run.
 import './survey-measurement-provenance-gate.js?v=measurement-provenance-gate-0.1';
@@ -28,6 +29,9 @@ import './scene-handoff-stage-lock-v45.js?v=scene-handoff-stage-lock-4.5';
 // Front-load the same stage identity immediately after the v4.3 prompt header so
 // a neutral model sees the Scene output shape before it reaches Survey input data.
 import './scene-handoff-output-frame-v46.js?v=scene-handoff-output-frame-4.6';
+// Prevent neighboring/context objects or unresolved ownership from being silently
+// metrified as target Scene primitives.
+import './scene-handoff-ownership-audit-v47.js?v=scene-handoff-ownership-audit-4.7';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
