@@ -113,6 +113,26 @@ def test_noncanonical_parts_are_not_claimed_by_this_first_support_slice():
     assert report.valid is True
 
 
+def test_canonical_part_id_in_facade_detail_domain_is_not_claimed_as_wall_support():
+    model = _model([
+        _part("wall-ground", "BRICK_1X1", x=0, y=0, z=0),
+        BrickModelPart(
+            placement_id="deck-cell",
+            part_id="BRICK_1X1",
+            category="timber",
+            component="facade_detail",
+            x_studs=5,
+            y_studs=5,
+            z_plates=9,
+            rotation_quarter_turns=0,
+            facade=Facade.REAR,
+        ),
+    ])
+    report = analyze_standard_brick_support_chain(model)
+    assert report.audited_placement_ids == ["wall-ground"]
+    assert report.valid is True
+
+
 def test_report_is_deterministic_and_does_not_mutate_model():
     parts = [
         _part("z-top", "BRICK_1X1", x=0, y=0, z=3),
@@ -126,7 +146,7 @@ def test_report_is_deterministic_and_does_not_mutate_model():
     assert model.model_dump() == before
 
 
-def test_existing_placement_capability_gate_rejects_a_floating_canonical_brick():
+def test_existing_placement_capability_gate_rejects_a_floating_canonical_wall_brick():
     registry = PieceCapabilityRegistry(
         pieces=[
             PieceCapability(
