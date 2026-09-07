@@ -58,7 +58,7 @@ def test_supported_platform_passes_gate_without_mutation():
         "position": {"x": 10.5, "y": 2.5, "z": 0.0},
         "width": 0.2,
         "depth": 0.2,
-        "height": 1.8,
+        "height": 2.0,
         "source": SOURCE,
     }
     scene = _scene(platform=_platform(supports=[good_post]))
