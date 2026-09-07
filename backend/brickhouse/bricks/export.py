@@ -47,6 +47,80 @@ class BrickExportFidelityIssue(BaseModel):
     object_id: str | None = None
 
 
+ArtifactContractState = Literal["not_available", "available", "contract_verified"]
+FidelityLevel = Literal["clear", "degraded", "blocked"]
+MechanicalVerificationState = Literal["not_claimed", "verified_in_declared_scope"]
+
+
+class MechanicalVerificationSummary(BaseModel):
+    """Mechanical evidence carried by the export without extrapolating its scope.
+
+    The default deliberately makes no mechanical claim. A positive state may only
+    be supplied by a caller that has actually run a named validator over explicitly
+    declared scopes; bundle/assembly existence never promotes this state.
+    """
+
+    state: MechanicalVerificationState = "not_claimed"
+    validator_id: str | None = Field(default=None, min_length=1)
+    scopes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_claim_scope(self) -> "MechanicalVerificationSummary":
+        if self.state == "not_claimed":
+            if self.validator_id is not None or self.scopes:
+                raise ValueError("not_claimed mechanical verification must not carry validator/scopes")
+            return self
+        if self.validator_id is None or not self.scopes:
+            raise ValueError("verified mechanical scope requires validator_id and at least one scope")
+        if len(self.scopes) != len(set(self.scopes)):
+            raise ValueError("mechanical verification scopes must be unique")
+        return self
+
+
+class BrickExportCapabilitySummary(BaseModel):
+    """Machine-readable guarantees that are already supported by this export.
+
+    ``contract_verified`` means internal artifact consistency has been checked. It
+    does not mean physically buildable, deployed, procured, or validated in real use.
+    """
+
+    render_artifact: Literal["available"] = "available"
+    bom: ArtifactContractState
+    assembly_plan: ArtifactContractState
+    instruction_plan: ArtifactContractState
+    bag_plan: ArtifactContractState
+    fidelity_level: FidelityLevel
+    mechanical_verification: MechanicalVerificationSummary = Field(
+        default_factory=MechanicalVerificationSummary
+    )
+
+
+def derive_export_capability_summary(
+    *,
+    assembly_plan: AssemblyPlan | None,
+    instruction_plan: InstructionPlan | None,
+    bag_plan: BagPlan | None,
+    fidelity_issues: list[BrickExportFidelityIssue],
+    mechanical_verification: MechanicalVerificationSummary | None = None,
+) -> BrickExportCapabilitySummary:
+    """Derive capability states without converting availability into stronger proof."""
+    if any(issue.severity == "blocker" for issue in fidelity_issues):
+        fidelity_level: FidelityLevel = "blocked"
+    elif any(issue.severity == "warning" for issue in fidelity_issues):
+        fidelity_level = "degraded"
+    else:
+        fidelity_level = "clear"
+
+    return BrickExportCapabilitySummary(
+        bom="contract_verified",
+        assembly_plan="contract_verified" if assembly_plan is not None else "not_available",
+        instruction_plan="contract_verified" if instruction_plan is not None else "not_available",
+        bag_plan="contract_verified" if bag_plan is not None else "not_available",
+        fidelity_level=fidelity_level,
+        mechanical_verification=mechanical_verification or MechanicalVerificationSummary(),
+    )
+
+
 class BrickExportBundle(BaseModel):
     schema_version: Literal["0.1"] = "0.1"
     building_id: str
@@ -59,6 +133,9 @@ class BrickExportBundle(BaseModel):
     instruction_plan: InstructionPlan | None = None
     bag_plan: BagPlan | None = None
     fidelity_issues: list[BrickExportFidelityIssue] = Field(default_factory=list)
+    # Optional for backward compatibility with existing schema-0.1 serialized bundles.
+    # New bundles produced by ``create_export_bundle`` always populate it.
+    capability_summary: BrickExportCapabilitySummary | None = None
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "BrickExportBundle":
@@ -107,6 +184,16 @@ class BrickExportBundle(BaseModel):
                 bag_step_ids = [step_id for bag in self.bag_plan.bags for step_id in bag.assembly_step_ids]
                 if bag_step_ids != assembly_step_ids:
                     raise ValueError("BagPlan step ordering does not match AssemblyPlan")
+        if self.capability_summary is not None:
+            expected = derive_export_capability_summary(
+                assembly_plan=self.assembly_plan,
+                instruction_plan=self.instruction_plan,
+                bag_plan=self.bag_plan,
+                fidelity_issues=self.fidelity_issues,
+                mechanical_verification=self.capability_summary.mechanical_verification,
+            )
+            if self.capability_summary != expected:
+                raise ValueError("capability_summary does not match export artifact/fidelity state")
         return self
 
 
@@ -178,6 +265,7 @@ def create_export_bundle(
     fidelity_issues: list[BrickExportFidelityIssue] | None = None,
     discretization_quality: list[BuildingDiscretizationQuality] | None = None,
     scale_recommendation: ScaleRecommendation | None = None,
+    mechanical_verification: MechanicalVerificationSummary | None = None,
 ) -> BrickExportBundle:
     """Create the viewer/export bundle without hiding known architectural losses."""
     resolved_quality = discretization_quality or []
@@ -187,6 +275,13 @@ def create_export_bundle(
     )
     instruction_plan = generate_instruction_plan(assembly_plan) if assembly_plan is not None else None
     bag_plan = generate_bag_plan(assembly_plan) if assembly_plan is not None else None
+    capability_summary = derive_export_capability_summary(
+        assembly_plan=assembly_plan,
+        instruction_plan=instruction_plan,
+        bag_plan=bag_plan,
+        fidelity_issues=resolved_fidelity_issues,
+        mechanical_verification=mechanical_verification,
+    )
     return BrickExportBundle(
         building_id=model.building_id,
         volume_id=model.volume_id,
@@ -202,6 +297,7 @@ def create_export_bundle(
         instruction_plan=instruction_plan,
         bag_plan=bag_plan,
         fidelity_issues=resolved_fidelity_issues,
+        capability_summary=capability_summary,
     )
 
 

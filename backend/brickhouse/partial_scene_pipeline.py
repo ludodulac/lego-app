@@ -12,7 +12,11 @@ from brickhouse.bricks.assembly import generate_assembly_plan
 from brickhouse.bricks.bags import generate_bag_plan
 from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.discretization_report import build_discretization_quality
-from brickhouse.bricks.export import BrickExportBundle, BrickExportFidelityIssue
+from brickhouse.bricks.export import (
+    BrickExportBundle,
+    BrickExportFidelityIssue,
+    derive_export_capability_summary,
+)
 from brickhouse.bricks.instructions import generate_instruction_plan
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
@@ -290,7 +294,20 @@ def run_partial_scene_pipeline(
         "discretization_quality": quality,
         "scale_recommendation": recommendation,
     })
+    fidelity_issues = _partial_fidelity_issues(scene)
+    capability_summary = derive_export_capability_summary(
+        assembly_plan=bundle.assembly_plan,
+        instruction_plan=bundle.instruction_plan,
+        bag_plan=bundle.bag_plan,
+        fidelity_issues=fidelity_issues,
+        mechanical_verification=(
+            bundle.capability_summary.mechanical_verification
+            if bundle.capability_summary is not None
+            else None
+        ),
+    )
     return bundle.model_copy(update={
         "metadata": metadata,
-        "fidelity_issues": _partial_fidelity_issues(scene),
+        "fidelity_issues": fidelity_issues,
+        "capability_summary": capability_summary,
     })
