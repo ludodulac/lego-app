@@ -1,20 +1,25 @@
-"""Deterministic support-chain audit for canonical orthogonal LEGO wall bricks.
+"""Deterministic support-chain audit for orthogonal LEGO wall structures.
 
 A canonical part ID does not by itself define connection semantics. Scene-native
 terraces, stairs, chimneys, terrain and glazing may deliberately reuse BRICK_* as a
-rendering primitive while belonging to another connection domain. This first
-physical-validity slice therefore owns only final BrickModel parts explicitly marked
-as ``component='wall'`` and ``category='brick'``. Roofs and facade-detail systems keep
-their dedicated validators until their support/connection semantics are explicit.
+rendering primitive while belonging to another connection domain. This physical
+validity slice owns canonical wall bricks plus validated window *frames*: the latter
+are real stud/tube connectors inside a wall opening and may legitimately carry the
+masonry course above them. Panes never count as structural support.
+
+Roofs and other facade-detail systems keep their dedicated validators until their
+support/connection semantics are explicit.
 """
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 
 from .brick_model import BrickModel, BrickModelPart
 from .catalog import create_m0_brick_catalog
+from .windows import VALIDATED_WINDOW_ASSEMBLIES
 
 
 class StandardBrickSupportNode(BaseModel):
@@ -28,23 +33,56 @@ class StandardBrickSupportNode(BaseModel):
 
 class StandardBrickSupportReport(BaseModel):
     audited_placement_ids: list[str] = Field(default_factory=list)
+    structural_connector_ids: list[str] = Field(default_factory=list)
     unsupported_placement_ids: list[str] = Field(default_factory=list)
+    unsupported_connector_ids: list[str] = Field(default_factory=list)
     nodes: list[StandardBrickSupportNode] = Field(default_factory=list)
 
     @property
     def valid(self) -> bool:
-        return not self.unsupported_placement_ids
+        return not self.unsupported_placement_ids and not self.unsupported_connector_ids
+
+
+@dataclass(frozen=True)
+class _StructuralPartDefinition:
+    width_studs: int
+    length_studs: int
+    height_plates: int
+
+    def footprint(self, rotation_quarter_turns: int) -> tuple[int, int]:
+        if rotation_quarter_turns % 2:
+            return self.length_studs, self.width_studs
+        return self.width_studs, self.length_studs
 
 
 def _standard_brick_definitions():
     return {item.id: item for item in create_m0_brick_catalog().bricks}
 
 
+def _window_frame_definitions() -> dict[str, _StructuralPartDefinition]:
+    """Return only validated frames with explicit orthogonal wall dimensions."""
+    return {
+        assembly.frame_part_id: _StructuralPartDefinition(
+            width_studs=1,
+            length_studs=assembly.width_studs,
+            height_plates=assembly.height_bricks * 3,
+        )
+        for assembly in VALIDATED_WINDOW_ASSEMBLIES
+    }
+
+
 def _is_orthogonal_wall_brick(part: BrickModelPart, definitions) -> bool:
-    """Return whether BH-166 owns this placement's connection semantics."""
     return (
         part.component == "wall"
         and part.category == "brick"
+        and part.part_id in definitions
+    )
+
+
+def _is_validated_window_frame(part: BrickModelPart, definitions) -> bool:
+    return (
+        part.component == "facade_detail"
+        and part.category == "window_frame"
         and part.part_id in definitions
     )
 
@@ -86,36 +124,46 @@ def _wall_structural_datum(model: BrickModel, audited: list[BrickModelPart]) -> 
 def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupportReport:
     """Return a transitive wall-support report without mutating ``model``.
 
-    Every canonical orthogonal wall brick at the wall structural datum is anchored.
-    Every higher audited wall brick must share at least one stud cell with another
-    audited wall brick whose top is exactly at its bottom. Since all edges descend in
-    z, reachability can be evaluated in one stable bottom-up pass.
+    Canonical wall bricks at the wall structural datum are anchors. Higher wall
+    bricks require direct stud overlap with a structurally reachable node ending at
+    their bottom plane. Validated window frames participate in the same graph because
+    they have bottom anti-stud and top stud interfaces and an explicit known height.
+    Glass panes are deliberately excluded.
     """
-    definitions = _standard_brick_definitions()
+    brick_definitions = _standard_brick_definitions()
+    frame_definitions = _window_frame_definitions()
     audited = [
         part for part in model.parts
-        if _is_orthogonal_wall_brick(part, definitions)
+        if _is_orthogonal_wall_brick(part, brick_definitions)
     ]
-    audited.sort(key=lambda part: (part.z_plates, part.placement_id))
+    connectors = [
+        part for part in model.parts
+        if _is_validated_window_frame(part, frame_definitions)
+    ]
     structural_datum = _wall_structural_datum(model, audited)
+
+    structural_parts: list[tuple[BrickModelPart, object, bool]] = [
+        (part, brick_definitions[part.part_id], False) for part in audited
+    ] + [
+        (part, frame_definitions[part.part_id], True) for part in connectors
+    ]
+    structural_parts.sort(key=lambda item: (item[0].z_plates, item[0].placement_id))
 
     by_top: dict[int, list[StandardBrickSupportNode]] = defaultdict(list)
     nodes: list[StandardBrickSupportNode] = []
-    unsupported: list[str] = []
+    unsupported_bricks: list[str] = []
+    unsupported_connectors: list[str] = []
 
-    for part in audited:
-        definition = definitions[part.part_id]
+    for part, definition, is_connector in structural_parts:
         footprint = _footprint(part, definition)
         possible_supporters = by_top.get(part.z_plates, [])
-        supporters = sorted(
-            node.placement_id
-            for node in possible_supporters
+        supporting_nodes = [
+            node for node in possible_supporters
             if node.footprint.intersection(footprint)
-        )
+        ]
+        supporters = sorted(node.placement_id for node in supporting_nodes)
         reaches_ground = part.z_plates == structural_datum or any(
-            node.reaches_ground
-            for node in possible_supporters
-            if node.placement_id in supporters
+            node.reaches_ground for node in supporting_nodes
         )
         node = StandardBrickSupportNode(
             placement_id=part.placement_id,
@@ -128,20 +176,27 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
         nodes.append(node)
         by_top[node.z_top_plates].append(node)
         if not reaches_ground:
-            unsupported.append(part.placement_id)
+            target = unsupported_connectors if is_connector else unsupported_bricks
+            target.append(part.placement_id)
 
     return StandardBrickSupportReport(
-        audited_placement_ids=[part.placement_id for part in audited],
-        unsupported_placement_ids=sorted(unsupported),
+        audited_placement_ids=sorted(part.placement_id for part in audited),
+        structural_connector_ids=sorted(part.placement_id for part in connectors),
+        unsupported_placement_ids=sorted(unsupported_bricks),
+        unsupported_connector_ids=sorted(unsupported_connectors),
         nodes=nodes,
     )
 
 
 def validate_standard_brick_support_chain(model: BrickModel) -> None:
-    """Reject orthogonal wall bricks without a continuous chain to their host datum."""
+    """Reject wall structures without a continuous stud/tube chain to their datum."""
     report = analyze_standard_brick_support_chain(model)
-    if report.unsupported_placement_ids:
+    failures = [
+        *report.unsupported_placement_ids,
+        *report.unsupported_connector_ids,
+    ]
+    if failures:
         raise ValueError(
-            "BrickModel contains orthogonal wall bricks without a continuous stud/tube support chain to their structural datum: "
-            + ", ".join(report.unsupported_placement_ids)
+            "BrickModel contains orthogonal wall structure without a continuous stud/tube support chain to its structural datum: "
+            + ", ".join(sorted(failures))
         )
