@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from brickhouse.survey import RelationKind
 
-from .models import CONNECTIVITY_TOLERANCE_M
+from .models import CONNECTIVITY_TOLERANCE_M, SceneRoofType
 from .stair_contact import stair_endpoint_touches_run
 
 
@@ -21,6 +21,8 @@ SupportKind = Literal[
     "platform_host_contact",
     "platform_post_support",
     "stair_endpoint_support",
+    "roof_host_support",
+    "chimney_host_support",
     "explicit_support_relation",
 ]
 
@@ -125,12 +127,74 @@ def _stair_endpoint_state(scene, stair, endpoint_name: Literal["start", "end"]) 
     return "unresolved", None
 
 
+def _roof_host_state(roof, volume) -> SupportState:
+    """A roof is supported by its explicit host only when the host envelope is metric."""
+    return "proven" if _volume_dimensions(volume) is not None else "unresolved"
+
+
+def _chimney_flat_roof_state(chimney, roof, volume) -> SupportState:
+    """Validate only a flat roof plane; pitched planes need explicit constructible geometry."""
+    dims = _volume_dimensions(volume)
+    if dims is None:
+        return "unresolved"
+    if roof.type is not SceneRoofType.FLAT:
+        return "unresolved"
+
+    width, depth, height = dims
+    vx0, vx1 = volume.position.x, volume.position.x + width
+    vy0, vy1 = volume.position.y, volume.position.y + depth
+    cx0, cx1 = chimney.position.x, chimney.position.x + chimney.width
+    cy0, cy1 = chimney.position.y, chimney.position.y + chimney.depth
+    footprint_overlap = (
+        _intervals_overlap(cx0, cx1, vx0, vx1, tolerance=CONNECTIVITY_TOLERANCE_M)
+        and _intervals_overlap(cy0, cy1, vy0, vy1, tolerance=CONNECTIVITY_TOLERANCE_M)
+    )
+    roof_z = volume.position.z + height
+    chimney_bottom = chimney.position.z
+    chimney_top = chimney.position.z + chimney.height
+    crosses_roof_plane = (
+        chimney_bottom <= roof_z + CONNECTIVITY_TOLERANCE_M
+        and chimney_top >= roof_z - CONNECTIVITY_TOLERANCE_M
+    )
+    return "proven" if footprint_overlap and crosses_roof_plane else "contradicted"
+
+
+def _chimney_support_state(scene, chimney) -> tuple[SupportState, str | None]:
+    volumes = {item.id: item for item in scene.volumes}
+    proven_roofs: list[str] = []
+    unresolved_roofs: list[str] = []
+    contradicted_roofs: list[str] = []
+    for roof in sorted(scene.roofs, key=lambda item: item.id):
+        volume = volumes.get(roof.volume_id)
+        if volume is None:
+            continue
+        state = _chimney_flat_roof_state(chimney, roof, volume)
+        if state == "proven":
+            proven_roofs.append(roof.id)
+        elif state == "unresolved":
+            unresolved_roofs.append(roof.id)
+        else:
+            contradicted_roofs.append(roof.id)
+
+    if len(proven_roofs) == 1:
+        return "proven", proven_roofs[0]
+    if len(proven_roofs) > 1:
+        return "unresolved", None
+    if unresolved_roofs:
+        return "unresolved", None
+    if contradicted_roofs:
+        return "contradicted", contradicted_roofs[0] if len(contradicted_roofs) == 1 else None
+    return "unresolved", None
+
+
 def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[PhysicalSupportIssue]]:
     """Return deterministic support facts and blockers without mutating ``scene``."""
     facts: list[PhysicalSupportFact] = []
     issues: list[PhysicalSupportIssue] = []
     volumes = {item.id: item for item in scene.volumes}
     platforms = {item.id: item for item in scene.platforms}
+    roofs = {item.id: item for item in scene.roofs}
+    chimneys = {item.id: item for item in scene.chimneys}
 
     default_host_id = scene.volumes[0].id if scene.volumes else None
     for platform in sorted(scene.platforms, key=lambda item: item.id):
@@ -199,6 +263,46 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
                 ),
             ))
 
+    for roof in sorted(scene.roofs, key=lambda item: item.id):
+        volume = volumes.get(roof.volume_id)
+        state: SupportState = "contradicted" if volume is None else _roof_host_state(roof, volume)
+        facts.append(PhysicalSupportFact(
+            kind="roof_host_support",
+            object_id=roof.id,
+            supporter_id=roof.volume_id,
+            state=state,
+            reason=(
+                "roof has an explicit metric host volume envelope"
+                if state == "proven"
+                else "roof host volume geometry is incomplete"
+                if state == "unresolved"
+                else "roof references no available host volume"
+            ),
+        ))
+        if state == "contradicted":
+            issues.append(PhysicalSupportIssue(
+                code="roof_host_support_contradicted",
+                severity="blocker",
+                object_id=roof.id,
+                message=f"Roof {roof.id!r} cannot be linked to its declared host volume {roof.volume_id!r}.",
+            ))
+
+    for chimney in sorted(scene.chimneys, key=lambda item: item.id):
+        state, supporter_id = _chimney_support_state(scene, chimney)
+        facts.append(PhysicalSupportFact(
+            kind="chimney_host_support",
+            object_id=chimney.id,
+            supporter_id=supporter_id,
+            state=state,
+            reason=(
+                "chimney footprint and vertical span cross one explicit flat roof plane"
+                if state == "proven"
+                else "chimney support is not uniquely provable from available roof geometry"
+                if state == "unresolved"
+                else "chimney geometry does not intersect the available flat roof plane"
+            ),
+        ))
+
     for relation in sorted(scene.relations, key=lambda item: item.id):
         if relation.kind is not RelationKind.SUPPORTS:
             continue
@@ -215,6 +319,29 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
         state: SupportState = "unresolved"
         if relation.subject_id in platforms and relation.object_id in volumes:
             state = _platform_supports_volume(platforms[relation.subject_id], volumes[relation.object_id])
+        elif relation.subject_id in roofs and relation.object_id in chimneys:
+            roof = roofs[relation.subject_id]
+            volume = volumes.get(roof.volume_id)
+            state = "contradicted" if volume is None else _chimney_flat_roof_state(
+                chimneys[relation.object_id], roof, volume
+            )
+        elif relation.subject_id in volumes and relation.object_id in chimneys:
+            matching = [
+                roof
+                for roof in scene.roofs
+                if roof.volume_id == relation.subject_id
+            ]
+            states = [
+                _chimney_flat_roof_state(chimneys[relation.object_id], roof, volumes[relation.subject_id])
+                for roof in matching
+            ]
+            if any(item == "proven" for item in states):
+                state = "proven"
+            elif any(item == "unresolved" for item in states):
+                state = "unresolved"
+            elif states:
+                state = "contradicted"
+
         facts.append(PhysicalSupportFact(
             kind="explicit_support_relation",
             object_id=relation.object_id,
