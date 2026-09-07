@@ -12,7 +12,8 @@ from pydantic import BaseModel, Field
 
 from brickhouse.survey import ArchitecturalSurvey, Certainty, analyze_survey_stair_topology
 
-from .models import CONNECTIVITY_TOLERANCE_M, EPSILON
+from .models import EPSILON
+from .stair_contact import closest_stair_run_endpoint_contact
 from .wall_profile_scene import ArchitecturalScene
 
 
@@ -65,25 +66,16 @@ def _direction_change(first, second) -> bool | None:
 
 
 def _junction(first, second) -> StairRunJunction | None:
-    best = None
-    for first_name, first_point in (("start", first.start), ("end", first.end)):
-        for second_name, second_point in (("start", second.start), ("end", second.end)):
-            horizontal_gap = hypot(first_point.x - second_point.x, first_point.y - second_point.y)
-            vertical_gap = abs(first_point.z - second_point.z)
-            key = (max(horizontal_gap, vertical_gap), horizontal_gap + vertical_gap)
-            if best is None or key < best[0]:
-                best = (key, first_name, second_name, horizontal_gap, vertical_gap)
-    assert best is not None
-    _, first_name, second_name, horizontal_gap, vertical_gap = best
-    if horizontal_gap > CONNECTIVITY_TOLERANCE_M or vertical_gap > CONNECTIVITY_TOLERANCE_M:
+    contact = closest_stair_run_endpoint_contact(first, second)
+    if contact is None:
         return None
     return StairRunJunction(
-        first_run_id=first.id,
-        second_run_id=second.id,
-        first_endpoint=first_name,
-        second_endpoint=second_name,
-        horizontal_gap=horizontal_gap,
-        vertical_gap=vertical_gap,
+        first_run_id=contact.first_run_id,
+        second_run_id=contact.second_run_id,
+        first_endpoint=contact.first_endpoint,
+        second_endpoint=contact.second_endpoint,
+        horizontal_gap=contact.horizontal_gap,
+        vertical_gap=contact.vertical_gap,
         direction_change=_direction_change(first, second),
     )
 
