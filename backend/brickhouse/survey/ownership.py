@@ -1,7 +1,7 @@
 """Target-vs-context ownership semantics for photo-derived Survey observations.
 
-Ownership is intentionally non-metric and additive.  Legacy Surveys that do not
-carry ``attributes.subject_ownership`` remain valid.  When ownership is present,
+Ownership is intentionally non-metric and additive. Legacy Surveys that do not
+carry ``attributes.subject_ownership`` remain valid. When ownership is present,
 it becomes an explicit semantic claim whose certainty is stored through the
 existing per-attribute certainty map.
 """
@@ -50,7 +50,6 @@ def analyze_subject_ownership(survey: ArchitecturalSurvey) -> OwnershipReport:
 
     facts: list[OwnershipFacts] = []
     issues: list[SurveyValidationIssue] = []
-    by_id = {item.id: item for item in survey.observations}
 
     for observation in sorted(survey.observations, key=lambda item: item.id):
         raw = observation.attributes.get("subject_ownership")
@@ -108,11 +107,6 @@ def analyze_subject_ownership(survey: ArchitecturalSurvey) -> OwnershipReport:
                     "external-context observations; ownership must be resolved before reconstruction"
                 ),
             ))
-
-    # Defensive check for malformed relations after external-AI normalization.
-    for fact in facts:
-        if fact.observation_id not in by_id:
-            issues.append(_issue(fact.observation_id, "ownership_observation_missing", "ownership references missing observation"))
 
     return OwnershipReport(facts=facts, issues=issues)
 
