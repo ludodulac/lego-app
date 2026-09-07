@@ -97,6 +97,17 @@ def test_pitched_roof_chimney_stays_unresolved_without_constructible_roof_plane(
     assert issues == []
 
 
+def test_nonintersecting_flat_roof_does_not_assign_neighbor_chimney_ownership():
+    scene = _scene(chimney=_chimney(x=20.0))
+
+    facts, issues = analyze_physical_support(scene)
+
+    chimney_fact = next(item for item in facts if item.kind == "chimney_host_support")
+    assert chimney_fact.state == "unresolved"
+    assert chimney_fact.supporter_id is None
+    assert issues == []
+
+
 def test_resolved_roof_support_claim_for_nonintersecting_chimney_is_blocker():
     relation = {
         "id": "roof-supports-chimney",
