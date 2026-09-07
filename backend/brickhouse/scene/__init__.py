@@ -11,7 +11,7 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .topology import SceneRelation
 from .wall_profile import WallProfileObservation
 from .wall_profile_scene import ArchitecturalScene
-from .stair_topology_fidelity import validate_scene_against_survey
+from .ownership_fidelity import validate_scene_against_survey
 from .roof_geometry import (
     GableRoofGeometry,
     GableRoofPlane,
