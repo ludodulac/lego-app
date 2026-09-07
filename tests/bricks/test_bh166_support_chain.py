@@ -189,7 +189,12 @@ def test_lower_terrain_only_changes_wall_coordinate_datum_not_support_domain():
     ])
     report = analyze_standard_brick_support_chain(model)
     assert report.valid is True
-    assert report.structural_datum_plates == 3
+    assert report.audited_placement_ids == ["wall-base", "wall-top"]
+    wall_base = next(node for node in report.nodes if node.placement_id == "wall-base")
+    wall_top = next(node for node in report.nodes if node.placement_id == "wall-top")
+    assert wall_base.reaches_ground is True
+    assert wall_top.supporters == ["wall-base"]
+    assert wall_top.reaches_ground is True
 
 
 def test_report_is_deterministic_and_does_not_mutate_model():
