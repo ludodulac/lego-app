@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -63,22 +64,88 @@ def _corner_trimmed_segments(
     return trimmed
 
 
+def _choose_supported_segment_composition(
+    start_x: int,
+    end_x: int,
+    previous_joints: frozenset[int],
+    support_cells: frozenset[int],
+) -> tuple[int, ...]:
+    """Tile a course while preferring bricks with a real stud below them.
+
+    The former course tiler optimized bond joints only. Directly above a window or
+    door that can produce a perfectly legal-looking raster brick whose entire
+    footprint sits over the opening void. A real LEGO lintel must instead bridge far
+    enough to overlap at least one supported stud. This dynamic program keeps the
+    existing bond preferences, but first minimizes bricks with no vertical bearing.
+    """
+    if start_x >= end_x:
+        return ()
+
+    spans = tuple(sorted(_BRICK_ID_BY_SPAN, reverse=True))
+
+    @lru_cache(maxsize=None)
+    def solve(x_studs: int) -> tuple[int, int, int, tuple[int, ...]] | None:
+        if x_studs == end_x:
+            return 0, 0, 0, ()
+
+        best: tuple[int, int, int, tuple[int, ...]] | None = None
+        best_key = None
+        for span in spans:
+            end = x_studs + span
+            if end > end_x:
+                continue
+            tail = solve(end)
+            if tail is None:
+                continue
+            unsupported_tail, joint_tail, count_tail, spans_tail = tail
+            supported_here = any(cell in support_cells for cell in range(x_studs, end))
+            unsupported = unsupported_tail + (0 if supported_here else 1)
+            joint_overlap = joint_tail + (1 if end < end_x and end in previous_joints else 0)
+            candidate = (unsupported, joint_overlap, 1 + count_tail, (span, *spans_tail))
+            key = (
+                candidate[0],
+                candidate[1],
+                candidate[2],
+                tuple(-value for value in candidate[3]),
+            )
+            if best is None or key < best_key:
+                best = candidate
+                best_key = key
+        return best
+
+    result = solve(start_x)
+    if result is None:
+        raise RuntimeError(f"no exact canonical brick composition for segment {start_x}:{end_x}")
+    return result[3]
+
+
 def _course_local_bricks(
     wall: BuildingWallLayout,
     course: int,
     wall_owns_corners: bool,
     previous_joints: frozenset[int],
-) -> tuple[list[tuple[str, int, int]], frozenset[int]]:
-    """Return local bricks plus internal joints for one reconstructed course."""
+    previous_support_cells: frozenset[int],
+) -> tuple[list[tuple[str, int, int]], frozenset[int], frozenset[int]]:
+    """Return local bricks, internal joints and occupied local cells for one course."""
     segments = _corner_trimmed_segments(wall, course, wall_owns_corners)
     result: list[tuple[str, int, int]] = []
     raw_joints: set[int] = set()
+    occupied_local: set[int] = set()
 
     for start, end in segments:
-        composition = _choose_segment_composition(start, end, previous_joints)
+        if course == 0:
+            composition = _choose_segment_composition(start, end, previous_joints)
+        else:
+            composition = _choose_supported_segment_composition(
+                start,
+                end,
+                previous_joints,
+                previous_support_cells,
+            )
         x = start
         for span in composition:
             result.append((_BRICK_ID_BY_SPAN[span], x, span))
+            occupied_local.update(range(x, x + span))
             x += span
             raw_joints.add(x)
 
@@ -89,7 +156,7 @@ def _course_local_bricks(
         for joint in raw_joints
         if joint not in segment_edges and 0 < joint < width
     )
-    return result, internal
+    return result, internal, frozenset(occupied_local)
 
 
 def _to_global(
@@ -166,19 +233,26 @@ def generate_spatial_brick_shell(shell: BuildingBrickShell) -> SpatialBrickShell
         facade: frozenset()
         for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT)
     }
+    previous_support_by_facade: dict[Facade, frozenset[int]] = {
+        facade: frozenset()
+        for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT)
+    }
 
     for course in range(height):
         horizontal_owns = course % 2 == 0
+        current_support_by_facade: dict[Facade, frozenset[int]] = {}
         for facade in (Facade.FRONT, Facade.REAR, Facade.LEFT, Facade.RIGHT):
             wall_owns = horizontal_owns if facade in {Facade.FRONT, Facade.REAR} else not horizontal_owns
             wall = by_facade[facade]
-            local_bricks, internal_joints = _course_local_bricks(
+            local_bricks, internal_joints, local_occupied = _course_local_bricks(
                 wall,
                 course,
                 wall_owns,
                 previous_joints_by_facade[facade],
+                previous_support_by_facade[facade],
             )
             previous_joints_by_facade[facade] = internal_joints
+            current_support_by_facade[facade] = local_occupied
 
             for brick_id, local_x, span in local_bricks:
                 placement = _to_global(
@@ -196,6 +270,7 @@ def generate_spatial_brick_shell(shell: BuildingBrickShell) -> SpatialBrickShell
                     raise RuntimeError(f"global brick overlap detected at {sorted(overlap)!r}")
                 occupied.update(cells)
                 placements.append(placement)
+        previous_support_by_facade = current_support_by_facade
 
     return SpatialBrickShell(
         building_id=shell.building_id,
