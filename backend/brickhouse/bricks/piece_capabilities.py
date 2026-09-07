@@ -188,11 +188,14 @@ def validate_model_part_capabilities(
     model: "BrickModel",
     registry: PieceCapabilityRegistry,
 ) -> None:
-    """Reject any automatically generated part that is not placement-approved.
+    """Reject generated parts outside their validated deterministic capabilities.
 
-    This is deliberately strict: source catalogue presence is not sufficient.
-    Future freeform optimizers must explicitly promote a piece family after its
-    orientation and connection semantics are validated.
+    Catalogue presence is not sufficient. First enforce that every generated part
+    is placement-approved. Then apply the BH-166 physical support invariant to the
+    connection domain it actually owns: canonical orthogonal wall bricks. Scene
+    decks, stairs, chimneys, terrain, glazing, roofs and special techniques require
+    their own explicit support/connection validators rather than borrowing wall
+    semantics merely because they reuse a BRICK_* primitive.
     """
 
     approved = registry.approved_ids()
@@ -202,3 +205,7 @@ def validate_model_part_capabilities(
             "BrickModel contains parts that are not approved for deterministic placement: "
             + ", ".join(unsupported)
         )
+
+    from .support_chain import validate_standard_brick_support_chain
+
+    validate_standard_brick_support_chain(model)
