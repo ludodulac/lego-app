@@ -70,6 +70,13 @@ from .reasoning import (
     rank_questions_for_user_input,
 )
 from .roof_guard import validate_multiview_roof_hypotheses
+from .stair_topology import (
+    StairTopologyFacts,
+    StairTopologyReport,
+    StairTopologyValue,
+    analyze_survey_stair_topology,
+    validate_stair_topology_observations,
+)
 from .validation import (
     SurveyValidationIssue,
     validate_survey_extension as _validate_survey_extension,
@@ -82,6 +89,7 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
     return [
         *_validate_survey_semantics(survey),
         *validate_multiview_roof_hypotheses(survey),
+        *validate_stair_topology_observations(survey),
     ]
 
 
@@ -91,11 +99,14 @@ def validate_survey_extension(
 ) -> list[SurveyValidationIssue]:
     """Run append-only extension validation plus targeted anti-loss guards."""
     issues = _validate_survey_extension(base, candidate)
-    roof_issues = validate_multiview_roof_hypotheses(candidate)
+    targeted_issues = [
+        *validate_multiview_roof_hypotheses(candidate),
+        *validate_stair_topology_observations(candidate),
+    ]
     existing = {(issue.code, issue.observation_id) for issue in issues}
     issues.extend(
         issue
-        for issue in roof_issues
+        for issue in targeted_issues
         if (issue.code, issue.observation_id) not in existing
     )
     return issues
@@ -114,6 +125,9 @@ __all__ = [
     "QuestionImpact",
     "RelationKind",
     "RepresentationPolicy",
+    "StairTopologyFacts",
+    "StairTopologyReport",
+    "StairTopologyValue",
     "SurfaceAppearance",
     "SurveyAudit",
     "SurveyAuditBenchmarkCategory",
@@ -146,6 +160,7 @@ __all__ = [
     "SurveyReasoningState",
     "SurveyRelation",
     "SurveyValidationIssue",
+    "analyze_survey_stair_topology",
     "automatic_survey_correction_finding_ids_v01",
     "build_survey_correction_reaudit_scope",
     "classify_survey_correction_finding_v01",
@@ -153,6 +168,7 @@ __all__ = [
     "evaluate_survey_audit_experimental_go",
     "rank_questions_for_user_input",
     "survey_correction_eligibility_v01",
+    "validate_stair_topology_observations",
     "validate_survey_audit",
     "validate_survey_correction",
     "validate_survey_correction_reaudit",
