@@ -142,6 +142,11 @@ def _opening_anchor_issues(application) -> list[BrickExportFidelityIssue]:
     return issues
 
 
+def _window_representation_issues(statuses) -> list[BrickExportFidelityIssue]:
+    """Compatibility helper retained for the historical window-only contract tests."""
+    return [BrickExportFidelityIssue(code="lego_architectural_window_unrepresented",severity="blocker",object_id=status.opening_id,message=(f"Architectural window {status.opening_id!r} remains preserved as an opening void on the {status.facade.value} facade, but the current validated LEGO vocabulary cannot represent its known composition. The wall must not be treated as a successful blind facade and no unsupported joinery is invented.")) for status in statuses if not status.represented]
+
+
 def _opening_representation_issues(plan: LEGORepresentationPlan, statuses: list[PlannedOpeningStatus]) -> list[BrickExportFidelityIssue]:
     """No required architectural opening may silently disappear or gain fake joinery."""
     status_by_id = {status.opening_id: status for status in statuses}
