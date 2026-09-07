@@ -11,7 +11,13 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .topology import SceneRelation
 from .wall_profile import WallProfileObservation
 from .wall_profile_scene import ArchitecturalScene
-from .ownership_fidelity import validate_scene_against_survey
+from .multi_run_stair_fidelity import validate_scene_against_survey
+from .multi_run_stair_geometry import (
+    MultiRunStairGeometryFacts,
+    MultiRunStairGeometryReport,
+    StairRunJunction,
+    analyze_multi_run_stair_geometry,
+)
 from .roof_geometry import (
     GableRoofGeometry,
     GableRoofPlane,
@@ -37,7 +43,7 @@ from .stair_spatial import (
 from .topology_projection import project_scene_to_building
 __all__=[
     "ArchitecturalScene","Chimney","ChimneyBearingAssessment","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial",
-    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GradeProfile","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
-    "ProjectionSeverity","PropertyValue","RoofGeometryAssessment","RoofLine","RoofPitchRange","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairSpatialReport",
-    "SupportPost","Terrain","VisibilitySpan","VisibilityState","WallProfileObservation","analyze_scene_spatial_relations","analyze_stair_spatial","derive_roof_geometry","derive_scene_roof_geometry","project_scene_to_building","scene_object_envelopes","validate_scene_against_survey",
+    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GradeProfile","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
+    "ProjectionSeverity","PropertyValue","RoofGeometryAssessment","RoofLine","RoofPitchRange","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairRunJunction","StairSpatialReport",
+    "SupportPost","Terrain","VisibilitySpan","VisibilityState","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","derive_roof_geometry","derive_scene_roof_geometry","project_scene_to_building","scene_object_envelopes","validate_scene_against_survey",
 ]
