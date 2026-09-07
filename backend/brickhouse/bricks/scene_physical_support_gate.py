@@ -22,11 +22,20 @@ class ScenePhysicalSupportGate:
     blocked_chimney_ids: frozenset[str]
 
     def platform_scene(self, scene):
-        if not self.blocked_platform_ids and not self.blocked_stair_ids:
+        blocked = self.blocked_platform_ids | self.blocked_stair_ids
+        if not blocked:
             return scene
         return scene.model_copy(update={
             "platforms": [item for item in scene.platforms if item.id not in self.blocked_platform_ids],
             "stairs": [item for item in scene.stairs if item.id not in self.blocked_stair_ids],
+            "relations": [
+                item for item in scene.relations
+                if item.subject_id not in blocked and item.object_id not in blocked
+            ],
+            "platform_structure_observations": [
+                item for item in scene.platform_structure_observations
+                if item.platform_id not in self.blocked_platform_ids
+            ],
         })
 
     def chimney_scene(self, scene):
@@ -34,6 +43,11 @@ class ScenePhysicalSupportGate:
             return scene
         return scene.model_copy(update={
             "chimneys": [item for item in scene.chimneys if item.id not in self.blocked_chimney_ids],
+            "relations": [
+                item for item in scene.relations
+                if item.subject_id not in self.blocked_chimney_ids
+                and item.object_id not in self.blocked_chimney_ids
+            ],
         })
 
 
