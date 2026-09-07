@@ -17,10 +17,12 @@ jobs:
           python -m pip install -e '.[dev]'
           python -m pip install -e './lego_geometry_engine[dev]'
       - name: Run full pytest and capture JUnit
-        continue-on-error: true
         run: |
+          set +e
           pytest -q tests --maxfail=1 --tb=short --junitxml=bh184-junit.xml
-          echo $? > bh184-pytest-status.txt
+          status=$?
+          echo "$status" > bh184-pytest-status.txt
+          exit 0
       - name: Upload diagnostic JUnit
         if: always()
         uses: actions/upload-artifact@v4
