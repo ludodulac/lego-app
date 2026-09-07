@@ -1,13 +1,14 @@
 """Deterministic spatial facts derived from ArchitecturalScene geometry.
 
-This module is an internal understanding/readiness layer.  It does not add new
+This module is an internal understanding/readiness layer. It does not add new
 Survey relation kinds and it does not mutate or serialize new claims into the
-ArchitecturalScene contract.  Instead it derives queryable geometric facts from
+ArchitecturalScene contract. Instead it derives queryable geometric facts from
 complete object envelopes in the canonical Scene frame (x left->right, y
 front->rear, z bottom->top).
 
-BH-164 deliberately starts with SceneVolume and Platform.  Missing volume metrics
-produce explicit unknown geometry rather than guessed extents.
+BH-164 started with SceneVolume and Platform. BH-167 adds Chimney as an exact
+rectangular occupancy object. Pitched-roof bearing remains a separate derived
+problem: this module must not replace a roof with a convenient solid box.
 """
 from __future__ import annotations
 
@@ -15,10 +16,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .models import CONNECTIVITY_TOLERANCE_M, EPSILON, Platform, SceneVolume
+from .models import CONNECTIVITY_TOLERANCE_M, EPSILON, Chimney, Platform, SceneVolume
 
 
-SpatialObjectKind = Literal["volume", "platform"]
+SpatialObjectKind = Literal["volume", "platform", "chimney"]
 
 
 class SceneObjectEnvelope(BaseModel):
@@ -116,11 +117,29 @@ def _platform_envelope(platform: Platform) -> SceneObjectEnvelope:
     )
 
 
+def _chimney_envelope(chimney: Chimney) -> SceneObjectEnvelope:
+    # Chimney geometry is already explicit metric Scene truth. Its rectangular
+    # shaft can therefore participate in occupancy analysis without inferring a
+    # roof plane, host volume, or hidden continuation below its stated base.
+    return SceneObjectEnvelope(
+        object_id=chimney.id,
+        object_kind="chimney",
+        geometry_known=True,
+        x_min=chimney.position.x,
+        x_max=chimney.position.x + chimney.width,
+        y_min=chimney.position.y,
+        y_max=chimney.position.y + chimney.depth,
+        z_min=chimney.position.z,
+        z_max=chimney.position.z + chimney.height,
+    )
+
+
 def scene_object_envelopes(scene) -> tuple[SceneObjectEnvelope, ...]:
     """Return supported envelopes in stable ID order without mutating ``scene``."""
     envelopes = [
         *(_volume_envelope(volume) for volume in scene.volumes),
         *(_platform_envelope(platform) for platform in scene.platforms),
+        *(_chimney_envelope(chimney) for chimney in scene.chimneys),
     ]
     return tuple(sorted(envelopes, key=lambda item: item.object_id))
 
@@ -183,8 +202,6 @@ def _pair_facts(subject: SceneObjectEnvelope, obj: SceneObjectEnvelope) -> Spati
     overlaps_xy = x_overlap > EPSILON and y_overlap > EPSILON
     overlaps_3d = overlaps_xy and z_overlap > EPSILON
 
-    # Face adjacency is deliberately stricter than generic proximity: one axis
-    # is at/near a boundary while the other two have positive interior overlap.
     adjacent_face = (
         (x_gap <= CONNECTIVITY_TOLERANCE_M and x_overlap <= EPSILON and y_overlap > EPSILON and z_overlap > EPSILON)
         or (y_gap <= CONNECTIVITY_TOLERANCE_M and y_overlap <= EPSILON and x_overlap > EPSILON and z_overlap > EPSILON)
@@ -203,7 +220,6 @@ def _pair_facts(subject: SceneObjectEnvelope, obj: SceneObjectEnvelope) -> Spati
         z_overlap=z_overlap,
         left_of=ax1 <= bx0 + CONNECTIVITY_TOLERANCE_M,
         right_of=ax0 >= bx1 - CONNECTIVITY_TOLERANCE_M,
-        # Canonical y grows from front toward rear.
         front_of=ay1 <= by0 + CONNECTIVITY_TOLERANCE_M,
         behind=ay0 >= by1 - CONNECTIVITY_TOLERANCE_M,
         above=az0 >= bz1 - CONNECTIVITY_TOLERANCE_M,
