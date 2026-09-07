@@ -5,6 +5,7 @@ from brickhouse.bricks.assembly import generate_assembly_plan
 from brickhouse.bricks.bom import generate_bom
 from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
 from brickhouse.bricks.export import (
+    BrickExportBundle,
     BrickExportCapabilitySummary,
     BrickExportFidelityIssue,
     MechanicalVerificationSummary,
@@ -76,6 +77,18 @@ def test_export_without_assembly_does_not_claim_downstream_plans():
     assert summary.mechanical_verification.state == "not_claimed"
 
 
+def test_historical_schema_01_bundle_can_omit_additive_capability_summary():
+    model = _model()
+    bundle = BrickExportBundle(
+        building_id=model.building_id,
+        volume_id=model.volume_id,
+        brick_model=model,
+        bom=generate_bom(model),
+    )
+    assert bundle.schema_version == "0.1"
+    assert bundle.capability_summary is None
+
+
 def test_warning_only_fidelity_is_degraded_but_not_blocked():
     bundle = _full_bundle(fidelity_issues=[
         BrickExportFidelityIssue(
@@ -133,8 +146,6 @@ def test_capability_summary_cannot_disagree_with_bundle_artifacts():
     with pytest.raises(ValidationError):
         # An old/manual bundle may omit the additive summary entirely, but if one
         # is supplied it must describe the actual artifacts rather than a wish.
-        from brickhouse.bricks.export import BrickExportBundle
-
         BrickExportBundle(
             building_id=model.building_id,
             volume_id=model.volume_id,
