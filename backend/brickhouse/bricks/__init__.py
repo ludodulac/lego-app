@@ -19,6 +19,16 @@ from brickhouse.bricks.export import (
 )
 from brickhouse.bricks.instructions import InstructionPlan, InstructionStep, generate_instruction_plan
 from brickhouse.bricks.models import BrickCatalog, BrickDefinition
+from brickhouse.bricks.opening_plan_anchors import (
+    AppliedOpeningAnchor,
+    OpeningPlanApplication,
+    apply_opening_representation_plan,
+)
+from brickhouse.bricks.opening_representation_plan import (
+    LEGORepresentationPlan,
+    OpeningRepresentationReservation,
+    build_opening_representation_plan,
+)
 from brickhouse.bricks.piece_capabilities import (
     PieceCapability,
     PieceCapabilityRegistry,
@@ -34,6 +44,10 @@ from brickhouse.bricks.placement import (
     WallOpeningGrid,
     generate_simple_wall_layout,
     generate_wall_layout_with_openings,
+)
+from brickhouse.bricks.planned_opening_parts import (
+    PlannedOpeningStatus,
+    generate_planned_opening_parts,
 )
 from brickhouse.bricks.roof import (
     GlobalRoofPlacement,
@@ -56,6 +70,7 @@ from brickhouse.bricks.spatial import (
 )
 
 __all__ = [
+    "AppliedOpeningAnchor",
     "AssemblyPlan",
     "AssemblyStep",
     "BagGroup",
@@ -76,9 +91,13 @@ __all__ = [
     "GlobalRoofPlacement",
     "InstructionPlan",
     "InstructionStep",
+    "LEGORepresentationPlan",
+    "OpeningPlanApplication",
+    "OpeningRepresentationReservation",
     "PieceCapability",
     "PieceCapabilityRegistry",
     "PieceCapabilityStage",
+    "PlannedOpeningStatus",
     "RoofPartCatalog",
     "RoofPartDefinition",
     "SpatialBrickShell",
@@ -86,6 +105,8 @@ __all__ = [
     "WallBrickLayout",
     "WallGridSpec",
     "WallOpeningGrid",
+    "apply_opening_representation_plan",
+    "build_opening_representation_plan",
     "create_current_engine_capability_registry",
     "create_export_bundle",
     "create_m0_brick_catalog",
@@ -99,6 +120,7 @@ __all__ = [
     "generate_brick_model",
     "generate_building_brick_shell",
     "generate_instruction_plan",
+    "generate_planned_opening_parts",
     "generate_scaled_wall_layout",
     "generate_simple_wall_layout",
     "generate_spatial_brick_shell",
