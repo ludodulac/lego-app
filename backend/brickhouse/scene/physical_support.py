@@ -76,6 +76,25 @@ def _platform_touches_volume(platform, volume) -> SupportState:
     return "contradicted"
 
 
+def _platform_has_explicit_host_contact_claim(scene, platform_id: str, host_id: str) -> bool:
+    """Return whether Scene explicitly resolves direct platform↔host contact.
+
+    ``host_volume_id`` is an ownership/association field used throughout Scene and
+    is not by itself proof that the platform edge directly touches that volume. A
+    resolved ``connects_to`` relation (possibly via a semantic host anchor) is the
+    stronger direct-contact claim that metric geometry may contradict.
+    """
+    for relation in scene.relations:
+        if relation.kind is not RelationKind.CONNECTS_TO or relation.geometry_status != "resolved":
+            continue
+        if platform_id not in {relation.subject_id, relation.object_id}:
+            continue
+        other_id = relation.object_id if relation.subject_id == platform_id else relation.subject_id
+        if other_id == host_id or getattr(relation, "semantic_anchor_volume_id", None) == host_id:
+            return True
+    return False
+
+
 def _platform_supports_volume(platform, volume) -> SupportState:
     dims = _volume_dimensions(volume)
     if dims is None:
@@ -195,27 +214,38 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
     for platform in sorted(scene.platforms, key=lambda item: item.id):
         host_id = platform.host_volume_id or default_host_id
         if host_id is not None and host_id in volumes:
-            state = _platform_touches_volume(platform, volumes[host_id])
+            geometric_state = _platform_touches_volume(platform, volumes[host_id])
+            explicit_contact = _platform_has_explicit_host_contact_claim(scene, platform.id, host_id)
+            state: SupportState
+            if geometric_state == "proven":
+                state = "proven"
+            elif geometric_state == "unresolved":
+                state = "unresolved"
+            elif explicit_contact:
+                state = "contradicted"
+            else:
+                state = "unresolved"
             facts.append(PhysicalSupportFact(
                 kind="platform_host_contact",
                 object_id=platform.id,
                 supporter_id=host_id,
                 state=state,
                 reason=(
-                    "platform geometry touches its declared/default host volume"
+                    "platform geometry directly touches its associated host volume"
                     if state == "proven"
-                    else "host geometry is incomplete" if state == "unresolved"
-                    else "platform geometry does not touch its declared/default host volume"
+                    else "explicit resolved platform-host contact contradicts metric geometry"
+                    if state == "contradicted"
+                    else "platform host association does not prove a direct edge contact"
                 ),
             ))
-            if state == "contradicted" and platform.host_volume_id is not None:
+            if state == "contradicted":
                 issues.append(PhysicalSupportIssue(
                     code="platform_host_contact_contradicted",
                     severity="blocker",
                     object_id=platform.id,
                     message=(
-                        f"Platform {platform.id!r} declares host volume {host_id!r}, but metric geometry does not touch it. "
-                        "No hidden bracket, cantilever, or offset is invented."
+                        f"Platform {platform.id!r} has an explicit resolved contact to host volume {host_id!r}, "
+                        "but metric geometry does not touch it. No hidden bracket, cantilever, or offset is invented."
                     ),
                 ))
 
