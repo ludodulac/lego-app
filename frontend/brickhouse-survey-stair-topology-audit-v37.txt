@@ -1,0 +1,35 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.7 — TOPOLOGIE DES ESCALIERS
+
+Cet addendum est strictement additif au prompt de relevé architectural actif et à tous ses audits existants. Il ne remplace aucune règle, n'autorise aucune métrification supplémentaire et ne transforme jamais une forme plausible en mesure.
+
+ESCALIER ARCHITECTURAL ≠ SEGMENT UNIQUE
+Pour chaque observation certaine ou plausible `kind:"stair"`, recherche explicitement si les vues montrent un seul tronçon architectural ou un système composé de plusieurs volées. Un changement de direction visible, un palier/nœud de retournement, ou plusieurs portions reliées du même escalier NE DOIVENT JAMAIS être aplatis en une unique liaison droite entre un début et une fin.
+
+Quand la topologie est soutenue par les preuves, conserve-la dans `attributes.stair_topology` avec uniquement les faits réellement établis :
+- `minimum_run_count` : nombre minimal de volées prouvées, sans prétendre connaître le total caché ;
+- `exact_run_count` : seulement si le nombre total est réellement établi ;
+- `direction_change` : booléen seulement si présence ou absence est réellement prouvée ;
+- `turning_node_kind` : `"turn"`, `"landing"` ou `"turn_or_landing"` selon ce que les vues permettent de distinguer ;
+- `component_run_ids` : facultatif, uniquement si des observations `kind:"stair"` distinctes ont été créées pour des volées réellement distinguables.
+
+Ajoute `attribute_certainty.stair_topology` avec la certitude appropriée. Ne promeus pas l'ensemble de l'escalier à `certain` simplement parce qu'une seule volée est nette.
+
+SÉPARER TOPOLOGIE ET MÉTRIQUE
+Une preuve de forme en L, U, demi-tour ou autre composition établit d'abord une relation entre volées. Elle ne fournit PAS automatiquement : longueur des volées, largeur exacte, nombre de marches, giron, hauteur de marche, coordonnées du retournement, dimensions du palier, angle exact ou position 3D métrique.
+
+Ne crée aucune de ces valeurs pour compléter `stair_topology`. L'absence de métrique doit survivre au Survey et être résolue plus tard par le raisonnement Survey → Scene si les preuves le permettent.
+
+IDENTITÉ DU SYSTÈME ET DES VOLÉES
+Une observation principale d'escalier peut représenter le système architectural complet. Si plusieurs volées sont individuellement observables et qu'il est utile de les distinguer, elles peuvent recevoir leurs propres observations `kind:"stair"` et être référencées par `component_run_ids`. Ne crée pas artificiellement des composants pour atteindre un nombre attendu.
+
+Les relations `connects_to` existantes restent des faits physiques : sol ↔ escalier, volée ↔ palier/plateforme, escalier ↔ bâtiment. La topologie interne ne remplace pas ces relations et ne permet pas d'en inventer dans une zone occultée.
+
+PRÉFLIGHT OBLIGATOIRE
+Avant sortie Survey :
+1. si un changement de direction est visible, vérifier que `attributes.stair_topology` le conserve ;
+2. si au moins deux volées sont prouvées, vérifier que `minimum_run_count >= 2` ou que les composants explicites l'établissent ;
+3. ne jamais définir `exact_run_count:1` en présence d'un changement de direction ;
+4. tout `component_run_ids` doit référencer une observation existante `kind:"stair"` ;
+5. aucune métrique ne doit être ajoutée pour transformer cette topologie qualitative en géométrie résolue.
+
+Le Survey est incomplet s'il décrit ou montre un escalier multi-volées mais le réduit à une seule primitive conceptuelle droite sans conserver le changement de direction.
