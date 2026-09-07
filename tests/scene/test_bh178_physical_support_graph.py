@@ -92,13 +92,13 @@ def test_declared_platform_host_contradiction_is_blocker_not_hidden_offset():
     assert any(item.code == "platform_host_contact_contradicted" and item.severity == "blocker" for item in issues)
 
 
-def test_platform_post_must_be_grounded_reach_underside_and_overlap_footprint():
+def test_platform_post_must_be_grounded_reach_platform_level_and_overlap_footprint():
     good_post = {
         "id": "post-good",
         "position": {"x": 10.5, "y": 2.5, "z": 0.0},
         "width": 0.2,
         "depth": 0.2,
-        "height": 1.8,
+        "height": 2.0,
         "source": SOURCE,
     }
     bad_post = {
