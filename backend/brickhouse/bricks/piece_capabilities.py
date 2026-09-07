@@ -188,11 +188,12 @@ def validate_model_part_capabilities(
     model: "BrickModel",
     registry: PieceCapabilityRegistry,
 ) -> None:
-    """Reject any automatically generated part that is not placement-approved.
+    """Reject unapproved parts and physically unsupported canonical brick chains.
 
-    This is deliberately strict: source catalogue presence is not sufficient.
-    Future freeform optimizers must explicitly promote a piece family after its
-    orientation and connection semantics are validated.
+    Source catalogue presence is not sufficient. Future freeform optimizers must
+    explicitly promote a piece family after its orientation and connection semantics
+    are validated. Canonical orthogonal standard bricks additionally have to prove a
+    continuous stud/tube support path to ground before the model may export.
     """
 
     approved = registry.approved_ids()
@@ -202,3 +203,7 @@ def validate_model_part_capabilities(
             "BrickModel contains parts that are not approved for deterministic placement: "
             + ", ".join(unsupported)
         )
+
+    from .support_chain import validate_standard_brick_support_chain
+
+    validate_standard_brick_support_chain(model)
