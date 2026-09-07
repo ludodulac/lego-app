@@ -4,6 +4,12 @@ import pytest
 
 from brickhouse.building import Facade
 from brickhouse.bricks.brick_model import BrickModel, BrickModelPart
+from brickhouse.bricks.piece_capabilities import (
+    PieceCapability,
+    PieceCapabilityRegistry,
+    PieceCapabilityStage,
+    validate_model_part_capabilities,
+)
 from brickhouse.bricks.support_chain import (
     analyze_standard_brick_support_chain,
     validate_standard_brick_support_chain,
@@ -118,3 +124,19 @@ def test_report_is_deterministic_and_does_not_mutate_model():
     second = analyze_standard_brick_support_chain(model).model_dump()
     assert first == second
     assert model.model_dump() == before
+
+
+def test_existing_placement_capability_gate_rejects_a_floating_canonical_brick():
+    registry = PieceCapabilityRegistry(
+        pieces=[
+            PieceCapability(
+                engine_id="BRICK_1X1",
+                name="1x1 brick",
+                category="brick",
+                stage=PieceCapabilityStage.PLACEMENT_APPROVED,
+            )
+        ]
+    )
+    model = _model([_part("floating", "BRICK_1X1", x=0, y=0, z=3)])
+    with pytest.raises(ValueError, match="continuous stud/tube support chain to ground"):
+        validate_model_part_capabilities(model, registry)
