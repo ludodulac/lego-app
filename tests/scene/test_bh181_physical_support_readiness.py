@@ -17,7 +17,7 @@ def _report(scene):
     )
 
 
-def _scene(*, platform=None, roof=None, chimney=None):
+def _scene(*, platform=None, stair=None, roof=None, chimney=None):
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "bh181-generic",
@@ -33,6 +33,7 @@ def _scene(*, platform=None, roof=None, chimney=None):
             "source": SOURCE,
         }],
         "platforms": [platform] if platform is not None else [],
+        "stairs": [stair] if stair is not None else [],
         "roofs": [roof] if roof is not None else [],
         "chimneys": [chimney] if chimney is not None else [],
         "appearance": {},
@@ -48,6 +49,16 @@ def _platform(*, x=10.0, supports=None):
         "depth": 3.0,
         "thickness": 0.2,
         "supports": supports or [],
+        "source": SOURCE,
+    }
+
+
+def _grounded_stair_to_deck():
+    return {
+        "id": "deck-stair",
+        "start": {"x": 12.5, "y": 2.5, "z": 2.0},
+        "end": {"x": 14.0, "y": 2.5, "z": 0.0},
+        "width": 1.0,
         "source": SOURCE,
     }
 
@@ -92,7 +103,7 @@ def test_contradicted_support_is_strict_readiness_blocker():
 
 
 def test_unresolved_host_association_is_warning_not_invented_blocker():
-    report = _report(_scene(platform=_platform(x=12.0)))
+    report = _report(_scene(platform=_platform(x=12.0), stair=_grounded_stair_to_deck()))
 
     assert report.ready_for_lego is True
     assert not [item for item in report.blockers if item.source == "physical_support"]
@@ -132,7 +143,7 @@ def test_neighboring_context_chimney_ownership_stays_unresolved_not_blocked():
 
 
 def test_physical_support_readiness_is_deterministic():
-    scene = _scene(platform=_platform(x=12.0))
+    scene = _scene(platform=_platform(x=12.0), stair=_grounded_stair_to_deck())
     first = _report(scene)
     second = _report(scene)
     assert first == second
