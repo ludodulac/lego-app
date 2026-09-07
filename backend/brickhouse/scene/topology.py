@@ -10,6 +10,7 @@ from brickhouse.survey import Certainty, RelationKind
 from .models import ArchitecturalScene as _MetricArchitecturalScene
 from .models import CONNECTIVITY_TOLERANCE_M, Evidence
 from .platform_structure import PlatformStructureObservation
+from .stair_contact import stair_endpoint_touches_run, stair_runs_touch_at_endpoints
 from .terrain_uncertainty import Terrain
 
 
@@ -204,6 +205,8 @@ class ArchitecturalScene(_MetricArchitecturalScene):
 
         if subject_id in platforms and object_id in platforms:
             return self._platforms_touch(platforms[subject_id], platforms[object_id])
+        if subject_id in stairs and object_id in stairs:
+            return stair_runs_touch_at_endpoints(stairs[subject_id], stairs[object_id])
 
         platform_id = subject_id if subject_id in platforms else object_id if object_id in platforms else None
         volume_id = subject_id if subject_id in volumes else object_id if object_id in volumes else None
@@ -327,6 +330,10 @@ class ArchitecturalScene(_MetricArchitecturalScene):
                 connected = (
                     any(self._point_on_platform(point, platform) for platform in self.platforms)
                     or any(self._point_on_volume_boundary(point, volume) for volume in self.volumes)
+                    or any(
+                        other.id != stair.id and stair_endpoint_touches_run(point, other)
+                        for other in self.stairs
+                    )
                     or point.z <= CONNECTIVITY_TOLERANCE_M
                 )
                 if not connected:
@@ -338,5 +345,5 @@ class ArchitecturalScene(_MetricArchitecturalScene):
             if len(free_endpoints) == 1 and self._has_resolved_semantic_anchor_claim(stair.id):
                 continue
             raise ValueError(
-                f"stair {stair.id!r} {', '.join(free_endpoints)} does not connect to ground, a platform, or the building"
+                f"stair {stair.id!r} {', '.join(free_endpoints)} does not connect to ground, a platform, or the building (or another stair run)"
             )
