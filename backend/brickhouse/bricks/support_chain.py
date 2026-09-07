@@ -1,9 +1,11 @@
-"""Deterministic support-chain audit for canonical orthogonal LEGO bricks.
+"""Deterministic support-chain audit for canonical orthogonal LEGO wall bricks.
 
-This first physical-validity slice covers only standard stud/tube bricks from the
-canonical M0 brick catalog. Specialized roof slopes/ridges and architectural
-joinery keep their dedicated connection validators until their own connection
-semantics are explicit.
+A canonical part ID does not by itself define connection semantics. Scene-native
+terraces, stairs, chimneys, terrain and glazing may deliberately reuse BRICK_* as a
+rendering primitive while belonging to another connection domain. This first
+physical-validity slice therefore owns only final BrickModel parts explicitly marked
+as ``component='wall'`` and ``category='brick'``. Roofs and facade-detail systems keep
+their dedicated validators until their support/connection semantics are explicit.
 """
 from __future__ import annotations
 
@@ -38,6 +40,21 @@ def _standard_brick_definitions():
     return {item.id: item for item in create_m0_brick_catalog().bricks}
 
 
+def _is_orthogonal_wall_brick(part: BrickModelPart, definitions) -> bool:
+    """Return whether BH-166 owns this placement's connection semantics.
+
+    Connection-domain ownership is explicit rather than inferred from ``part_id``.
+    A BRICK_1X1 used as timber decking, terrain, glazing or another facade detail is
+    intentionally excluded here; those systems must prove their own host/support
+    chains instead of being accidentally validated by wall rules.
+    """
+    return (
+        part.component == "wall"
+        and part.category == "brick"
+        and part.part_id in definitions
+    )
+
+
 def _footprint(part: BrickModelPart, definition) -> set[tuple[int, int]]:
     width, length = definition.footprint(part.rotation_quarter_turns)
     return {
@@ -50,13 +67,16 @@ def _footprint(part: BrickModelPart, definition) -> set[tuple[int, int]]:
 def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupportReport:
     """Return a transitive ground-support report without mutating ``model``.
 
-    A canonical brick at ground level is anchored. Every other audited brick must
-    share at least one stud cell with an audited brick whose top is exactly at its
-    bottom. Since all edges descend in z, reachability can be evaluated in one
-    stable bottom-up pass.
+    A canonical orthogonal wall brick at ground level is anchored. Every other
+    audited wall brick must share at least one stud cell with another audited wall
+    brick whose top is exactly at its bottom. Since all edges descend in z,
+    reachability can be evaluated in one stable bottom-up pass.
     """
     definitions = _standard_brick_definitions()
-    audited = [part for part in model.parts if part.part_id in definitions]
+    audited = [
+        part for part in model.parts
+        if _is_orthogonal_wall_brick(part, definitions)
+    ]
     audited.sort(key=lambda part: (part.z_plates, part.placement_id))
 
     by_top: dict[int, list[StandardBrickSupportNode]] = defaultdict(list)
@@ -66,14 +86,15 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
     for part in audited:
         definition = definitions[part.part_id]
         footprint = _footprint(part, definition)
+        possible_supporters = by_top.get(part.z_plates, [])
         supporters = sorted(
             node.placement_id
-            for node in by_top.get(part.z_plates, [])
+            for node in possible_supporters
             if node.footprint.intersection(footprint)
         )
         reaches_ground = part.z_plates == 0 or any(
             node.reaches_ground
-            for node in by_top.get(part.z_plates, [])
+            for node in possible_supporters
             if node.placement_id in supporters
         )
         node = StandardBrickSupportNode(
@@ -97,10 +118,10 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
 
 
 def validate_standard_brick_support_chain(model: BrickModel) -> None:
-    """Reject canonical bricks whose stud/tube support graph cannot reach ground."""
+    """Reject orthogonal wall bricks whose stud/tube chain cannot reach ground."""
     report = analyze_standard_brick_support_chain(model)
     if report.unsupported_placement_ids:
         raise ValueError(
-            "BrickModel contains canonical bricks without a continuous stud/tube support chain to ground: "
+            "BrickModel contains orthogonal wall bricks without a continuous stud/tube support chain to ground: "
             + ", ".join(report.unsupported_placement_ids)
         )
