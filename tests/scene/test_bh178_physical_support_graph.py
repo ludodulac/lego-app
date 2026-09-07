@@ -55,6 +55,18 @@ def _stair(*, start, end):
     }
 
 
+def _unresolved(object_id: str, *, relation_id: str):
+    return {
+        "id": relation_id,
+        "kind": "connects_to",
+        "subject_id": object_id,
+        "object_id": "main",
+        "certainty": "certain",
+        "geometry_status": "unresolved",
+        "statement": "connection is observed but hidden metric junction remains unresolved",
+    }
+
+
 def test_declared_platform_host_contact_is_proven_without_mutation():
     scene = _scene(platform=_platform(x=10.0))
     before = deepcopy(scene.model_dump())
@@ -69,7 +81,10 @@ def test_declared_platform_host_contact_is_proven_without_mutation():
 
 
 def test_declared_platform_host_contradiction_is_blocker_not_hidden_offset():
-    scene = _scene(platform=_platform(x=12.0))
+    scene = _scene(
+        platform=_platform(x=12.0),
+        relations=[_unresolved("deck", relation_id="hidden-deck-junction")],
+    )
 
     facts, issues = analyze_physical_support(scene)
 
@@ -104,7 +119,7 @@ def test_platform_post_must_be_grounded_reach_underside_and_overlap_footprint():
     assert any(item.code == "platform_support_post_not_supporting" for item in issues)
 
 
-def test_stair_endpoint_support_proves_ground_and_platform_but_does_not_invent_other_end():
+def test_stair_endpoint_support_proves_ground_and_platform():
     scene = _scene(
         platform=_platform(x=10.0, z=2.0),
         stair=_stair(
@@ -122,15 +137,21 @@ def test_stair_endpoint_support_proves_ground_and_platform_but_does_not_invent_o
     assert stair_facts["end"].supporter_id == "ground"
 
 
-def test_free_raised_stair_endpoint_remains_unresolved():
-    scene = _scene(stair=_stair(
-        start={"x": 2.0, "y": 2.0, "z": 1.0},
-        end={"x": 4.0, "y": 2.0, "z": 2.0},
-    ))
+def test_one_free_raised_stair_endpoint_remains_unresolved_without_inventing_landing():
+    scene = _scene(
+        stair=_stair(
+            start={"x": 2.0, "y": 2.0, "z": 0.0},
+            end={"x": 4.0, "y": 2.0, "z": 2.0},
+        ),
+        relations=[_unresolved("stair", relation_id="hidden-stair-junction")],
+    )
 
     facts, issues = analyze_physical_support(scene)
 
-    assert {item.state for item in facts if item.kind == "stair_endpoint_support"} == {"unresolved"}
+    stair_facts = {item.endpoint: item for item in facts if item.kind == "stair_endpoint_support"}
+    assert stair_facts["start"].state == "proven"
+    assert stair_facts["end"].state == "unresolved"
+    assert stair_facts["end"].supporter_id is None
     assert issues == []
 
 
