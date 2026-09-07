@@ -62,6 +62,13 @@ from .models import (
     SurveyObservation,
     SurveyRelation,
 )
+from .ownership import (
+    OwnershipFacts,
+    OwnershipReport,
+    SubjectOwnership,
+    analyze_subject_ownership,
+    validate_subject_ownership,
+)
 from .reasoning import (
     QuestionImpact,
     SurveyHypothesis,
@@ -90,6 +97,7 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
         *_validate_survey_semantics(survey),
         *validate_multiview_roof_hypotheses(survey),
         *validate_stair_topology_observations(survey),
+        *validate_subject_ownership(survey),
     ]
 
 
@@ -102,6 +110,7 @@ def validate_survey_extension(
     targeted_issues = [
         *validate_multiview_roof_hypotheses(candidate),
         *validate_stair_topology_observations(candidate),
+        *validate_subject_ownership(candidate),
     ]
     existing = {(issue.code, issue.observation_id) for issue in issues}
     issues.extend(
@@ -120,6 +129,8 @@ __all__ = [
     "NormalizedImageRegion",
     "ObservationKind",
     "OpeningVisualDescription",
+    "OwnershipFacts",
+    "OwnershipReport",
     "PhotoEvidence",
     "PhotoView",
     "QuestionImpact",
@@ -128,6 +139,7 @@ __all__ = [
     "StairTopologyFacts",
     "StairTopologyReport",
     "StairTopologyValue",
+    "SubjectOwnership",
     "SurfaceAppearance",
     "SurveyAudit",
     "SurveyAuditBenchmarkCategory",
@@ -160,6 +172,7 @@ __all__ = [
     "SurveyReasoningState",
     "SurveyRelation",
     "SurveyValidationIssue",
+    "analyze_subject_ownership",
     "analyze_survey_stair_topology",
     "automatic_survey_correction_finding_ids_v01",
     "build_survey_correction_reaudit_scope",
@@ -169,6 +182,7 @@ __all__ = [
     "rank_questions_for_user_input",
     "survey_correction_eligibility_v01",
     "validate_stair_topology_observations",
+    "validate_subject_ownership",
     "validate_survey_audit",
     "validate_survey_correction",
     "validate_survey_correction_reaudit",
