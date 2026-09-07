@@ -61,30 +61,13 @@ def _survey(*, direction_change=True):
     })
 
 
-def _scene(run_a, run_b, *, host_point):
-    return ArchitecturalScene.model_validate({
-        "schema_version": "0.2",
-        "id": "multi-run-scene",
-        "name": "Multi-run stair scene",
-        "units": "m",
-        "volumes": [{
-            "id": "host",
-            "position": {"x": host_point[0], "y": host_point[1], "z": 0},
-            "width": {"value": 2, "source": SOURCE},
-            "depth": {"value": 2, "source": SOURCE},
-            "height": {"value": 4, "source": SOURCE},
-            "floors": 2,
-            "source": SOURCE,
-        }],
-        "stairs": [
-            {"id": "run-a", "start": run_a[0], "end": run_a[1], "width": 1.0, "source": SOURCE},
-            {"id": "run-b", "start": run_b[0], "end": run_b[1], "width": 1.0, "source": SOURCE},
-        ],
-        # The legacy Scene connectivity validator does not yet treat StairRun ↔
-        # StairRun endpoint contact as an external anchor. Keep the semantic
-        # junction explicitly unresolved there; BH-174 independently verifies
-        # whether the two metric runs actually meet.
-        "relations": [
+def _scene(run_a, run_b, *, host_point, allow_unresolved=False):
+    relations = []
+    if allow_unresolved:
+        # Intentionally invalid/disconnected metric fixtures still need an honest
+        # unresolved escape hatch so the Scene can be instantiated and the
+        # stricter BH-174 fidelity diagnostic can inspect it.
+        relations = [
             {
                 "id": "run-a-system",
                 "kind": "connects_to",
@@ -103,7 +86,26 @@ def _scene(run_a, run_b, *, host_point):
                 "geometry_status": "unresolved",
                 "statement": "run-b belongs to the stair system",
             },
+        ]
+    return ArchitecturalScene.model_validate({
+        "schema_version": "0.2",
+        "id": "multi-run-scene",
+        "name": "Multi-run stair scene",
+        "units": "m",
+        "volumes": [{
+            "id": "host",
+            "position": {"x": host_point[0], "y": host_point[1], "z": 0},
+            "width": {"value": 2, "source": SOURCE},
+            "depth": {"value": 2, "source": SOURCE},
+            "height": {"value": 4, "source": SOURCE},
+            "floors": 2,
+            "source": SOURCE,
+        }],
+        "stairs": [
+            {"id": "run-a", "start": run_a[0], "end": run_a[1], "width": 1.0, "source": SOURCE},
+            {"id": "run-b", "start": run_b[0], "end": run_b[1], "width": 1.0, "source": SOURCE},
         ],
+        "relations": relations,
         "appearance": {"walls": {"color": "off_white"}},
     })
 
@@ -112,7 +114,7 @@ def _codes(survey, scene):
     return {issue.code for issue in validate_scene_against_survey(survey, scene)}
 
 
-def test_connected_turning_runs_realize_certain_direction_change():
+def test_connected_turning_runs_realize_certain_direction_change_without_semantic_workaround():
     survey = _survey()
     scene = _scene(
         ({"x": 0, "y": 0, "z": 0}, {"x": 2, "y": 0, "z": 1}),
@@ -120,6 +122,7 @@ def test_connected_turning_runs_realize_certain_direction_change():
         host_point=(2, 2),
     )
 
+    assert scene.relations == []
     report = analyze_multi_run_stair_geometry(survey, scene)
     fact = report.facts[0]
 
@@ -136,6 +139,7 @@ def test_disconnected_component_runs_are_fidelity_error():
         ({"x": 0, "y": 0, "z": 0}, {"x": 2, "y": 0, "z": 1}),
         ({"x": 2.5, "y": 0, "z": 1}, {"x": 2.5, "y": 2, "z": 2}),
         host_point=(2.5, 2),
+        allow_unresolved=True,
     )
 
     assert "multi_run_stair_components_disconnected" in _codes(survey, scene)
