@@ -5,9 +5,10 @@ from brickhouse.bricks.scene_architecture import _validate_exterior_primitives
 from brickhouse.pipeline_probe import _required_inputs_for_projection
 from brickhouse.vision.compatibility import assess_m0_compatibility
 
-from .models import ArchitecturalScene, ProjectionIssue, ProjectionSeverity
+from .projection import ProjectionIssue, ProjectionSeverity
 from .readiness import ArchitecturalReadinessReport, assess_architectural_readiness
 from .topology_projection import project_scene_to_building
+from .wall_profile_scene import ArchitecturalScene
 
 
 def evaluate_strict_scene_readiness(scene: ArchitecturalScene):
