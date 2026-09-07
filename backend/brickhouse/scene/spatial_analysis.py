@@ -6,10 +6,10 @@ ArchitecturalScene contract. Instead it derives queryable geometric facts from
 complete object envelopes in the canonical Scene frame (x left->right, y
 front->rear, z bottom->top).
 
-BH-164 started with SceneVolume and Platform. BH-167 adds Chimney as an exact
-rectangular occupancy object and a conservative bearing assessment. Pitched-roof
-bearing remains explicit as ``roof_plane_required``: this module must not replace
-a roof with a convenient solid box just to make contact pass.
+BH-164 started with SceneVolume and Platform. BH-167 added Chimney occupancy and
+a conservative bearing assessment. BH-168 can resolve pitched-roof contact only
+when exact internal roof-plane geometry is derivable; otherwise uncertainty stays
+explicit as ``roof_plane_required``.
 """
 from __future__ import annotations
 
@@ -25,11 +25,13 @@ from .models import (
     SceneRoofType,
     SceneVolume,
 )
+from .roof_geometry import derive_scene_roof_geometry
 
 
 SpatialObjectKind = Literal["volume", "platform", "chimney"]
 ChimneyBearingStatus = Literal[
     "volume_contact",
+    "roof_plane_contact",
     "roof_plane_required",
     "unsupported",
     "unknown_host_geometry",
@@ -80,6 +82,7 @@ class ChimneyBearingAssessment(BaseModel):
     chimney_id: str
     status: ChimneyBearingStatus
     supporting_volume_ids: list[str] = Field(default_factory=list)
+    roof_plane_supporting_volume_ids: list[str] = Field(default_factory=list)
     roof_volume_ids_requiring_plane: list[str] = Field(default_factory=list)
 
 
@@ -257,13 +260,19 @@ def _pair_facts(subject: SceneObjectEnvelope, obj: SceneObjectEnvelope) -> Spati
 def _chimney_bearing(scene, envelopes: tuple[SceneObjectEnvelope, ...]) -> list[ChimneyBearingAssessment]:
     by_id = {item.object_id: item for item in envelopes}
     roof_by_volume = {roof.volume_id: roof for roof in scene.roofs}
+    roof_geometry_by_volume = {
+        item.volume_id: item for item in derive_scene_roof_geometry(scene)
+    }
     assessments: list[ChimneyBearingAssessment] = []
 
     for chimney in sorted(scene.chimneys, key=lambda item: item.id):
         chimney_bounds = _known_bounds(by_id[chimney.id])
         assert chimney_bounds is not None
-        cx0, cx1, cy0, cy1, cz0, _ = chimney_bounds
+        cx0, cx1, cy0, cy1, cz0, cz1 = chimney_bounds
+        center_x = (cx0 + cx1) / 2.0
+        center_y = (cy0 + cy1) / 2.0
         supporting: list[str] = []
+        roof_supporting: list[str] = []
         roof_plane_required: list[str] = []
         incomplete_candidate_exists = False
 
@@ -277,22 +286,28 @@ def _chimney_bearing(scene, envelopes: tuple[SceneObjectEnvelope, ...]) -> list[
             if not overlaps_xy:
                 continue
 
-            # A chimney whose declared base is at the wall top or inside the host
-            # volume has explicit volumetric bearing/contact. We do not invent any
-            # hidden extension below its stated base.
             if vz0 - CONNECTIVITY_TOLERANCE_M <= cz0 <= vz1 + CONNECTIVITY_TOLERANCE_M:
                 supporting.append(volume.id)
                 continue
 
-            # If the base is above a complete host wall volume and that host has a
-            # pitched roof, a roof plane is required to decide bearing. A box-like
-            # approximation of the roof would turn uncertainty into fake contact.
             roof = roof_by_volume.get(volume.id)
-            if cz0 > vz1 + CONNECTIVITY_TOLERANCE_M and roof is not None and roof.type is not SceneRoofType.FLAT:
+            if cz0 <= vz1 + CONNECTIVITY_TOLERANCE_M or roof is None or roof.type is SceneRoofType.FLAT:
+                continue
+
+            roof_assessment = roof_geometry_by_volume.get(volume.id)
+            geometry = roof_assessment.geometry if roof_assessment is not None else None
+            if geometry is None:
                 roof_plane_required.append(volume.id)
+                continue
+
+            roof_z = geometry.z_at(center_x, center_y)
+            if roof_z is not None and cz0 <= roof_z + CONNECTIVITY_TOLERANCE_M and cz1 >= roof_z - CONNECTIVITY_TOLERANCE_M:
+                roof_supporting.append(volume.id)
 
         if supporting:
             status: ChimneyBearingStatus = "volume_contact"
+        elif roof_supporting:
+            status = "roof_plane_contact"
         elif roof_plane_required:
             status = "roof_plane_required"
         elif incomplete_candidate_exists:
@@ -305,6 +320,7 @@ def _chimney_bearing(scene, envelopes: tuple[SceneObjectEnvelope, ...]) -> list[
                 chimney_id=chimney.id,
                 status=status,
                 supporting_volume_ids=supporting,
+                roof_plane_supporting_volume_ids=roof_supporting,
                 roof_volume_ids_requiring_plane=roof_plane_required,
             )
         )
