@@ -29,6 +29,12 @@ from .opening_motifs import (
 
 
 PlanStatus = Literal["reserved", "unsupported", "not_applicable"]
+_GLASS_BLOCK_GLAZING = {
+    "glass block",
+    "glass blocks",
+    "pave de verre",
+    "paves de verre",
+}
 
 
 class OpeningRepresentationReservation(BaseModel):
@@ -76,6 +82,15 @@ def _normalized(value: str) -> str:
     )
 
 
+def _is_structured_glass_block(opening) -> bool:
+    visual = opening.opening_visual
+    return (
+        visual is not None
+        and visual.glazing is not None
+        and _normalized(visual.glazing) in _GLASS_BLOCK_GLAZING
+    )
+
+
 def _structured_glazing_present(opening) -> bool | None:
     """Use only structured glazing evidence and let explicit negative/unknown win."""
     visual = opening.opening_visual
@@ -83,6 +98,10 @@ def _structured_glazing_present(opening) -> bool | None:
         return None
     value = _normalized(visual.glazing)
     if not value:
+        return False
+    if value in _GLASS_BLOCK_GLAZING:
+        # Glass-block masonry has its own Scene representation path. Treating it
+        # as a framed window/door motif would invent architectural joinery.
         return False
     negative_tokens = (
         "none", "no glazing", "no glass", "not glazed", "unglazed",
@@ -95,6 +114,8 @@ def _structured_glazing_present(opening) -> bool | None:
 
 
 def _representation_role(opening) -> OpeningRepresentationRole | None:
+    if _is_structured_glass_block(opening):
+        return None
     if opening.type is OpeningType.WINDOW:
         return "window"
     glazing = _structured_glazing_present(opening)
@@ -195,11 +216,16 @@ def build_opening_representation_plan(
     reservations: dict[str, OpeningRepresentationReservation] = {}
 
     # Preserve the existing facade-coherent window selection rather than
-    # regressing to independent per-window choices.
+    # regressing to independent per-window choices. Glass-block openings are
+    # excluded because their visible grid is material, not framed joinery.
+    framed_candidates = [
+        opening for opening in building.openings
+        if not _is_structured_glass_block(opening)
+    ]
     for wall in shell.walls:
         selection = select_facade_window_solutions(
             facade=wall.facade,
-            openings=building.openings,
+            openings=framed_candidates,
             shell=shell,
         )
         if selection is None:
@@ -220,6 +246,16 @@ def build_opening_representation_plan(
                 opening,
                 role,
                 "opening has no reserved wall raster in the target volume",
+            )
+            continue
+
+        if _is_structured_glass_block(opening):
+            reservations[opening.id] = OpeningRepresentationReservation(
+                opening_id=opening.id,
+                facade=opening.facade,
+                architectural_type=opening.type,
+                status="not_applicable",
+                reason="structured glass-block glazing uses the dedicated Scene material representation rather than framed joinery",
             )
             continue
 
