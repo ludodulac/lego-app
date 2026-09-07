@@ -26,7 +26,7 @@ def _required_blocker(object_id, field, reason):
     )
 
 
-def test_exact_metric_request_preserves_field_and_never_invents_value():
+def test_exact_metric_request_preserves_field_source_and_never_invents_value():
     reason = "building_projection_requires_metric_envelope"
     report = _report(blockers=[_required_blocker("main", "width", reason)])
 
@@ -34,6 +34,7 @@ def test_exact_metric_request_preserves_field_and_never_invents_value():
         "object_id": "main",
         "field": "width",
         "kind": "exact_metric",
+        "source": "projection",
         "reason": reason,
     }])
 
@@ -41,7 +42,23 @@ def test_exact_metric_request_preserves_field_and_never_invents_value():
     assert requests[0].object_id == "main"
     assert requests[0].field == "width"
     assert requests[0].kind == "exact_metric"
+    assert requests[0].source == "projection"
     assert requests[0].value is None
+
+
+def test_missing_explicit_source_preserves_required_input_readiness_provenance():
+    reason = "building_projection_requires_metric_envelope"
+    report = _report(blockers=[_required_blocker("main", "depth", reason)])
+
+    requests = derive_minimal_human_input_requests(report, [{
+        "object_id": "main",
+        "field": "depth",
+        "kind": "exact_metric",
+        "reason": reason,
+    }])
+
+    assert len(requests) == 1
+    assert requests[0].source == "required_input"
 
 
 def test_categorical_and_exact_roof_requests_remain_distinct():
