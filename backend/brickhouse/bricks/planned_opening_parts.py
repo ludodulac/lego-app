@@ -2,9 +2,9 @@
 
 Curated reservations are authoritative for all opening semantics. A deliberately
 narrow compatibility path remains for architectural WINDOWs only: when no curated
-motif fits, the historical window renderer may still emit its joinery-free glazing
-so existing M0 window behavior is not silently lost. DOOR and UNKNOWN openings
-never use that fallback.
+motif fits and no structured leaf/pane topology is known, the historical window
+renderer may still emit its joinery-free glazing so existing M0 window behavior is
+not silently lost. DOOR and UNKNOWN openings never use that fallback.
 """
 from __future__ import annotations
 
@@ -31,6 +31,13 @@ class PlannedOpeningStatus(BaseModel):
     reason: str | None = None
 
 
+def _has_structured_topology(opening) -> bool:
+    visual = opening.opening_visual
+    return visual is not None and (
+        visual.leaf_count is not None or visual.pane_count is not None
+    )
+
+
 def _emit_legacy_window_fallback(
     *,
     opening,
@@ -40,8 +47,8 @@ def _emit_legacy_window_fallback(
     depth: int,
     placements: list[WindowPartPlacement],
 ) -> bool:
-    """Preserve historical WINDOW rendering without extending it to other types."""
-    if opening.type is not OpeningType.WINDOW:
+    """Preserve old WINDOW rendering only where it cannot contradict known topology."""
+    if opening.type is not OpeningType.WINDOW or _has_structured_topology(opening):
         return False
 
     style = opening.window_style or WindowStyle.SIMPLE
