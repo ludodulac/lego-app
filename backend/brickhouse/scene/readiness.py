@@ -1,6 +1,6 @@
 """Backend architectural readiness for strict Scene -> LEGO generation.
 
-Readiness is a behavioral decision derived from existing backend diagnostics.  It
+Readiness is a behavioral decision derived from existing backend diagnostics. It
 never mutates Survey/ArchitecturalScene and does not promote derived spatial facts
 to architectural claims.
 """
@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field
 
 from brickhouse.vision.compatibility import M0Compatibility
 
-from .models import ArchitecturalScene, ProjectionResult, ProjectionSeverity
+from .projection import ProjectionResult, ProjectionSeverity
 from .spatial_analysis import SpatialRelationReport, analyze_scene_spatial_relations
+from .wall_profile_scene import ArchitecturalScene
 
 
 ReadinessSource = Literal["survey", "projection", "required_input", "m0"]
@@ -47,8 +48,8 @@ def assess_architectural_readiness(
 ) -> ArchitecturalReadinessReport:
     """Return one deterministic strict-build decision for every backend caller.
 
-    BH-164 spatial facts are included as diagnostic evidence.  Unknown envelopes
-    are intentionally *not* blockers by themselves: a missing metric blocks only
+    BH-164 spatial facts are included as diagnostic evidence. Unknown envelopes
+    are intentionally not blockers by themselves: a missing metric blocks only
     when projection/required-input diagnostics say a downstream operation needs it.
     """
     blockers: list[ArchitecturalReadinessBlocker] = []
@@ -98,8 +99,6 @@ def assess_architectural_readiness(
                 )
             )
 
-    # De-duplicate diagnostics that describe the same blocking fact, then sort so
-    # API decisions are stable regardless of incidental producer ordering.
     unique = {
         (item.code, item.source, item.object_id, item.field, item.reason): item
         for item in blockers
