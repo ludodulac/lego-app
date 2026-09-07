@@ -12,12 +12,13 @@ from pydantic import BaseModel, Field
 
 from brickhouse.vision.compatibility import M0Compatibility
 
+from .physical_support import analyze_physical_support
 from .projection import ProjectionResult, ProjectionSeverity
 from .spatial_analysis import SpatialRelationReport, analyze_scene_spatial_relations
 from .wall_profile_scene import ArchitecturalScene
 
 
-ReadinessSource = Literal["survey", "projection", "required_input", "m0"]
+ReadinessSource = Literal["survey", "projection", "required_input", "m0", "physical_support"]
 
 
 class ArchitecturalReadinessBlocker(BaseModel):
@@ -28,9 +29,19 @@ class ArchitecturalReadinessBlocker(BaseModel):
     field: str | None = None
 
 
+class ArchitecturalReadinessDiagnostic(BaseModel):
+    code: str
+    source: ReadinessSource
+    severity: Literal["warning", "info"]
+    reason: str
+    object_id: str | None = None
+    field: str | None = None
+
+
 class ArchitecturalReadinessReport(BaseModel):
     ready_for_lego: bool
     blockers: list[ArchitecturalReadinessBlocker] = Field(default_factory=list)
+    diagnostics: list[ArchitecturalReadinessDiagnostic] = Field(default_factory=list)
     spatial: SpatialRelationReport
 
 
@@ -48,11 +59,14 @@ def assess_architectural_readiness(
 ) -> ArchitecturalReadinessReport:
     """Return one deterministic strict-build decision for every backend caller.
 
-    BH-164 spatial facts are included as diagnostic evidence. Unknown envelopes
-    are intentionally not blockers by themselves: a missing metric blocks only
-    when projection/required-input diagnostics say a downstream operation needs it.
+    BH-164 spatial facts and canonical physical-support facts are included as
+    diagnostic evidence. Unknown envelopes/support junctions are intentionally not
+    blockers by themselves: they block only when an existing downstream contract
+    requires the missing fact. Contradicted physical support is a blocker because a
+    strict LEGO build must not emit a known floating/invalid architectural assembly.
     """
     blockers: list[ArchitecturalReadinessBlocker] = []
+    diagnostics: list[ArchitecturalReadinessDiagnostic] = []
 
     for issue in survey_issues or []:
         if _issue_value(issue.severity) != "error":
@@ -99,12 +113,66 @@ def assess_architectural_readiness(
                 )
             )
 
-    unique = {
+    support_facts, support_issues = analyze_physical_support(scene)
+    for issue in support_issues:
+        if issue.severity == "blocker":
+            blockers.append(
+                ArchitecturalReadinessBlocker(
+                    code=f"physical_support:{issue.code}",
+                    source="physical_support",
+                    reason=issue.message,
+                    object_id=issue.object_id,
+                )
+            )
+        else:
+            diagnostics.append(
+                ArchitecturalReadinessDiagnostic(
+                    code=f"physical_support:{issue.code}",
+                    source="physical_support",
+                    severity="warning",
+                    reason=issue.message,
+                    object_id=issue.object_id,
+                )
+            )
+
+    for fact in support_facts:
+        if fact.state != "unresolved":
+            continue
+        endpoint = f" endpoint {fact.endpoint}" if fact.endpoint is not None else ""
+        supporter = f" relative to {fact.supporter_id!r}" if fact.supporter_id is not None else ""
+        diagnostics.append(
+            ArchitecturalReadinessDiagnostic(
+                code=f"physical_support:unresolved:{fact.kind}",
+                source="physical_support",
+                severity="warning",
+                object_id=fact.object_id,
+                reason=(
+                    f"Physical support for {fact.kind} on {fact.object_id!r}{endpoint}{supporter} remains unresolved: "
+                    f"{fact.reason}. No hidden support or compensating geometry is invented."
+                ),
+            )
+        )
+
+    unique_blockers = {
         (item.code, item.source, item.object_id, item.field, item.reason): item
         for item in blockers
     }
-    ordered = sorted(
-        unique.values(),
+    ordered_blockers = sorted(
+        unique_blockers.values(),
+        key=lambda item: (
+            item.source,
+            item.code,
+            item.object_id or "",
+            item.field or "",
+            item.reason,
+        ),
+    )
+    unique_diagnostics = {
+        (item.code, item.source, item.severity, item.object_id, item.field, item.reason): item
+        for item in diagnostics
+    }
+    ordered_diagnostics = sorted(
+        unique_diagnostics.values(),
         key=lambda item: (
             item.source,
             item.code,
@@ -114,7 +182,8 @@ def assess_architectural_readiness(
         ),
     )
     return ArchitecturalReadinessReport(
-        ready_for_lego=not ordered,
-        blockers=ordered,
+        ready_for_lego=not ordered_blockers,
+        blockers=ordered_blockers,
+        diagnostics=ordered_diagnostics,
         spatial=analyze_scene_spatial_relations(scene),
     )
