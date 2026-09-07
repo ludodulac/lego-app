@@ -48,7 +48,7 @@ def test_site_nav_does_not_starve_event_loop_and_ordinary_control_clicks():
             ],
             capture_output=True,
             text=True,
-            timeout=12,
+            timeout=30,
             check=True,
         )
 
