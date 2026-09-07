@@ -29,6 +29,9 @@ import './scene-handoff-stage-lock-v45.js?v=scene-handoff-stage-lock-4.5';
 // Front-load the same stage identity immediately after the v4.3 prompt header so
 // a neutral model sees the Scene output shape before it reaches Survey input data.
 import './scene-handoff-output-frame-v46.js?v=scene-handoff-output-frame-4.6';
+// Prevent neighboring/context objects or unresolved ownership from being silently
+// metrified as target Scene primitives.
+import './scene-handoff-ownership-audit-v47.js?v=scene-handoff-ownership-audit-4.7';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
