@@ -41,13 +41,7 @@ def _standard_brick_definitions():
 
 
 def _is_orthogonal_wall_brick(part: BrickModelPart, definitions) -> bool:
-    """Return whether BH-166 owns this placement's connection semantics.
-
-    Connection-domain ownership is explicit rather than inferred from ``part_id``.
-    A BRICK_1X1 used as timber decking, terrain, glazing or another facade detail is
-    intentionally excluded here; those systems must prove their own host/support
-    chains instead of being accidentally validated by wall rules.
-    """
+    """Return whether BH-166 owns this placement's connection semantics."""
     return (
         part.component == "wall"
         and part.category == "brick"
@@ -64,13 +58,38 @@ def _footprint(part: BrickModelPart, definition) -> set[tuple[int, int]]:
     }
 
 
-def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupportReport:
-    """Return a transitive ground-support report without mutating ``model``.
+def _wall_structural_datum(model: BrickModel, audited: list[BrickModelPart]) -> int:
+    """Return the z datum from which this wall shell must be continuously supported.
 
-    A canonical orthogonal wall brick at ground level is anchored. Every other
-    audited wall brick must share at least one stud cell with another audited wall
-    brick whose top is exactly at its bottom. Since all edges descend in z,
-    reachability can be evaluated in one stable bottom-up pass.
+    Ordinarily the LEGO wall datum is global z=0. Scene-aware framing can translate
+    the complete architectural building upward when observed terrain extends below
+    the building's architectural zero. That translation is a coordinate-frame change,
+    not evidence that the complete wall shell became physically floating. In that
+    specific case, preserve the lowest wall course as the wall's structural datum.
+
+    This does *not* validate the terrain assembly or claim that terrain supports the
+    building. It only keeps the local wall-chain invariant scoped to its architectural
+    host datum; scene-level host/foundation connectivity remains a separate gate.
+    """
+    if not audited:
+        return 0
+    wall_base = min(part.z_plates for part in audited)
+    if wall_base == 0:
+        return 0
+    has_lower_scene_terrain = any(
+        part.category == "terrain" and part.z_plates < wall_base
+        for part in model.parts
+    )
+    return wall_base if has_lower_scene_terrain else 0
+
+
+def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupportReport:
+    """Return a transitive wall-support report without mutating ``model``.
+
+    Every canonical orthogonal wall brick at the wall structural datum is anchored.
+    Every higher audited wall brick must share at least one stud cell with another
+    audited wall brick whose top is exactly at its bottom. Since all edges descend in
+    z, reachability can be evaluated in one stable bottom-up pass.
     """
     definitions = _standard_brick_definitions()
     audited = [
@@ -78,6 +97,7 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
         if _is_orthogonal_wall_brick(part, definitions)
     ]
     audited.sort(key=lambda part: (part.z_plates, part.placement_id))
+    structural_datum = _wall_structural_datum(model, audited)
 
     by_top: dict[int, list[StandardBrickSupportNode]] = defaultdict(list)
     nodes: list[StandardBrickSupportNode] = []
@@ -92,7 +112,7 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
             for node in possible_supporters
             if node.footprint.intersection(footprint)
         )
-        reaches_ground = part.z_plates == 0 or any(
+        reaches_ground = part.z_plates == structural_datum or any(
             node.reaches_ground
             for node in possible_supporters
             if node.placement_id in supporters
@@ -118,10 +138,10 @@ def analyze_standard_brick_support_chain(model: BrickModel) -> StandardBrickSupp
 
 
 def validate_standard_brick_support_chain(model: BrickModel) -> None:
-    """Reject orthogonal wall bricks whose stud/tube chain cannot reach ground."""
+    """Reject orthogonal wall bricks without a continuous chain to their host datum."""
     report = analyze_standard_brick_support_chain(model)
     if report.unsupported_placement_ids:
         raise ValueError(
-            "BrickModel contains orthogonal wall bricks without a continuous stud/tube support chain to ground: "
+            "BrickModel contains orthogonal wall bricks without a continuous stud/tube support chain to their structural datum: "
             + ", ".join(report.unsupported_placement_ids)
         )
