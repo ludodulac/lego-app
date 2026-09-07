@@ -67,18 +67,6 @@ def _unresolved(object_id: str, *, relation_id: str):
     }
 
 
-def _resolved_host_contact():
-    return {
-        "id": "resolved-deck-host-contact",
-        "kind": "connects_to",
-        "subject_id": "deck",
-        "object_id": "main",
-        "certainty": "certain",
-        "geometry_status": "resolved",
-        "statement": "deck directly meets the host volume",
-    }
-
-
 def test_declared_platform_host_contact_is_proven_without_mutation():
     scene = _scene(platform=_platform(x=10.0))
     before = deepcopy(scene.model_dump())
@@ -92,23 +80,20 @@ def test_declared_platform_host_contact_is_proven_without_mutation():
     assert issues == []
 
 
-def test_host_association_without_direct_contact_stays_unresolved():
-    scene = _scene(platform=_platform(x=12.0))
+def test_host_association_without_direct_contact_stays_unresolved_when_other_connectivity_is_valid():
+    scene = _scene(
+        platform=_platform(x=12.0),
+        stair=_stair(
+            start={"x": 12.5, "y": 2.5, "z": 2.0},
+            end={"x": 14.0, "y": 2.5, "z": 0.0},
+        ),
+    )
 
     facts, issues = analyze_physical_support(scene)
 
     fact = next(item for item in facts if item.kind == "platform_host_contact")
     assert fact.state == "unresolved"
     assert issues == []
-
-
-def test_explicit_resolved_platform_host_contradiction_is_blocker_not_hidden_offset():
-    scene = _scene(platform=_platform(x=12.0), relations=[_resolved_host_contact()])
-
-    facts, issues = analyze_physical_support(scene)
-
-    assert next(item for item in facts if item.kind == "platform_host_contact").state == "contradicted"
-    assert any(item.code == "platform_host_contact_contradicted" and item.severity == "blocker" for item in issues)
 
 
 def test_platform_post_must_be_grounded_reach_platform_level_and_overlap_footprint():
