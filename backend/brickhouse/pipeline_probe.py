@@ -12,8 +12,11 @@ from pathlib import Path
 
 from brickhouse.pipeline import run_m0_pipeline_scene
 from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
+from brickhouse.scene.human_input_requests import derive_minimal_human_input_requests
+from brickhouse.scene.readiness import assess_architectural_readiness
 from brickhouse.scene.topology_projection import project_scene_to_building
 from brickhouse.survey import ArchitecturalSurvey
+from brickhouse.vision.compatibility import assess_m0_compatibility
 
 
 def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> list[dict]:
@@ -92,6 +95,25 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
     return required
 
 
+def _human_requests(scene, projection, required_inputs, *, survey_issues) -> list[dict]:
+    compatibility = (
+        assess_m0_compatibility(projection.building)
+        if projection.building is not None
+        else None
+    )
+    readiness = assess_architectural_readiness(
+        scene,
+        projection,
+        required_inputs,
+        compatibility,
+        survey_issues=survey_issues,
+    )
+    return [
+        request.model_dump()
+        for request in derive_minimal_human_input_requests(readiness, required_inputs)
+    ]
+
+
 def probe_pipeline(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> dict:
     survey_issues = validate_scene_against_survey(survey, scene)
     survey_errors = [issue for issue in survey_issues if issue.severity.value == "error"]
@@ -101,6 +123,7 @@ def probe_pipeline(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> di
         "first_blocking_stage": None,
         "projection_issue_codes": [],
         "required_inputs": [],
+        "human_input_requests": [],
         "m0_error": None,
     }
     if survey_errors:
@@ -109,7 +132,14 @@ def probe_pipeline(survey: ArchitecturalSurvey, scene: ArchitecturalScene) -> di
 
     projection = project_scene_to_building(scene)
     report["projection_issue_codes"] = [issue.code for issue in projection.issues]
-    report["required_inputs"] = _required_inputs_for_projection(scene, projection)
+    required_inputs = _required_inputs_for_projection(scene, projection)
+    report["required_inputs"] = required_inputs
+    report["human_input_requests"] = _human_requests(
+        scene,
+        projection,
+        required_inputs,
+        survey_issues=survey_issues,
+    )
     if projection.blocked or projection.building is None:
         report["first_blocking_stage"] = "scene_to_building_projection"
         return report
