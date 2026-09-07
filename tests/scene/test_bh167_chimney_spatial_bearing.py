@@ -5,6 +5,7 @@ from brickhouse.scene import (
     ArchitecturalScene,
     Chimney,
     PropertyValue,
+    RoofPitchRange,
     SceneRoof,
     SceneRoofType,
     SceneVolume,
@@ -75,6 +76,7 @@ def test_chimney_at_host_wall_top_has_explicit_volume_contact():
     assert bearing is not None
     assert bearing.status == "volume_contact"
     assert bearing.supporting_volume_ids == ["house"]
+    assert bearing.roof_plane_supporting_volume_ids == []
     assert bearing.roof_volume_ids_requiring_plane == []
 
 
@@ -87,7 +89,56 @@ def test_chimney_embedded_into_host_volume_is_contact_not_floating():
     assert bearing.supporting_volume_ids == ["house"]
 
 
-def test_chimney_above_pitched_host_requires_real_roof_plane_instead_of_box_contact():
+def test_chimney_crossing_exact_gable_plane_has_roof_plane_contact():
+    roof = SceneRoof(
+        id="roof",
+        volume_id="house",
+        type=SceneRoofType.GABLE,
+        overhang=0.2,
+        ridge_direction=RidgeDirection.DEPTH,
+        pitch_degrees=30,
+        source=SOURCE,
+    )
+    # At x=1..2 the chimney centre is x=1.5. The exact roof plane is about
+    # z=6.866 there, so this base lies above the wall and intersects the plane.
+    report = analyze_scene_spatial_relations(
+        _scene(chimney=_chimney(z=6.86), roofs=[roof])
+    )
+    bearing = report.chimney_support("chimney")
+
+    assert bearing is not None
+    assert bearing.status == "roof_plane_contact"
+    assert bearing.supporting_volume_ids == []
+    assert bearing.roof_plane_supporting_volume_ids == ["house"]
+    assert bearing.roof_volume_ids_requiring_plane == []
+
+
+def test_chimney_above_pitched_host_with_only_pitch_range_still_requires_real_plane():
+    roof = SceneRoof(
+        id="roof",
+        volume_id="house",
+        type=SceneRoofType.GABLE,
+        overhang=0.2,
+        ridge_direction=RidgeDirection.DEPTH,
+        pitch_range_degrees=RoofPitchRange(
+            min_degrees=25,
+            max_degrees=35,
+            source=SOURCE,
+        ),
+        source=SOURCE,
+    )
+    report = analyze_scene_spatial_relations(
+        _scene(chimney=_chimney(z=7.0), roofs=[roof])
+    )
+    bearing = report.chimney_support("chimney")
+
+    assert bearing is not None
+    assert bearing.status == "roof_plane_required"
+    assert bearing.roof_plane_supporting_volume_ids == []
+    assert bearing.roof_volume_ids_requiring_plane == ["house"]
+
+
+def test_chimney_above_exact_gable_but_missing_plane_contact_is_unsupported():
     roof = SceneRoof(
         id="roof",
         volume_id="house",
@@ -98,14 +149,12 @@ def test_chimney_above_pitched_host_requires_real_roof_plane_instead_of_box_cont
         source=SOURCE,
     )
     report = analyze_scene_spatial_relations(
-        _scene(chimney=_chimney(z=7.0), roofs=[roof])
+        _scene(chimney=_chimney(z=8.5), roofs=[roof])
     )
     bearing = report.chimney_support("chimney")
 
     assert bearing is not None
-    assert bearing.status == "roof_plane_required"
-    assert bearing.supporting_volume_ids == []
-    assert bearing.roof_volume_ids_requiring_plane == ["house"]
+    assert bearing.status == "unsupported"
 
 
 def test_chimney_above_flat_host_without_contact_is_unsupported():
