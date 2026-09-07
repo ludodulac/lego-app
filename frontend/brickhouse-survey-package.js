@@ -10,6 +10,7 @@ import './brickhouse-survey-package-v08.js?v=pdf-handoff-0.8-final-contract-audi
 import './brickhouse-survey-package-v09.js?v=pdf-handoff-0.9-measurement-provenance';
 import './brickhouse-survey-package-v11.js?v=pdf-handoff-0.11-orientation-provenance';
 import './brickhouse-survey-package-v12.js?v=pdf-handoff-0.12-stair-topology';
+import './brickhouse-survey-package-v13.js?v=pdf-handoff-0.13-target-context-ownership';
 // Reject any AI-claimed user measurement that is not exactly authorized by the
 // current capture inputs before Survey validation or Scene handoff can run.
 import './survey-measurement-provenance-gate.js?v=measurement-provenance-gate-0.1';
