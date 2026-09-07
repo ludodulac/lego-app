@@ -38,6 +38,11 @@ def test_probe_reports_incomplete_shed_geometry_at_scene_projection() -> None:
     assert report["first_blocking_stage"] == "scene_to_building_projection"
     assert "shed_geometry_incomplete" in report["projection_issue_codes"]
     assert [item["field"] for item in report["required_inputs"]] == ["down_slope_direction", "pitch_degrees"]
+    assert [(item["field"], item["kind"]) for item in report["human_input_requests"]] == [
+        ("down_slope_direction", "categorical_geometry"),
+        ("pitch_degrees", "exact_metric"),
+    ]
+    assert all(item["value"] is None for item in report["human_input_requests"])
     assert report["m0_error"] is None
 
 
@@ -46,6 +51,9 @@ def test_direction_without_numeric_pitch_remains_honestly_blocked() -> None:
     assert report["first_blocking_stage"] == "scene_to_building_projection"
     assert "shed_geometry_incomplete" in report["projection_issue_codes"]
     assert report["required_inputs"] == [{"object_id": "roof_main", "field": "pitch_degrees", "kind": "exact_metric", "reason": "shed_construction_requires_exact_pitch"}]
+    assert [(item["field"], item["kind"], item["value"]) for item in report["human_input_requests"]] == [
+        ("pitch_degrees", "exact_metric", None),
+    ]
 
 
 def test_complete_shed_contract_projects_without_false_roof_conversion() -> None:
@@ -62,6 +70,7 @@ def test_probe_complete_shed_reaches_valid_m0_export() -> None:
     report = probe_pipeline(_survey(), _scene(direction="rear", pitch=12.0))
     assert report["first_blocking_stage"] == "none"
     assert report["required_inputs"] == []
+    assert report["human_input_requests"] == []
     assert report["m0_error"] is None
 
 
