@@ -25,6 +25,7 @@ from brickhouse.bricks.scene_platform_connectivity import (
     augment_brick_model_with_scene_platform_connectivity,
     platform_connectivity_fidelity_issues,
 )
+from brickhouse.bricks.scene_physical_support_gate import evaluate_scene_physical_support_gate
 from brickhouse.bricks.scene_characteristic_fidelity import characteristic_fidelity_issues
 from brickhouse.bricks.scene_chimney_solutions import select_scene_chimney_footprints
 from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
@@ -264,11 +265,12 @@ def _scene_export_fidelity_issues(scene: ArchitecturalScene, projection, *, fron
 
 
 def run_m0_pipeline_scene(scene: ArchitecturalScene, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, ldraw_root: str | Path | None = None) -> BrickExportBundle:
-    validate_platform_support_footprints(scene); projection=project_scene_to_building(scene)
+    validate_platform_support_footprints(scene); support_gate=evaluate_scene_physical_support_gate(scene); projection=project_scene_to_building(scene)
     if projection.building is None or projection.blocked:
         blockers=" ".join(issue.message for issue in projection.issues if issue.severity.value=="blocker"); raise ValueError(blockers or "ArchitecturalScene cannot be projected to BuildingModel")
-    scene_issues=_scene_export_fidelity_issues(scene,projection,front_width_studs=front_width_studs); base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs); fidelity_issues=[*base.fidelity_issues,*scene_issues]
-    enriched=augment_brick_model_with_scene_platform_connectivity(base.brick_model,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_planned_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs); _validate_generated_model(enriched); fidelity_issues.extend(_geometry_fidelity_issues(enriched,ldraw_root))
+    scene_issues=_scene_export_fidelity_issues(scene,projection,front_width_studs=front_width_studs); base=run_m0_pipeline_model(projection.building,front_width_studs=front_width_studs); fidelity_issues=[*base.fidelity_issues,*scene_issues,*support_gate.fidelity_issues]
+    platform_scene=support_gate.platform_scene(scene); chimney_scene=support_gate.chimney_scene(scene)
+    enriched=augment_brick_model_with_scene_platform_connectivity(base.brick_model,platform_scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_chimneys(enriched,chimney_scene,front_width_studs=front_width_studs); enriched=apply_scene_part_categories(enriched,scene); enriched=augment_brick_model_with_planned_scene_glazing(enriched,scene,front_width_studs=front_width_studs); enriched=augment_brick_model_with_scene_shutters(enriched,scene,front_width_studs=front_width_studs); _validate_generated_model(enriched); fidelity_issues.extend(_geometry_fidelity_issues(enriched,ldraw_root))
     if enriched is base.brick_model: return create_export_bundle(enriched,base.bom,base.assembly_plan,appearance=projection.building.appearance,fidelity_issues=fidelity_issues,discretization_quality=base.metadata.discretization_quality,scale_recommendation=base.metadata.scale_recommendation)
     bom=generate_bom(enriched); assembly_plan=generate_assembly_plan(enriched); return create_export_bundle(enriched,bom,assembly_plan,appearance=projection.building.appearance,fidelity_issues=fidelity_issues,discretization_quality=base.metadata.discretization_quality,scale_recommendation=base.metadata.scale_recommendation)
 

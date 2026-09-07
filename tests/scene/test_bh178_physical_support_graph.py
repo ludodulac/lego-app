@@ -80,25 +80,29 @@ def test_declared_platform_host_contact_is_proven_without_mutation():
     assert issues == []
 
 
-def test_declared_platform_host_contradiction_is_blocker_not_hidden_offset():
+def test_host_association_without_direct_contact_stays_unresolved_when_other_connectivity_is_valid():
     scene = _scene(
         platform=_platform(x=12.0),
-        relations=[_unresolved("deck", relation_id="hidden-deck-junction")],
+        stair=_stair(
+            start={"x": 12.5, "y": 2.5, "z": 2.0},
+            end={"x": 14.0, "y": 2.5, "z": 0.0},
+        ),
     )
 
     facts, issues = analyze_physical_support(scene)
 
-    assert next(item for item in facts if item.kind == "platform_host_contact").state == "contradicted"
-    assert any(item.code == "platform_host_contact_contradicted" and item.severity == "blocker" for item in issues)
+    fact = next(item for item in facts if item.kind == "platform_host_contact")
+    assert fact.state == "unresolved"
+    assert issues == []
 
 
-def test_platform_post_must_be_grounded_reach_underside_and_overlap_footprint():
+def test_platform_post_must_be_grounded_reach_platform_level_and_overlap_footprint():
     good_post = {
         "id": "post-good",
         "position": {"x": 10.5, "y": 2.5, "z": 0.0},
         "width": 0.2,
         "depth": 0.2,
-        "height": 1.8,
+        "height": 2.0,
         "source": SOURCE,
     }
     bad_post = {
