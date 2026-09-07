@@ -1,3 +1,5 @@
+import pytest
+
 from brickhouse.building import Appearance, Position3D, SourceInfo, SourceKind
 from brickhouse.scene import ArchitecturalScene, Platform, PropertyValue, SceneVolume
 from brickhouse.scene.spatial_analysis import analyze_scene_spatial_relations
@@ -70,13 +72,13 @@ def test_overlap_and_face_adjacency_are_distinct_geometric_facts():
     assert touching is not None and overlap is not None
     assert touching.adjacent_face is True
     assert touching.overlaps_3d is False
-    assert touching.x_gap == 0.05
+    assert touching.x_gap == pytest.approx(0.05)
     assert overlap.overlaps_xy is True
     assert overlap.overlaps_3d is True
     assert overlap.adjacent_face is False
-    assert overlap.x_overlap == 1
-    assert overlap.y_overlap == 1
-    assert overlap.z_overlap == 1
+    assert overlap.x_overlap == pytest.approx(1)
+    assert overlap.y_overlap == pytest.approx(1)
+    assert overlap.z_overlap == pytest.approx(1)
 
 
 def test_containment_is_directional_and_reverse_pair_is_consistent():
@@ -110,14 +112,14 @@ def test_platform_envelope_uses_slab_thickness_below_walkable_level():
     relation = report.relation("deck", "host")
 
     assert deck.geometry_known is True
-    assert deck.z_min == 1.8
-    assert deck.z_max == 2
+    assert deck.z_min == pytest.approx(1.8)
+    assert deck.z_max == pytest.approx(2)
     assert relation is not None
     assert relation.adjacent_face is True
-    assert relation.x_gap == 0
-    assert relation.x_overlap == 0
-    assert relation.y_overlap == 2
-    assert relation.z_overlap == 0.2
+    assert relation.x_gap == pytest.approx(0)
+    assert relation.x_overlap == pytest.approx(0)
+    assert relation.y_overlap == pytest.approx(2)
+    assert relation.z_overlap == pytest.approx(0.2)
 
 
 def test_incomplete_volume_geometry_stays_explicitly_unknown():
