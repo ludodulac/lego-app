@@ -62,6 +62,13 @@ from .models import (
     SurveyObservation,
     SurveyRelation,
 )
+from .multiview_identity import (
+    MultiViewIdentityFacts,
+    MultiViewIdentityReport,
+    MultiViewIdentityValue,
+    analyze_multiview_identity,
+    validate_multiview_identity,
+)
 from .ownership import (
     OwnershipFacts,
     OwnershipReport,
@@ -98,6 +105,7 @@ def validate_survey_semantics(survey: ArchitecturalSurvey) -> list[SurveyValidat
         *validate_multiview_roof_hypotheses(survey),
         *validate_stair_topology_observations(survey),
         *validate_subject_ownership(survey),
+        *validate_multiview_identity(survey),
     ]
 
 
@@ -111,6 +119,7 @@ def validate_survey_extension(
         *validate_multiview_roof_hypotheses(candidate),
         *validate_stair_topology_observations(candidate),
         *validate_subject_ownership(candidate),
+        *validate_multiview_identity(candidate),
     ]
     existing = {(issue.code, issue.observation_id) for issue in issues}
     issues.extend(
@@ -126,6 +135,9 @@ __all__ = [
     "CanonicalFrame",
     "Certainty",
     "KnownMeasurement",
+    "MultiViewIdentityFacts",
+    "MultiViewIdentityReport",
+    "MultiViewIdentityValue",
     "NormalizedImageRegion",
     "ObservationKind",
     "OpeningVisualDescription",
@@ -172,6 +184,7 @@ __all__ = [
     "SurveyReasoningState",
     "SurveyRelation",
     "SurveyValidationIssue",
+    "analyze_multiview_identity",
     "analyze_subject_ownership",
     "analyze_survey_stair_topology",
     "automatic_survey_correction_finding_ids_v01",
@@ -181,6 +194,7 @@ __all__ = [
     "evaluate_survey_audit_experimental_go",
     "rank_questions_for_user_input",
     "survey_correction_eligibility_v01",
+    "validate_multiview_identity",
     "validate_stair_topology_observations",
     "validate_subject_ownership",
     "validate_survey_audit",

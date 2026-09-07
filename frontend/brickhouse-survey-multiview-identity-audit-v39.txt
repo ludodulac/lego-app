@@ -1,0 +1,34 @@
+BRICKHOUSE — ADDENDUM PHOTOS → SURVEY v3.9 — IDENTITÉ MULTI-VUES
+
+Cet addendum est strictement additif. Il ne remplace aucune règle d’ownership, topologie, orientation, couverture, métrique ou provenance.
+
+AVANT DE FUSIONNER DES OCCURRENCES
+Quand un même objet architectural semble apparaître dans plusieurs photos, ne fusionne pas immédiatement ces occurrences sous un seul ID Survey. Vérifie d’abord si les preuves soutiennent réellement qu’il s’agit du même objet physique.
+
+Pour toute observation qui fusionne explicitement des preuves provenant de plusieurs photos, renseigne `attributes.multiview_identity` quand la correspondance est établie ou reste ambiguë :
+- `status`: `"same_physical_object"` ou `"unresolved"` ;
+- `photo_indexes`: au moins deux index de photos réellement cités par l’observation ;
+- `cues`: uniquement des indices discriminants parmi `shape_detail`, `relative_position`, `structural_continuity`, `occlusion_continuity`, `facade_transition`, `user_statement`.
+
+Ajoute `attribute_certainty.multiview_identity` avec la certitude appropriée. `status:"unresolved"` ne peut jamais être `certain`.
+
+CE QUI NE SUFFIT PAS
+La ressemblance générique de couleur, matériau, largeur apparente, type architectural, présence sur la même façade, proximité en projection 2D ou simple chevauchement visuel ne prouve PAS une identité multi-vues. Deux cheminées similaires ou deux fenêtres semblables peuvent appartenir à des objets distincts.
+
+PREUVES DISCRIMINANTES
+Une identité certaine `same_physical_object` doit citer au moins un indice discriminant réel : détail de forme stable, position relative par rapport à des ancres communes, continuité structurelle, logique d’occultation cohérente, passage observable d’une façade à une autre, ou déclaration explicite utilisateur.
+
+OWNERSHIP ET IDENTITÉ RESTENT SÉPARÉS
+Une correspondance multi-vues n’autorise pas à promouvoir automatiquement l’ownership. Inversement, deux objets appartenant tous deux au bâtiment cible ne sont pas nécessairement le même objet. Applique d’abord l’identité physique, puis conserve l’ownership avec sa propre certitude.
+
+OBJETS À CONTRÔLER EN PRIORITÉ
+Cheminées, ouvertures, pans/toitures, volumes, plateformes/terrasses, escaliers, paliers, équipements et détails répétitifs. Pour un escalier multi-volées, ne confonds pas « mêmes système architectural » et « même volée ».
+
+PRÉFLIGHT OBLIGATOIRE
+1. toute fusion multi-vues doit être justifiée ou explicitement laissée `unresolved` ;
+2. les `photo_indexes` doivent correspondre aux preuves citées ;
+3. une identité certaine doit avoir au moins un cue discriminant ;
+4. ne jamais fusionner sur la seule base de ressemblance/proximité ;
+5. ne jamais convertir une identité `unresolved` en géométrie ou ownership certain pour compléter la reconstruction.
+
+Le Survey est incomplet si plusieurs vues ont été fusionnées sous un même objet sans trace explicite de la correspondance alors que cette identité est architecturalement ambiguë.
