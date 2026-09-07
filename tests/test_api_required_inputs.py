@@ -36,8 +36,8 @@ def _scene_with_preserved_terrace_structure() -> dict:
 
 def expected_missing_roof_geometry() -> list[dict]:
     return [
-        {"object_id": "roof_main", "field": "down_slope_direction", "kind": "categorical_geometry", "reason": "shed_construction_requires_fall_direction"},
-        {"object_id": "roof_main", "field": "pitch_degrees", "kind": "exact_metric", "reason": "shed_construction_requires_exact_pitch"},
+        {"object_id": "roof_main", "field": "down_slope_direction", "kind": "categorical_geometry", "source": "projection", "reason": "shed_construction_requires_fall_direction"},
+        {"object_id": "roof_main", "field": "pitch_degrees", "kind": "exact_metric", "source": "projection", "reason": "shed_construction_requires_exact_pitch"},
     ]
 
 
