@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from math import log
 from typing import Literal
+import unicodedata
 
 from pydantic import BaseModel, Field
 
@@ -63,19 +64,34 @@ class LEGORepresentationPlan(BaseModel):
         return next((item for item in self.openings if item.opening_id == opening_id), None)
 
 
+def _normalized(value: str) -> str:
+    return " ".join(
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .split()
+    )
+
+
 def _structured_glazing_present(opening) -> bool | None:
+    """Use only structured glazing evidence and let explicit negative/unknown win."""
     visual = opening.opening_visual
     if visual is None or visual.glazing is None:
         return None
-    value = " ".join(visual.glazing.lower().replace("_", " ").replace("-", " ").split())
+    value = _normalized(visual.glazing)
     if not value:
         return False
-    negative = {
+    negative_tokens = (
         "none", "no glazing", "no glass", "not glazed", "unglazed",
         "sans vitrage", "sans verre", "non vitree", "opaque", "solid",
         "unknown", "inconnu", "indetermine",
-    }
-    return value not in negative
+    )
+    if any(token in value for token in negative_tokens):
+        return False
+    return True
 
 
 def _representation_role(opening) -> OpeningRepresentationRole | None:
