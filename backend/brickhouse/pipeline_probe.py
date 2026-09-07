@@ -38,6 +38,7 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
                     "object_id": roof.id,
                     "field": "down_slope_direction",
                     "kind": "categorical_geometry",
+                    "source": "projection",
                     "reason": "shed_construction_requires_fall_direction",
                 })
             if roof.pitch_degrees is None:
@@ -45,6 +46,7 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
                     "object_id": roof.id,
                     "field": "pitch_degrees",
                     "kind": "exact_metric",
+                    "source": "projection",
                     "reason": "shed_construction_requires_exact_pitch",
                 }
                 if roof.pitch_range_degrees is not None:
@@ -63,6 +65,7 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
                     "object_id": roof.id,
                     "field": "ridge_direction",
                     "kind": "categorical_geometry",
+                    "source": "projection",
                     "reason": "gable_construction_requires_ridge_direction",
                 })
             if roof.pitch_degrees is None:
@@ -70,6 +73,7 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
                     "object_id": roof.id,
                     "field": "pitch_degrees",
                     "kind": "exact_metric",
+                    "source": "projection",
                     "reason": "gable_construction_requires_exact_pitch",
                 }
                 if roof.pitch_range_degrees is not None:
@@ -89,6 +93,7 @@ def _required_inputs_for_projection(scene: ArchitecturalScene, projection) -> li
                         "object_id": volume.id,
                         "field": field,
                         "kind": "exact_metric",
+                        "source": "projection",
                         "reason": "building_projection_requires_metric_envelope",
                     })
 
