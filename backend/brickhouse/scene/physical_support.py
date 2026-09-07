@@ -160,10 +160,10 @@ def _chimney_flat_roof_state(chimney, roof, volume) -> SupportState:
 
 
 def _chimney_support_state(scene, chimney) -> tuple[SupportState, str | None]:
+    """Prove only unique support; absence of contact never assigns chimney ownership."""
     volumes = {item.id: item for item in scene.volumes}
     proven_roofs: list[str] = []
     unresolved_roofs: list[str] = []
-    contradicted_roofs: list[str] = []
     for roof in sorted(scene.roofs, key=lambda item: item.id):
         volume = volumes.get(roof.volume_id)
         if volume is None:
@@ -173,17 +173,11 @@ def _chimney_support_state(scene, chimney) -> tuple[SupportState, str | None]:
             proven_roofs.append(roof.id)
         elif state == "unresolved":
             unresolved_roofs.append(roof.id)
-        else:
-            contradicted_roofs.append(roof.id)
 
     if len(proven_roofs) == 1:
         return "proven", proven_roofs[0]
-    if len(proven_roofs) > 1:
-        return "unresolved", None
-    if unresolved_roofs:
-        return "unresolved", None
-    if contradicted_roofs:
-        return "contradicted", contradicted_roofs[0] if len(contradicted_roofs) == 1 else None
+    # Multiple candidates, pitched/unknown roof planes, and flat roofs that do not
+    # intersect are all ownership-unsafe without an explicit support relation.
     return "unresolved", None
 
 
@@ -297,9 +291,7 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
             reason=(
                 "chimney footprint and vertical span cross one explicit flat roof plane"
                 if state == "proven"
-                else "chimney support is not uniquely provable from available roof geometry"
-                if state == "unresolved"
-                else "chimney geometry does not intersect the available flat roof plane"
+                else "chimney support or ownership is not uniquely provable from available roof geometry"
             ),
         ))
 
