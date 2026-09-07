@@ -20,6 +20,7 @@ class HumanInputRequest(BaseModel):
     object_id: str
     field: str
     kind: HumanInputKind
+    source: str = Field(min_length=1)
     reason: str = Field(min_length=1)
     known_range_degrees: dict[str, float] | None = None
     value: None = None
@@ -54,7 +55,7 @@ def derive_minimal_human_input_requests(
         if item.source == "required_input"
     }
 
-    requests: dict[tuple[str, str, HumanInputKind, str], HumanInputRequest] = {}
+    requests: dict[tuple[str, str, HumanInputKind, str, str], HumanInputRequest] = {}
     for item in required_inputs:
         object_id = item.get("object_id")
         field = item.get("field")
@@ -73,6 +74,12 @@ def derive_minimal_human_input_requests(
         if required_blockers and (object_id, field, reason) not in required_blockers:
             continue
 
+        source = item.get("source")
+        if not isinstance(source, str) or not source:
+            # Required-input readiness is the exact fallback provenance when an
+            # older caller has not yet supplied a more specific upstream source.
+            source = "required_input"
+
         known_range = item.get("known_range_degrees")
         normalized_range = None
         if isinstance(known_range, dict):
@@ -85,12 +92,13 @@ def derive_minimal_human_input_requests(
             object_id=object_id,
             field=field,
             kind=kind,
+            source=source,
             reason=reason,
             known_range_degrees=normalized_range,
         )
-        requests[(object_id, field, kind, reason)] = request
+        requests[(object_id, field, kind, source, reason)] = request
 
     return sorted(
         requests.values(),
-        key=lambda item: (item.object_id, item.field, item.kind, item.reason),
+        key=lambda item: (item.object_id, item.field, item.kind, item.source, item.reason),
     )
