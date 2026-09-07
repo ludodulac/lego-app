@@ -91,8 +91,9 @@ def _platform_supports_volume(platform, volume) -> SupportState:
 
 
 def _post_support_state(platform, post) -> SupportState:
+    """Reuse the established Scene contract: SupportPost top meets platform level."""
     post_top = post.position.z + post.height
-    vertical_contact = abs(post_top - (platform.position.z - platform.thickness)) <= CONNECTIVITY_TOLERANCE_M
+    vertical_contact = abs(post_top - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
     grounded = post.position.z <= CONNECTIVITY_TOLERANCE_M
     px0, px1 = platform.position.x, platform.position.x + platform.width
     py0, py1 = platform.position.y, platform.position.y + platform.depth
@@ -226,7 +227,7 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
                 supporter_id=post.id,
                 state=state,
                 reason=(
-                    "post is grounded and reaches the platform underside"
+                    "post is grounded and reaches the platform support level"
                     if state == "proven"
                     else "post does not geometrically support the platform"
                 ),
