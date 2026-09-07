@@ -8,42 +8,33 @@ SOURCE = {"kind": "observed", "confidence": 0.9}
 
 
 def _scene(*, contradicted_support: bool) -> ArchitecturalScene:
-    volumes = [{
-        "id": "main",
-        "position": {"x": 0, "y": 0, "z": 0},
-        "width": {"value": 10, "source": SOURCE},
-        "depth": {"value": 8, "source": SOURCE},
-        "height": {"value": 6, "source": SOURCE},
-        "floors": 2,
-        "source": SOURCE,
-    }]
-    relations = []
+    supports = []
     if contradicted_support:
-        volumes.append({
-            "id": "upper",
-            "position": {"x": 10.5, "y": 2.5, "z": 3.0},
-            "width": {"value": 1.0, "source": SOURCE},
-            "depth": {"value": 1.0, "source": SOURCE},
-            "height": {"value": 1.0, "source": SOURCE},
-            "floors": 1,
+        # Footprint is valid so the Scene reaches the BH-180 gate, but the post is
+        # neither grounded nor tall enough to meet the declared platform level.
+        supports = [{
+            "id": "bad-post",
+            "position": {"x": 10.5, "y": 2.5, "z": 0.5},
+            "width": 0.2,
+            "depth": 0.2,
+            "height": 1.0,
             "source": SOURCE,
-        })
-        relations.append({
-            "id": "support",
-            "kind": "supports",
-            "subject_id": "deck",
-            "object_id": "upper",
-            "certainty": "certain",
-            "geometry_status": "resolved",
-            "statement": "deck supports upper volume",
-        })
+        }]
 
     return ArchitecturalScene.model_validate({
         "schema_version": "0.2",
         "id": "bh180-pipeline",
         "name": "Physical support pipeline fixture",
         "units": "m",
-        "volumes": volumes,
+        "volumes": [{
+            "id": "main",
+            "position": {"x": 0, "y": 0, "z": 0},
+            "width": {"value": 10, "source": SOURCE},
+            "depth": {"value": 8, "source": SOURCE},
+            "height": {"value": 6, "source": SOURCE},
+            "floors": 2,
+            "source": SOURCE,
+        }],
         "platforms": [{
             "id": "deck",
             "host_volume_id": "main",
@@ -51,9 +42,9 @@ def _scene(*, contradicted_support: bool) -> ArchitecturalScene:
             "width": 3.0,
             "depth": 3.0,
             "thickness": 0.2,
+            "supports": supports,
             "source": SOURCE,
         }],
-        "relations": relations,
         "appearance": {},
     })
 
@@ -80,7 +71,7 @@ def test_pipeline_keeps_supported_platform_and_preserves_scene():
     )
 
 
-def test_pipeline_withholds_platform_whose_resolved_support_claim_is_contradicted():
+def test_pipeline_withholds_platform_with_contradicted_declared_support_post():
     scene = _scene(contradicted_support=True)
     before = deepcopy(scene.model_dump())
 
@@ -89,8 +80,8 @@ def test_pipeline_withholds_platform_whose_resolved_support_claim_is_contradicte
     assert scene.model_dump() == before
     assert _platform_parts(bundle) == []
     assert any(
-        issue.code == "resolved_support_relation_contradicted"
+        issue.code == "platform_support_post_not_supporting"
         and issue.severity == "blocker"
-        and issue.object_id == "upper"
+        and issue.object_id == "deck"
         for issue in bundle.fidelity_issues
     )
