@@ -188,12 +188,14 @@ def validate_model_part_capabilities(
     model: "BrickModel",
     registry: PieceCapabilityRegistry,
 ) -> None:
-    """Reject unapproved parts and physically unsupported canonical brick chains.
+    """Reject generated parts outside their validated deterministic capabilities.
 
-    Source catalogue presence is not sufficient. Future freeform optimizers must
-    explicitly promote a piece family after its orientation and connection semantics
-    are validated. Canonical orthogonal standard bricks additionally have to prove a
-    continuous stud/tube support path to ground before the model may export.
+    Catalogue presence is not sufficient. First enforce that every generated part
+    is placement-approved. Then apply the BH-166 physical support invariant to the
+    connection domain it actually owns: canonical orthogonal wall bricks. Scene
+    decks, stairs, chimneys, terrain, glazing, roofs and special techniques require
+    their own explicit support/connection validators rather than borrowing wall
+    semantics merely because they reuse a BRICK_* primitive.
     """
 
     approved = registry.approved_ids()
