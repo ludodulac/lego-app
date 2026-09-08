@@ -462,6 +462,24 @@ class ArchitecturalScene(BaseModel):
         )
 
     @staticmethod
+    def _points_coincident(first, second):
+        return (
+            abs(first.x - second.x) <= CONNECTIVITY_TOLERANCE_M
+            and abs(first.y - second.y) <= CONNECTIVITY_TOLERANCE_M
+            and abs(first.z - second.z) <= CONNECTIVITY_TOLERANCE_M
+        )
+
+    def _point_on_other_stair(self, point, stair):
+        return any(
+            other.id != stair.id
+            and (
+                self._points_coincident(point, other.start)
+                or self._points_coincident(point, other.end)
+            )
+            for other in self.stairs
+        )
+
+    @staticmethod
     def _platform_touches_volume(platform, volume):
         if volume.width.value is None or volume.depth.value is None:
             return False
@@ -491,6 +509,9 @@ class ArchitecturalScene(BaseModel):
                 if not (
                     any(self._point_on_platform(point, platform) for platform in self.platforms)
                     or any(self._point_on_volume_boundary(point, volume) for volume in self.volumes)
+                    or self._point_on_other_stair(point, stair)
                     or point.z <= CONNECTIVITY_TOLERANCE_M
                 ):
-                    raise ValueError(f"stair {stair.id!r} {name} does not connect to ground, a platform, or the building")
+                    raise ValueError(
+                        f"stair {stair.id!r} {name} does not connect to ground, a platform, another stair, or the building"
+                    )
