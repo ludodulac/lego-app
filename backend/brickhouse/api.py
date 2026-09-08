@@ -38,6 +38,11 @@ from brickhouse.survey import (
     validate_survey_extension,
     validate_survey_semantics,
 )
+from brickhouse.survey.handoff_api import (
+    HumanFactSceneHandoffRequest,
+    prepare_human_fact_scene_handoff,
+)
+from brickhouse.survey.scene_handoff import HumanFactSceneHandoff
 from brickhouse.vision.compatibility import M0Compatibility, assess_m0_compatibility
 from brickhouse.vision.models import PhotoAnalysisResult
 from brickhouse.vision.openai_provider import PhotoInput
@@ -274,6 +279,20 @@ def validate_architectural_survey(
         issues=issues,
         valid_for_scene_fusion=not any(issue.severity == "error" for issue in raw_issues),
     )
+
+
+@app.post(
+    "/api/v1/prepare-human-fact-scene-handoff",
+    response_model=HumanFactSceneHandoff,
+)
+def prepare_architectural_scene_handoff_with_human_facts(
+    request: HumanFactSceneHandoffRequest,
+) -> HumanFactSceneHandoff:
+    """Prepare a derived Scene-input Survey without mutating accepted Survey truth."""
+    try:
+        return prepare_human_fact_scene_handoff(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/api/v1/validate-survey-extension", response_model=SurveyValidationResponse)
