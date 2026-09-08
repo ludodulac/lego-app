@@ -4,6 +4,11 @@ from .architectural_priors import (
     OpeningPriorQuery,
     france_residential_opening_priors_v01,
 )
+from .modular_priors import (
+    GLASS_BLOCK_PRIOR_CATALOG_VERSION,
+    GlassBlockGridPriorQuery,
+    glass_block_grid_prior_v01,
+)
 from .models import (
     Chimney, DeckBoardDirection, EdgeAccessSpan, EdgeTreatment, EquipmentType,
     Evidence, ExteriorMaterial, FacadeEquipment, FacadeVisibility, GradeProfile, Platform,
@@ -61,8 +66,8 @@ from .stair_spatial import (
 )
 from .topology_projection import project_scene_to_building
 __all__=[
-    "ArchitecturalDimensionPrior","ArchitecturalPriorProvenance","ArchitecturalScaleEstimate","ArchitecturalScene","Chimney","ChimneyBearingAssessment","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial","FR_OPENING_PRIOR_CATALOG_VERSION",
-    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GradeProfile","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","OpeningPriorQuery","PhotoGeometryAnnotation","PhotoScaleCueBinding","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
+    "ArchitecturalDimensionPrior","ArchitecturalPriorProvenance","ArchitecturalScaleEstimate","ArchitecturalScene","Chimney","ChimneyBearingAssessment","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial","FR_OPENING_PRIOR_CATALOG_VERSION","GLASS_BLOCK_PRIOR_CATALOG_VERSION",
+    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GlassBlockGridPriorQuery","GradeProfile","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","OpeningPriorQuery","PhotoGeometryAnnotation","PhotoScaleCueBinding","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
     "ProjectionSeverity","PropertyValue","RoofGeometryAssessment","RoofLine","RoofPitchRange","ScaleCueVote","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairRunJunction","StairSpatialReport",
-    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","project_scene_to_building","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_survey",
+    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","glass_block_grid_prior_v01","project_scene_to_building","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_survey",
 ]
