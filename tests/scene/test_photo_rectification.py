@@ -45,7 +45,14 @@ def _survey() -> ArchitecturalSurvey:
                     "description": "Oblique facade view.",
                     "source": {"kind": "observed", "confidence": 1.0},
                     "image_left_maps_to_facade_offset": "low",
-                }
+                },
+                {
+                    "photo_index": 2,
+                    "facade": "front",
+                    "description": "Canonical front context view.",
+                    "source": {"kind": "observed", "confidence": 1.0},
+                    "image_left_maps_to_facade_offset": "low",
+                },
             ],
             "known_measurements": [],
             "observations": [
@@ -187,13 +194,9 @@ def test_degenerate_or_self_crossing_quad_is_rejected() -> None:
 
 
 def test_feature_outside_rectified_plane_is_rejected_without_extrapolation() -> None:
-    outside = _feature().model_copy(
-        update={
-            "region": {"x0": 0.05, "y0": 0.30, "x1": 0.15, "y1": 0.60},
-        }
-    )
-    # model_copy does not revalidate nested dicts, so reconstruct through JSON-like dump.
-    outside = PhotoGeometryAnnotation.model_validate(outside.model_dump())
+    payload = _feature().model_dump()
+    payload["region"] = {"x0": 0.05, "y0": 0.30, "x1": 0.15, "y1": 0.60}
+    outside = PhotoGeometryAnnotation.model_validate(payload)
 
     with pytest.raises(ValueError, match="outside the rectification source plane"):
         rectify_photo_geometry_annotation(_rectification(), outside)
