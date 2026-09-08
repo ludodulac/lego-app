@@ -140,5 +140,7 @@ def test_explicit_photo_regions_feed_multi_family_scale_consensus_without_measur
     assert estimate.resolved is True
     assert estimate.source.kind is SourceKind.INFERRED
     assert estimate.value_m == pytest.approx(8.8, abs=0.2)
-    assert 8.0 <= estimate.min_m <= estimate.value_m <= estimate.max_m <= 9.5
+    assert estimate.min_m == pytest.approx(8.0)
+    assert estimate.max_m == pytest.approx(9.5)
+    assert estimate.min_m <= estimate.value_m <= estimate.max_m
     assert set(estimate.supporting_families) == {"window_width", "door_width"}
