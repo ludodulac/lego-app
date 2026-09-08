@@ -92,7 +92,7 @@ def test_reaudit_scope_reads_removed_relation_evidence_from_original() -> None:
     assert scope.photo_indexes == [1]
 
 
-def test_reaudit_scope_includes_reoriented_photo_without_unrelated_objects() -> None:
+def test_reaudit_scope_includes_objects_that_depend_on_reoriented_photo() -> None:
     original = _survey()
     candidate = original.model_copy(deep=True)
     candidate.photos[1] = candidate.photos[1].model_copy(update={"facade": "rear"})
@@ -116,7 +116,20 @@ def test_reaudit_scope_includes_reoriented_photo_without_unrelated_objects() -> 
 
     scope = build_survey_correction_reaudit_scope(original, correction)
 
+    expected_observation_ids = sorted(
+        item.id
+        for item in original.observations
+        if any(evidence.photo_index == 2 for evidence in item.evidence)
+    )
+    expected_relation_ids = sorted(
+        relation.id
+        for relation in original.relations
+        if any(evidence.photo_index == 2 for evidence in relation.evidence)
+        or relation.subject_id in expected_observation_ids
+        or relation.object_id in expected_observation_ids
+    )
+
     assert scope.correction_change_ids == ["change-reorient-photo-2"]
-    assert scope.observation_ids == []
-    assert scope.relation_ids == []
-    assert scope.photo_indexes == [2]
+    assert scope.observation_ids == expected_observation_ids
+    assert scope.relation_ids == expected_relation_ids
+    assert scope.photo_indexes == [1, 2]
