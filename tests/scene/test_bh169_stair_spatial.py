@@ -1,6 +1,7 @@
 import copy
 
 import pytest
+from pydantic import ValidationError
 
 from brickhouse.building import Appearance, Position3D, SourceInfo, SourceKind
 from brickhouse.scene import (
@@ -79,6 +80,30 @@ def _connected_scene_for(stair):
     return _scene(stair, volume=volume, platform=platform)
 
 
+def _multi_run_scene(*, turn_gap=0.0, straight=False):
+    lower = _stair(
+        {"x": 1, "y": 2, "z": 0},
+        {"x": 3, "y": 2, "z": 1},
+        stair_id="lower",
+    )
+    if straight:
+        upper_start = {"x": 3 + turn_gap, "y": 2, "z": 1}
+        upper_end = {"x": 8, "y": 2, "z": 2}
+    else:
+        upper_start = {"x": 3 + turn_gap, "y": 2, "z": 1}
+        upper_end = {"x": 3, "y": 0, "z": 2}
+    upper = _stair(upper_start, upper_end, stair_id="upper")
+    return ArchitecturalScene(
+        schema_version="0.2",
+        id="bh169-multi-run",
+        name="Generic multi-run stair scene",
+        volumes=[_volume(width=8, depth=8, height=4)],
+        platforms=[],
+        stairs=[upper, lower],
+        appearance=Appearance(),
+    )
+
+
 def test_x_dominant_run_expands_only_by_half_width_perpendicular_to_centerline():
     stair = _stair({"x": 0, "y": 1, "z": 0}, {"x": 4, "y": 1, "z": 2}, width=1.2)
     corridor = analyze_stair_spatial(_connected_scene_for(stair)).corridor("stair")
@@ -144,6 +169,42 @@ def test_analysis_does_not_report_contacts_that_are_not_geometrically_present():
     scene = _connected_scene_for(stair)
     report = analyze_stair_spatial(scene)
     assert all(item.target_id != "host" for item in report.contacts("stair", "end"))
+
+
+def test_multi_run_scene_accepts_direct_stair_junction_without_inventing_landing_geometry():
+    scene = _multi_run_scene()
+    assert scene.platforms == []
+
+    report = analyze_stair_spatial(scene)
+    assert len(report.run_junctions) == 1
+    junction = report.run_junctions[0]
+    assert (
+        junction.first_stair_id,
+        junction.first_endpoint,
+        junction.second_stair_id,
+        junction.second_endpoint,
+    ) == ("lower", "end", "upper", "start")
+    assert junction.changes_horizontal_direction is True
+
+
+def test_collinear_connected_runs_are_not_mislabeled_as_a_turn():
+    report = analyze_stair_spatial(_multi_run_scene(straight=True))
+    assert len(report.run_junctions) == 1
+    assert report.run_junctions[0].changes_horizontal_direction is False
+
+
+def test_gap_outside_connectivity_tolerance_does_not_create_fake_stair_junction():
+    with pytest.raises(ValidationError, match="does not connect"):
+        _multi_run_scene(turn_gap=0.13)
+
+
+def test_multi_run_analysis_is_deterministic_and_non_mutating():
+    scene = _multi_run_scene()
+    before = copy.deepcopy(scene.model_dump(mode="json"))
+    first = analyze_stair_spatial(scene).model_dump(mode="json")
+    second = analyze_stair_spatial(scene).model_dump(mode="json")
+    assert first == second
+    assert scene.model_dump(mode="json") == before
 
 
 def test_analysis_is_deterministic_and_non_mutating():
