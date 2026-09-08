@@ -1,0 +1,36 @@
+{
+  "schema_version": "brickhouse-benchmark-scale-estimate-0.1",
+  "benchmark_id": "real-house-5",
+  "target": "volume_main.width",
+  "resolved": true,
+  "value_m": 6.6243,
+  "min_m": 6.4159,
+  "max_m": 7.6991,
+  "confidence": 0.3155,
+  "source": {"kind": "inferred", "confidence": 0.3155},
+  "supporting_families": [
+    "front_glazed_door_width",
+    "front_repeated_window_width",
+    "front_small_window_width"
+  ],
+  "supporting_cue_ids": [
+    "front-opening-1-frame-v1@real-house-5-front-wall-plane-v1:width",
+    "front-opening-2-frame-v1@real-house-5-front-wall-plane-v1:width",
+    "front-opening-3-frame-v1@real-house-5-front-wall-plane-v1:width",
+    "front-opening-4-frame-v1@real-house-5-front-wall-plane-v1:width",
+    "front-opening-5-frame-v1@real-house-5-front-wall-plane-v1:width",
+    "front-opening-6-frame-v1@real-house-5-front-wall-plane-v1:width"
+  ],
+  "rejected_cue_ids": [],
+  "diagnostic": "Resolved from six photo-geometry cues across three independent architectural families. Repeated large windows are aggregated as one correlated family before cross-family consensus; the estimate is intentionally low-confidence and remains inference, not measurement.",
+  "existing_scene_candidate": {
+    "width_m": 7.2,
+    "inside_estimated_interval": true,
+    "action": "retain",
+    "reason": "The existing inferred Scene width lies inside the new measurement-free consensus interval, so current evidence does not justify replacing it."
+  },
+  "survey_invariants": {
+    "known_measurements_count": 0,
+    "accepted_survey_mutated": false
+  }
+}
