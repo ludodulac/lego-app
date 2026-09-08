@@ -18,11 +18,18 @@ def _survey() -> ArchitecturalSurvey:
             "photos": [
                 {
                     "photo_index": 1,
+                    "facade": "front",
+                    "description": "Canonical front view establishes the survey frame.",
+                    "source": {"kind": "observed", "confidence": 1.0},
+                    "image_left_maps_to_facade_offset": "low",
+                },
+                {
+                    "photo_index": 2,
                     "facade": "left",
                     "description": "An exterior access assembly is visible.",
                     "source": {"kind": "observed", "confidence": 1.0},
                     "image_left_maps_to_facade_offset": "low",
-                }
+                },
             ],
             "known_measurements": [],
             "observations": [
@@ -32,7 +39,7 @@ def _survey() -> ArchitecturalSurvey:
                     "certainty": "certain",
                     "statement": "Exterior stair exists.",
                     "evidence": [
-                        {"photo_index": 1, "observation": "Exterior stair is visible."}
+                        {"photo_index": 2, "observation": "Exterior stair is visible."}
                     ],
                 }
             ],
