@@ -95,18 +95,18 @@ def test_reaudit_scope_reads_removed_relation_evidence_from_original() -> None:
 def test_reaudit_scope_includes_reoriented_photo_without_unrelated_objects() -> None:
     original = _survey()
     candidate = original.model_copy(deep=True)
-    candidate.photos[0] = candidate.photos[0].model_copy(update={"facade": "rear"})
+    candidate.photos[1] = candidate.photos[1].model_copy(update={"facade": "rear"})
     correction = SurveyCorrection.model_validate(
         {
             "survey_id": original.id,
             "candidate": candidate,
             "changes": [
                 {
-                    "id": "change-reorient-photo-1",
-                    "finding_id": "audit-reorient-photo-1",
+                    "id": "change-reorient-photo-2",
+                    "finding_id": "audit-reorient-photo-2",
                     "object_type": "photo",
-                    "source_id": "1",
-                    "candidate_id": "1",
+                    "source_id": "2",
+                    "candidate_id": "2",
                     "action": "reorient",
                     "message": "Reorient only the audited photo.",
                 }
@@ -116,7 +116,7 @@ def test_reaudit_scope_includes_reoriented_photo_without_unrelated_objects() -> 
 
     scope = build_survey_correction_reaudit_scope(original, correction)
 
-    assert scope.correction_change_ids == ["change-reorient-photo-1"]
+    assert scope.correction_change_ids == ["change-reorient-photo-2"]
     assert scope.observation_ids == []
     assert scope.relation_ids == []
-    assert scope.photo_indexes == [1]
+    assert scope.photo_indexes == [2]
