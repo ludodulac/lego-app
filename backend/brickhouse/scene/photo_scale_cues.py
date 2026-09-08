@@ -18,7 +18,12 @@ from .scale_estimation import VisualScaleCue
 
 
 class PhotoGeometryAnnotation(BaseModel):
-    """Provenance-bearing image region for one accepted Survey observation."""
+    """Provenance-bearing region for one accepted Survey observation.
+
+    ``coordinate_space_id`` is deliberately explicit. Legacy/original-image
+    annotations default to ``image``; perspective-rectified annotations use the
+    rectification ID that produced them.
+    """
 
     id: str = Field(min_length=1)
     observation_id: str = Field(min_length=1)
@@ -26,6 +31,7 @@ class PhotoGeometryAnnotation(BaseModel):
     region: NormalizedImageRegion
     source: SourceInfo
     statement: str = Field(min_length=1)
+    coordinate_space_id: str = Field(default="image", min_length=1)
 
     @model_validator(mode="after")
     def validate_geometry_source(self) -> "PhotoGeometryAnnotation":
@@ -35,7 +41,7 @@ class PhotoGeometryAnnotation(BaseModel):
 
 
 class PhotoScaleCueBinding(BaseModel):
-    """Explicitly relate one feature box to one reference box on a single image."""
+    """Explicitly relate one feature box to one reference box on one image plane."""
 
     id: str = Field(min_length=1)
     feature_annotation_id: str = Field(min_length=1)
@@ -125,6 +131,10 @@ def build_visual_scale_cues_from_photo_geometry(
         if feature.photo_index != reference.photo_index:
             raise ValueError(
                 f"photo scale cue binding {binding.id!r} must compare regions from the same photo"
+            )
+        if feature.coordinate_space_id != reference.coordinate_space_id:
+            raise ValueError(
+                f"photo scale cue binding {binding.id!r} must compare regions from the same coordinate space"
             )
         if not _contains(reference.region, feature.region):
             raise ValueError(
