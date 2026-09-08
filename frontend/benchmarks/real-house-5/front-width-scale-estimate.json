@@ -3,7 +3,7 @@
   "benchmark_id": "real-house-5",
   "target": "volume_main.width",
   "resolved": true,
-  "value_m": 6.6243,
+  "value_m": 6.6248,
   "min_m": 6.4159,
   "max_m": 7.6991,
   "confidence": 0.3155,
