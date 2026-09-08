@@ -1,5 +1,6 @@
 const upstreamFetch = globalThis.fetch.bind(globalThis);
 const PENDING_SURVEY_KEY = 'brickhouse.pendingArchitecturalSurvey';
+const HUMAN_FACT_SCENE_HANDOFF_KEY = 'brickhouse.pendingHumanFactSceneHandoff';
 
 function pendingValidatedSurvey() {
   try {
@@ -8,6 +9,24 @@ function pendingValidatedSurvey() {
   } catch {
     return null;
   }
+}
+
+function pendingSceneSurveyInput() {
+  const accepted = pendingValidatedSurvey();
+  if (!accepted) return { survey: null, humanFacts: [] };
+  try {
+    const handoff = JSON.parse(localStorage.getItem(HUMAN_FACT_SCENE_HANDOFF_KEY) || 'null');
+    const validDerived = handoff?.source_survey_id === accepted.id
+      && handoff?.scene_input_survey?.schema_version === '0.1'
+      && Array.isArray(handoff?.human_facts)
+      && handoff.human_facts.length > 0;
+    if (validDerived) {
+      return { survey: handoff.scene_input_survey, humanFacts: handoff.human_facts };
+    }
+  } catch {
+    // Fall back to accepted Survey truth; malformed derived state has no authority.
+  }
+  return { survey: accepted, humanFacts: [] };
 }
 
 function absoluteUrl(input) {
@@ -33,14 +52,14 @@ function compactObservation(item) {
     facade: item?.facade ?? null,
     certainty: item?.certainty ?? null,
   };
-  for (const key of ['physical_object_count', 'semantic_type', 'slope_direction', 'roof_type', 'facade_is_gable', 'facade_roof_relationship', 'roof_edge_type']) {
+  for (const key of ['physical_object_count', 'semantic_type', 'slope_direction', 'roof_type', 'facade_is_gable', 'facade_roof_relationship', 'roof_edge_type', 'stair_topology']) {
     if (Object.prototype.hasOwnProperty.call(attributes, key)) result[key] = attributes[key];
   }
   if (attributeCertainty != null) result.attribute_certainty = attributeCertainty;
   return result;
 }
 
-export function buildSceneSourceLock(survey) {
+export function buildSceneSourceLock(survey, humanFacts = []) {
   if (!survey || survey.schema_version !== '0.1') return '';
 
   const observations = (survey.observations ?? []).map(compactObservation);
@@ -62,9 +81,10 @@ export function buildSceneSourceLock(survey) {
     active_terrain: terrain,
     active_roofs: roofs,
     relations,
+    human_facts: humanFacts,
   };
 
-  return `VERROU SOURCE SURVEY → SCENE — GÉNÉRÉ AUTOMATIQUEMENT PAR BOLDUNGO\nCe manifeste est dérivé du Survey validé actuellement actif dans Boldungo. Il ne remplace pas le JSON complet placé plus bas : il sert de contrôle anti-oubli et anti-ancien-Survey juste avant la reconstruction. Si une supposition, le PDF ou un souvenir de conversation contredit ce manifeste, LE MANIFESTE ET LE JSON SURVEY COMPLET GAGNENT.\n\nRÈGLES DE FERMETURE OBLIGATOIRES\n- N'invente aucun ID d'opening, platform, stair, volume secondaire ou chimney absent des observations Survey correspondantes. volume_main reste l'ancre métrique Scene autorisée pour l'enveloppe principale.\n- Pour chaque observation terrain certaine/plausible listée dans active_terrain, terrain.profiles contient un profil de la même façade. Une amplitude inconnue reste null ; elle ne justifie jamais la suppression du profil.\n- Pour chaque observation roof certaine/plausible, conserve les hypothèses qualitatives soutenues et leur niveau de certitude. facade_is_gable:true certain/plausible ne doit pas devenir type:\"other\" par simple prudence ; les métriques non contraintes restent null.\n- Chaque relation certaine conserve son id et son identité d'endpoints. Si un endpoint Survey appartient à building_boundary_ids, la Scene utilise l'alias sémantique littéral building_boundary avec semantic_anchor_volume_id:\"volume_main\" lorsque le contact métrique est résolu ; n'invente jamais obs-building-envelope, obs-building-boundary-new ou un autre alias.\n- Avant sortie, compare le JSON Scene final à ce manifeste. S'il manque un terrain actif, une hypothèse roof soutenue ou si un ID/endpoint a dérivé, corrige la Scene avant de créer brickhouse-scene-result.json.\n\nMANIFESTE SOURCE EXACT\n${JSON.stringify(manifest, null, 2)}\n`;
+  return `VERROU SOURCE SURVEY → SCENE — GÉNÉRÉ AUTOMATIQUEMENT PAR BOLDUNGO\nCe manifeste est dérivé du Survey validé actuellement actif dans Boldungo et, lorsqu'elles existent, de corrections sémantiques utilisateur validées séparément par le backend. Le Survey accepté reste inchangé. Il ne remplace pas le JSON complet placé plus bas : il sert de contrôle anti-oubli et anti-ancien-Survey juste avant la reconstruction. Si une supposition, le PDF ou un souvenir de conversation contredit ce manifeste, LE MANIFESTE ET LE JSON SURVEY COMPLET GAGNENT.\n\nRÈGLES DE FERMETURE OBLIGATOIRES\n- N'invente aucun ID d'opening, platform, stair, volume secondaire ou chimney absent des observations Survey correspondantes. volume_main reste l'ancre métrique Scene autorisée pour l'enveloppe principale.\n- Les éléments de human_facts sont des faits sémantiques user_provided validés et traçables ; ils peuvent enrichir les attributs d'observation mais ne deviennent jamais des known_measurements.\n- Pour chaque observation terrain certaine/plausible listée dans active_terrain, terrain.profiles contient un profil de la même façade. Une amplitude inconnue reste null ; elle ne justifie jamais la suppression du profil.\n- Pour chaque observation roof certaine/plausible, conserve les hypothèses qualitatives soutenues et leur niveau de certitude. facade_is_gable:true certain/plausible ne doit pas devenir type:\"other\" par simple prudence ; les métriques non contraintes restent null.\n- Chaque relation certaine conserve son id et son identité d'endpoints. Si un endpoint Survey appartient à building_boundary_ids, la Scene utilise l'alias sémantique littéral building_boundary avec semantic_anchor_volume_id:\"volume_main\" lorsque le contact métrique est résolu ; n'invente jamais obs-building-envelope, obs-building-boundary-new ou un autre alias.\n- Avant sortie, compare le JSON Scene final à ce manifeste. S'il manque un terrain actif, une hypothèse roof soutenue ou si un ID/endpoint a dérivé, corrige la Scene avant de créer brickhouse-scene-result.json.\n\nMANIFESTE SOURCE EXACT\n${JSON.stringify(manifest, null, 2)}\n`;
 }
 
 globalThis.fetch = async function sourceLockedScenePromptFetch(input, init) {
@@ -72,10 +92,10 @@ globalThis.fetch = async function sourceLockedScenePromptFetch(input, init) {
   const response = await upstreamFetch(input, init);
   if (!isScenePromptUrl(url)) return response;
 
-  const survey = pendingValidatedSurvey();
+  const { survey, humanFacts } = pendingSceneSurveyInput();
   if (!survey) return response;
   const prompt = await response.text();
-  const sourceLock = buildSceneSourceLock(survey);
+  const sourceLock = buildSceneSourceLock(survey, humanFacts);
   return new Response(`${prompt}\n\n${sourceLock}`, {
     status: response.status,
     statusText: response.statusText,
@@ -96,6 +116,7 @@ function extractCandidateSurvey(raw) {
 
 function clearStaleSurveyHandoff() {
   localStorage.removeItem(PENDING_SURVEY_KEY);
+  localStorage.removeItem(HUMAN_FACT_SCENE_HANDOFF_KEY);
   localStorage.removeItem('brickhouse.pendingSceneValidation');
   localStorage.removeItem('brickhouse.lastSceneSurveyValidation');
   const home = document.querySelector('#scene-handoff-home');
