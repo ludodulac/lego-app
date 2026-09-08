@@ -111,6 +111,75 @@ def test_equally_supported_disjoint_multi_family_hypotheses_remain_ambiguous() -
     assert "Multiple disjoint scale hypotheses" in estimate.diagnostic
 
 
+def test_duplicate_same_family_cues_do_not_inflate_value_or_confidence() -> None:
+    priors = [
+        _prior("window-width", "window", 1.0, 1.2, 1.1),
+        _prior("door-width", "door", 0.8, 1.0, 0.9),
+    ]
+    baseline = [
+        VisualScaleCue(id="window-a", cue_family="window_width", prior_id="window-width", normalized_extent=0.11),
+        VisualScaleCue(id="door", cue_family="door_width", prior_id="door-width", normalized_extent=0.09),
+    ]
+    repeated = baseline + [
+        VisualScaleCue(id=f"window-repeat-{index}", cue_family="window_width", prior_id="window-width", normalized_extent=0.11)
+        for index in range(12)
+    ]
+
+    one = estimate_architectural_scale(baseline, priors)
+    many = estimate_architectural_scale(repeated, priors)
+
+    assert one.resolved is True and many.resolved is True
+    assert many.value_m == pytest.approx(one.value_m)
+    assert many.min_m == pytest.approx(one.min_m)
+    assert many.max_m == pytest.approx(one.max_m)
+    assert many.confidence == pytest.approx(one.confidence)
+    assert len(many.supporting_cue_ids) > len(one.supporting_cue_ids)
+    assert "family-capped weighting" in many.diagnostic
+
+
+def test_distinct_family_adds_confidence_but_same_family_repeat_does_not() -> None:
+    priors = [
+        _prior("window-width", "window", 1.0, 1.2, 1.1),
+        _prior("door-width", "door", 0.8, 1.0, 0.9),
+        _prior("bay-width", "glazed_bay", 1.5, 1.8, 1.65),
+    ]
+    two_family = [
+        VisualScaleCue(id="window", cue_family="window_width", prior_id="window-width", normalized_extent=0.11),
+        VisualScaleCue(id="door", cue_family="door_width", prior_id="door-width", normalized_extent=0.09),
+    ]
+    repeated = two_family + [
+        VisualScaleCue(id="window-b", cue_family="window_width", prior_id="window-width", normalized_extent=0.11),
+    ]
+    three_family = two_family + [
+        VisualScaleCue(id="bay", cue_family="glazed_bay_width", prior_id="bay-width", normalized_extent=0.165),
+    ]
+
+    base = estimate_architectural_scale(two_family, priors)
+    repeat = estimate_architectural_scale(repeated, priors)
+    diverse = estimate_architectural_scale(three_family, priors)
+
+    assert repeat.confidence == pytest.approx(base.confidence)
+    assert diverse.confidence > base.confidence
+
+
+def test_many_repeated_windows_cannot_rescue_a_conflicting_door_family() -> None:
+    priors = [
+        _prior("window-width", "window", 1.0, 1.2, 1.1),
+        _prior("door-width", "door", 0.8, 1.0, 0.9),
+    ]
+    cues = [
+        VisualScaleCue(id=f"window-{index}", cue_family="window_width", prior_id="window-width", normalized_extent=0.11)
+        for index in range(20)
+    ] + [
+        VisualScaleCue(id="door", cue_family="door_width", prior_id="door-width", normalized_extent=0.18)
+    ]
+
+    estimate = estimate_architectural_scale(cues, priors)
+
+    assert estimate.resolved is False
+    assert "do not overlap" in estimate.diagnostic
+
+
 def test_unknown_prior_reference_is_rejected() -> None:
     with pytest.raises(ValueError, match="unknown priors"):
         estimate_architectural_scale(
