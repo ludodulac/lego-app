@@ -1,5 +1,6 @@
 import './brickhouse-survey-package.js';
 import './survey-neutral-normalize.js';
+import './scene-handoff-source-lock.js';
 
 const button = document.querySelector('#import-analysis');
 const input = document.querySelector('#external-analysis');
