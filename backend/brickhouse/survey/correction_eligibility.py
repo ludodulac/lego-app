@@ -59,10 +59,15 @@ def classify_survey_correction_finding_v01(
         )
 
     if target is SurveyAuditTargetType.PHOTO:
+        automatic = action is SurveyAuditSuggestedAction.REORIENT
         return SurveyCorrectionEligibility(
             finding_id=finding.id,
-            automatic=False,
-            reason="photo_target_not_mutable_v01",
+            automatic=automatic,
+            reason=(
+                "automatic_photo_reorient"
+                if automatic
+                else "photo_target_allows_reorient_only_v01"
+            ),
         )
 
     if action is SurveyAuditSuggestedAction.ADD:
@@ -111,7 +116,7 @@ def classify_survey_correction_finding_v01(
             reason=(
                 "automatic_observation_reorient"
                 if automatic
-                else "reorient_requires_observation_target_v01"
+                else "reorient_requires_observation_or_photo_target_v01"
             ),
         )
 

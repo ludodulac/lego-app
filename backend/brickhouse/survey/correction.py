@@ -1,8 +1,8 @@
 """Explicit, audit-linked correction contract for ArchitecturalSurvey.
 
 A SurveyCorrection never patches a Survey implicitly. It carries a complete
-candidate Survey plus a journal tying every model-level observation/relation
-change to one actionable SurveyAudit finding.
+candidate Survey plus a journal tying every model-level change to one actionable
+SurveyAudit finding.
 """
 
 from __future__ import annotations
@@ -20,12 +20,19 @@ from .audit import (
     SurveyAuditSuggestedAction,
     SurveyAuditTargetType,
 )
-from .models import ArchitecturalSurvey, Certainty, SurveyObservation, SurveyRelation
+from .models import (
+    ArchitecturalSurvey,
+    Certainty,
+    PhotoView,
+    SurveyObservation,
+    SurveyRelation,
+)
 from .roof_guard import validate_multiview_roof_hypotheses
 from .validation import validate_survey_semantics
 
 
 class SurveyCorrectionObjectType(str, Enum):
+    PHOTO = "photo"
     OBSERVATION = "observation"
     RELATION = "relation"
 
@@ -41,6 +48,12 @@ class SurveyCorrectionChange(BaseModel):
 
     @model_validator(mode="after")
     def validate_ids_for_action(self) -> "SurveyCorrectionChange":
+        if (
+            self.object_type is SurveyCorrectionObjectType.PHOTO
+            and self.action is not SurveyAuditSuggestedAction.REORIENT
+        ):
+            raise ValueError("photo corrections support reorient only in SurveyCorrection v0.1")
+
         if self.action is SurveyAuditSuggestedAction.ADD:
             if self.source_id is not None or not self.candidate_id:
                 raise ValueError("add corrections require candidate_id and no source_id")
@@ -104,6 +117,7 @@ _ORIENTATION_ATTRIBUTE_KEYS = {
 
 def _maps(survey: ArchitecturalSurvey):
     return (
+        {str(item.photo_index): item for item in survey.photos},
         {item.id: item for item in survey.observations},
         {item.id: item for item in survey.relations},
     )
@@ -215,7 +229,7 @@ def _validate_lower_certainty_scope(
     ]
 
 
-def _validate_reorient_scope(
+def _validate_observation_reorient_scope(
     change: SurveyCorrectionChange,
     before: SurveyObservation | SurveyRelation,
     after: SurveyObservation | SurveyRelation,
@@ -225,7 +239,7 @@ def _validate_reorient_scope(
             _validation_issue(
                 "survey_correction_reorient_relation_unsupported",
                 change,
-                "SurveyCorrection v0.1 reorient is limited to observations; relation reorientation requires manual review.",
+                "SurveyCorrection v0.1 reorient supports observations and photos, not relations.",
             )
         ]
 
@@ -282,6 +296,42 @@ def _validate_reorient_scope(
     return issues
 
 
+def _validate_photo_reorient_scope(
+    change: SurveyCorrectionChange,
+    before: PhotoView,
+    after: PhotoView,
+) -> list[SurveyCorrectionValidationIssue]:
+    issues: list[SurveyCorrectionValidationIssue] = []
+    frozen_fields = (
+        "photo_index",
+        "capture_role",
+        "description",
+        "source",
+        "user_note",
+    )
+    if any(getattr(before, field) != getattr(after, field) for field in frozen_fields):
+        issues.append(
+            _validation_issue(
+                "survey_correction_photo_reorient_scope_violation",
+                change,
+                "photo reorient may change only facade and image-left facade-offset mapping.",
+            )
+        )
+
+    if (
+        before.facade == after.facade
+        and before.image_left_maps_to_facade_offset == after.image_left_maps_to_facade_offset
+    ):
+        issues.append(
+            _validation_issue(
+                "survey_correction_photo_reorient_no_orientation_change",
+                change,
+                "photo reorient must actually change facade or image-left facade-offset mapping.",
+            )
+        )
+    return issues
+
+
 def validate_survey_correction(
     original: ArchitecturalSurvey,
     audit: SurveyAudit,
@@ -289,10 +339,9 @@ def validate_survey_correction(
 ) -> list[SurveyCorrectionValidationIssue]:
     """Validate one explicit correction candidate against its source audit.
 
-    v0.1 deliberately freezes non-observation Survey truth. This keeps exact
-    user measurements, photo metadata, frame, representation policy and document
-    identity outside the automatic correction surface while the workflow is
-    experimental.
+    v0.1 freezes exact measurements, frame, representation policy, document
+    identity and all non-orientation photo content. Photo orientation may change
+    only through an explicit PHOTO + REORIENT audit-linked correction.
     """
     issues: list[SurveyCorrectionValidationIssue] = []
     candidate = correction.candidate
@@ -325,7 +374,6 @@ def validate_survey_correction(
     frozen_fields = (
         "name",
         "canonical_frame",
-        "photos",
         "known_measurements",
         "representation_policy",
         "notes",
@@ -338,19 +386,37 @@ def validate_survey_correction(
                     change_id=None,
                     message=(
                         f"SurveyCorrection v0.1 cannot change {field}; "
-                        "only observations and relations are in scope."
+                        "that source truth remains immutable."
                     ),
                 )
             )
 
-    original_observations, original_relations = _maps(original)
-    candidate_observations, candidate_relations = _maps(candidate)
+    original_photos, original_observations, original_relations = _maps(original)
+    candidate_photos, candidate_observations, candidate_relations = _maps(candidate)
+    photo_added, photo_removed, photo_modified = _diff_ids(original_photos, candidate_photos)
     obs_added, obs_removed, obs_modified = _diff_ids(
         original_observations, candidate_observations
     )
     rel_added, rel_removed, rel_modified = _diff_ids(
         original_relations, candidate_relations
     )
+
+    for photo_id in sorted(photo_added):
+        issues.append(
+            SurveyCorrectionValidationIssue(
+                code="survey_correction_photo_add_unsupported",
+                change_id=None,
+                message=f"SurveyCorrection v0.1 cannot add photo {photo_id!r}.",
+            )
+        )
+    for photo_id in sorted(photo_removed):
+        issues.append(
+            SurveyCorrectionValidationIssue(
+                code="survey_correction_photo_remove_unsupported",
+                change_id=None,
+                message=f"SurveyCorrection v0.1 cannot remove photo {photo_id!r}.",
+            )
+        )
 
     findings = {finding.id: finding for finding in audit.findings}
     covered_added: set[tuple[SurveyCorrectionObjectType, str]] = set()
@@ -391,7 +457,24 @@ def validate_survey_correction(
                 )
             )
 
-        if finding.target_type is SurveyAuditTargetType.OBSERVATION:
+        if finding.target_type is SurveyAuditTargetType.PHOTO:
+            if change.object_type is not SurveyCorrectionObjectType.PHOTO:
+                issues.append(
+                    SurveyCorrectionValidationIssue(
+                        code="survey_correction_target_type_mismatch",
+                        change_id=change.id,
+                        message="Photo finding must correct a photo.",
+                    )
+                )
+            if finding.target_id and change.source_id != finding.target_id:
+                issues.append(
+                    SurveyCorrectionValidationIssue(
+                        code="survey_correction_source_target_mismatch",
+                        change_id=change.id,
+                        message="Correction source_id must match the audited photo_index.",
+                    )
+                )
+        elif finding.target_type is SurveyAuditTargetType.OBSERVATION:
             if change.object_type is not SurveyCorrectionObjectType.OBSERVATION:
                 issues.append(
                     SurveyCorrectionValidationIssue(
@@ -430,11 +513,14 @@ def validate_survey_correction(
                 SurveyCorrectionValidationIssue(
                     code="survey_correction_unsupported_finding_target",
                     change_id=change.id,
-                    message="Photo-level findings cannot directly mutate Survey objects in v0.1.",
+                    message="Unsupported SurveyAudit target for SurveyCorrection v0.1.",
                 )
             )
 
-        if change.object_type is SurveyCorrectionObjectType.OBSERVATION:
+        if change.object_type is SurveyCorrectionObjectType.PHOTO:
+            added, removed, modified = photo_added, photo_removed, photo_modified
+            before, after = original_photos, candidate_photos
+        elif change.object_type is SurveyCorrectionObjectType.OBSERVATION:
             added, removed, modified = obs_added, obs_removed, obs_modified
             before, after = original_observations, candidate_observations
         else:
@@ -485,9 +571,17 @@ def validate_survey_correction(
                             after[change.source_id],
                         )
                     )
+                elif change.object_type is SurveyCorrectionObjectType.PHOTO:
+                    issues.extend(
+                        _validate_photo_reorient_scope(
+                            change,
+                            before[change.source_id],
+                            after[change.source_id],
+                        )
+                    )
                 else:
                     issues.extend(
-                        _validate_reorient_scope(
+                        _validate_observation_reorient_scope(
                             change,
                             before[change.source_id],
                             after[change.source_id],
@@ -535,14 +629,17 @@ def validate_survey_correction(
                 covered_modified.add((change.object_type, change.candidate_id))
 
     expected_added = {
+        *((SurveyCorrectionObjectType.PHOTO, item_id) for item_id in photo_added),
         *((SurveyCorrectionObjectType.OBSERVATION, item_id) for item_id in obs_added),
         *((SurveyCorrectionObjectType.RELATION, item_id) for item_id in rel_added),
     }
     expected_removed = {
+        *((SurveyCorrectionObjectType.PHOTO, item_id) for item_id in photo_removed),
         *((SurveyCorrectionObjectType.OBSERVATION, item_id) for item_id in obs_removed),
         *((SurveyCorrectionObjectType.RELATION, item_id) for item_id in rel_removed),
     }
     expected_modified = {
+        *((SurveyCorrectionObjectType.PHOTO, item_id) for item_id in photo_modified),
         *((SurveyCorrectionObjectType.OBSERVATION, item_id) for item_id in obs_modified),
         *((SurveyCorrectionObjectType.RELATION, item_id) for item_id in rel_modified),
     }

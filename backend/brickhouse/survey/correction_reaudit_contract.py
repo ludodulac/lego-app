@@ -101,7 +101,23 @@ def validate_survey_correction_reaudit(
             )
         finding_ids.add(finding.id)
 
-        if finding.target_type is SurveyAuditTargetType.OBSERVATION:
+        if finding.target_type is SurveyAuditTargetType.PHOTO:
+            try:
+                target_photo_index = int(finding.target_id or "")
+            except ValueError:
+                target_photo_index = -1
+            if target_photo_index not in allowed_photos:
+                issues.append(
+                    SurveyCorrectionReauditValidationIssue(
+                        code="survey_correction_reaudit_photo_target_out_of_scope",
+                        finding_id=finding.id,
+                        message=(
+                            "Targeted photo re-audit findings must refer to a photo in the "
+                            "deterministic correction scope."
+                        ),
+                    )
+                )
+        elif finding.target_type is SurveyAuditTargetType.OBSERVATION:
             if finding.target_id not in allowed_observations:
                 issues.append(
                     SurveyCorrectionReauditValidationIssue(
@@ -131,8 +147,8 @@ def validate_survey_correction_reaudit(
                     code="survey_correction_reaudit_target_type_out_of_scope",
                     finding_id=finding.id,
                     message=(
-                        "Targeted re-audit v0.1 accepts only observation/relation findings; "
-                        "survey/photo-level expansion requires a fresh independent audit."
+                        "Targeted re-audit v0.1 accepts only photo/observation/relation findings; "
+                        "survey-level expansion requires a fresh independent audit."
                     ),
                 )
             )
