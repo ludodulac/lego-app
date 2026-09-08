@@ -1,8 +1,8 @@
 """Deterministic scope builder for a targeted post-correction visual re-audit.
 
-The scope is intentionally narrow: changed observations/relations, relations
-incident to changed observations, and the source photos already referenced by
-those objects. It never mutates either Survey and never launches an AI loop.
+The scope is intentionally narrow: changed photos/observations/relations,
+relations incident to changed observations, and source photos already referenced
+by those objects. It never mutates either Survey and never launches an AI loop.
 """
 
 from __future__ import annotations
@@ -46,6 +46,8 @@ def build_survey_correction_reaudit_scope(
     For an observation change, directly incident relations are included so a
     local correction cannot silently break topology. Removed objects are read
     from the original Survey; added/modified objects are read from the candidate.
+    A photo reorientation contributes that photo directly and does not broaden
+    the scope to unrelated observations merely because they cite the same image.
     """
     candidate = correction.candidate
     original_observations, original_relations = _objects_by_id(original)
@@ -53,10 +55,14 @@ def build_survey_correction_reaudit_scope(
 
     observation_ids: set[str] = set()
     relation_ids: set[str] = set()
+    direct_photo_indexes: set[int] = set()
 
     for change in correction.changes:
         ids = {item_id for item_id in (change.source_id, change.candidate_id) if item_id}
-        if change.object_type is SurveyCorrectionObjectType.OBSERVATION:
+        if change.object_type is SurveyCorrectionObjectType.PHOTO:
+            for item_id in ids:
+                direct_photo_indexes.add(int(item_id))
+        elif change.object_type is SurveyCorrectionObjectType.OBSERVATION:
             observation_ids.update(ids)
         else:
             relation_ids.update(ids)
@@ -87,5 +93,7 @@ def build_survey_correction_reaudit_scope(
         correction_change_ids=[change.id for change in correction.changes],
         observation_ids=sorted(observation_ids),
         relation_ids=sorted(relation_ids),
-        photo_indexes=sorted(_evidence_photo_indexes(scoped_objects)),
+        photo_indexes=sorted(
+            direct_photo_indexes | _evidence_photo_indexes(scoped_objects)
+        ),
     )
