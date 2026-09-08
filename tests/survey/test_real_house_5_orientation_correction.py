@@ -123,17 +123,44 @@ def test_real_house_5_human_orientation_correction_is_bounded_and_audit_linked()
     assert correction.candidate.photos[4].description == source.photos[4].description
 
 
-def test_real_house_5_orientation_reaudit_is_limited_to_confirmed_views() -> None:
+def test_real_house_5_orientation_reaudit_covers_direct_evidence_dependencies() -> None:
     source = _survey()
     audit = _orientation_audit(source)
     correction = _orientation_correction(source, audit)
 
     scope = build_survey_correction_reaudit_scope(source, correction)
 
+    corrected_photo_indexes = {3, 5}
+    expected_observation_ids = sorted(
+        item.id
+        for item in source.observations
+        if any(evidence.photo_index in corrected_photo_indexes for evidence in item.evidence)
+    )
+    expected_relation_ids = sorted(
+        relation.id
+        for relation in source.relations
+        if any(evidence.photo_index in corrected_photo_indexes for evidence in relation.evidence)
+        or relation.subject_id in expected_observation_ids
+        or relation.object_id in expected_observation_ids
+    )
+    scoped_objects = [
+        item for item in source.observations if item.id in expected_observation_ids
+    ] + [
+        item for item in source.relations if item.id in expected_relation_ids
+    ]
+    expected_photo_indexes = sorted(
+        corrected_photo_indexes
+        | {
+            evidence.photo_index
+            for item in scoped_objects
+            for evidence in item.evidence
+        }
+    )
+
     assert scope.correction_change_ids == [
         "change-real-house-5-photo-3-rear",
         "change-real-house-5-photo-5-left",
     ]
-    assert scope.photo_indexes == [3, 5]
-    assert scope.observation_ids == []
-    assert scope.relation_ids == []
+    assert scope.observation_ids == expected_observation_ids
+    assert scope.relation_ids == expected_relation_ids
+    assert scope.photo_indexes == expected_photo_indexes
