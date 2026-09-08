@@ -16,6 +16,7 @@ def test_human_fact_client_keeps_accepted_survey_storage_separate() -> None:
     assert "human_facts: humanFacts" in source
     assert "scene_input_survey" in source
     assert "storage.setItem(HUMAN_FACT_SCENE_HANDOFF_KEY" in source
+    assert "return persistHumanFactSceneHandoff(payload, storage)" in source
     assert "brickhouse.pendingArchitecturalSurvey" not in source
 
 
@@ -25,8 +26,11 @@ def test_scene_source_lock_prefers_only_matching_validated_derived_handoff() -> 
     assert "readHumanFactSceneHandoff" in source
     assert "effectiveSceneInput" in source
     assert "handoff?.source_survey_id === acceptedSurvey.id" in source
-    assert "handoff?.scene_input_survey?.schema_version === '0.1'" in source
-    assert "survey: handoff.scene_input_survey" in source
+    assert "derivedSurvey?.id === acceptedSurvey.id" in source
+    assert "derivedSurvey?.schema_version === '0.1'" in source
+    assert "sameJson(observationIds(derivedSurvey), observationIds(acceptedSurvey))" in source
+    assert "sameJson(derivedSurvey?.known_measurements ?? [], acceptedSurvey?.known_measurements ?? [])" in source
+    assert "survey: derivedSurvey" in source
     assert "humanFacts: handoff.human_facts" in source
     assert "human_facts: humanFacts" in source
     assert "stair_topology" in source
