@@ -131,20 +131,31 @@ def _by_family(votes: list[ScaleCueVote]) -> dict[str, list[ScaleCueVote]]:
     return grouped
 
 
-def _family_capped_weight(votes: list[ScaleCueVote]) -> float:
-    """Count confidence once per independent family, never once per repetition."""
-    return sum(max(vote.weight for vote in family_votes) for family_votes in _by_family(votes).values())
+def _family_summary(votes: list[ScaleCueVote]) -> tuple[float, float, float, float]:
+    """Return duplicate-invariant center/range/weight for one correlated family.
 
-
-def _family_center_and_weight(votes: list[ScaleCueVote]) -> tuple[float, float]:
-    """Return a duplicate-invariant representative center and one capped family weight.
-
-    Exact repeated centers are deduplicated before taking the median. This keeps a
-    repeated window rhythm useful as consistency evidence without pretending each
-    occurrence is an independent absolute-scale experiment.
+    Raw repeated cues are consistency samples, not independent measurements. Exact
+    duplicates are removed before aggregation. With at least three genuinely
+    different intervals, median bounds robustly ignore a single outlier. With one
+    or two unique intervals, the union is retained because narrowing would claim
+    more information than the family actually provides.
     """
-    unique_centers = sorted({vote.center_m for vote in votes})
-    return float(median(unique_centers)), max(vote.weight for vote in votes)
+    unique = sorted({(vote.center_m, vote.min_m, vote.max_m) for vote in votes})
+    centers = [item[0] for item in unique]
+    mins = [item[1] for item in unique]
+    maxs = [item[2] for item in unique]
+    center = float(median(centers))
+    if len(unique) >= 3:
+        min_m = float(median(mins))
+        max_m = float(median(maxs))
+    else:
+        min_m = min(mins)
+        max_m = max(maxs)
+    return center, min_m, max_m, max(vote.weight for vote in votes)
+
+
+def _family_summaries(votes: list[ScaleCueVote]) -> dict[str, tuple[float, float, float, float]]:
+    return {family: _family_summary(group) for family, group in _by_family(votes).items()}
 
 
 def estimate_architectural_scale(
@@ -155,11 +166,10 @@ def estimate_architectural_scale(
 ) -> ArchitecturalScaleEstimate:
     """Estimate one absolute reference extent without pretending priors are measurements.
 
-    The estimator searches interval-consensus points and ranks them primarily by
-    the number of independent cue families, then by family-capped confidence.
-    Repeating correlated features in one family therefore cannot manufacture more
-    independent evidence. Equally strong disjoint hypotheses remain unresolved
-    instead of being averaged into a fabricated compromise.
+    Correlated repetitions are first reduced to one robust family-level hypothesis.
+    Cross-family consensus therefore combines genuinely independent evidence, while
+    raw votes remain available for diagnostics. Equally strong disjoint hypotheses
+    remain unresolved instead of being averaged into a fabricated compromise.
     """
     if minimum_independent_families < 2:
         raise ValueError("minimum_independent_families must be at least 2")
@@ -177,61 +187,71 @@ def estimate_architectural_scale(
         raise ValueError(f"visual scale cues reference unknown priors: {', '.join(missing)}")
 
     votes = [_vote(cue, prior_by_id[cue.prior_id]) for cue in cues]
-    all_families = {vote.cue_family for vote in votes}
-    if len(all_families) < minimum_independent_families:
+    all_family_summaries = _family_summaries(votes)
+    if len(all_family_summaries) < minimum_independent_families:
         return _unresolved(
             votes,
-            f"Need at least {minimum_independent_families} independent cue families; got {len(all_families)}.",
+            f"Need at least {minimum_independent_families} independent cue families; got {len(all_family_summaries)}.",
         )
 
     candidate_points = sorted(
         {
             point
-            for vote in votes
-            for point in (vote.min_m, vote.center_m, vote.max_m)
+            for center, min_m, max_m, _ in all_family_summaries.values()
+            for point in (min_m, center, max_m)
         }
     )
-    hypotheses: list[tuple[int, float, float, list[ScaleCueVote]]] = []
+    hypotheses: list[tuple[int, float, float, list[str]]] = []
     for point in candidate_points:
-        support = [vote for vote in votes if vote.min_m <= point <= vote.max_m]
-        families = {vote.cue_family for vote in support}
-        if len(families) < minimum_independent_families:
+        support_families = [
+            family
+            for family, (_, min_m, max_m, _) in all_family_summaries.items()
+            if min_m <= point <= max_m
+        ]
+        if len(support_families) < minimum_independent_families:
             continue
-        weight = _family_capped_weight(support)
-        hypotheses.append((len(families), weight, point, support))
+        weight = sum(all_family_summaries[family][3] for family in support_families)
+        hypotheses.append((len(support_families), weight, point, support_families))
 
     if not hypotheses:
         return _unresolved(votes, "Independent cue families do not overlap on a defensible scale interval.")
 
     hypotheses.sort(key=lambda item: (item[0], item[1]), reverse=True)
-    best_family_count, best_weight, best_point, best_support = hypotheses[0]
-    best_ids = {vote.cue_id for vote in best_support}
+    best_family_count, best_weight, best_point, best_families = hypotheses[0]
+    best_family_set = set(best_families)
 
-    # If another disjoint hypothesis has equal family diversity and nearly equal
-    # family-capped evidence weight, preserve the ambiguity instead of choosing arbitrarily.
-    for family_count, weight, point, support in hypotheses[1:]:
-        support_ids = {vote.cue_id for vote in support}
-        if family_count != best_family_count or support_ids & best_ids:
+    for family_count, weight, point, families in hypotheses[1:]:
+        family_set = set(families)
+        if family_count != best_family_count or family_set & best_family_set:
             continue
         if weight >= best_weight * 0.9 and abs(point - best_point) > 1e-9:
             return _unresolved(votes, "Multiple disjoint scale hypotheses have comparable multi-family support.")
 
-    interval_min = max(vote.min_m for vote in best_support)
-    interval_max = min(vote.max_m for vote in best_support)
+    interval_min = max(all_family_summaries[family][1] for family in best_families)
+    interval_max = min(all_family_summaries[family][2] for family in best_families)
     if interval_max <= interval_min:
-        return _unresolved(votes, "Best scale hypothesis has no non-zero consensus interval.")
+        return _unresolved(votes, "Best scale hypothesis has no non-zero family-level consensus interval.")
 
-    grouped_support = _by_family(best_support)
-    family_representatives = [_family_center_and_weight(group) for group in grouped_support.values()]
+    family_representatives = [
+        (all_family_summaries[family][0], all_family_summaries[family][3])
+        for family in best_families
+    ]
     total_weight = sum(weight for _, weight in family_representatives)
     value_m = sum(center * weight for center, weight in family_representatives) / total_weight
     value_m = min(max(value_m, interval_min), interval_max)
 
-    support_ids = [vote.cue_id for vote in best_support]
+    supporting_votes = [
+        vote
+        for vote in votes
+        if vote.cue_family in best_family_set
+        and vote.max_m >= interval_min
+        and vote.min_m <= interval_max
+    ]
+    support_ids = [vote.cue_id for vote in supporting_votes]
     support_id_set = set(support_ids)
     rejected_ids = [vote.cue_id for vote in votes if vote.cue_id not in support_id_set]
-    families = sorted(grouped_support)
-    support_fraction = len(families) / len(all_families)
+    families = sorted(best_families)
+    support_fraction = len(families) / len(all_family_summaries)
     average_weight = total_weight / len(family_representatives)
     diversity_factor = min(1.0, len(families) / max(minimum_independent_families, 3))
     confidence = min(0.95, average_weight * (0.65 + 0.35 * support_fraction) * (0.75 + 0.25 * diversity_factor))
@@ -248,7 +268,7 @@ def estimate_architectural_scale(
         supporting_families=families,
         votes=votes,
         diagnostic=(
-            f"Resolved from {len(best_support)} cues across {len(families)} independent families; "
-            f"family-capped weighting; rejected {len(rejected_ids)} non-consensus cue(s)."
+            f"Resolved from {len(support_ids)} cues across {len(families)} independent families; "
+            f"uncertainty aggregated at family level; rejected {len(rejected_ids)} non-consensus cue(s)."
         ),
     )
