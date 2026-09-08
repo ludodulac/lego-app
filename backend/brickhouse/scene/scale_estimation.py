@@ -7,6 +7,7 @@ ScaleEstimate is always inferred. Nothing here creates or mutates
 """
 from __future__ import annotations
 
+from statistics import median
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -123,6 +124,29 @@ def _unresolved(votes: list[ScaleCueVote], diagnostic: str) -> ArchitecturalScal
     )
 
 
+def _by_family(votes: list[ScaleCueVote]) -> dict[str, list[ScaleCueVote]]:
+    grouped: dict[str, list[ScaleCueVote]] = {}
+    for vote in votes:
+        grouped.setdefault(vote.cue_family, []).append(vote)
+    return grouped
+
+
+def _family_capped_weight(votes: list[ScaleCueVote]) -> float:
+    """Count confidence once per independent family, never once per repetition."""
+    return sum(max(vote.weight for vote in family_votes) for family_votes in _by_family(votes).values())
+
+
+def _family_center_and_weight(votes: list[ScaleCueVote]) -> tuple[float, float]:
+    """Return a duplicate-invariant representative center and one capped family weight.
+
+    Exact repeated centers are deduplicated before taking the median. This keeps a
+    repeated window rhythm useful as consistency evidence without pretending each
+    occurrence is an independent absolute-scale experiment.
+    """
+    unique_centers = sorted({vote.center_m for vote in votes})
+    return float(median(unique_centers)), max(vote.weight for vote in votes)
+
+
 def estimate_architectural_scale(
     cues: list[VisualScaleCue],
     priors: list[ArchitecturalDimensionPrior],
@@ -132,10 +156,10 @@ def estimate_architectural_scale(
     """Estimate one absolute reference extent without pretending priors are measurements.
 
     The estimator searches interval-consensus points and ranks them primarily by
-    the number of independent cue families, then by confidence weight. A single
-    repeated feature family can therefore never establish absolute scale on its
-    own. Equally strong disjoint hypotheses remain unresolved instead of being
-    averaged into a fabricated compromise.
+    the number of independent cue families, then by family-capped confidence.
+    Repeating correlated features in one family therefore cannot manufacture more
+    independent evidence. Equally strong disjoint hypotheses remain unresolved
+    instead of being averaged into a fabricated compromise.
     """
     if minimum_independent_families < 2:
         raise ValueError("minimum_independent_families must be at least 2")
@@ -173,7 +197,7 @@ def estimate_architectural_scale(
         families = {vote.cue_family for vote in support}
         if len(families) < minimum_independent_families:
             continue
-        weight = sum(vote.weight for vote in support)
+        weight = _family_capped_weight(support)
         hypotheses.append((len(families), weight, point, support))
 
     if not hypotheses:
@@ -184,7 +208,7 @@ def estimate_architectural_scale(
     best_ids = {vote.cue_id for vote in best_support}
 
     # If another disjoint hypothesis has equal family diversity and nearly equal
-    # evidence weight, preserve the ambiguity instead of choosing arbitrarily.
+    # family-capped evidence weight, preserve the ambiguity instead of choosing arbitrarily.
     for family_count, weight, point, support in hypotheses[1:]:
         support_ids = {vote.cue_id for vote in support}
         if family_count != best_family_count or support_ids & best_ids:
@@ -197,15 +221,18 @@ def estimate_architectural_scale(
     if interval_max <= interval_min:
         return _unresolved(votes, "Best scale hypothesis has no non-zero consensus interval.")
 
-    total_weight = sum(vote.weight for vote in best_support)
-    value_m = sum(vote.center_m * vote.weight for vote in best_support) / total_weight
+    grouped_support = _by_family(best_support)
+    family_representatives = [_family_center_and_weight(group) for group in grouped_support.values()]
+    total_weight = sum(weight for _, weight in family_representatives)
+    value_m = sum(center * weight for center, weight in family_representatives) / total_weight
     value_m = min(max(value_m, interval_min), interval_max)
 
     support_ids = [vote.cue_id for vote in best_support]
-    rejected_ids = [vote.cue_id for vote in votes if vote.cue_id not in set(support_ids)]
-    families = sorted({vote.cue_family for vote in best_support})
-    support_fraction = len(best_support) / len(votes)
-    average_weight = total_weight / len(best_support)
+    support_id_set = set(support_ids)
+    rejected_ids = [vote.cue_id for vote in votes if vote.cue_id not in support_id_set]
+    families = sorted(grouped_support)
+    support_fraction = len(families) / len(all_families)
+    average_weight = total_weight / len(family_representatives)
     diversity_factor = min(1.0, len(families) / max(minimum_independent_families, 3))
     confidence = min(0.95, average_weight * (0.65 + 0.35 * support_fraction) * (0.75 + 0.25 * diversity_factor))
 
@@ -222,6 +249,6 @@ def estimate_architectural_scale(
         votes=votes,
         diagnostic=(
             f"Resolved from {len(best_support)} cues across {len(families)} independent families; "
-            f"rejected {len(rejected_ids)} non-consensus cue(s)."
+            f"family-capped weighting; rejected {len(rejected_ids)} non-consensus cue(s)."
         ),
     )
