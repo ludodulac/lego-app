@@ -33,6 +33,9 @@ import './scene-handoff-output-frame-v46.js?v=scene-handoff-output-frame-4.6';
 // Prevent neighboring/context objects or unresolved ownership from being silently
 // metrified as target Scene primitives.
 import './scene-handoff-ownership-audit-v47.js?v=scene-handoff-ownership-audit-4.7';
+// Allow normal photo-only workflows to estimate a cautious common Scene scale from
+// several independent architectural cues before requesting a human measurement.
+import './scene-handoff-scale-audit-v48.js?v=scene-handoff-scale-audit-4.8';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
