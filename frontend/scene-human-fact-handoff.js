@@ -6,7 +6,21 @@ function apiUrl(base, path) {
   return `${normalized}${path}`;
 }
 
-export async function prepareHumanFactSceneHandoff({ apiBase, survey, humanFacts, fetchImpl = fetch }) {
+export function persistHumanFactSceneHandoff(payload, storage = localStorage) {
+  if (!payload?.source_survey_id || !payload?.scene_input_survey || !Array.isArray(payload?.human_facts)) {
+    throw new Error('handoff faits utilisateur incomplet');
+  }
+  storage.setItem(HUMAN_FACT_SCENE_HANDOFF_KEY, JSON.stringify(payload));
+  return payload;
+}
+
+export async function prepareHumanFactSceneHandoff({
+  apiBase,
+  survey,
+  humanFacts,
+  fetchImpl = fetch,
+  storage = localStorage,
+}) {
   if (!survey || survey.schema_version !== '0.1') throw new Error('ArchitecturalSurvey v0.1 requis');
   if (!Array.isArray(humanFacts) || humanFacts.length === 0) throw new Error('Au moins un fait utilisateur est requis');
 
@@ -21,15 +35,7 @@ export async function prepareHumanFactSceneHandoff({ apiBase, survey, humanFacts
   if (payload?.source_survey_id !== survey.id || payload?.scene_input_survey?.schema_version !== '0.1') {
     throw new Error('handoff faits utilisateur invalide');
   }
-  return payload;
-}
-
-export function persistHumanFactSceneHandoff(payload, storage = localStorage) {
-  if (!payload?.source_survey_id || !payload?.scene_input_survey || !Array.isArray(payload?.human_facts)) {
-    throw new Error('handoff faits utilisateur incomplet');
-  }
-  storage.setItem(HUMAN_FACT_SCENE_HANDOFF_KEY, JSON.stringify(payload));
-  return payload;
+  return persistHumanFactSceneHandoff(payload, storage);
 }
 
 export function readHumanFactSceneHandoff(storage = localStorage) {
