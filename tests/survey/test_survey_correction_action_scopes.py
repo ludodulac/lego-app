@@ -248,27 +248,27 @@ def test_reorient_rejects_non_orientation_attribute_change() -> None:
 
 def test_photo_reorient_accepts_only_orientation_change_and_preserves_source() -> None:
     survey = _survey()
-    original_photo = survey.photos[0].model_copy(deep=True)
+    original_photo = survey.photos[1].model_copy(deep=True)
     candidate = survey.model_copy(deep=True)
-    candidate.photos[0] = candidate.photos[0].model_copy(update={"facade": "rear"})
-    audit = _photo_audit(survey, photo_index=1)
-    correction = _photo_correction(survey, audit, candidate, source_id="1")
+    candidate.photos[1] = candidate.photos[1].model_copy(update={"facade": "rear"})
+    audit = _photo_audit(survey, photo_index=2)
+    correction = _photo_correction(survey, audit, candidate, source_id="2")
 
     codes = {issue.code for issue in validate_survey_correction(survey, audit, correction)}
     assert not {code for code in codes if code.startswith("survey_correction_photo_reorient_")}
     assert "survey_correction_source_target_mismatch" not in codes
-    assert survey.photos[0] == original_photo
-    assert survey.photos[0].facade != candidate.photos[0].facade
+    assert survey.photos[1] == original_photo
+    assert survey.photos[1].facade != candidate.photos[1].facade
 
 
 def test_photo_reorient_rejects_hidden_description_change() -> None:
     survey = _survey()
     candidate = survey.model_copy(deep=True)
-    candidate.photos[0] = candidate.photos[0].model_copy(
+    candidate.photos[1] = candidate.photos[1].model_copy(
         update={"facade": "rear", "description": "Rewritten semantic content."}
     )
-    audit = _photo_audit(survey, photo_index=1)
-    correction = _photo_correction(survey, audit, candidate, source_id="1")
+    audit = _photo_audit(survey, photo_index=2)
+    correction = _photo_correction(survey, audit, candidate, source_id="2")
 
     codes = {issue.code for issue in validate_survey_correction(survey, audit, correction)}
     assert "survey_correction_photo_reorient_scope_violation" in codes
@@ -277,9 +277,9 @@ def test_photo_reorient_rejects_hidden_description_change() -> None:
 def test_photo_reorient_requires_same_audited_photo() -> None:
     survey = _survey()
     candidate = survey.model_copy(deep=True)
-    candidate.photos[0] = candidate.photos[0].model_copy(update={"facade": "rear"})
-    audit = _photo_audit(survey, photo_index=1)
-    correction = _photo_correction(survey, audit, candidate, source_id="2")
+    candidate.photos[1] = candidate.photos[1].model_copy(update={"facade": "rear"})
+    audit = _photo_audit(survey, photo_index=2)
+    correction = _photo_correction(survey, audit, candidate, source_id="1")
 
     codes = {issue.code for issue in validate_survey_correction(survey, audit, correction)}
     assert "survey_correction_source_target_mismatch" in codes
@@ -289,7 +289,7 @@ def test_photo_reorient_requires_same_audited_photo() -> None:
 def test_photo_correction_schema_rejects_non_reorient_actions() -> None:
     survey = _survey()
     candidate = survey.model_copy(deep=True)
-    audit = _photo_audit(survey, photo_index=1)
+    audit = _photo_audit(survey, photo_index=2)
 
     with pytest.raises(ValidationError, match="photo corrections support reorient only"):
         SurveyCorrection.model_validate(
@@ -300,10 +300,10 @@ def test_photo_correction_schema_rejects_non_reorient_actions() -> None:
                 "candidate": candidate,
                 "changes": [
                     {
-                        "id": "change-remove-photo-1",
+                        "id": "change-remove-photo-2",
                         "finding_id": audit.findings[0].id,
                         "object_type": "photo",
-                        "source_id": "1",
+                        "source_id": "2",
                         "candidate_id": None,
                         "action": "remove",
                         "message": "Not allowed.",
