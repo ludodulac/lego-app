@@ -61,7 +61,12 @@ def build_survey_correction_reaudit_scope(
         ids = {item_id for item_id in (change.source_id, change.candidate_id) if item_id}
         if change.object_type is SurveyCorrectionObjectType.PHOTO:
             for item_id in ids:
-                direct_photo_indexes.add(int(item_id))
+                try:
+                    photo_index = int(item_id)
+                except ValueError:
+                    continue
+                if photo_index >= 1:
+                    direct_photo_indexes.add(photo_index)
         elif change.object_type is SurveyCorrectionObjectType.OBSERVATION:
             observation_ids.update(ids)
         else:
