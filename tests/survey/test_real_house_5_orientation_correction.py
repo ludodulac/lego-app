@@ -7,7 +7,13 @@ from brickhouse.survey import ArchitecturalSurvey, SurveyAudit, SurveyCorrection
 from brickhouse.survey.correction_reaudit import build_survey_correction_reaudit_scope
 
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "brickhouse_survey_current.json"
+FIXTURE = (
+    Path(__file__).parents[2]
+    / "frontend"
+    / "benchmarks"
+    / "real-house-5"
+    / "accepted-survey-v0.1.json"
+)
 
 
 def _survey() -> ArchitecturalSurvey:
@@ -107,6 +113,7 @@ def test_real_house_5_human_orientation_correction_is_bounded_and_audit_linked()
     assert validate_survey_correction(source, audit, correction) == []
     assert source == source_snapshot
 
+    assert source.known_measurements == []
     assert [photo.facade for photo in source.photos] == ["front", "right", "left", "left", "rear"]
     assert [photo.facade for photo in correction.candidate.photos] == [
         "front",
@@ -116,8 +123,8 @@ def test_real_house_5_human_orientation_correction_is_bounded_and_audit_linked()
         "left",
     ]
 
-    # BH-185 deliberately freezes measurements and non-orientation photo content.
-    # This correction must neither create nor reinterpret metric truth.
+    # The accepted checkpoint has no metric truth. The correction must neither
+    # create measurements nor reinterpret any non-orientation photo content.
     assert correction.candidate.known_measurements == source.known_measurements
     assert correction.candidate.photos[2].description == source.photos[2].description
     assert correction.candidate.photos[4].description == source.photos[4].description
@@ -162,8 +169,8 @@ def test_real_house_5_orientation_reaudit_covers_only_local_orientation_dependen
         }
     )
 
-    assert "building_main" not in expected_observation_ids
-    assert "roof_main" not in expected_observation_ids
+    assert "building-boundary-1" not in expected_observation_ids
+    assert "roof-1" not in expected_observation_ids
     assert scope.correction_change_ids == [
         "change-real-house-5-photo-3-rear",
         "change-real-house-5-photo-5-left",
