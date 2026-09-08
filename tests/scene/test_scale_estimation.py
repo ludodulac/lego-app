@@ -38,8 +38,6 @@ def test_multi_family_consensus_rejects_one_outlier_without_fabricating_measurem
         _prior("bay-width", "glazed_bay", 1.55, 1.85, 1.70),
         _prior("odd-window", "window", 0.55, 0.70, 0.62),
     ]
-    # First three cues vote for a reference width around 10 m. The last one is
-    # an atypical opening interpretation voting near 5 m and must not dominate.
     cues = [
         VisualScaleCue(id="cue-window", cue_family="window_width", prior_id="window-width", normalized_extent=0.12),
         VisualScaleCue(id="cue-door", cue_family="door_width", prior_id="door-width", normalized_extent=0.095),
@@ -111,7 +109,7 @@ def test_equally_supported_disjoint_multi_family_hypotheses_remain_ambiguous() -
     assert "Multiple disjoint scale hypotheses" in estimate.diagnostic
 
 
-def test_duplicate_same_family_cues_do_not_inflate_value_or_confidence() -> None:
+def test_duplicate_same_family_cues_do_not_inflate_value_interval_or_confidence() -> None:
     priors = [
         _prior("window-width", "window", 1.0, 1.2, 1.1),
         _prior("door-width", "door", 0.8, 1.0, 0.9),
@@ -134,7 +132,49 @@ def test_duplicate_same_family_cues_do_not_inflate_value_or_confidence() -> None
     assert many.max_m == pytest.approx(one.max_m)
     assert many.confidence == pytest.approx(one.confidence)
     assert len(many.supporting_cue_ids) > len(one.supporting_cue_ids)
-    assert "family-capped weighting" in many.diagnostic
+    assert "uncertainty aggregated at family level" in many.diagnostic
+
+
+def test_slightly_different_repeated_windows_do_not_collapse_prior_uncertainty() -> None:
+    priors = [
+        _prior("window-width", "window", 1.0, 1.2, 1.1),
+        _prior("door-width", "door", 0.8, 2.4, 1.2),
+    ]
+    cues = [
+        VisualScaleCue(id="window-a", cue_family="window_width", prior_id="window-width", normalized_extent=0.138),
+        VisualScaleCue(id="window-b", cue_family="window_width", prior_id="window-width", normalized_extent=0.156),
+        VisualScaleCue(id="window-c", cue_family="window_width", prior_id="window-width", normalized_extent=0.147),
+        VisualScaleCue(id="window-d", cue_family="window_width", prior_id="window-width", normalized_extent=0.164),
+        VisualScaleCue(id="door", cue_family="glazed_door_width", prior_id="door-width", normalized_extent=0.221, confidence=0.6),
+    ]
+
+    estimate = estimate_architectural_scale(cues, priors)
+
+    assert estimate.resolved is True
+    # Raw intersection of four window votes would be only a few centimetres wide.
+    # Family-level aggregation must preserve meaningful uncertainty instead.
+    assert estimate.max_m - estimate.min_m > 0.9
+    assert 6.5 <= estimate.value_m <= 7.8
+    assert set(estimate.supporting_families) == {"window_width", "glazed_door_width"}
+
+
+def test_one_same_family_outlier_does_not_drag_robust_family_interval() -> None:
+    priors = [
+        _prior("window-width", "window", 1.0, 1.2, 1.1),
+        _prior("door-width", "door", 0.8, 1.0, 0.9),
+    ]
+    cues = [
+        VisualScaleCue(id="window-a", cue_family="window_width", prior_id="window-width", normalized_extent=0.11),
+        VisualScaleCue(id="window-b", cue_family="window_width", prior_id="window-width", normalized_extent=0.115),
+        VisualScaleCue(id="window-outlier", cue_family="window_width", prior_id="window-width", normalized_extent=0.22),
+        VisualScaleCue(id="door", cue_family="door_width", prior_id="door-width", normalized_extent=0.09),
+    ]
+
+    estimate = estimate_architectural_scale(cues, priors)
+
+    assert estimate.resolved is True
+    assert 8.5 <= estimate.value_m <= 10.5
+    assert "window-outlier" in estimate.rejected_cue_ids
 
 
 def test_distinct_family_adds_confidence_but_same_family_repeat_does_not() -> None:
