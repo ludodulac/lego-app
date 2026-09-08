@@ -123,7 +123,7 @@ def test_real_house_5_human_orientation_correction_is_bounded_and_audit_linked()
     assert correction.candidate.photos[4].description == source.photos[4].description
 
 
-def test_real_house_5_orientation_reaudit_covers_direct_evidence_dependencies() -> None:
+def test_real_house_5_orientation_reaudit_covers_only_local_orientation_dependencies() -> None:
     source = _survey()
     audit = _orientation_audit(source)
     correction = _orientation_correction(source, audit)
@@ -134,7 +134,12 @@ def test_real_house_5_orientation_reaudit_covers_direct_evidence_dependencies() 
     expected_observation_ids = sorted(
         item.id
         for item in source.observations
-        if any(evidence.photo_index in corrected_photo_indexes for evidence in item.evidence)
+        if (
+            item.facade is not None
+            or "facade_horizontal_rank" in item.attributes
+            or "facade_vertical_rank" in item.attributes
+        )
+        and any(evidence.photo_index in corrected_photo_indexes for evidence in item.evidence)
     )
     expected_relation_ids = sorted(
         relation.id
@@ -157,6 +162,8 @@ def test_real_house_5_orientation_reaudit_covers_direct_evidence_dependencies() 
         }
     )
 
+    assert "building_main" not in expected_observation_ids
+    assert "roof_main" not in expected_observation_ids
     assert scope.correction_change_ids == [
         "change-real-house-5-photo-3-rear",
         "change-real-house-5-photo-5-left",
