@@ -20,15 +20,27 @@ function pendingValidatedSurvey() {
   }
 }
 
+function observationIds(survey) {
+  return (survey?.observations ?? []).map(item => item.id).sort();
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export function effectiveSceneInput(acceptedSurvey, storage = localStorage) {
   if (!acceptedSurvey) return { survey: null, humanFacts: [] };
   const handoff = readHumanFactSceneHandoff(storage);
+  const derivedSurvey = handoff?.scene_input_survey;
   const validDerived = handoff?.source_survey_id === acceptedSurvey.id
-    && handoff?.scene_input_survey?.schema_version === '0.1'
+    && derivedSurvey?.id === acceptedSurvey.id
+    && derivedSurvey?.schema_version === '0.1'
+    && sameJson(observationIds(derivedSurvey), observationIds(acceptedSurvey))
+    && sameJson(derivedSurvey?.known_measurements ?? [], acceptedSurvey?.known_measurements ?? [])
     && Array.isArray(handoff?.human_facts)
     && handoff.human_facts.length > 0;
   if (validDerived) {
-    return { survey: handoff.scene_input_survey, humanFacts: handoff.human_facts };
+    return { survey: derivedSurvey, humanFacts: handoff.human_facts };
   }
   return { survey: acceptedSurvey, humanFacts: [] };
 }
