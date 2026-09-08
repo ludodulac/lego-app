@@ -46,6 +46,7 @@ from .correction_reaudit_contract import (
     SurveyCorrectionReauditValidationIssue,
     validate_survey_correction_reaudit,
 )
+from .human_facts import HumanAttributeFact, HumanFactApplication, apply_human_attribute_facts
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -134,6 +135,8 @@ __all__ = [
     "ArchitecturalSurvey",
     "CanonicalFrame",
     "Certainty",
+    "HumanAttributeFact",
+    "HumanFactApplication",
     "KnownMeasurement",
     "MultiViewIdentityFacts",
     "MultiViewIdentityReport",
@@ -187,6 +190,7 @@ __all__ = [
     "analyze_multiview_identity",
     "analyze_subject_ownership",
     "analyze_survey_stair_topology",
+    "apply_human_attribute_facts",
     "automatic_survey_correction_finding_ids_v01",
     "build_survey_correction_reaudit_scope",
     "classify_survey_correction_finding_v01",
