@@ -43,6 +43,28 @@ def _correction(survey: ArchitecturalSurvey) -> SurveyCorrection:
     )
 
 
+def _photo_correction(survey: ArchitecturalSurvey) -> SurveyCorrection:
+    candidate = survey.model_copy(deep=True)
+    candidate.photos[0] = candidate.photos[0].model_copy(update={"facade": "rear"})
+    return SurveyCorrection.model_validate(
+        {
+            "survey_id": survey.id,
+            "candidate": candidate,
+            "changes": [
+                {
+                    "id": "change-reorient-photo-1",
+                    "finding_id": "audit-reorient-photo-1",
+                    "object_type": "photo",
+                    "source_id": "1",
+                    "candidate_id": "1",
+                    "action": "reorient",
+                    "message": "Reorient the audited photo.",
+                }
+            ],
+        }
+    )
+
+
 def test_targeted_reaudit_accepts_clean_pass_for_exact_change_scope() -> None:
     survey = _survey()
     correction = _correction(survey)
@@ -84,6 +106,64 @@ def test_targeted_reaudit_accepts_in_scope_candidate_finding() -> None:
     )
 
     assert validate_survey_correction_reaudit(survey, correction, reaudit) == []
+
+
+def test_targeted_reaudit_accepts_in_scope_photo_finding() -> None:
+    survey = _survey()
+    correction = _photo_correction(survey)
+    reaudit = SurveyCorrectionReaudit.model_validate(
+        {
+            "survey_id": survey.id,
+            "correction_change_ids": ["change-reorient-photo-1"],
+            "summary": {"status": "needs_correction", "issue_count": 1},
+            "findings": [
+                {
+                    "id": "reaudit-photo-still-wrong",
+                    "status": "disputed",
+                    "target_type": "photo",
+                    "target_id": "1",
+                    "severity": "warning",
+                    "photo_evidence": [
+                        {"photo_index": 1, "observation": "The corrected facade remains disputed."}
+                    ],
+                    "message": "Photo orientation still needs review.",
+                    "suggested_action": "review",
+                }
+            ],
+        }
+    )
+
+    assert validate_survey_correction_reaudit(survey, correction, reaudit) == []
+
+
+def test_targeted_reaudit_rejects_photo_target_scope_expansion() -> None:
+    survey = _survey()
+    correction = _photo_correction(survey)
+    reaudit = SurveyCorrectionReaudit.model_validate(
+        {
+            "survey_id": survey.id,
+            "correction_change_ids": ["change-reorient-photo-1"],
+            "summary": {"status": "needs_correction", "issue_count": 1},
+            "findings": [
+                {
+                    "id": "reaudit-unrelated-photo",
+                    "status": "disputed",
+                    "target_type": "photo",
+                    "target_id": "2",
+                    "severity": "warning",
+                    "photo_evidence": [
+                        {"photo_index": 2, "observation": "Unrelated photo evidence."}
+                    ],
+                    "message": "Unrelated photo must require a fresh audit.",
+                    "suggested_action": "review",
+                }
+            ],
+        }
+    )
+
+    codes = {issue.code for issue in validate_survey_correction_reaudit(survey, correction, reaudit)}
+    assert "survey_correction_reaudit_photo_target_out_of_scope" in codes
+    assert "survey_correction_reaudit_photo_out_of_scope" in codes
 
 
 def test_targeted_reaudit_rejects_scope_expansion() -> None:
