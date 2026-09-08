@@ -10,6 +10,14 @@ from .models import (
     PlatformEdge, PlatformEdges, PropertyValue, RoofPitchRange, SceneOpening, SceneRoof, SceneRoofType, SceneVolume, StairRun,
     SupportPost, Terrain, VisibilitySpan, VisibilityState,
 )
+from .photo_rectification import (
+    NormalizedImagePoint,
+    NormalizedImageQuadrilateral,
+    PlanarPhotoRectification,
+    rectified_plane_reference_annotation,
+    rectify_photo_geometry_annotation,
+    rectify_point,
+)
 from .photo_scale_cues import (
     PhotoGeometryAnnotation,
     PhotoScaleCueBinding,
@@ -62,7 +70,7 @@ from .stair_spatial import (
 from .topology_projection import project_scene_to_building
 __all__=[
     "ArchitecturalDimensionPrior","ArchitecturalPriorProvenance","ArchitecturalScaleEstimate","ArchitecturalScene","Chimney","ChimneyBearingAssessment","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial","FR_OPENING_PRIOR_CATALOG_VERSION",
-    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GradeProfile","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","OpeningPriorQuery","PhotoGeometryAnnotation","PhotoScaleCueBinding","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
+    "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GradeProfile","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","NormalizedImagePoint","NormalizedImageQuadrilateral","OpeningPriorQuery","PhotoGeometryAnnotation","PhotoScaleCueBinding","PlanarPhotoRectification","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult",
     "ProjectionSeverity","PropertyValue","RoofGeometryAssessment","RoofLine","RoofPitchRange","ScaleCueVote","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairRunJunction","StairSpatialReport",
-    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","project_scene_to_building","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_survey",
+    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","project_scene_to_building","rectified_plane_reference_annotation","rectify_photo_geometry_annotation","rectify_point","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_survey",
 ]
