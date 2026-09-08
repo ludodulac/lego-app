@@ -51,5 +51,8 @@ def test_real_house_5_user_confirmed_stair_turn_is_non_metric_overlay() -> None:
     assert stair_fact.topology.exact_run_count is None
 
     # The clarification is semantic/topological only: no metric fields are added.
-    assert "run_length" not in application.candidate.observations[-2].attributes["stair_topology"]
-    assert "turn_coordinate" not in application.candidate.observations[-2].attributes["stair_topology"]
+    stair_observation = next(
+        item for item in application.candidate.observations if item.id == "stair-exterior-1"
+    )
+    assert "run_length" not in stair_observation.attributes["stair_topology"]
+    assert "turn_coordinate" not in stair_observation.attributes["stair_topology"]
