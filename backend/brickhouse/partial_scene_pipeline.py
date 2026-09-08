@@ -19,10 +19,12 @@ from brickhouse.bricks.export import (
 )
 from brickhouse.bricks.instructions import generate_instruction_plan
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.scene_platform_connectivity import augment_brick_model_with_scene_platform_connectivity
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
 from brickhouse.scene import ArchitecturalScene
+from brickhouse.scene.physical_support import analyze_physical_support
 from brickhouse.scene.topology_projection import project_scene_to_building
 
 SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
@@ -121,6 +123,93 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
             ),
         ),
     )
+
+
+def _partial_exterior_selection(scene: ArchitecturalScene):
+    """Select only exterior assemblies whose existing Scene support facts are proven.
+
+    This is intentionally stricter than the full production support gate: a partial
+    preview is useful only if adding an exterior object does not create a visually
+    floating provisional assembly. No missing support is synthesized to make an
+    object eligible.
+    """
+    facts, _ = analyze_physical_support(scene)
+    platform_ids = {item.id for item in scene.platforms}
+
+    safe_platform_ids: set[str] = set()
+    platform_reason: dict[str, str] = {}
+    for platform in scene.platforms:
+        support_facts = [
+            fact for fact in facts
+            if fact.object_id == platform.id
+            and fact.kind in {"platform_host_contact", "platform_post_support"}
+        ]
+        contradicted = next((fact for fact in support_facts if fact.state == "contradicted"), None)
+        proven = [fact for fact in support_facts if fact.state == "proven"]
+        if contradicted is not None:
+            platform_reason[platform.id] = contradicted.reason
+        elif proven:
+            safe_platform_ids.add(platform.id)
+        else:
+            unresolved = next((fact for fact in support_facts if fact.state == "unresolved"), None)
+            platform_reason[platform.id] = (
+                unresolved.reason if unresolved is not None else "no proven platform support path"
+            )
+
+    safe_stair_ids: set[str] = set()
+    stair_reason: dict[str, str] = {}
+    for stair in scene.stairs:
+        endpoint_facts = sorted(
+            (
+                fact for fact in facts
+                if fact.object_id == stair.id and fact.kind == "stair_endpoint_support"
+            ),
+            key=lambda fact: fact.endpoint or "",
+        )
+        if len(endpoint_facts) != 2 or any(fact.state != "proven" for fact in endpoint_facts):
+            unresolved = next((fact for fact in endpoint_facts if fact.state != "proven"), None)
+            stair_reason[stair.id] = (
+                unresolved.reason if unresolved is not None else "both stair endpoints are not proven supported"
+            )
+            continue
+        unsafe_platform = next(
+            (
+                fact.supporter_id for fact in endpoint_facts
+                if fact.supporter_id in platform_ids and fact.supporter_id not in safe_platform_ids
+            ),
+            None,
+        )
+        if unsafe_platform is not None:
+            stair_reason[stair.id] = f"endpoint depends on omitted platform {unsafe_platform!r}"
+            continue
+        safe_stair_ids.add(stair.id)
+
+    safe_scene = scene.model_copy(update={
+        "platforms": [item for item in scene.platforms if item.id in safe_platform_ids],
+        "stairs": [item for item in scene.stairs if item.id in safe_stair_ids],
+        # Partial preview still omits roofs, so a roof-supported chimney would
+        # otherwise appear to float even when its Scene support is known.
+        "chimneys": [],
+        # Terrain remains independently conservative in this preview path.
+        "terrain": None,
+        "platform_structure_observations": [
+            item for item in scene.platform_structure_observations
+            if item.platform_id in safe_platform_ids
+        ],
+    })
+    omitted = [
+        ("platform", item.id, platform_reason.get(item.id, "support not proven"))
+        for item in scene.platforms if item.id not in safe_platform_ids
+    ]
+    omitted.extend(
+        ("stair", item.id, stair_reason.get(item.id, "support not proven"))
+        for item in scene.stairs if item.id not in safe_stair_ids
+    )
+    omitted.extend(
+        ("chimney", item.id, "supporting roof is intentionally omitted from the partial preview")
+        for item in scene.chimneys
+    )
+    return safe_scene, omitted
 
 
 def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFidelityIssue]:
@@ -228,14 +317,16 @@ def _partial_fidelity_issues(scene: ArchitecturalScene) -> list[BrickExportFidel
                 ),
             )
         )
-    if scene.platforms or scene.stairs or scene.chimneys:
+    _, omitted_exterior = _partial_exterior_selection(scene)
+    for kind, object_id, reason in omitted_exterior:
         issues.append(
             BrickExportFidelityIssue(
-                code="partial_preview_exterior_details_omitted",
-                severity="info",
+                code="partial_preview_exterior_object_omitted",
+                severity="warning" if kind in {"platform", "stair"} else "info",
+                object_id=object_id,
                 message=(
-                    "Terraces, stairs and chimneys are kept in ArchitecturalScene but omitted from this first "
-                    "core-shell preview so unresolved exterior connections cannot be fabricated."
+                    f"{kind.capitalize()} {object_id!r} remains in ArchitecturalScene but is omitted from the "
+                    f"partial LEGO preview because {reason}. No support or hidden connection is invented."
                 ),
             )
         )
@@ -272,6 +363,12 @@ def run_partial_scene_pipeline(
     enriched = augment_brick_model_with_wall_depth(
         bundle.brick_model,
         scene,
+        front_width_studs=selected_width,
+    )
+    exterior_scene, _ = _partial_exterior_selection(scene)
+    enriched = augment_brick_model_with_scene_platform_connectivity(
+        enriched,
+        exterior_scene,
         front_width_studs=selected_width,
     )
     enriched = augment_brick_model_with_scene_shutters(
