@@ -18,7 +18,7 @@ from .audit import (
     SurveyAuditSummary,
     SurveyAuditTargetType,
 )
-from .correction import SurveyCorrection
+from .correction import SurveyCorrection, SurveyCorrectionObjectType
 from .correction_reaudit import build_survey_correction_reaudit_scope
 from .models import ArchitecturalSurvey
 
@@ -86,7 +86,14 @@ def validate_survey_correction_reaudit(
     candidate_relations = {item.id for item in candidate.relations}
     allowed_observations = set(scope.observation_ids) & candidate_observations
     allowed_relations = set(scope.relation_ids) & candidate_relations
-    allowed_photos = set(scope.photo_indexes)
+    allowed_evidence_photos = set(scope.photo_indexes)
+    allowed_photo_targets = {
+        int(change.source_id)
+        for change in correction.changes
+        if change.object_type is SurveyCorrectionObjectType.PHOTO
+        and change.source_id is not None
+        and change.source_id.isdigit()
+    }
     known_candidate_photos = {photo.photo_index for photo in candidate.photos}
 
     finding_ids: set[str] = set()
@@ -106,14 +113,14 @@ def validate_survey_correction_reaudit(
                 target_photo_index = int(finding.target_id or "")
             except ValueError:
                 target_photo_index = -1
-            if target_photo_index not in allowed_photos:
+            if target_photo_index not in allowed_photo_targets:
                 issues.append(
                     SurveyCorrectionReauditValidationIssue(
                         code="survey_correction_reaudit_photo_target_out_of_scope",
                         finding_id=finding.id,
                         message=(
-                            "Targeted photo re-audit findings must refer to a photo in the "
-                            "deterministic correction scope."
+                            "Targeted photo re-audit findings may target only a photo directly "
+                            "changed by this correction. Other in-scope photos are evidence only."
                         ),
                     )
                 )
@@ -162,14 +169,14 @@ def validate_survey_correction_reaudit(
                         message=f"Unknown candidate photo {evidence.photo_index}.",
                     )
                 )
-            elif evidence.photo_index not in allowed_photos:
+            elif evidence.photo_index not in allowed_evidence_photos:
                 issues.append(
                     SurveyCorrectionReauditValidationIssue(
                         code="survey_correction_reaudit_photo_out_of_scope",
                         finding_id=finding.id,
                         message=(
                             f"Photo {evidence.photo_index} is outside the deterministic "
-                            "post-correction re-audit scope."
+                            "post-correction re-audit evidence scope."
                         ),
                     )
                 )

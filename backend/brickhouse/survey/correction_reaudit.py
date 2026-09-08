@@ -1,8 +1,10 @@
 """Deterministic scope builder for a targeted post-correction visual re-audit.
 
 The scope is intentionally narrow: changed photos/observations/relations,
-relations incident to changed observations, and source photos already referenced
-by those objects. It never mutates either Survey and never launches an AI loop.
+orientation-bearing observations whose evidence depends directly on a changed
+photo, relations incident to changed/dependent observations, and source photos
+already referenced by those objects. It never mutates either Survey and never
+launches an AI loop.
 """
 
 from __future__ import annotations
@@ -37,17 +39,34 @@ def _evidence_photo_indexes(
     }
 
 
+def _references_any_photo(
+    item: SurveyObservation | SurveyRelation,
+    photo_indexes: set[int],
+) -> bool:
+    return any(evidence.photo_index in photo_indexes for evidence in item.evidence)
+
+
+def _observation_has_orientation_claim(observation: SurveyObservation) -> bool:
+    return observation.facade is not None or any(
+        key in observation.attributes
+        for key in ("facade_horizontal_rank", "facade_vertical_rank")
+    )
+
+
 def build_survey_correction_reaudit_scope(
     original: ArchitecturalSurvey,
     correction: SurveyCorrection,
 ) -> SurveyCorrectionReauditScope:
     """Build the minimum deterministic neighborhood to inspect after correction.
 
-    For an observation change, directly incident relations are included so a
-    local correction cannot silently break topology. Removed objects are read
-    from the original Survey; added/modified objects are read from the candidate.
-    A photo reorientation contributes that photo directly and does not broaden
-    the scope to unrelated observations merely because they cite the same image.
+    Observation changes include directly incident relations so a local correction
+    cannot silently break topology. A photo reorientation includes observations
+    that both cite the photo and carry facade/rank orientation, plus relations
+    that cite the photo directly. Relations incident to those observations are
+    included as the local topology boundary. Global observations that merely cite
+    many photos do not explode one photo correction into a near-full Survey audit.
+    Removed objects are read from the original Survey; added/modified objects are
+    read from the candidate.
     """
     candidate = correction.candidate
     original_observations, original_relations = _objects_by_id(original)
@@ -72,9 +91,17 @@ def build_survey_correction_reaudit_scope(
         else:
             relation_ids.update(ids)
 
-    # Include topology directly touching a changed observation on either side of
-    # the correction. This catches removal/addition/reorientation regressions
-    # without broadening the scope to an unconstrained full independent audit.
+    if direct_photo_indexes:
+        for observation in [*original.observations, *candidate.observations]:
+            if (
+                _observation_has_orientation_claim(observation)
+                and _references_any_photo(observation, direct_photo_indexes)
+            ):
+                observation_ids.add(observation.id)
+        for relation in [*original.relations, *candidate.relations]:
+            if _references_any_photo(relation, direct_photo_indexes):
+                relation_ids.add(relation.id)
+
     for relation in [*original.relations, *candidate.relations]:
         if (
             relation.subject_id in observation_ids
