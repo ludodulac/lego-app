@@ -128,8 +128,21 @@ def test_reaudit_scope_includes_objects_that_depend_on_reoriented_photo() -> Non
         or relation.subject_id in expected_observation_ids
         or relation.object_id in expected_observation_ids
     )
+    scoped_objects = [
+        item for item in original.observations if item.id in expected_observation_ids
+    ] + [
+        item for item in original.relations if item.id in expected_relation_ids
+    ]
+    expected_photo_indexes = sorted(
+        {2}
+        | {
+            evidence.photo_index
+            for item in scoped_objects
+            for evidence in item.evidence
+        }
+    )
 
     assert scope.correction_change_ids == ["change-reorient-photo-2"]
     assert scope.observation_ids == expected_observation_ids
     assert scope.relation_ids == expected_relation_ids
-    assert scope.photo_indexes == [1, 2]
+    assert scope.photo_indexes == expected_photo_indexes
