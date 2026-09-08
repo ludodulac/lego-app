@@ -1,0 +1,120 @@
+{
+  "schema_version": "brickhouse-benchmark-scale-evidence-0.1",
+  "benchmark_id": "real-house-5",
+  "target": "volume_main.width",
+  "units": "m",
+  "source_photo_index": 1,
+  "image_size_px": {"width": 691, "height": 1536},
+  "rectification": {
+    "id": "real-house-5-front-wall-plane-v1",
+    "photo_index": 1,
+    "source_quad": {
+      "top_left": {"x": 0.04341534008683068, "y": 0.3444010416666667},
+      "top_right": {"x": 0.9377713458755427, "y": 0.341796875},
+      "bottom_right": {"x": 0.8885672937771346, "y": 0.6888020833333334},
+      "bottom_left": {"x": 0.010130246020260492, "y": 0.677734375}
+    },
+    "source": {"kind": "inferred", "confidence": 0.72},
+    "statement": "Benchmark-only front wall plane inferred from the visible eave-to-base facade boundaries; it is a geometric sidecar, not Survey truth."
+  },
+  "annotations": [
+    {
+      "id": "front-opening-1-frame-v1",
+      "observation_id": "front-opening-1",
+      "photo_index": 1,
+      "region": {"x0": 0.2098408104196816, "y0": 0.3619791666666667, "x1": 0.3299565846599132, "y1": 0.4329427083333333},
+      "source": {"kind": "inferred", "confidence": 0.84},
+      "statement": "Visible dark window-frame bounds, excluding the wider decorative surround."
+    },
+    {
+      "id": "front-opening-2-frame-v1",
+      "observation_id": "front-opening-2",
+      "photo_index": 1,
+      "region": {"x0": 0.6208393632416788, "y0": 0.3444010416666667, "x1": 0.7525325615050651, "y1": 0.4329427083333333},
+      "source": {"kind": "inferred", "confidence": 0.84},
+      "statement": "Visible dark window-frame bounds, excluding the wider decorative surround."
+    },
+    {
+      "id": "front-opening-3-frame-v1",
+      "observation_id": "front-opening-3",
+      "photo_index": 1,
+      "region": {"x0": 0.1939218523878437, "y0": 0.4733072916666667, "x1": 0.32127351664254705, "y1": 0.53515625},
+      "source": {"kind": "inferred", "confidence": 0.84},
+      "statement": "Visible dark window-frame bounds, excluding the wider decorative surround."
+    },
+    {
+      "id": "front-opening-4-frame-v1",
+      "observation_id": "front-opening-4",
+      "photo_index": 1,
+      "region": {"x0": 0.613603473227207, "y0": 0.4733072916666667, "x1": 0.7597684515195369, "y1": 0.5364583333333334},
+      "source": {"kind": "inferred", "confidence": 0.84},
+      "statement": "Visible dark window-frame bounds, excluding the wider decorative surround."
+    },
+    {
+      "id": "front-opening-5-frame-v1",
+      "observation_id": "front-opening-5",
+      "photo_index": 1,
+      "region": {"x0": 0.21852387843704776, "y0": 0.6126302083333334, "x1": 0.29088277858176553, "y1": 0.6471354166666666},
+      "source": {"kind": "inferred", "confidence": 0.78},
+      "statement": "Visible lower-left opening frame; compact single-sash configuration is visually plausible but remains inference-only."
+    },
+    {
+      "id": "front-opening-6-frame-v1",
+      "observation_id": "front-opening-6",
+      "photo_index": 1,
+      "region": {"x0": 0.5774240231548481, "y0": 0.5911458333333334, "x1": 0.7930535455861071, "y1": 0.685546875},
+      "source": {"kind": "inferred", "confidence": 0.7},
+      "statement": "Visible lower-right glazed opening frame; exact door/glazed-door configuration remains intentionally broad."
+    }
+  ],
+  "cue_specs": [
+    {
+      "annotation_id": "front-opening-1-frame-v1",
+      "cue_family": "front_repeated_window_width",
+      "semantic_type": "window",
+      "leaf_count": 2,
+      "prior_id": "fr-opening-priors-0.1:window-2leaf:width"
+    },
+    {
+      "annotation_id": "front-opening-2-frame-v1",
+      "cue_family": "front_repeated_window_width",
+      "semantic_type": "window",
+      "leaf_count": 2,
+      "prior_id": "fr-opening-priors-0.1:window-2leaf:width"
+    },
+    {
+      "annotation_id": "front-opening-3-frame-v1",
+      "cue_family": "front_repeated_window_width",
+      "semantic_type": "window",
+      "leaf_count": 2,
+      "prior_id": "fr-opening-priors-0.1:window-2leaf:width"
+    },
+    {
+      "annotation_id": "front-opening-4-frame-v1",
+      "cue_family": "front_repeated_window_width",
+      "semantic_type": "window",
+      "leaf_count": 2,
+      "prior_id": "fr-opening-priors-0.1:window-2leaf:width"
+    },
+    {
+      "annotation_id": "front-opening-5-frame-v1",
+      "cue_family": "front_small_window_width",
+      "semantic_type": "window",
+      "leaf_count": 1,
+      "prior_id": "fr-opening-priors-0.1:window-1leaf:width"
+    },
+    {
+      "annotation_id": "front-opening-6-frame-v1",
+      "cue_family": "front_glazed_door_width",
+      "semantic_type": "door_or_glazed_door",
+      "leaf_count": null,
+      "prior_id": "fr-opening-priors-0.1:glazed-door-leaves-unknown:width"
+    }
+  ],
+  "policy": {
+    "minimum_independent_families": 2,
+    "accepted_survey_is_immutable": true,
+    "known_measurements_must_remain_empty": true,
+    "statistical_priors_are_not_measurements": true
+  }
+}
