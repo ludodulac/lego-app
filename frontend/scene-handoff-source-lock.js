@@ -1,3 +1,8 @@
+import './scene-handoff-contract-audit-v44.js';
+import './scene-handoff-stage-lock-v45.js';
+import './scene-handoff-output-frame-v46.js';
+import './scene-handoff-ownership-audit-v47.js';
+import './scene-handoff-scale-audit-v48.js';
 import {
   HUMAN_FACT_SCENE_HANDOFF_KEY,
   readHumanFactSceneHandoff,
