@@ -13,10 +13,11 @@ def _audit() -> SurveyAudit:
         ("remove-relation", "disputed", "relation", "relation-1", "warning", "remove"),
         ("lower-opening", "disputed", "observation", "opening-1", "warning", "lower_certainty"),
         ("reorient-opening", "disputed", "observation", "opening-2", "warning", "reorient"),
+        ("reorient-photo", "disputed", "photo", "1", "warning", "reorient"),
         ("reorient-relation", "disputed", "relation", "relation-2", "warning", "reorient"),
         ("merge-opening", "duplicate", "observation", "opening-3", "warning", "merge"),
         ("review-opening", "insufficient_evidence", "observation", "opening-4", "warning", "review"),
-        ("photo-problem", "disputed", "photo", "1", "warning", "remove"),
+        ("remove-photo", "disputed", "photo", "1", "warning", "remove"),
         ("info-only", "confirmed", "observation", "opening-5", "info", "remove"),
     ]
     return SurveyAudit.model_validate(
@@ -54,11 +55,13 @@ def test_eligibility_preflight_matches_hardened_v01_surface() -> None:
         "remove-relation",
         "lower-opening",
         "reorient-opening",
+        "reorient-photo",
     ]
 
     by_id = {item.finding_id: item for item in survey_correction_eligibility_v01(audit)}
-    assert by_id["reorient-relation"].reason == "reorient_requires_observation_target_v01"
+    assert by_id["reorient-photo"].reason == "automatic_photo_reorient"
+    assert by_id["reorient-relation"].reason == "reorient_requires_observation_or_photo_target_v01"
     assert by_id["merge-opening"].reason == "merge_requires_manual_review_v01"
     assert by_id["review-opening"].reason == "diagnostic_only_action"
-    assert by_id["photo-problem"].reason == "photo_target_not_mutable_v01"
+    assert by_id["remove-photo"].reason == "photo_target_allows_reorient_only_v01"
     assert by_id["info-only"].reason == "non_actionable_severity"
