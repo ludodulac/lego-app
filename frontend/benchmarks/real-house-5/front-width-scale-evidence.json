@@ -62,7 +62,7 @@
       "id": "front-opening-6-frame-v1",
       "observation_id": "front-opening-6",
       "photo_index": 1,
-      "region": {"x0": 0.5774240231548481, "y0": 0.5911458333333334, "x1": 0.7930535455861071, "y1": 0.685546875},
+      "region": {"x0": 0.5774240231548481, "y0": 0.5911458333333334, "x1": 0.7930535455861071, "y1": 0.6842447916666666},
       "source": {"kind": "inferred", "confidence": 0.7},
       "statement": "Visible lower-right glazed opening frame; exact door/glazed-door configuration remains intentionally broad."
     }
