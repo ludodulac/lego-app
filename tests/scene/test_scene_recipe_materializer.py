@@ -53,7 +53,8 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     assert any("stair-exterior-1-run-lower-v1" in value for value in placement_ids)
     assert any("stair-exterior-1-run-upper-v1" in value for value in placement_ids)
     assert any(value.startswith("scene-chimney:chimney-1:") for value in placement_ids)
-    assert any("front-opening-6" in value for value in placement_ids)
+    assert any(part.get("opening_id") == "front-opening-6" for part in parts)
+    assert ("lego_architectural_opening_unrepresented", "front-opening-6") not in fidelity
     assert any(part["category"] == "roof_tile" for part in parts)
     assert any(
         part["placement_id"].startswith("scene-platform:platform-timber-1:")
