@@ -9,22 +9,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-from pydantic import Field
-
-from brickhouse.scene.models import ArchitecturalScene
-from brickhouse.scene.stair_system_links import SceneStairSystemLink
-
-
-class MaterializedBenchmarkScene(ArchitecturalScene):
-    """ArchitecturalScene plus explicit benchmark-only provenance sidecars.
-
-    ArchitecturalScene v0.2 predates the stair-system provenance sidecar added by
-    BH-204. Materialization must not silently discard those links, because stair
-    topology diagnostics consume them. This subtype preserves the sidecar without
-    changing the accepted Survey or inventing any geometry.
-    """
-
-    stair_system_links: list[SceneStairSystemLink] = Field(default_factory=list)
+from brickhouse.scene.wall_profile_scene import ArchitecturalScene
 
 
 def _load(path: Path) -> dict:
@@ -75,4 +60,4 @@ def materialize_scene_recipe(recipe_path: Path) -> ArchitecturalScene:
         raise ValueError(f"Unsupported benchmark Scene overlay operation: {operation!r}")
 
     payload["id"] = recipe["scene_id"]
-    return MaterializedBenchmarkScene.model_validate(payload)
+    return ArchitecturalScene.model_validate(payload)
