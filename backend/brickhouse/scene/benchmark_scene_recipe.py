@@ -9,7 +9,7 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-from brickhouse.scene.models import ArchitecturalScene
+from brickhouse.scene.wall_profile_scene import ArchitecturalScene
 
 
 def _load(path: Path) -> dict:

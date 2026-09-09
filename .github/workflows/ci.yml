@@ -5,13 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-permissions:
-  contents: read
-
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -111,21 +107,13 @@ jobs:
           PY
 
       - name: Run reference M0 pipeline
-        run: >-
-          brickhouse-m0
-          docs/examples/building-model-simple-house.json
-          /tmp/brickhouse-house-export.json
-          --front-width-studs 48
+        run: brickhouse-m0 docs/examples/building-model-simple-house.json /tmp/brickhouse-house-export.json --front-width-studs 48
 
       - name: Verify export exists
         run: test -s /tmp/brickhouse-house-export.json
 
       - name: Generate generic shed viewer reference
-        run: >-
-          brickhouse-m0
-          docs/examples/building-model-shed-house.json
-          /tmp/brickhouse-shed-viewer-export.json
-          --front-width-studs 48
+        run: brickhouse-m0 docs/examples/building-model-shed-house.json /tmp/brickhouse-shed-viewer-export.json --front-width-studs 48
 
       - name: Verify shed viewer reference
         run: |
@@ -186,12 +174,12 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          from brickhouse.pipeline import run_m0_pipeline_scene
+          from brickhouse.partial_scene_pipeline import run_partial_scene_pipeline
           from brickhouse.scene.benchmark_scene_recipe import materialize_scene_recipe
 
           recipe = Path('frontend/benchmarks/real-house-5/scene-candidate-v0.2.json')
           scene = materialize_scene_recipe(recipe)
-          bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
+          bundle = run_partial_scene_pipeline(scene, front_width_studs=48)
           parts = bundle.brick_model.parts
           ids = [part.placement_id for part in parts]
           assert parts
