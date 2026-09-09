@@ -2,9 +2,14 @@ const buildButton = document.querySelector('#build-bricks');
 const statusEl = document.querySelector('#status');
 const studsInput = document.querySelector('#studs');
 const apiInput = document.querySelector('#api-url');
+const nativeFetch = globalThis.fetch.bind(globalThis);
 
 function apiBase() {
   return apiInput?.value.trim().replace(/\/$/, '') ?? '';
+}
+
+function rememberSceneValidation(value) {
+  if (value?.scene) sessionStorage.setItem('brickhouse.validatedScene', JSON.stringify(value));
 }
 
 function pendingSceneValidation() {
@@ -17,9 +22,19 @@ function pendingSceneValidation() {
   }
 }
 
-window.addEventListener('brickhouse:scene-validated', (event) => {
-  if (event.detail?.scene) sessionStorage.setItem('brickhouse.validatedScene', JSON.stringify(event.detail));
-});
+// photo.js owns validation UI state internally. Capture only successful generic
+// validate-scene responses so the subsequent Build action can preserve the full
+// ArchitecturalScene instead of falling back to its lossy BuildingModel projection.
+globalThis.fetch = async (...args) => {
+  const response = await nativeFetch(...args);
+  const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+  if (response.ok && /\/api\/v1\/validate-scene(?:\?|$)/.test(url)) {
+    try { rememberSceneValidation(await response.clone().json()); } catch { /* normal validator handles malformed JSON */ }
+  }
+  return response;
+};
+
+window.addEventListener('brickhouse:scene-validated', (event) => rememberSceneValidation(event.detail));
 
 buildButton?.addEventListener('click', async (event) => {
   const validation = pendingSceneValidation();
@@ -36,7 +51,7 @@ buildButton?.addEventListener('click', async (event) => {
   buildButton.disabled = true;
   statusEl.textContent = 'BrickHouse construit la Scene architecturale complète…';
   try {
-    const response = await fetch(`${base}/api/v1/build-scene`, {
+    const response = await nativeFetch(`${base}/api/v1/build-scene`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
