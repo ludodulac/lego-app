@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from brickhouse.api import app
-from scripts.materialize_scene_recipe import materialize_scene_recipe
+from brickhouse.scene.benchmark_scene_recipe import materialize_scene_recipe
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK = ROOT / "frontend" / "benchmarks" / "real-house-5"
@@ -13,7 +13,7 @@ CLIENT = TestClient(app)
 
 
 def test_materializer_resolves_real_house_recipe_without_hidden_geometry() -> None:
-    scene = materialize_scene_recipe(RECIPE, repository_root=ROOT)
+    scene = materialize_scene_recipe(RECIPE)
 
     timber = next(item for item in scene.platforms if item.id == "platform-timber-1")
     landing = next(item for item in scene.platforms if item.id == "platform-massive-1")
@@ -26,7 +26,7 @@ def test_materializer_resolves_real_house_recipe_without_hidden_geometry() -> No
 
 
 def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_path: Path) -> None:
-    scene = materialize_scene_recipe(RECIPE, repository_root=ROOT)
+    scene = materialize_scene_recipe(RECIPE)
     response = CLIENT.post(
         "/api/v1/build-scene",
         json={"scene": scene.model_dump(mode="json"), "front_width_studs": 48, "allow_partial": True},
