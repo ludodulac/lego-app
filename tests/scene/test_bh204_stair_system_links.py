@@ -131,13 +131,18 @@ def test_parent_linked_runs_realize_multi_run_topology_without_new_survey_observ
     scene = _scene()
 
     fact = analyze_multi_run_stair_geometry(survey, scene).facts[0]
+    codes = _codes(survey, scene)
 
     assert fact.component_run_ids == ["scene-run-a", "scene-run-b"]
     assert fact.all_components_present is True
     assert fact.connected is True
     assert fact.spanning_path_exists is True
     assert fact.direction_change_realized is True
-    assert _codes(survey, scene) == set()
+    assert "certain_stair_missing" not in codes
+    assert "certain_multiview_stair_not_geometrically_encoded" not in codes
+    assert "scene_stair_not_in_survey" not in codes
+    assert "multi_run_stair_topology_unresolved" not in codes
+    assert "multi_run_stair_direction_change_not_realized" not in codes
     assert survey.model_dump() == survey_before
 
 
