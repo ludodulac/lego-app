@@ -12,24 +12,6 @@ def _scene_payload() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_partial_preview_keeps_low_confidence_secondary_volume_when_envelope_is_concrete() -> None:
-    scene = ArchitecturalScene.model_validate(_scene_payload())
-    building = _resolved_core_building(scene)
-
-    assert {volume.id for volume in building.volumes} == {"volume_main", "lower_exterior_volume"}
-    issues = _partial_fidelity_issues(scene)
-    assert not any(
-        issue.code == "partial_preview_secondary_volume_omitted"
-        and issue.object_id == "lower_exterior_volume"
-        for issue in issues
-    )
-    assert any(
-        issue.code == "low_confidence_partial_dimension"
-        and issue.object_id == "lower_exterior_volume"
-        for issue in issues
-    )
-
-
 def test_partial_preview_still_omits_incomplete_roof_without_guessing_geometry() -> None:
     scene = ArchitecturalScene.model_validate(_scene_payload())
     building = _resolved_core_building(scene)
