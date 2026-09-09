@@ -1,0 +1,32 @@
+{
+  "schema_version": "brickhouse-benchmark-scene-overlay-0.1",
+  "benchmark_id": "real-house-5",
+  "source_scene_id": "brickhouse-scene-real-house-5-candidate",
+  "operation": "update_platform_geometry",
+  "human_relative_level_fact": {
+    "subject_observation_id": "platform-timber-1",
+    "object_observation_id": "platform-massive-1",
+    "relation": "lower_than",
+    "certainty": "certain",
+    "source": {"kind": "user_provided", "confidence": 1.0},
+    "statement": "User confirms the timber deck walking surface is lower than the massive stair-arrival landing."
+  },
+  "platform_updates": [
+    {
+      "platform_id": "platform-timber-1",
+      "position_z": 2.1,
+      "support_height": 2.1,
+      "source": {"kind": "inferred", "confidence": 0.14},
+      "evidence": [
+        {"photo_index": 3, "observation": "The timber deck is visibly below the massive landing, but the vertical offset is not metrically calibrated."},
+        {"photo_index": 4, "observation": "The terrace edge and massive landing are both visible; only their ordering is secure."}
+      ],
+      "statement": "2.1 m is a provisional low-confidence Scene placement chosen to realize the confirmed ordering while preserving the existing 2.3 m landing. The 0.2 m separation is not a user measurement and must remain revisable."
+    }
+  ],
+  "inference_notes": [
+    "Only the qualitative relation platform-timber-1 lower_than platform-massive-1 is user-confirmed.",
+    "The nominal timber z=2.1 m and matching support heights are low-confidence Scene inference for a coherent preview, not Survey truth or known measurement.",
+    "No exact vertical delta is claimed."
+  ]
+}
