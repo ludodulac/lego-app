@@ -63,9 +63,14 @@ def materialize_scene_recipe(recipe_path: Path) -> ArchitecturalScene:
                 update = opening_updates.get(opening["id"])
                 if update is None:
                     continue
-                # Semantic confirmation must not rewrite photo-derived metric geometry.
-                opening["type"] = update["type"]
-                opening["opening_visual"] = deepcopy(update.get("opening_visual"))
+                # Semantic evidence must not rewrite photo-derived metric geometry.
+                for field in ("type", "has_sill", "has_decorative_surround", "window_style"):
+                    if field in update:
+                        opening[field] = deepcopy(update[field])
+                if "opening_visual" in update:
+                    visual = deepcopy(opening.get("opening_visual") or {})
+                    visual.update(deepcopy(update["opening_visual"] or {}))
+                    opening["opening_visual"] = visual or None
                 opening.setdefault("evidence", []).extend(deepcopy(update.get("evidence", [])))
             continue
 

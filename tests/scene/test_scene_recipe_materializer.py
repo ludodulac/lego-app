@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK = ROOT / "frontend" / "benchmarks" / "real-house-5"
 RECIPE = BENCHMARK / "scene-candidate-v0.2.json"
 CLIENT = TestClient(app)
+FRONT_SURROUND_IDS = {f"front-opening-{index}" for index in range(1, 6)}
 
 
 def test_materializer_resolves_real_house_recipe_without_hidden_geometry() -> None:
@@ -19,6 +20,7 @@ def test_materializer_resolves_real_house_recipe_without_hidden_geometry() -> No
     landing = next(item for item in scene.platforms if item.id == "platform-massive-1")
     stair_ids = {item.id for item in scene.stairs}
     glazed_door = next(item for item in scene.openings if item.id == "front-opening-6")
+    surrounded = {item.id: item for item in scene.openings if item.id in FRONT_SURROUND_IDS}
 
     assert scene.id == "brickhouse-scene-real-house-5-candidate-v0.2"
     assert timber.position.z < landing.position.z
@@ -31,6 +33,11 @@ def test_materializer_resolves_real_house_recipe_without_hidden_geometry() -> No
     assert glazed_door.source.kind.value == "inferred"
     assert glazed_door.width == 1.65
     assert glazed_door.height == 2.25
+    assert set(surrounded) == FRONT_SURROUND_IDS
+    assert all(item.has_decorative_surround is True for item in surrounded.values())
+    assert all(item.opening_visual is not None for item in surrounded.values())
+    assert all(item.opening_visual.surround_color == "beige" for item in surrounded.values())
+    assert all(item.opening_visual.surround_material is None for item in surrounded.values())
 
 
 def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_path: Path) -> None:
@@ -45,6 +52,11 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     placement_ids = [part["placement_id"] for part in parts]
     fidelity = {(issue["code"], issue.get("object_id")) for issue in bundle["fidelity_issues"]}
     glazed_door_parts = [part for part in parts if part.get("opening_id") == "front-opening-6"]
+    surround_parts = [
+        part for part in parts
+        if part.get("opening_id") in FRONT_SURROUND_IDS
+        and part.get("trim_role") in {"left_jamb", "right_jamb", "head", "surround_base"}
+    ]
 
     assert parts
     assert bundle["bom"]["total_parts"] == len(parts)
@@ -57,6 +69,9 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     assert glazed_door_parts
     assert all(part["category"] == "window_pane" for part in glazed_door_parts)
     assert ("lego_architectural_opening_unrepresented", "front-opening-6") not in fidelity
+    assert {part["opening_id"] for part in surround_parts} == FRONT_SURROUND_IDS
+    assert all(part["category"] == "facade_detail" for part in surround_parts)
+    assert all(part.get("semantic_color") == "beige" for part in surround_parts)
     assert any(part["category"] == "roof_tile" for part in parts)
     assert any(
         part["placement_id"].startswith("scene-platform:platform-timber-1:")
