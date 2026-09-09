@@ -47,6 +47,12 @@ from .correction_reaudit_contract import (
     validate_survey_correction_reaudit,
 )
 from .human_facts import HumanAttributeFact, HumanFactApplication, apply_human_attribute_facts
+from .human_spatial_facts import (
+    HumanLevelRelation,
+    HumanRelativeLevelFact,
+    HumanRelativeLevelFactSet,
+    validate_human_relative_level_facts,
+)
 from .models import (
     ArchitecturalSurvey,
     CanonicalFrame,
@@ -137,6 +143,9 @@ __all__ = [
     "Certainty",
     "HumanAttributeFact",
     "HumanFactApplication",
+    "HumanLevelRelation",
+    "HumanRelativeLevelFact",
+    "HumanRelativeLevelFactSet",
     "KnownMeasurement",
     "MultiViewIdentityFacts",
     "MultiViewIdentityReport",
@@ -198,6 +207,7 @@ __all__ = [
     "evaluate_survey_audit_experimental_go",
     "rank_questions_for_user_input",
     "survey_correction_eligibility_v01",
+    "validate_human_relative_level_facts",
     "validate_multiview_identity",
     "validate_stair_topology_observations",
     "validate_subject_ownership",
