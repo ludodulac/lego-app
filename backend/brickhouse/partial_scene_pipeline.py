@@ -27,6 +27,7 @@ from brickhouse.scene import ArchitecturalScene, SceneRoofType
 from brickhouse.scene.physical_support import analyze_physical_support
 from brickhouse.scene.topology_projection import project_scene_to_building
 
+SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
 LOW_CONFIDENCE_WARNING = 0.65
 AUTO_SCALE_MIN_IMPROVEMENT = 0.10
 
@@ -40,8 +41,15 @@ def _is_resolved_volume(volume) -> bool:
     )
 
 
+def _secondary_volume_confidence(volume) -> float:
+    return min(
+        volume.width.source.confidence,
+        volume.depth.source.confidence,
+        volume.height.source.confidence,
+    )
+
+
 def _selected_partial_volumes(scene: ArchitecturalScene):
-    """Keep every concrete volume envelope and warn on uncertainty instead of hiding it."""
     primary = scene.volumes[0]
     if not _is_resolved_volume(primary):
         raise ValueError(
@@ -54,12 +62,15 @@ def _selected_partial_volumes(scene: ArchitecturalScene):
         if not _is_resolved_volume(volume):
             omitted.append((volume, "unresolved metric envelope"))
             continue
+        confidence = _secondary_volume_confidence(volume)
+        if confidence < SECONDARY_VOLUME_CONFIDENCE_MIN:
+            omitted.append((volume, f"metric confidence {confidence:.2f}"))
+            continue
         included.append(volume)
     return included, omitted
 
 
 def _roof_is_representable(roof) -> bool:
-    """Mirror the existing Scene → BuildingModel roof contract without inventing geometry."""
     if roof.type is SceneRoofType.FLAT:
         return True
     if roof.type is SceneRoofType.GABLE:
@@ -84,7 +95,7 @@ def _selected_partial_roofs(scene: ArchitecturalScene, resolved_ids: set[str]):
 
 
 def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
-    """Project every concrete envelope plus every already-representable roof."""
+    """Project the safe concrete core plus roofs whose construction geometry is complete."""
     resolved, _ = _selected_partial_volumes(scene)
     resolved_ids = {volume.id for volume in resolved}
     volumes = [
@@ -145,32 +156,20 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
         metadata=Metadata(
             created_from="photo_analysis",
             notes=(
-                "Conservative partial LEGO preview: concrete photo-derived envelopes and fully specified roofs "
-                "are shown provisionally with fidelity warnings; unresolved metrics and hidden junctions remain omitted."
+                "Conservative partial LEGO preview: safe concrete envelopes and fully specified roofs are shown "
+                "provisionally; unresolved or weak secondary geometry and hidden junctions remain omitted."
             ),
         ),
     )
 
 
 def _partial_exterior_selection(scene: ArchitecturalScene):
-    """Select only exterior assemblies whose existing Scene support facts are proven.
-
-    This is intentionally stricter than the full production support gate: a partial
-    preview is useful only if adding an exterior object does not create a visually
-    floating provisional assembly. No missing support is synthesized to make an
-    object eligible.
-    """
     facts, _ = analyze_physical_support(scene)
     platform_ids = {item.id for item in scene.platforms}
-
     safe_platform_ids: set[str] = set()
     platform_reason: dict[str, str] = {}
     for platform in scene.platforms:
-        support_facts = [
-            fact for fact in facts
-            if fact.object_id == platform.id
-            and fact.kind in {"platform_host_contact", "platform_post_support"}
-        ]
+        support_facts = [fact for fact in facts if fact.object_id == platform.id and fact.kind in {"platform_host_contact", "platform_post_support"}]
         contradicted = next((fact for fact in support_facts if fact.state == "contradicted"), None)
         proven = [fact for fact in support_facts if fact.state == "proven"]
         if contradicted is not None:
@@ -179,33 +178,17 @@ def _partial_exterior_selection(scene: ArchitecturalScene):
             safe_platform_ids.add(platform.id)
         else:
             unresolved = next((fact for fact in support_facts if fact.state == "unresolved"), None)
-            platform_reason[platform.id] = (
-                unresolved.reason if unresolved is not None else "no proven platform support path"
-            )
+            platform_reason[platform.id] = unresolved.reason if unresolved is not None else "no proven platform support path"
 
     safe_stair_ids: set[str] = set()
     stair_reason: dict[str, str] = {}
     for stair in scene.stairs:
-        endpoint_facts = sorted(
-            (
-                fact for fact in facts
-                if fact.object_id == stair.id and fact.kind == "stair_endpoint_support"
-            ),
-            key=lambda fact: fact.endpoint or "",
-        )
+        endpoint_facts = sorted((fact for fact in facts if fact.object_id == stair.id and fact.kind == "stair_endpoint_support"), key=lambda fact: fact.endpoint or "")
         if len(endpoint_facts) != 2 or any(fact.state != "proven" for fact in endpoint_facts):
             unresolved = next((fact for fact in endpoint_facts if fact.state != "proven"), None)
-            stair_reason[stair.id] = (
-                unresolved.reason if unresolved is not None else "both stair endpoints are not proven supported"
-            )
+            stair_reason[stair.id] = unresolved.reason if unresolved is not None else "both stair endpoints are not proven supported"
             continue
-        unsafe_platform = next(
-            (
-                fact.supporter_id for fact in endpoint_facts
-                if fact.supporter_id in platform_ids and fact.supporter_id not in safe_platform_ids
-            ),
-            None,
-        )
+        unsafe_platform = next((fact.supporter_id for fact in endpoint_facts if fact.supporter_id in platform_ids and fact.supporter_id not in safe_platform_ids), None)
         if unsafe_platform is not None:
             stair_reason[stair.id] = f"endpoint depends on omitted platform {unsafe_platform!r}"
             continue
@@ -214,28 +197,13 @@ def _partial_exterior_selection(scene: ArchitecturalScene):
     safe_scene = scene.model_copy(update={
         "platforms": [item for item in scene.platforms if item.id in safe_platform_ids],
         "stairs": [item for item in scene.stairs if item.id in safe_stair_ids],
-        # Chimneys still have no partial LEGO representation; keep them out rather
-        # than inventing support or approximating their construction.
         "chimneys": [],
-        # Terrain remains independently conservative in this preview path.
         "terrain": None,
-        "platform_structure_observations": [
-            item for item in scene.platform_structure_observations
-            if item.platform_id in safe_platform_ids
-        ],
+        "platform_structure_observations": [item for item in scene.platform_structure_observations if item.platform_id in safe_platform_ids],
     })
-    omitted = [
-        ("platform", item.id, platform_reason.get(item.id, "support not proven"))
-        for item in scene.platforms if item.id not in safe_platform_ids
-    ]
-    omitted.extend(
-        ("stair", item.id, stair_reason.get(item.id, "support not proven"))
-        for item in scene.stairs if item.id not in safe_stair_ids
-    )
-    omitted.extend(
-        ("chimney", item.id, "chimneys do not yet have a partial LEGO representation")
-        for item in scene.chimneys
-    )
+    omitted = [("platform", item.id, platform_reason.get(item.id, "support not proven")) for item in scene.platforms if item.id not in safe_platform_ids]
+    omitted.extend(("stair", item.id, stair_reason.get(item.id, "support not proven")) for item in scene.stairs if item.id not in safe_stair_ids)
+    omitted.extend(("chimney", item.id, "chimneys do not yet have a partial LEGO representation") for item in scene.chimneys)
     return safe_scene, omitted
 
 
@@ -243,124 +211,42 @@ def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFid
     included, omitted = _selected_partial_volumes(scene)
     included_ids = {volume.id for volume in included}
     issues: list[BrickExportFidelityIssue] = []
-
     for volume, reason in omitted:
-        issues.append(
-            BrickExportFidelityIssue(
-                code="partial_preview_secondary_volume_omitted",
-                severity="warning",
-                object_id=volume.id,
-                message=(
-                    f"Secondary volume {volume.id!r} is visible in ArchitecturalScene but is omitted from the "
-                    f"first-bricks preview because {reason}."
-                ),
-            )
-        )
-
+        issues.append(BrickExportFidelityIssue(code="partial_preview_secondary_volume_omitted", severity="warning", object_id=volume.id, message=(f"Secondary volume {volume.id!r} is visible in ArchitecturalScene but is omitted from the first-bricks preview because its envelope is still weakly constrained ({reason}).")))
     for volume in included:
         for name in ("width", "depth", "height"):
             value = getattr(volume, name)
             if value.source.kind == "user_provided" or value.source.confidence >= LOW_CONFIDENCE_WARNING:
                 continue
-            issues.append(
-                BrickExportFidelityIssue(
-                    code="low_confidence_partial_dimension",
-                    severity="warning" if value.source.confidence < 0.5 else "info",
-                    object_id=volume.id,
-                    message=(
-                        f"{volume.id}.{name}={value.value:g} m is used provisionally in the first-bricks preview "
-                        f"from photo inference confidence {value.source.confidence:.2f}; it is not a measured dimension."
-                    ),
-                )
-            )
-
+            issues.append(BrickExportFidelityIssue(code="low_confidence_partial_dimension", severity="warning" if value.source.confidence < 0.5 else "info", object_id=volume.id, message=(f"{volume.id}.{name}={value.value:g} m is used provisionally in the first-bricks preview from photo inference confidence {value.source.confidence:.2f}; it is not a measured dimension.")))
     for opening in scene.openings:
         if opening.volume_id not in included_ids:
             continue
         if opening.source.kind == "user_provided" or opening.source.confidence >= LOW_CONFIDENCE_WARNING:
             continue
-        issues.append(
-            BrickExportFidelityIssue(
-                code="low_confidence_partial_opening_geometry",
-                severity="warning" if opening.source.confidence < 0.4 else "info",
-                object_id=opening.id,
-                message=(
-                    f"Opening {opening.id!r} is kept as a real wall cut, but its current rectangle is photo-derived "
-                    f"at confidence {opening.source.confidence:.2f}; later cross-view constraints may move or resize it."
-                ),
-            )
-        )
-
+        issues.append(BrickExportFidelityIssue(code="low_confidence_partial_opening_geometry", severity="warning" if opening.source.confidence < 0.4 else "info", object_id=opening.id, message=(f"Opening {opening.id!r} is kept as a real wall cut, but its current rectangle is photo-derived at confidence {opening.source.confidence:.2f}; later cross-view constraints may move or resize it.")))
     for profile in getattr(scene, "wall_profile_observations", []):
         if profile.volume_id not in included_ids or profile.openings_recessed is not True:
             continue
         reveal = profile.reveal_depth
-        reveal_resolved = (
-            reveal is not None
-            and reveal.value is not None
-            and (reveal.source.kind == "user_provided" or reveal.source.confidence >= MIN_GEOMETRY_CONFIDENCE)
-        )
-        if reveal_resolved:
-            continue
-        issues.append(
-            BrickExportFidelityIssue(
-                code="observed_recess_depth_unresolved",
-                severity="info",
-                object_id=profile.id,
-                message=(
-                    f"Openings on {profile.facade.value} facade of volume {profile.volume_id!r} are visibly recessed, "
-                    "but the recess depth is not resolved strongly enough to move the LEGO frame inward. "
-                    "The first-bricks preview keeps this fact explicit instead of inventing a depth."
-                ),
-            )
-        )
+        reveal_resolved = reveal is not None and reveal.value is not None and (reveal.source.kind == "user_provided" or reveal.source.confidence >= MIN_GEOMETRY_CONFIDENCE)
+        if not reveal_resolved:
+            issues.append(BrickExportFidelityIssue(code="observed_recess_depth_unresolved", severity="info", object_id=profile.id, message=(f"Openings on {profile.facade.value} facade of volume {profile.volume_id!r} are visibly recessed, but the recess depth is not resolved strongly enough to move the LEGO frame inward. The first-bricks preview keeps this fact explicit instead of inventing a depth.")))
     return issues
 
 
 def _partial_fidelity_issues(scene: ArchitecturalScene) -> list[BrickExportFidelityIssue]:
     projection = project_scene_to_building(scene)
     issues = [*_metric_uncertainty_issues(scene)]
-    issues.extend(
-        BrickExportFidelityIssue(
-            code=issue.code,
-            severity="warning" if issue.severity.value == "blocker" else "info",
-            object_id=issue.object_id,
-            message=(
-                f"Partial preview omission: {issue.message}"
-                if issue.severity.value == "blocker"
-                else issue.message
-            ),
-        )
-        for issue in projection.issues
-    )
+    issues.extend(BrickExportFidelityIssue(code=issue.code, severity="warning" if issue.severity.value == "blocker" else "info", object_id=issue.object_id, message=(f"Partial preview omission: {issue.message}" if issue.severity.value == "blocker" else issue.message)) for issue in projection.issues)
     resolved_volumes, _ = _selected_partial_volumes(scene)
     resolved_ids = {volume.id for volume in resolved_volumes}
     _, omitted_roofs = _selected_partial_roofs(scene, resolved_ids)
     for roof, reason in omitted_roofs:
-        issues.append(
-            BrickExportFidelityIssue(
-                code="partial_preview_roof_omitted",
-                severity="warning",
-                object_id=roof.id,
-                message=(
-                    f"Roof {roof.id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview "
-                    f"because {reason}. No pitch, direction or host geometry is invented."
-                ),
-            )
-        )
+        issues.append(BrickExportFidelityIssue(code="partial_preview_roof_omitted", severity="warning", object_id=roof.id, message=(f"Roof {roof.id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview because {reason}. No pitch, direction or host geometry is invented.")))
     _, omitted_exterior = _partial_exterior_selection(scene)
     for kind, object_id, reason in omitted_exterior:
-        issues.append(
-            BrickExportFidelityIssue(
-                code="partial_preview_exterior_object_omitted",
-                severity="warning" if kind in {"platform", "stair"} else "info",
-                object_id=object_id,
-                message=(
-                    f"{kind.capitalize()} {object_id!r} remains in ArchitecturalScene but is omitted from the "
-                    f"partial LEGO preview because {reason}. No support or hidden connection is invented."
-                ),
-            )
-        )
+        issues.append(BrickExportFidelityIssue(code="partial_preview_exterior_object_omitted", severity="warning" if kind in {"platform", "stair"} else "info", object_id=object_id, message=(f"{kind.capitalize()} {object_id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview because {reason}. No support or hidden connection is invented.")))
     unique = []
     seen = set()
     for issue in issues:
@@ -371,71 +257,24 @@ def _partial_fidelity_issues(scene: ArchitecturalScene) -> list[BrickExportFidel
     return unique
 
 
-def run_partial_scene_pipeline(
-    scene: ArchitecturalScene,
-    *,
-    front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS,
-    optimize_scale: bool = False,
-) -> BrickExportBundle:
-    """Build the useful known subset while exposing every provisional metric as such."""
+def run_partial_scene_pipeline(scene: ArchitecturalScene, *, front_width_studs: int = DEFAULT_FRONT_WIDTH_STUDS, optimize_scale: bool = False) -> BrickExportBundle:
     if front_width_studs <= 0:
         raise ValueError("front_width_studs must be positive")
     building = _resolved_core_building(scene)
-    recommendation = recommend_front_width_studs(
-        building,
-        preferred_front_width_studs=front_width_studs,
-        search_radius_studs=6,
-    )
+    recommendation = recommend_front_width_studs(building, preferred_front_width_studs=front_width_studs, search_radius_studs=6)
     selected_width = front_width_studs
     if optimize_scale and recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
         selected_width = recommendation.recommended_front_width_studs
-
     bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
-    enriched = augment_brick_model_with_wall_depth(
-        bundle.brick_model,
-        scene,
-        front_width_studs=selected_width,
-    )
+    enriched = augment_brick_model_with_wall_depth(bundle.brick_model, scene, front_width_studs=selected_width)
     exterior_scene, _ = _partial_exterior_selection(scene)
-    enriched = augment_brick_model_with_scene_platform_connectivity(
-        enriched,
-        exterior_scene,
-        front_width_studs=selected_width,
-    )
-    enriched = augment_brick_model_with_scene_shutters(
-        enriched,
-        scene,
-        front_width_studs=selected_width,
-    )
+    enriched = augment_brick_model_with_scene_platform_connectivity(enriched, exterior_scene, front_width_studs=selected_width)
+    enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=selected_width)
     if enriched is not bundle.brick_model:
         assembly_plan = generate_assembly_plan(enriched)
-        bundle = bundle.model_copy(update={
-            "brick_model": enriched,
-            "bom": generate_bom(enriched),
-            "assembly_plan": assembly_plan,
-            "instruction_plan": generate_instruction_plan(assembly_plan),
-            "bag_plan": generate_bag_plan(assembly_plan),
-        })
-
+        bundle = bundle.model_copy(update={"brick_model": enriched, "bom": generate_bom(enriched), "assembly_plan": assembly_plan, "instruction_plan": generate_instruction_plan(assembly_plan), "bag_plan": generate_bag_plan(assembly_plan)})
     quality = build_discretization_quality(building, front_width_studs=selected_width)
-    metadata = bundle.metadata.model_copy(update={
-        "discretization_quality": quality,
-        "scale_recommendation": recommendation,
-    })
+    metadata = bundle.metadata.model_copy(update={"discretization_quality": quality, "scale_recommendation": recommendation})
     fidelity_issues = _partial_fidelity_issues(scene)
-    capability_summary = derive_export_capability_summary(
-        assembly_plan=bundle.assembly_plan,
-        instruction_plan=bundle.instruction_plan,
-        bag_plan=bundle.bag_plan,
-        fidelity_issues=fidelity_issues,
-        mechanical_verification=(
-            bundle.capability_summary.mechanical_verification
-            if bundle.capability_summary is not None
-            else None
-        ),
-    )
-    return bundle.model_copy(update={
-        "metadata": metadata,
-        "fidelity_issues": fidelity_issues,
-        "capability_summary": capability_summary,
-    })
+    capability_summary = derive_export_capability_summary(assembly_plan=bundle.assembly_plan, instruction_plan=bundle.instruction_plan, bag_plan=bundle.bag_plan, fidelity_issues=fidelity_issues, mechanical_verification=(bundle.capability_summary.mechanical_verification if bundle.capability_summary is not None else None))
+    return bundle.model_copy(update={"metadata": metadata, "fidelity_issues": fidelity_issues, "capability_summary": capability_summary})
