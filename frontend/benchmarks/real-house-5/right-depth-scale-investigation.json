@@ -1,0 +1,21 @@
+{
+  "schema_version": "brickhouse-benchmark-scale-investigation-0.1",
+  "benchmark_id": "real-house-5",
+  "target": "volume_main.depth",
+  "source_photo_index": 2,
+  "status": "blocked_by_reference_extent_identity",
+  "accepted_survey_unchanged": true,
+  "known_measurements_count": 0,
+  "observations": {
+    "right_opening_1": "A high narrow window is clearly visible on the target right wall and can support a local opening-size cue after rectification.",
+    "right_opening_3": "The lower translucent opening is visually consistent with a four-column glass-block grid; the count is benchmark-side inferred evidence, not Survey truth.",
+    "utility_pole": "The electrical pole occludes the right side and is external context, never a house edge or scale object.",
+    "rear_boundary": "Photo 2 does not prove that the visible rectified wall segment reaches the target building's true rear boundary."
+  },
+  "decision": {
+    "may_estimate_visible_wall_segment": true,
+    "may_promote_visible_segment_to_full_building_depth": false,
+    "reason": "A feature/reference ratio only estimates the physical extent represented by its reference plane. Without evidence that the reference spans the complete front-to-rear target extent, using it as volume_main.depth would silently turn partial visibility into full geometry."
+  },
+  "next_generic_requirement": "Scale cue bindings need explicit provenance for what architectural extent the reference region represents, including a completeness/coverage gate before an absolute Scene dimension may be resolved."
+}
