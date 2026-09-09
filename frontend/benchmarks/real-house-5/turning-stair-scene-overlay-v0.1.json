@@ -10,21 +10,21 @@
     {
       "id": "stair-exterior-1-run-lower-v1",
       "start": {"x": -1.1, "y": 3.0, "z": 0.0},
-      "end": {"x": -2.2, "y": 5.5, "z": 1.15},
+      "end": {"x": -1.1, "y": 5.5, "z": 1.15},
       "width": 1.0,
       "material": "masonry",
       "left_edge": "solid_parapet",
       "right_edge": "solid_parapet",
       "source": {"kind": "inferred", "confidence": 0.18},
       "evidence": [
-        {"photo_index": 4, "observation": "La partie basse de l'escalier et son parapet sont visibles; la position du coude reste seulement bornee grossierement."},
+        {"photo_index": 4, "observation": "La partie basse de l'escalier et son parapet sont visibles; sa projection exacte reste seulement bornee grossierement."},
         {"photo_index": 5, "observation": "La vue arriere confirme une volee basse qui rejoint un changement de direction avant l'arrivee au palier."}
       ]
     },
     {
       "id": "stair-exterior-1-run-upper-v1",
-      "start": {"x": -2.2, "y": 5.5, "z": 1.15},
-      "end": {"x": -1.1, "y": 5.5, "z": 2.3},
+      "start": {"x": -1.1, "y": 5.5, "z": 1.15},
+      "end": {"x": -2.0, "y": 5.5, "z": 2.3},
       "width": 1.0,
       "material": "masonry",
       "left_edge": "solid_parapet",
@@ -63,7 +63,7 @@
   ],
   "inference_notes": [
     "The user-confirmed topology proves a direction change and at least two runs, not an exact turn coordinate or exact rise split.",
-    "The 1.15 m junction elevation is a revisable low-confidence Scene inference chosen inside the already inferred 2.3 m total rise; it is not a Survey observation or measurement.",
+    "The 1.15 m junction elevation and axis-aligned coarse run projections are revisable low-confidence Scene inferences chosen inside the already inferred 2.3 m total rise; they are not Survey observations or measurements.",
     "No exact tread count, turn angle or landing dimension is claimed."
   ]
 }
