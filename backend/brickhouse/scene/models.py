@@ -139,8 +139,12 @@ class SceneRoof(BaseModel):
 
 class GradeProfile(BaseModel):
     facade: Facade
-    start_elevation: float
-    end_elevation: float
+    # A photo can prove that grade changes along a facade without calibrating its
+    # metric endpoints. Preserve that unresolved state in Scene rather than
+    # fabricating zero/default elevations; projection only constructs grade when
+    # both endpoints are known.
+    start_elevation: float | None = None
+    end_elevation: float | None = None
     outward_extent: float | None = Field(default=None, gt=0)
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
