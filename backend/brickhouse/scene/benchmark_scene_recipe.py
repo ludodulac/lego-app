@@ -57,6 +57,18 @@ def materialize_scene_recipe(recipe_path: Path) -> ArchitecturalScene:
                     support["source"] = deepcopy(update["source"])
             continue
 
+        if operation == "update_opening_semantics":
+            opening_updates = {item["opening_id"]: item for item in overlay["opening_updates"]}
+            for opening in payload.get("openings", []):
+                update = opening_updates.get(opening["id"])
+                if update is None:
+                    continue
+                # Semantic confirmation must not rewrite photo-derived metric geometry.
+                opening["type"] = update["type"]
+                opening["opening_visual"] = deepcopy(update.get("opening_visual"))
+                opening.setdefault("evidence", []).extend(deepcopy(update.get("evidence", [])))
+            continue
+
         raise ValueError(f"Unsupported benchmark Scene overlay operation: {operation!r}")
 
     payload["id"] = recipe["scene_id"]

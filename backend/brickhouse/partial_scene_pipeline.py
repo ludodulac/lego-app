@@ -116,6 +116,7 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
             window_style=opening.window_style,
             has_sill=opening.has_sill,
             has_decorative_surround=opening.has_decorative_surround,
+            opening_visual=opening.opening_visual,
         )
         for opening in scene.openings
         if opening.volume_id in resolved_ids

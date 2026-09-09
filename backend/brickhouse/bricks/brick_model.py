@@ -93,14 +93,7 @@ class BrickModel(BaseModel):
 
     @model_validator(mode="after")
     def normalize_canvas_to_final_model(self):
-        """Keep canvas metadata large enough for the final translated representation.
-
-        ``width_studs``/``depth_studs`` retain their architectural meaning. Scene-aware
-        augmentation may later extend those dimensions or append exterior parts after
-        the initial roof canvas is chosen, so the canvas must grow with that derived
-        LEGO representation rather than making a previously valid model impossible to
-        export. This normalization never shrinks an explicitly larger canvas.
-        """
+        """Keep canvas metadata large enough for the final translated representation."""
         required_width = max(
             self.origin_x_studs + self.width_studs,
             max((part.x_studs + 1 for part in self.parts), default=1),
@@ -184,9 +177,6 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
     index = 1
     for facade in facades:
         for level in range(len(slope_axes)):
-            # The roof piece occupies its complete physical footprint, not only the
-            # advance to the next course. Keep gable masonry inside that footprint
-            # boundary so real sloped solids cannot penetrate the wall infill.
             trim = family.footprint_depth_studs + level * family.course_advance_studs
             start, end = trim, span - trim
             if end <= start:
@@ -203,9 +193,7 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
                         placement_id=f"gable-{index:06d}", part_id=part_id,
                         category="brick", component="wall", x_studs=x, y_studs=y,
                         z_plates=wall_top + level * family.rise_plates,
-                        rotation_quarter_turns=(
-                            1 if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR} else 0
-                        ),
+                        rotation_quarter_turns=(1 if brick_span > 1 and facade in {Facade.FRONT, Facade.REAR} else 0),
                         facade=facade,
                     )
                 )
@@ -214,7 +202,6 @@ def _generate_gable_wall_parts(shell: SpatialBrickShell, roof: SpatialRoof):
 
 
 def _roof_model_frame(roof: SpatialRoof | None) -> tuple[int, int, int, int]:
-    """Return x/y offsets and minimum model dimensions needed by the roof footprint."""
     if roof is None or not roof.placements:
         return 0, 0, 0, 0
     cells = set().union(*(_footprint(placement) for placement in roof.placements))
@@ -228,7 +215,6 @@ def _roof_model_frame(roof: SpatialRoof | None) -> tuple[int, int, int, int]:
 
 
 def _model_roof_footprint(part: BrickModelPart) -> set[tuple[int, int]]:
-    """Return a roof part footprint in final BrickModel stud coordinates."""
     definition = create_m0_roof_catalog().get(part.part_id)
     footprint_x, footprint_y = (
         (definition.length_studs, definition.width_studs)
@@ -242,56 +228,24 @@ def _model_roof_footprint(part: BrickModelPart) -> set[tuple[int, int]]:
     }
 
 
-def _validate_final_gable_roof_host_contact(
-    model: BrickModel,
-    shell: SpatialBrickShell,
-    roof: SpatialRoof,
-) -> None:
-    """Verify both eaves still touch their host after final canvas translation.
-
-    ``validate_roof_support`` checks SpatialRoof before BrickModel framing. This
-    second contract intentionally works from the final translated placements so a
-    later offset/canvas change cannot make a locally valid roof float beside its
-    architectural host.
-    """
+def _validate_final_gable_roof_host_contact(model: BrickModel, shell: SpatialBrickShell, roof: SpatialRoof) -> None:
     wall_top = shell.height_bricks * 3
     for side in ("negative", "positive"):
-        side_parts = [
-            part for part in model.parts
-            if part.component == "roof" and part.roof_side == side
-        ]
+        side_parts = [part for part in model.parts if part.component == "roof" and part.roof_side == side]
         if not side_parts:
             raise ValueError(f"final gable roof side {side!r} has no slope placements")
         eave_z = min(part.z_plates for part in side_parts)
         if eave_z != wall_top:
-            raise ValueError(
-                f"final gable roof side {side!r} eave is at {eave_z} plates, "
-                f"expected host wall top {wall_top}"
-            )
-        eave_cells = set().union(*(
-            _model_roof_footprint(part)
-            for part in side_parts
-            if part.z_plates == eave_z
-        ))
+            raise ValueError(f"final gable roof side {side!r} eave is at {eave_z} plates, expected host wall top {wall_top}")
+        eave_cells = set().union(*(_model_roof_footprint(part) for part in side_parts if part.z_plates == eave_z))
         if roof.ridge_direction is RidgeDirection.DEPTH:
-            host_axis = (
-                model.origin_x_studs
-                if side == "negative"
-                else model.origin_x_studs + shell.width_studs - 1
-            )
+            host_axis = model.origin_x_studs if side == "negative" else model.origin_x_studs + shell.width_studs - 1
             touches = any(x == host_axis for x, _ in eave_cells)
         else:
-            host_axis = (
-                model.origin_y_studs
-                if side == "negative"
-                else model.origin_y_studs + shell.depth_studs - 1
-            )
+            host_axis = model.origin_y_studs if side == "negative" else model.origin_y_studs + shell.depth_studs - 1
             touches = any(y == host_axis for _, y in eave_cells)
         if not touches:
-            raise ValueError(
-                f"final gable roof side {side!r} lost contact with host boundary "
-                f"at stud axis {host_axis} after BrickModel translation"
-            )
+            raise ValueError(f"final gable roof side {side!r} lost contact with host boundary at stud axis {host_axis} after BrickModel translation")
 
 
 def generate_brick_model(
@@ -314,10 +268,7 @@ def generate_brick_model(
         ))
     if roof is not None:
         parts.extend(
-            part.model_copy(update={
-                "x_studs": part.x_studs + x_offset,
-                "y_studs": part.y_studs + y_offset,
-            })
+            part.model_copy(update={"x_studs": part.x_studs + x_offset, "y_studs": part.y_studs + y_offset})
             for part in _generate_gable_wall_parts(shell, roof)
         )
 
@@ -336,17 +287,15 @@ def generate_brick_model(
             category=placement.category, component="facade_detail",
             x_studs=placement.x_studs + x_offset, y_studs=placement.y_studs + y_offset,
             z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
-            facade=placement.facade,
+            facade=placement.facade, opening_id=placement.opening_id,
         ))
     if roof is not None:
         for index, placement in enumerate(roof.placements, start=1):
             parts.append(BrickModelPart(
                 placement_id=f"roof-{index:06d}", part_id=placement.part_id,
                 category=_roof_category(placement.part_id, placement.side), component="roof",
-                x_studs=placement.x_studs + x_offset,
-                y_studs=placement.y_studs + y_offset,
-                z_plates=placement.z_plates,
-                rotation_quarter_turns=placement.rotation_quarter_turns,
+                x_studs=placement.x_studs + x_offset, y_studs=placement.y_studs + y_offset,
+                z_plates=placement.z_plates, rotation_quarter_turns=placement.rotation_quarter_turns,
                 roof_side=placement.side,
             ))
 
@@ -355,21 +304,16 @@ def generate_brick_model(
     if roof is not None:
         catalog = create_m0_roof_catalog()
         roof_top = max(
-            (placement.z_plates + catalog.get(placement.part_id).height_plates
-             for placement in roof.placements),
+            (placement.z_plates + catalog.get(placement.part_id).height_plates for placement in roof.placements),
             default=wall_top,
         )
     model = BrickModel(
-        building_id=shell.building_id,
-        volume_id=shell.volume_id,
-        width_studs=shell.width_studs,
-        depth_studs=shell.depth_studs,
+        building_id=shell.building_id, volume_id=shell.volume_id,
+        width_studs=shell.width_studs, depth_studs=shell.depth_studs,
         height_plates=max(wall_top, roof_top),
         canvas_width_studs=max(shell.width_studs + x_offset, roof_width),
         canvas_depth_studs=max(shell.depth_studs + y_offset, roof_depth),
-        origin_x_studs=x_offset,
-        origin_y_studs=y_offset,
-        parts=parts,
+        origin_x_studs=x_offset, origin_y_studs=y_offset, parts=parts,
     )
     if roof is not None:
         _validate_final_gable_roof_host_contact(model, shell, roof)
