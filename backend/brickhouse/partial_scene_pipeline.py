@@ -253,11 +253,19 @@ def run_partial_scene_pipeline(scene: ArchitecturalScene, *, front_width_studs: 
     selected_width = front_width_studs
     if optimize_scale and recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
         selected_width = recommendation.recommended_front_width_studs
-    bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    try:
+        bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    except ValueError:
+        if selected_width == front_width_studs:
+            raise
+        selected_width = front_width_studs
+        bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
     enriched = augment_brick_model_with_wall_depth(bundle.brick_model, scene, front_width_studs=selected_width)
     exterior_scene, _ = _partial_exterior_selection(scene)
     enriched = augment_brick_model_with_scene_platform_connectivity(enriched, exterior_scene, front_width_studs=selected_width)
     enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=selected_width)
+    if enriched.width_studs != selected_width:
+        enriched = enriched.model_copy(update={"width_studs": selected_width})
     if enriched is not bundle.brick_model:
         assembly_plan = generate_assembly_plan(enriched)
         bundle = bundle.model_copy(update={"brick_model": enriched, "bom": generate_bom(enriched), "assembly_plan": assembly_plan, "instruction_plan": generate_instruction_plan(assembly_plan), "bag_plan": generate_bag_plan(assembly_plan)})
