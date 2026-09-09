@@ -1,18 +1,35 @@
 """Preserve certain Survey stair-system topology across Survey -> Scene.
 
-A Scene StairRun is metric.  When the Survey only proves that an architectural
-stair has multiple runs, the honest result is therefore an unresolved fidelity
-error until separately evidenced component runs can be metrified.  This module
-never splits a stair or invents coordinates to satisfy the gate.
+A Scene StairRun is metric. Survey may model either separate semantic run
+observations or one semantic stair system with non-metric topology. The latter can
+be metrically segmented only when Scene components explicitly preserve their parent
+Survey stair-system identity; this module never invents coordinates or run counts.
 """
 
 from __future__ import annotations
 
-from brickhouse.survey import ArchitecturalSurvey, Certainty, analyze_survey_stair_topology
+from brickhouse.survey import (
+    ArchitecturalSurvey,
+    Certainty,
+    ObservationKind,
+    analyze_survey_stair_topology,
+)
 
 from .platform_structure_fidelity import validate_scene_against_survey as _validate_existing
 from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .wall_profile_scene import ArchitecturalScene
+
+
+def _required_minimum_runs(fact) -> int:
+    topology = fact.topology
+    required = topology.minimum_run_count or 1
+    if topology.exact_run_count is not None:
+        required = max(required, topology.exact_run_count)
+    if topology.direction_change is True or topology.turning_node_kind is not None:
+        required = max(required, 2)
+    if topology.component_run_ids:
+        required = max(required, len(topology.component_run_ids))
+    return required
 
 
 def validate_scene_against_survey(
@@ -24,13 +41,71 @@ def validate_scene_against_survey(
     issues = list(_validate_existing(survey, scene))
     topology_report = analyze_survey_stair_topology(survey)
     scene_stair_ids = {item.id for item in scene.stairs}
+    survey_observations = {item.id: item for item in survey.observations}
+
+    links_by_system: dict[str, list[str]] = {}
+    for link in scene.stair_system_links:
+        observation = survey_observations.get(link.survey_stair_system_id)
+        if observation is None:
+            issues.append(
+                SceneSurveyIssue(
+                    code="stair_system_link_unknown_survey_observation",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=link.stair_run_id,
+                    message=(
+                        f"La volée Scene {link.stair_run_id!r} prétend provenir de l’observation Survey "
+                        f"inconnue {link.survey_stair_system_id!r}."
+                    ),
+                )
+            )
+            continue
+        if observation.kind is not ObservationKind.STAIR:
+            issues.append(
+                SceneSurveyIssue(
+                    code="stair_system_link_source_not_stair",
+                    severity=SceneSurveySeverity.ERROR,
+                    object_id=link.stair_run_id,
+                    message=(
+                        f"La volée Scene {link.stair_run_id!r} pointe vers {link.survey_stair_system_id!r}, "
+                        "qui n’est pas une observation d’escalier dans le Survey."
+                    ),
+                )
+            )
+            continue
+        links_by_system.setdefault(link.survey_stair_system_id, []).append(link.stair_run_id)
 
     for fact in topology_report.facts:
         if fact.certainty is not Certainty.CERTAIN or not fact.requires_multiple_scene_runs:
             continue
 
-        component_ids = fact.topology.component_run_ids
-        if not component_ids:
+        explicit_component_ids = list(fact.topology.component_run_ids)
+        if explicit_component_ids:
+            missing = [component_id for component_id in explicit_component_ids if component_id not in scene_stair_ids]
+            if missing:
+                issues.append(
+                    SceneSurveyIssue(
+                        code="multi_run_stair_component_lost",
+                        severity=SceneSurveySeverity.ERROR,
+                        object_id=fact.observation_id,
+                        message=(
+                            f"L’escalier multi-volées {fact.observation_id!r} perd des volées certaines dans "
+                            f"la Scene : {', '.join(repr(item) for item in missing)}. Chaque composant métrisé "
+                            "doit conserver son ID Survey ; sinon la topologie reste non résolue."
+                        ),
+                    )
+                )
+            continue
+
+        linked_component_ids = links_by_system.get(fact.observation_id, [])
+        required = _required_minimum_runs(fact)
+        exact = fact.topology.exact_run_count
+        count_valid = len(linked_component_ids) >= required and (
+            exact is None or len(linked_component_ids) == exact
+        )
+        if not count_valid:
+            expectation = f"au moins {required}"
+            if exact is not None:
+                expectation = f"exactement {exact}"
             issues.append(
                 SceneSurveyIssue(
                     code="multi_run_stair_topology_unresolved",
@@ -38,25 +113,9 @@ def validate_scene_against_survey(
                     object_id=fact.observation_id,
                     message=(
                         f"L’escalier {fact.observation_id!r} est certainement multi-volées dans le Survey, "
-                        "mais ses volées n’ont pas encore d’identités sémantiques séparées. Ne le réduisez "
-                        "pas à un StairRun start→end et n’inventez pas de coordonnées : résolvez d’abord "
-                        "les composants depuis les preuves."
-                    ),
-                )
-            )
-            continue
-
-        missing = [component_id for component_id in component_ids if component_id not in scene_stair_ids]
-        if missing:
-            issues.append(
-                SceneSurveyIssue(
-                    code="multi_run_stair_component_lost",
-                    severity=SceneSurveySeverity.ERROR,
-                    object_id=fact.observation_id,
-                    message=(
-                        f"L’escalier multi-volées {fact.observation_id!r} perd des volées certaines dans "
-                        f"la Scene : {', '.join(repr(item) for item in missing)}. Chaque composant métrisé "
-                        "doit conserver son ID Survey ; sinon la topologie reste non résolue."
+                        f"mais la Scene ne fournit pas {expectation} volées métriques explicitement reliées "
+                        "à ce système. Ne réduisez pas l’escalier à un seul start→end et n’inventez pas de "
+                        "composants sans provenance."
                     ),
                 )
             )

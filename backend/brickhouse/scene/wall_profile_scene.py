@@ -6,6 +6,7 @@ from pydantic import Field
 from brickhouse.survey import RelationKind
 
 from .models import CONNECTIVITY_TOLERANCE_M, EPSILON
+from .stair_system_links import SceneStairSystemLink
 from .topology import ArchitecturalScene as _TopologyArchitecturalScene
 from .wall_profile import WallProfileObservation
 
@@ -13,17 +14,19 @@ from .wall_profile import WallProfileObservation
 class ArchitecturalScene(_TopologyArchitecturalScene):
     """ArchitecturalScene with evidence-backed facade depth observations.
 
-    Existing v0.2 JSON remains valid because this collection defaults to empty.
+    Existing v0.2 JSON remains valid because appended collections default to empty.
     The inherited Scene validator calls overridden audit methods dynamically, so
-    append-only wall-profile and structural-support contracts can participate in
-    canonical validation without weakening older topology contracts.
+    append-only wall-profile, stair provenance and structural-support contracts can
+    participate in canonical validation without weakening older topology contracts.
     """
 
     wall_profile_observations: list[WallProfileObservation] = Field(default_factory=list)
+    stair_system_links: list[SceneStairSystemLink] = Field(default_factory=list)
 
     def _validate_ids_and_references(self):
         super()._validate_ids_and_references()
         volume_ids = {volume.id for volume in self.volumes}
+        stair_ids = {stair.id for stair in self.stairs}
         object_ids = {
             item.id
             for item in [
@@ -51,6 +54,21 @@ class ArchitecturalScene(_TopologyArchitecturalScene):
             scopes.append((profile.volume_id, profile.facade))
         if len(scopes) != len(set(scopes)):
             raise ValueError("at most one wall profile observation may be defined per volume/facade")
+
+        link_ids = [link.id for link in self.stair_system_links]
+        if len(link_ids) != len(set(link_ids)):
+            raise ValueError("stair-system link IDs must be unique")
+        if object_ids.intersection(link_ids) or set(profile_ids).intersection(link_ids):
+            raise ValueError("stair-system link IDs must not collide with Scene object or wall-profile IDs")
+        linked_runs: set[str] = set()
+        for link in self.stair_system_links:
+            if link.stair_run_id not in stair_ids:
+                raise ValueError(
+                    f"stair-system link {link.id!r} references unknown Scene stair run {link.stair_run_id!r}"
+                )
+            if link.stair_run_id in linked_runs:
+                raise ValueError(f"Scene stair run {link.stair_run_id!r} has more than one stair-system provenance link")
+            linked_runs.add(link.stair_run_id)
 
     @staticmethod
     def _volume_supports_platform(volume, platform) -> bool | None:
