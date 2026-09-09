@@ -1,0 +1,22 @@
+{
+  "schema_version": "brickhouse-benchmark-derived-scene-0.1",
+  "benchmark_id": "real-house-5",
+  "scene_id": "brickhouse-scene-real-house-5-candidate-v0.2",
+  "base_scene": "../../../tests/fixtures/real_house_5_scene_candidate.json",
+  "apply_overlays_in_order": [
+    "turning-stair-scene-overlay-v0.1.json",
+    "relative-level-scene-overlay-v0.1.json"
+  ],
+  "retained_metric_values": {
+    "volume_main.width_m": 7.2,
+    "volume_main.depth_m": 9.0,
+    "volume_main.height_m": 8.0
+  },
+  "metric_status": {
+    "volume_main.width_m": "retained_inside_photo_derived_interval",
+    "volume_main.depth_m": "provisional_unresolved_complete_extent",
+    "volume_main.height_m": "provisional_unresolved_multi_family_consensus"
+  },
+  "provenance": "scene-candidate-v0.2-provenance.json",
+  "statement": "Canonical benchmark recipe for materializing the current Scene candidate. It preserves the accepted Survey and applies only merged, provenance-bearing Scene corrections."
+}
