@@ -20,6 +20,13 @@ from .survey_validation import SceneSurveyIssue, SceneSurveySeverity
 from .wall_profile_scene import ArchitecturalScene
 
 
+_PARENT_LINK_SUPERSEDED_CODES = {
+    "certain_stair_missing",
+    "certain_multiview_stair_not_geometrically_encoded",
+    "certain_stair_not_geometrically_encoded",
+}
+
+
 def _required_minimum_runs(fact) -> int:
     topology = fact.topology
     required = topology.minimum_run_count or 1
@@ -36,7 +43,7 @@ def validate_scene_against_survey(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> list[SceneSurveyIssue]:
-    """Extend the fidelity chain with a non-collapse gate for multi-run stairs."""
+    """Extend the fidelity chain with parent-aware non-collapse guards for multi-run stairs."""
 
     issues = list(_validate_existing(survey, scene))
     topology_report = analyze_survey_stair_topology(survey)
@@ -44,6 +51,7 @@ def validate_scene_against_survey(
     survey_observations = {item.id: item for item in survey.observations}
 
     links_by_system: dict[str, list[str]] = {}
+    valid_linked_run_ids: set[str] = set()
     for link in scene.stair_system_links:
         observation = survey_observations.get(link.survey_stair_system_id)
         if observation is None:
@@ -73,6 +81,26 @@ def validate_scene_against_survey(
             )
             continue
         links_by_system.setdefault(link.survey_stair_system_id, []).append(link.stair_run_id)
+        valid_linked_run_ids.add(link.stair_run_id)
+
+    # Older no-invention guards require every metric StairRun ID to equal a
+    # Survey observation ID and separately report the parent stair as missing.
+    # An explicit valid parent link is the provenance-preserving replacement for
+    # those exact-ID assumptions. Suppress only those legacy identity diagnostics;
+    # topology/count/geometry checks below remain strict.
+    linked_system_ids = set(links_by_system)
+    issues = [
+        issue
+        for issue in issues
+        if not (
+            issue.code == "scene_stair_not_in_survey"
+            and issue.object_id in valid_linked_run_ids
+        )
+        and not (
+            issue.code in _PARENT_LINK_SUPERSEDED_CODES
+            and issue.object_id in linked_system_ids
+        )
+    ]
 
     for fact in topology_report.facts:
         if fact.certainty is not Certainty.CERTAIN or not fact.requires_multiple_scene_runs:
