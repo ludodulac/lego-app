@@ -4,9 +4,14 @@ Curated reservations are authoritative for all opening semantics. A deliberately
 narrow compatibility path remains for architectural WINDOWs only: when no curated
 motif fits and no structured leaf/pane topology is known, the historical window
 renderer may still emit its joinery-free glazing so existing M0 window behavior is
-not silently lost. DOOR and UNKNOWN openings never use that fallback.
+not silently lost. A DOOR with explicit structured glazing may likewise emit only
+joinery-free glazing when no curated door motif fits: the glass is established,
+while frame/leaf composition remains unknown and is therefore not invented.
+UNKNOWN openings never use either fallback.
 """
 from __future__ import annotations
+
+import unicodedata
 
 from pydantic import BaseModel
 
@@ -36,6 +41,61 @@ def _has_structured_topology(opening) -> bool:
     return visual is not None and (
         visual.leaf_count is not None or visual.pane_count is not None
     )
+
+
+def _normalized(value: str) -> str:
+    return " ".join(
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+        .replace("_", " ")
+        .replace("-", " ")
+        .split()
+    )
+
+
+def _has_explicit_framed_glazing(opening) -> bool:
+    """Return true only when structured evidence positively establishes glazing."""
+    visual = opening.opening_visual
+    if visual is None or visual.glazing is None:
+        return False
+    value = _normalized(visual.glazing)
+    if not value:
+        return False
+    negative_tokens = (
+        "none", "no glazing", "no glass", "not glazed", "unglazed",
+        "sans vitrage", "sans verre", "non vitree", "opaque", "solid",
+        "unknown", "inconnu", "indetermine", "glass block", "glass blocks",
+        "pave de verre", "paves de verre",
+    )
+    return not any(token in value for token in negative_tokens)
+
+
+def _emit_joinery_free_glazed_door(
+    *,
+    opening,
+    raster,
+    facade: Facade,
+    front: int,
+    depth: int,
+    placements: list[WindowPartPlacement],
+) -> bool:
+    """Represent established door glazing without guessing leaves, panes, or frame."""
+    if opening.type is not OpeningType.DOOR or not _has_explicit_framed_glazing(opening):
+        return False
+    _emit_joinery_free_glazing(
+        placements,
+        facade=facade,
+        local_x=raster.x_studs,
+        z_bricks=raster.z_bricks,
+        width_studs=raster.width_studs,
+        height_bricks=raster.height_bricks,
+        front=front,
+        depth=depth,
+        opening_id=raster.id,
+    )
+    return True
 
 
 def _emit_legacy_window_fallback(
@@ -88,7 +148,7 @@ def generate_planned_opening_parts(
     shell: BuildingBrickShell,
     plan: LEGORepresentationPlan,
 ) -> tuple[list[WindowPartPlacement], set[str], list[PlannedOpeningStatus]]:
-    """Emit reserved motifs, with a diagnosed compatibility fallback for WINDOW only."""
+    """Emit reserved motifs, with conservative evidence-backed fallbacks."""
     if plan.building_id != building.id or plan.volume_id != shell.volume_id:
         raise ValueError("opening representation plan does not match building/shell")
 
@@ -127,6 +187,22 @@ def generate_planned_opening_parts(
                         represented=True,
                         representation="legacy_window_fallback",
                         reason=reservation.reason or "no curated window motif fit",
+                    ))
+                    continue
+                if _emit_joinery_free_glazed_door(
+                    opening=opening,
+                    raster=raster,
+                    facade=facade,
+                    front=front,
+                    depth=depth,
+                    placements=placements,
+                ):
+                    represented.add(opening.id)
+                    statuses.append(PlannedOpeningStatus(
+                        opening_id=opening.id,
+                        represented=True,
+                        representation="joinery_free_glazed_door",
+                        reason=reservation.reason or "no curated glazed-door motif fit",
                     ))
                     continue
                 statuses.append(PlannedOpeningStatus(
