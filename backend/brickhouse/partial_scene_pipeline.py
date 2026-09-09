@@ -19,6 +19,7 @@ from brickhouse.bricks.export import (
 )
 from brickhouse.bricks.instructions import generate_instruction_plan
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.scene_materials import apply_scene_part_categories
 from brickhouse.bricks.scene_platform_connectivity import augment_brick_model_with_scene_platform_connectivity
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
@@ -263,6 +264,7 @@ def run_partial_scene_pipeline(scene: ArchitecturalScene, *, front_width_studs: 
     enriched = augment_brick_model_with_wall_depth(bundle.brick_model, scene, front_width_studs=selected_width)
     exterior_scene, _ = _partial_exterior_selection(scene)
     enriched = augment_brick_model_with_scene_platform_connectivity(enriched, exterior_scene, front_width_studs=selected_width)
+    enriched = apply_scene_part_categories(enriched, exterior_scene)
     enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=selected_width)
     if enriched.width_studs != selected_width:
         enriched = enriched.model_copy(update={"width_studs": selected_width})
