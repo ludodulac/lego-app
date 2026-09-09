@@ -7,7 +7,7 @@ photo-derived metrics visibly separate from measured fact.
 """
 from __future__ import annotations
 
-from brickhouse.building.models import BuildingModel, Metadata, Opening, Volume, VolumeShape
+from brickhouse.building.models import BuildingModel, Metadata, Opening, Roof, RoofType, Volume, VolumeShape
 from brickhouse.bricks.assembly import generate_assembly_plan
 from brickhouse.bricks.bags import generate_bag_plan
 from brickhouse.bricks.bom import generate_bom
@@ -23,11 +23,10 @@ from brickhouse.bricks.scene_platform_connectivity import augment_brick_model_wi
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
 from brickhouse.pipeline import DEFAULT_FRONT_WIDTH_STUDS, run_m0_pipeline_model
-from brickhouse.scene import ArchitecturalScene
+from brickhouse.scene import ArchitecturalScene, SceneRoofType
 from brickhouse.scene.physical_support import analyze_physical_support
 from brickhouse.scene.topology_projection import project_scene_to_building
 
-SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
 LOW_CONFIDENCE_WARNING = 0.65
 AUTO_SCALE_MIN_IMPROVEMENT = 0.10
 
@@ -41,15 +40,8 @@ def _is_resolved_volume(volume) -> bool:
     )
 
 
-def _secondary_volume_confidence(volume) -> float:
-    return min(
-        volume.width.source.confidence,
-        volume.depth.source.confidence,
-        volume.height.source.confidence,
-    )
-
-
 def _selected_partial_volumes(scene: ArchitecturalScene):
+    """Keep every concrete volume envelope and warn on uncertainty instead of hiding it."""
     primary = scene.volumes[0]
     if not _is_resolved_volume(primary):
         raise ValueError(
@@ -62,16 +54,37 @@ def _selected_partial_volumes(scene: ArchitecturalScene):
         if not _is_resolved_volume(volume):
             omitted.append((volume, "unresolved metric envelope"))
             continue
-        confidence = _secondary_volume_confidence(volume)
-        if confidence < SECONDARY_VOLUME_CONFIDENCE_MIN:
-            omitted.append((volume, f"metric confidence {confidence:.2f}"))
-            continue
         included.append(volume)
     return included, omitted
 
 
+def _roof_is_representable(roof) -> bool:
+    """Mirror the existing Scene → BuildingModel roof contract without inventing geometry."""
+    if roof.type is SceneRoofType.FLAT:
+        return True
+    if roof.type is SceneRoofType.GABLE:
+        return roof.ridge_direction is not None and roof.pitch_degrees is not None
+    if roof.type is SceneRoofType.SHED:
+        return roof.down_slope_direction is not None and roof.pitch_degrees is not None
+    return False
+
+
+def _selected_partial_roofs(scene: ArchitecturalScene, resolved_ids: set[str]):
+    included = []
+    omitted = []
+    for roof in scene.roofs:
+        if roof.volume_id not in resolved_ids:
+            omitted.append((roof, "host volume is not present in the partial preview"))
+            continue
+        if not _roof_is_representable(roof):
+            omitted.append((roof, "construction pitch/direction is incomplete"))
+            continue
+        included.append(roof)
+    return included, omitted
+
+
 def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
-    """Project the primary envelope plus secondary volumes constrained well enough to preview."""
+    """Project every concrete envelope plus every already-representable roof."""
     resolved, _ = _selected_partial_volumes(scene)
     resolved_ids = {volume.id for volume in resolved}
     volumes = [
@@ -105,6 +118,20 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
         for opening in scene.openings
         if opening.volume_id in resolved_ids
     ]
+    selected_roofs, _ = _selected_partial_roofs(scene, resolved_ids)
+    roofs = [
+        Roof(
+            id=roof.id,
+            volume_id=roof.volume_id,
+            type=RoofType(roof.type.value),
+            overhang=roof.overhang,
+            ridge_direction=roof.ridge_direction,
+            down_slope_direction=roof.down_slope_direction,
+            pitch_degrees=roof.pitch_degrees,
+            source=roof.source,
+        )
+        for roof in selected_roofs
+    ]
     return BuildingModel(
         schema_version="0.1",
         id=scene.id,
@@ -113,13 +140,13 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
         units="m",
         volumes=volumes,
         openings=openings,
-        roofs=[],
+        roofs=roofs,
         appearance=scene.appearance,
         metadata=Metadata(
             created_from="photo_analysis",
             notes=(
-                "Conservative partial LEGO preview: unresolved or weakly constrained secondary geometry, "
-                "roof geometry and hidden exterior junctions are intentionally omitted rather than inferred."
+                "Conservative partial LEGO preview: concrete photo-derived envelopes and fully specified roofs "
+                "are shown provisionally with fidelity warnings; unresolved metrics and hidden junctions remain omitted."
             ),
         ),
     )
@@ -187,8 +214,8 @@ def _partial_exterior_selection(scene: ArchitecturalScene):
     safe_scene = scene.model_copy(update={
         "platforms": [item for item in scene.platforms if item.id in safe_platform_ids],
         "stairs": [item for item in scene.stairs if item.id in safe_stair_ids],
-        # Partial preview still omits roofs, so a roof-supported chimney would
-        # otherwise appear to float even when its Scene support is known.
+        # Chimneys still have no partial LEGO representation; keep them out rather
+        # than inventing support or approximating their construction.
         "chimneys": [],
         # Terrain remains independently conservative in this preview path.
         "terrain": None,
@@ -206,7 +233,7 @@ def _partial_exterior_selection(scene: ArchitecturalScene):
         for item in scene.stairs if item.id not in safe_stair_ids
     )
     omitted.extend(
-        ("chimney", item.id, "supporting roof is intentionally omitted from the partial preview")
+        ("chimney", item.id, "chimneys do not yet have a partial LEGO representation")
         for item in scene.chimneys
     )
     return safe_scene, omitted
@@ -225,7 +252,7 @@ def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFid
                 object_id=volume.id,
                 message=(
                     f"Secondary volume {volume.id!r} is visible in ArchitecturalScene but is omitted from the "
-                    f"first-bricks preview because its envelope is still weakly constrained ({reason})."
+                    f"first-bricks preview because {reason}."
                 ),
             )
         )
@@ -306,14 +333,18 @@ def _partial_fidelity_issues(scene: ArchitecturalScene) -> list[BrickExportFidel
         )
         for issue in projection.issues
     )
-    if scene.roofs:
+    resolved_volumes, _ = _selected_partial_volumes(scene)
+    resolved_ids = {volume.id for volume in resolved_volumes}
+    _, omitted_roofs = _selected_partial_roofs(scene, resolved_ids)
+    for roof, reason in omitted_roofs:
         issues.append(
             BrickExportFidelityIssue(
                 code="partial_preview_roof_omitted",
                 severity="warning",
+                object_id=roof.id,
                 message=(
-                    "The partial LEGO preview intentionally leaves the roof open until its construction "
-                    "geometry is resolved strongly enough to choose real LEGO slope parts."
+                    f"Roof {roof.id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview "
+                    f"because {reason}. No pitch, direction or host geometry is invented."
                 ),
             )
         )
