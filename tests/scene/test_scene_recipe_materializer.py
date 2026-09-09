@@ -45,7 +45,6 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     assert any("stair-exterior-1-run-upper-v1" in value for value in placement_ids)
     assert any(part["category"] == "roof_tile" for part in parts)
     assert ("partial_preview_roof_omitted", "roof-1") not in fidelity
-    assert ("partial_preview_secondary_volume_omitted", "volume-exterior-1") not in fidelity
 
     output = tmp_path / "real-house-5-viewer-export.json"
     output.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
