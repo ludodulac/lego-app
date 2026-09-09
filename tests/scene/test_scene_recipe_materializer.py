@@ -44,6 +44,7 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     parts = bundle["brick_model"]["parts"]
     placement_ids = [part["placement_id"] for part in parts]
     fidelity = {(issue["code"], issue.get("object_id")) for issue in bundle["fidelity_issues"]}
+    glazed_door_parts = [part for part in parts if part.get("opening_id") == "front-opening-6"]
 
     assert parts
     assert bundle["bom"]["total_parts"] == len(parts)
@@ -53,7 +54,8 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     assert any("stair-exterior-1-run-lower-v1" in value for value in placement_ids)
     assert any("stair-exterior-1-run-upper-v1" in value for value in placement_ids)
     assert any(value.startswith("scene-chimney:chimney-1:") for value in placement_ids)
-    assert any(part.get("opening_id") == "front-opening-6" for part in parts)
+    assert glazed_door_parts
+    assert all(part["category"] == "window_pane" for part in glazed_door_parts)
     assert ("lego_architectural_opening_unrepresented", "front-opening-6") not in fidelity
     assert any(part["category"] == "roof_tile" for part in parts)
     assert any(
