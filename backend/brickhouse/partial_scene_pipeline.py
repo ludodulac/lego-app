@@ -235,13 +235,27 @@ def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFid
 def _partial_fidelity_issues(scene: ArchitecturalScene) -> list[BrickExportFidelityIssue]:
     projection = project_scene_to_building(scene)
     issues = [*_metric_uncertainty_issues(scene)]
-    issues.extend(BrickExportFidelityIssue(code=issue.code, severity="warning" if issue.severity.value == "blocker" else "info", object_id=issue.object_id, message=(f"Partial preview omission: {issue.message}" if issue.severity.value == "blocker" else issue.message)) for issue in projection.issues)
+    exterior_scene, omitted_exterior = _partial_exterior_selection(scene)
+    recovered_projection_losses = {
+        "platform_not_supported": {item.id for item in exterior_scene.platforms},
+        "stair_not_supported": {item.id for item in exterior_scene.stairs},
+        "chimney_not_supported": {item.id for item in exterior_scene.chimneys},
+    }
+    issues.extend(
+        BrickExportFidelityIssue(
+            code=issue.code,
+            severity="warning" if issue.severity.value == "blocker" else "info",
+            object_id=issue.object_id,
+            message=(f"Partial preview omission: {issue.message}" if issue.severity.value == "blocker" else issue.message),
+        )
+        for issue in projection.issues
+        if issue.object_id not in recovered_projection_losses.get(issue.code, set())
+    )
     resolved_volumes, _ = _selected_partial_volumes(scene)
     resolved_ids = {volume.id for volume in resolved_volumes}
     _, omitted_roofs = _selected_partial_roofs(scene, resolved_ids)
     for roof, reason in omitted_roofs:
         issues.append(BrickExportFidelityIssue(code="partial_preview_roof_omitted", severity="warning", object_id=roof.id, message=(f"Roof {roof.id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview because {reason}. No pitch, direction or host geometry is invented.")))
-    _, omitted_exterior = _partial_exterior_selection(scene)
     for kind, object_id, reason in omitted_exterior:
         issues.append(BrickExportFidelityIssue(code="partial_preview_exterior_object_omitted", severity="warning" if kind in {"platform", "stair"} else "info", object_id=object_id, message=(f"{kind.capitalize()} {object_id!r} remains in ArchitecturalScene but is omitted from the partial LEGO preview because {reason}. No support or hidden connection is invented.")))
     unique = []
