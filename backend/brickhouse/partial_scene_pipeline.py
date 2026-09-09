@@ -19,7 +19,9 @@ from brickhouse.bricks.export import (
 )
 from brickhouse.bricks.instructions import generate_instruction_plan
 from brickhouse.bricks.scale_optimizer import recommend_front_width_studs
+from brickhouse.bricks.scene_chimneys import augment_brick_model_with_scene_chimneys
 from brickhouse.bricks.scene_materials import apply_scene_part_categories
+from brickhouse.bricks.scene_physical_support_gate import evaluate_scene_physical_support_gate
 from brickhouse.bricks.scene_platform_connectivity import augment_brick_model_with_scene_platform_connectivity
 from brickhouse.bricks.scene_shutters import augment_brick_model_with_scene_shutters
 from brickhouse.bricks.wall_depth import MIN_GEOMETRY_CONFIDENCE, augment_brick_model_with_wall_depth
@@ -154,6 +156,7 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
 
 def _partial_exterior_selection(scene: ArchitecturalScene):
     facts, _ = analyze_physical_support(scene)
+    support_gate = evaluate_scene_physical_support_gate(scene)
     platform_ids = {item.id for item in scene.platforms}
     safe_platform_ids: set[str] = set()
     platform_reason: dict[str, str] = {}
@@ -183,16 +186,20 @@ def _partial_exterior_selection(scene: ArchitecturalScene):
             continue
         safe_stair_ids.add(stair.id)
 
+    safe_chimney_ids = {
+        item.id for item in scene.chimneys
+        if item.id not in support_gate.blocked_chimney_ids
+    }
     safe_scene = scene.model_copy(update={
         "platforms": [item for item in scene.platforms if item.id in safe_platform_ids],
         "stairs": [item for item in scene.stairs if item.id in safe_stair_ids],
-        "chimneys": [],
+        "chimneys": [item for item in scene.chimneys if item.id in safe_chimney_ids],
         "terrain": None,
         "platform_structure_observations": [item for item in scene.platform_structure_observations if item.platform_id in safe_platform_ids],
     })
     omitted = [("platform", item.id, platform_reason.get(item.id, "support not proven")) for item in scene.platforms if item.id not in safe_platform_ids]
     omitted.extend(("stair", item.id, stair_reason.get(item.id, "support not proven")) for item in scene.stairs if item.id not in safe_stair_ids)
-    omitted.extend(("chimney", item.id, "chimneys do not yet have a partial LEGO representation") for item in scene.chimneys)
+    omitted.extend(("chimney", item.id, "physical support is contradicted or blocked by the Scene support gate") for item in scene.chimneys if item.id not in safe_chimney_ids)
     return safe_scene, omitted
 
 
@@ -264,6 +271,7 @@ def run_partial_scene_pipeline(scene: ArchitecturalScene, *, front_width_studs: 
     enriched = augment_brick_model_with_wall_depth(bundle.brick_model, scene, front_width_studs=selected_width)
     exterior_scene, _ = _partial_exterior_selection(scene)
     enriched = augment_brick_model_with_scene_platform_connectivity(enriched, exterior_scene, front_width_studs=selected_width)
+    enriched = augment_brick_model_with_scene_chimneys(enriched, exterior_scene, front_width_studs=selected_width)
     enriched = apply_scene_part_categories(enriched, exterior_scene)
     enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=selected_width)
     if enriched.width_studs != selected_width:
