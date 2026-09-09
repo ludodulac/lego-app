@@ -126,6 +126,8 @@ def test_rectified_feature_ratio_uses_plane_space_not_raw_image_width() -> None:
                 axis="width",
                 cue_family="window_width",
                 prior_id="window-prior",
+                reference_extent_coverage="full_target_extent",
+                target_extent_id="generic.wall.width",
             )
         ],
     )

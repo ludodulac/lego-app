@@ -92,6 +92,14 @@ def _annotation(
     )
 
 
+def _full_binding(**kwargs) -> PhotoScaleCueBinding:
+    return PhotoScaleCueBinding(
+        reference_extent_coverage="full_target_extent",
+        target_extent_id="generic.main.width",
+        **kwargs,
+    )
+
+
 def test_width_cue_uses_feature_over_explicit_reference_region_not_full_image() -> None:
     survey = _survey()
     before = deepcopy(survey.model_dump())
@@ -104,7 +112,7 @@ def test_width_cue_uses_feature_over_explicit_reference_region_not_full_image() 
         survey,
         annotations,
         [
-            PhotoScaleCueBinding(
+            _full_binding(
                 id="front-window-width",
                 feature_annotation_id="window-box",
                 reference_annotation_id="facade-box",
@@ -138,11 +146,79 @@ def test_height_cue_uses_same_explicit_reference_region() -> None:
                 axis="height",
                 cue_family="window_height",
                 prior_id="generic-window-height",
+                reference_extent_coverage="full_target_extent",
+                target_extent_id="generic.main.height",
             )
         ],
     )
 
     assert cues[0].normalized_extent == pytest.approx(0.30 / 0.90)
+
+
+def test_partial_visible_reference_cannot_be_promoted_to_absolute_building_extent() -> None:
+    survey = _survey()
+    before = deepcopy(survey.model_dump())
+    annotations = [
+        _annotation("visible-wall-segment", "front-boundary", 1, (0.10, 0.10, 0.90, 0.90)),
+        _annotation("window-box", "front-window", 1, (0.30, 0.30, 0.40, 0.65)),
+    ]
+
+    with pytest.raises(ValueError, match="partial_visible_extent.*full_target_extent"):
+        build_visual_scale_cues_from_photo_geometry(
+            survey,
+            annotations,
+            [
+                PhotoScaleCueBinding(
+                    id="unsafe-total-width",
+                    feature_annotation_id="window-box",
+                    reference_annotation_id="visible-wall-segment",
+                    axis="width",
+                    cue_family="window_width",
+                    prior_id="generic-window-width",
+                    reference_extent_coverage="partial_visible_extent",
+                    target_extent_id="generic.main.width",
+                )
+            ],
+        )
+
+    assert survey.model_dump() == before
+    assert survey.known_measurements == []
+
+
+def test_unresolved_reference_coverage_is_not_assumed_complete() -> None:
+    annotations = [
+        _annotation("facade-box", "front-boundary", 1, (0.10, 0.10, 0.90, 0.90)),
+        _annotation("window-box", "front-window", 1, (0.30, 0.30, 0.40, 0.65)),
+    ]
+
+    with pytest.raises(ValueError, match="unresolved_extent.*full_target_extent"):
+        build_visual_scale_cues_from_photo_geometry(
+            _survey(),
+            annotations,
+            [
+                PhotoScaleCueBinding(
+                    id="unproven-width",
+                    feature_annotation_id="window-box",
+                    reference_annotation_id="facade-box",
+                    axis="width",
+                    cue_family="window_width",
+                    prior_id="generic-window-width",
+                )
+            ],
+        )
+
+
+def test_full_target_extent_requires_target_identity() -> None:
+    with pytest.raises(ValueError, match="requires target_extent_id"):
+        PhotoScaleCueBinding(
+            id="missing-target",
+            feature_annotation_id="window-box",
+            reference_annotation_id="facade-box",
+            axis="width",
+            cue_family="window_width",
+            prior_id="generic-window-width",
+            reference_extent_coverage="full_target_extent",
+        )
 
 
 def test_binding_rejects_regions_from_different_photos() -> None:

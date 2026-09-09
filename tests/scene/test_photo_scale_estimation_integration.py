@@ -66,7 +66,7 @@ def test_explicit_photo_regions_feed_multi_family_scale_consensus_without_measur
             photo_index=1,
             region={"x0": 0.10, "y0": 0.10, "x1": 0.90, "y1": 0.90},
             source={"kind": "inferred", "confidence": 0.90},
-            statement="Vision-estimated visible facade bounds.",
+            statement="Vision-estimated complete facade bounds.",
         ),
         PhotoGeometryAnnotation(
             id="front-window-box",
@@ -85,22 +85,26 @@ def test_explicit_photo_regions_feed_multi_family_scale_consensus_without_measur
             statement="Vision-estimated door bounds.",
         ),
     ]
+    binding_common = {
+        "reference_annotation_id": "front-envelope-box",
+        "axis": "width",
+        "reference_extent_coverage": "full_target_extent",
+        "target_extent_id": "generic.main.width",
+    }
     bindings = [
         PhotoScaleCueBinding(
             id="window-width-cue",
             feature_annotation_id="front-window-box",
-            reference_annotation_id="front-envelope-box",
-            axis="width",
             cue_family="window_width",
             prior_id="window-width-prior",
+            **binding_common,
         ),
         PhotoScaleCueBinding(
             id="door-width-cue",
             feature_annotation_id="front-door-box",
-            reference_annotation_id="front-envelope-box",
-            axis="width",
             cue_family="door_width",
             prior_id="door-width-prior",
+            **binding_common,
         ),
     ]
     priors = [

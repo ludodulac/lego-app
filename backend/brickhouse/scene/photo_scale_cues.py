@@ -16,6 +16,12 @@ from brickhouse.survey import ArchitecturalSurvey, NormalizedImageRegion
 
 from .scale_estimation import VisualScaleCue
 
+ReferenceExtentCoverage = Literal[
+    "full_target_extent",
+    "partial_visible_extent",
+    "unresolved_extent",
+]
+
 
 class PhotoGeometryAnnotation(BaseModel):
     """Provenance-bearing region for one accepted Survey observation.
@@ -41,7 +47,13 @@ class PhotoGeometryAnnotation(BaseModel):
 
 
 class PhotoScaleCueBinding(BaseModel):
-    """Explicitly relate one feature box to one reference box on one image plane."""
+    """Bind a feature ratio to one explicitly identified architectural reference extent.
+
+    Absolute scale inference is only safe when the reference box is known to span
+    the complete architectural extent being estimated. A rectified *partial* wall
+    remains useful geometric evidence, but it must not silently become total house
+    width/depth/height merely because several local cues agree inside that segment.
+    """
 
     id: str = Field(min_length=1)
     feature_annotation_id: str = Field(min_length=1)
@@ -49,11 +61,15 @@ class PhotoScaleCueBinding(BaseModel):
     axis: Literal["width", "height"]
     cue_family: str = Field(min_length=1)
     prior_id: str = Field(min_length=1)
+    reference_extent_coverage: ReferenceExtentCoverage = "unresolved_extent"
+    target_extent_id: str | None = None
 
     @model_validator(mode="after")
-    def validate_distinct_annotations(self) -> "PhotoScaleCueBinding":
+    def validate_binding(self) -> "PhotoScaleCueBinding":
         if self.feature_annotation_id == self.reference_annotation_id:
             raise ValueError("feature and reference annotations must be distinct")
+        if self.reference_extent_coverage == "full_target_extent" and not self.target_extent_id:
+            raise ValueError("full_target_extent reference coverage requires target_extent_id")
         return self
 
 
@@ -111,7 +127,7 @@ def build_visual_scale_cues_from_photo_geometry(
     annotations: list[PhotoGeometryAnnotation],
     bindings: list[PhotoScaleCueBinding],
 ) -> list[VisualScaleCue]:
-    """Build normalized feature/reference ratios without assuming full-image scale."""
+    """Build absolute-scale ratios only from references proven to span their target extent."""
     validate_photo_geometry_annotations(survey, annotations)
     if not bindings:
         return []
@@ -146,6 +162,11 @@ def build_visual_scale_cues_from_photo_geometry(
         if feature_extent >= reference_extent:
             raise ValueError(
                 f"photo scale cue binding {binding.id!r} requires feature extent smaller than reference extent"
+            )
+        if binding.reference_extent_coverage != "full_target_extent":
+            raise ValueError(
+                f"photo scale cue binding {binding.id!r} cannot resolve an absolute target extent from "
+                f"reference coverage {binding.reference_extent_coverage!r}; require full_target_extent"
             )
 
         cues.append(

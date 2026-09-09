@@ -54,6 +54,7 @@ def _estimate_from_sidecar():
         observation_id="building-boundary-1",
         statement="Rectified benchmark front wall reference plane.",
     )
+    reference_extent = evidence["reference_extent"]
 
     priors_by_id = {}
     bindings = []
@@ -74,6 +75,8 @@ def _estimate_from_sidecar():
                 axis="width",
                 cue_family=spec["cue_family"],
                 prior_id=spec["prior_id"],
+                reference_extent_coverage=reference_extent["coverage"],
+                target_extent_id=reference_extent["target_extent_id"],
             )
         )
 
@@ -107,6 +110,13 @@ def test_front_width_is_resolved_without_user_measurement() -> None:
     assert estimate.rejected_cue_ids == []
     assert estimate.max_m - estimate.min_m > 1.0
     assert 0 < estimate.confidence < 0.5
+
+
+def test_front_width_sidecar_explicitly_proves_reference_extent_identity() -> None:
+    evidence = _load(EVIDENCE_PATH)
+
+    assert evidence["reference_extent"]["coverage"] == "full_target_extent"
+    assert evidence["reference_extent"]["target_extent_id"] == evidence["target"]
 
 
 def test_serialized_front_width_estimate_matches_reproducible_inference() -> None:
