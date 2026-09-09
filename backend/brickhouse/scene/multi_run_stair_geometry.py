@@ -2,7 +2,9 @@
 
 Survey topology is semantic truth; this module only checks whether already-metric
 Scene ``StairRun`` components can realize that topology. It never invents a
-landing, a tread count, an angle, or a missing coordinate.
+landing, a tread count, an angle, or a missing coordinate. Scene components may
+preserve either exact Survey run IDs or an explicit parent stair-system provenance
+link when Survey intentionally models the stair as one semantic system.
 """
 from __future__ import annotations
 
@@ -115,23 +117,46 @@ def _has_spanning_path(adjacency: dict[str, set[str]]) -> bool:
     return any(visit(start, {start}) for start in adjacency)
 
 
+def _required_minimum_runs(topology_fact) -> int:
+    topology = topology_fact.topology
+    required = topology.minimum_run_count or 1
+    if topology.exact_run_count is not None:
+        required = max(required, topology.exact_run_count)
+    if topology.direction_change is True or topology.turning_node_kind is not None:
+        required = max(required, 2)
+    if topology.component_run_ids:
+        required = max(required, len(topology.component_run_ids))
+    return required
+
+
+def _component_ids(topology_fact, scene: ArchitecturalScene) -> list[str]:
+    explicit = topology_fact.topology.component_run_ids
+    if explicit:
+        return list(explicit)
+    return sorted(
+        link.stair_run_id
+        for link in scene.stair_system_links
+        if link.survey_stair_system_id == topology_fact.observation_id
+    )
+
+
 def analyze_multi_run_stair_geometry(
     survey: ArchitecturalSurvey,
     scene: ArchitecturalScene,
 ) -> MultiRunStairGeometryReport:
-    """Derive multi-run continuity only for certain explicit component systems."""
+    """Derive continuity for certain explicit or provenance-linked component systems."""
     scene_stairs = {item.id: item for item in scene.stairs}
     facts: list[MultiRunStairGeometryFacts] = []
 
     for topology_fact in analyze_survey_stair_topology(survey).facts:
-        if topology_fact.certainty is not Certainty.CERTAIN:
+        if topology_fact.certainty is not Certainty.CERTAIN or not topology_fact.requires_multiple_scene_runs:
             continue
-        component_ids = topology_fact.topology.component_run_ids
-        if len(component_ids) < 2:
-            continue
-
+        component_ids = _component_ids(topology_fact, scene)
+        required = _required_minimum_runs(topology_fact)
+        exact = topology_fact.topology.exact_run_count
+        count_valid = len(component_ids) >= required and (exact is None or len(component_ids) == exact)
         missing = [item for item in component_ids if item not in scene_stairs]
-        if missing:
+        if not count_valid or missing:
             facts.append(MultiRunStairGeometryFacts(
                 observation_id=topology_fact.observation_id,
                 component_run_ids=list(component_ids),
