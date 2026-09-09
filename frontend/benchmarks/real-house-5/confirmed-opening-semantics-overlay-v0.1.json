@@ -1,0 +1,21 @@
+{
+  "schema_version": "brickhouse-benchmark-scene-overlay-0.1",
+  "benchmark_id": "real-house-5",
+  "operation": "update_opening_semantics",
+  "opening_updates": [
+    {
+      "opening_id": "front-opening-6",
+      "type": "door",
+      "opening_visual": {
+        "glazing": "glazed",
+        "notes": "User confirmed this opening is a glazed door / French-door-type opening. Leaf and pane composition remain unresolved."
+      },
+      "evidence": [
+        {
+          "photo_index": 1,
+          "observation": "User confirmation: the large lower-right front opening is a glazed door / French-door-type opening; metric rectangle remains photo-derived."
+        }
+      ]
+    }
+  ]
+}
