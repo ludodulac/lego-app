@@ -5,6 +5,11 @@
   "units": "m",
   "source_photo_index": 1,
   "image_size_px": {"width": 691, "height": 1536},
+  "reference_extent": {
+    "coverage": "full_target_extent",
+    "target_extent_id": "volume_main.width",
+    "statement": "Both visible front building corners bound the complete target facade width used by this benchmark inference."
+  },
   "rectification": {
     "id": "real-house-5-front-wall-plane-v1",
     "photo_index": 1,
