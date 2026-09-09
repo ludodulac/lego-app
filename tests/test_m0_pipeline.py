@@ -79,7 +79,8 @@ def test_multi_volume_build_uses_one_shared_grid_and_keeps_secondary_walls():
     })
     bundle = run_m0_pipeline_model(building, front_width_studs=48)
     assert bundle.volume_id == "composite"
-    assert bundle.brick_model.width_studs > 48
+    assert bundle.brick_model.width_studs == 48
+    assert bundle.brick_model.canvas_width_studs > bundle.brick_model.width_studs
     assert bundle.bom.total_parts == len(bundle.brick_model.parts)
     assert any(part.placement_id.startswith("main:") for part in bundle.brick_model.parts)
     assert any(part.placement_id.startswith("annex:") for part in bundle.brick_model.parts)
