@@ -36,6 +36,9 @@ import './scene-handoff-ownership-audit-v47.js?v=scene-handoff-ownership-audit-4
 // Allow normal photo-only workflows to estimate a cautious common Scene scale from
 // several independent architectural cues before requesting a human measurement.
 import './scene-handoff-scale-audit-v48.js?v=scene-handoff-scale-audit-4.8';
+// Preserve a validated rich Scene through the normal Build button and hand its
+// BrickExportBundle directly to the existing viewer instead of degrading it to M0.
+import './scene-build-direct.js?v=scene-build-direct-0.1';
 // Render the images actually selected in every capture slot, including files
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>BrickHouse — chargement direct</title>
+  <style>
+    body{font-family:system-ui,sans-serif;background:#101827;color:#f4f7fb;display:grid;place-items:center;min-height:100vh;margin:0}
+    main{max-width:42rem;padding:2rem;text-align:center}
+    code{word-break:break-all}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Chargement de la maquette BrickHouse…</h1>
+  <p id="status">Lecture de l’export demandé.</p>
+</main>
+<script>
+(async()=>{
+  const status=document.querySelector('#status');
+  try{
+    const params=new URLSearchParams(location.search);
+    const requested=params.get('bundle');
+    if(!requested)throw new Error('Paramètre bundle manquant.');
+    const url=new URL(requested,location.href);
+    if(url.origin!==location.origin)throw new Error('Seuls les exports du même site sont autorisés.');
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)throw new Error(`Export indisponible (HTTP ${response.status}).`);
+    const bundle=await response.json();
+    if(bundle?.schema_version!=='0.1'||!Array.isArray(bundle?.brick_model?.parts)||bundle?.bom?.total_parts!==bundle.brick_model.parts.length){
+      throw new Error('Export BrickHouse invalide.');
+    }
+    localStorage.setItem('brickhouse.pendingExport',JSON.stringify(bundle));
+    location.replace('./viewer.html');
+  }catch(error){
+    status.textContent=`Impossible de charger la maquette : ${error.message}`;
+  }
+})();
+</script>
+</body>
+</html>
