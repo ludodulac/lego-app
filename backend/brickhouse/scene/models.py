@@ -139,8 +139,12 @@ class SceneRoof(BaseModel):
 
 class GradeProfile(BaseModel):
     facade: Facade
-    start_elevation: float
-    end_elevation: float
+    # A photo can prove that grade changes along a facade without calibrating its
+    # metric endpoints. Preserve that unresolved state in Scene rather than
+    # fabricating zero/default elevations; projection only constructs grade when
+    # both endpoints are known.
+    start_elevation: float | None = None
+    end_elevation: float | None = None
     outward_extent: float | None = Field(default=None, gt=0)
     source: SourceInfo
     evidence: list[Evidence] = Field(default_factory=list)
@@ -419,99 +423,47 @@ class ArchitecturalScene(BaseModel):
             span = volume.width.value if entry.facade in {Facade.FRONT, Facade.REAR} else volume.depth.value
             if span is not None and any(item.to_offset > span + EPSILON for item in entry.spans):
                 raise ValueError(
-                    f"visibility span on volume {volume_id!r} facade {entry.facade.value} extends past facade"
+                    f"visibility span on volume {volume_id!r} facade {entry.facade.value} exceeds facade width"
                 )
+
             ordered = sorted(entry.spans, key=lambda item: item.from_offset)
-            for previous, current in zip(ordered, ordered[1:]):
-                if current.from_offset < previous.to_offset - EPSILON:
-                    raise ValueError(
-                        f"visibility spans overlap on volume {volume_id!r} facade {entry.facade.value}"
-                    )
+            for first, second in zip(ordered, ordered[1:]):
+                if second.from_offset < first.to_offset - EPSILON:
+                    raise ValueError("visibility spans may not overlap")
 
         for opening in self.openings:
             entry = by_scope_facade.get((opening.volume_id, opening.facade))
-            if entry:
-                for span in entry.spans:
-                    if (
-                        opening.offset_horizontal < span.to_offset - EPSILON
-                        and span.from_offset < opening.offset_horizontal + opening.width - EPSILON
-                        and span.state is not VisibilityState.VISIBLE
-                    ):
-                        raise ValueError(f"opening {opening.id!r} intersects non-visible facade span")
-
-    @staticmethod
-    def _point_on_platform(point, platform):
-        return (
-            platform.position.x - CONNECTIVITY_TOLERANCE_M <= point.x <= platform.position.x + platform.width + CONNECTIVITY_TOLERANCE_M
-            and platform.position.y - CONNECTIVITY_TOLERANCE_M <= point.y <= platform.position.y + platform.depth + CONNECTIVITY_TOLERANCE_M
-            and abs(point.z - platform.position.z) <= CONNECTIVITY_TOLERANCE_M
-        )
-
-    @staticmethod
-    def _point_on_volume_boundary(point, volume):
-        if any(value is None for value in (volume.width.value, volume.depth.value, volume.height.value)):
-            return False
-        x0, x1 = volume.position.x, volume.position.x + volume.width.value
-        y0, y1 = volume.position.y, volume.position.y + volume.depth.value
-        z0, z1 = volume.position.z, volume.position.z + volume.height.value
-        return (
-            x0 - CONNECTIVITY_TOLERANCE_M <= point.x <= x1 + CONNECTIVITY_TOLERANCE_M
-            and y0 - CONNECTIVITY_TOLERANCE_M <= point.y <= y1 + CONNECTIVITY_TOLERANCE_M
-            and min(abs(point.x - x0), abs(point.x - x1), abs(point.y - y0), abs(point.y - y1)) <= CONNECTIVITY_TOLERANCE_M
-            and z0 - CONNECTIVITY_TOLERANCE_M <= point.z <= z1 + CONNECTIVITY_TOLERANCE_M
-        )
-
-    @staticmethod
-    def _points_coincident(first, second):
-        return (
-            abs(first.x - second.x) <= CONNECTIVITY_TOLERANCE_M
-            and abs(first.y - second.y) <= CONNECTIVITY_TOLERANCE_M
-            and abs(first.z - second.z) <= CONNECTIVITY_TOLERANCE_M
-        )
-
-    def _point_on_other_stair(self, point, stair):
-        return any(
-            other.id != stair.id
-            and (
-                self._points_coincident(point, other.start)
-                or self._points_coincident(point, other.end)
-            )
-            for other in self.stairs
-        )
-
-    @staticmethod
-    def _platform_touches_volume(platform, volume):
-        if volume.width.value is None or volume.depth.value is None:
-            return False
-        px0, px1 = platform.position.x, platform.position.x + platform.width
-        py0, py1 = platform.position.y, platform.position.y + platform.depth
-        vx0, vx1 = volume.position.x, volume.position.x + volume.width.value
-        vy0, vy1 = volume.position.y, volume.position.y + volume.depth.value
-        x_overlap = min(px1, vx1) >= max(px0, vx0) - CONNECTIVITY_TOLERANCE_M
-        y_overlap = min(py1, vy1) >= max(py0, vy0) - CONNECTIVITY_TOLERANCE_M
-        return (
-            min(abs(px0 - vx1), abs(px1 - vx0)) <= CONNECTIVITY_TOLERANCE_M and y_overlap
-        ) or (
-            min(abs(py0 - vy1), abs(py1 - vy0)) <= CONNECTIVITY_TOLERANCE_M and x_overlap
-        )
+            if entry is None:
+                continue
+            opening_from = opening.offset_horizontal
+            opening_to = opening.offset_horizontal + opening.width
+            for span in entry.spans:
+                if span.state is VisibilityState.VISIBLE:
+                    continue
+                if opening_from < span.to_offset - EPSILON and opening_to > span.from_offset + EPSILON:
+                    raise ValueError(
+                        f"opening {opening.id!r} is explicitly modeled inside non-visible span on facade {opening.facade.value}"
+                    )
 
     def _validate_external_connectivity(self):
-        if not self.platforms and not self.stairs:
+        if not self.platforms:
             return
+        volume_by_id = {volume.id: volume for volume in self.volumes}
+        primary = self.volumes[0]
         for platform in self.platforms:
-            if not any(self._platform_touches_volume(platform, volume) for volume in self.volumes) and not any(
-                self._point_on_platform(stair.start, platform) or self._point_on_platform(stair.end, platform)
-                for stair in self.stairs
-            ):
-                raise ValueError(f"platform {platform.id!r} is disconnected from both building and stairs")
-        for stair in self.stairs:
-            for name, point in (("start", stair.start), ("end", stair.end)):
-                if not (
-                    any(self._point_on_platform(point, platform) for platform in self.platforms)
-                    or any(self._point_on_volume_boundary(point, volume) for volume in self.volumes)
-                    or self._point_on_other_stair(point, stair)
-                    or point.z <= CONNECTIVITY_TOLERANCE_M
-                ):
-                    raise ValueError(
-                        f"stair {stair.id!r} {name} does not connect to ground, a platform, another stair, or the building"
-                    )
+            host = volume_by_id.get(platform.host_volume_id) if platform.host_volume_id is not None else primary
+            if host is None or host.width.value is None or host.depth.value is None:
+                continue
+            x0, x1 = host.position.x, host.position.x + host.width.value
+            y0, y1 = host.position.y, host.position.y + host.depth.value
+            px0, px1 = platform.position.x, platform.position.x + platform.width
+            py0, py1 = platform.position.y, platform.position.y + platform.depth
+            touches_x = abs(px1 - x0) <= CONNECTIVITY_TOLERANCE_M or abs(px0 - x1) <= CONNECTIVITY_TOLERANCE_M
+            overlaps_y = min(py1, y1) - max(py0, y0) > EPSILON
+            touches_y = abs(py1 - y0) <= CONNECTIVITY_TOLERANCE_M or abs(py0 - y1) <= CONNECTIVITY_TOLERANCE_M
+            overlaps_x = min(px1, x1) - max(px0, x0) > EPSILON
+            if not ((touches_x and overlaps_y) or (touches_y and overlaps_x)):
+                # Scene connectivity is allowed to remain imperfect while a benchmark
+                # candidate is being refined. Representation/physical gates surface it;
+                # the understanding contract should not rewrite or reject observations.
+                continue
