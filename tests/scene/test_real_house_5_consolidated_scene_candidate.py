@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from brickhouse.api import app
 from brickhouse.scene import ArchitecturalScene, analyze_multi_run_stair_geometry
 from brickhouse.survey import ArchitecturalSurvey
+from brickhouse.survey.human_facts import HumanAttributeFact, apply_human_attribute_facts
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK = ROOT / "frontend" / "benchmarks" / "real-house-5"
@@ -53,6 +54,25 @@ def _materialize_recipe() -> ArchitecturalScene:
     return ArchitecturalScene.model_validate(payload)
 
 
+def _survey_with_confirmed_turn() -> tuple[ArchitecturalSurvey, ArchitecturalSurvey]:
+    source = ArchitecturalSurvey.model_validate(_load(BENCHMARK / "accepted-survey-v0.1.json"))
+    fact = HumanAttributeFact.model_validate(
+        {
+            "observation_id": "stair-exterior-1",
+            "attribute_name": "stair_topology",
+            "value": {
+                "minimum_run_count": 2,
+                "direction_change": True,
+                "turning_node_kind": "turn_or_landing",
+            },
+            "certainty": "certain",
+            "source": {"kind": "user_provided", "confidence": 1.0},
+            "statement": "User confirms that the exterior stair changes direction.",
+        }
+    )
+    return source, apply_human_attribute_facts(source, [fact]).candidate
+
+
 def test_consolidated_recipe_materializes_current_benchmark_geometry() -> None:
     scene = _materialize_recipe()
     recipe = _load(BENCHMARK / "scene-candidate-v0.2.json")
@@ -74,11 +94,14 @@ def test_consolidated_recipe_materializes_current_benchmark_geometry() -> None:
 
 
 def test_consolidated_recipe_builds_lego_without_new_measurements() -> None:
-    survey = ArchitecturalSurvey.model_validate(_load(BENCHMARK / "accepted-survey-v0.1.json"))
+    source_survey, survey = _survey_with_confirmed_turn()
+    source_before = deepcopy(source_survey.model_dump())
     scene = _materialize_recipe()
     report = analyze_multi_run_stair_geometry(survey, scene)
     stair = next(item for item in report.facts if item.observation_id == "stair-exterior-1")
 
+    assert source_survey.model_dump() == source_before
+    assert source_survey.known_measurements == []
     assert survey.known_measurements == []
     assert stair.connected is True
     assert stair.spanning_path_exists is True
