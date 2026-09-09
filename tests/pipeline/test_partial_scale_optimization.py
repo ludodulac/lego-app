@@ -9,7 +9,7 @@ from brickhouse.scene_cli import load_architectural_scene, write_scene_export
 SCENE = Path("tests/fixtures/brickhouse_scene_current.json")
 
 
-def test_photo_build_applies_recommended_scale_only_when_gain_is_meaningful():
+def test_photo_build_applies_recommended_scale_only_when_gain_is_meaningful_and_buildable():
     scene = load_architectural_scene(SCENE)
     fixed = run_partial_scene_pipeline(scene, front_width_studs=48, optimize_scale=False)
     optimized = run_partial_scene_pipeline(scene, front_width_studs=48, optimize_scale=True)
@@ -18,10 +18,18 @@ def test_photo_build_applies_recommended_scale_only_when_gain_is_meaningful():
     assert recommendation is not None
     assert fixed.brick_model.width_studs == 48
     if recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
-        assert optimized.brick_model.width_studs == recommendation.recommended_front_width_studs
+        assert optimized.brick_model.width_studs in {
+            48,
+            recommendation.recommended_front_width_studs,
+        }
         assert recommendation.recommended.score_m < recommendation.baseline.score_m
     else:
         assert optimized.brick_model.width_studs == 48
+
+    # A representation-only scale optimization must never make the preview invalid.
+    assert optimized.bom.total_parts == len(optimized.brick_model.parts)
+    assert optimized.assembly_plan is not None
+    assert optimized.assembly_plan.total_parts == len(optimized.brick_model.parts)
 
 
 def test_scene_cli_keeps_scale_optimization_explicit(tmp_path: Path):

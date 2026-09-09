@@ -27,7 +27,6 @@ from brickhouse.scene import ArchitecturalScene, SceneRoofType
 from brickhouse.scene.physical_support import analyze_physical_support
 from brickhouse.scene.topology_projection import project_scene_to_building
 
-SECONDARY_VOLUME_CONFIDENCE_MIN = 0.50
 LOW_CONFIDENCE_WARNING = 0.65
 AUTO_SCALE_MIN_IMPROVEMENT = 0.10
 
@@ -41,15 +40,8 @@ def _is_resolved_volume(volume) -> bool:
     )
 
 
-def _secondary_volume_confidence(volume) -> float:
-    return min(
-        volume.width.source.confidence,
-        volume.depth.source.confidence,
-        volume.height.source.confidence,
-    )
-
-
 def _selected_partial_volumes(scene: ArchitecturalScene):
+    """Keep every concrete volume envelope; confidence changes fidelity, not presence."""
     primary = scene.volumes[0]
     if not _is_resolved_volume(primary):
         raise ValueError(
@@ -61,10 +53,6 @@ def _selected_partial_volumes(scene: ArchitecturalScene):
     for volume in scene.volumes[1:]:
         if not _is_resolved_volume(volume):
             omitted.append((volume, "unresolved metric envelope"))
-            continue
-        confidence = _secondary_volume_confidence(volume)
-        if confidence < SECONDARY_VOLUME_CONFIDENCE_MIN:
-            omitted.append((volume, f"metric confidence {confidence:.2f}"))
             continue
         included.append(volume)
     return included, omitted
@@ -95,7 +83,7 @@ def _selected_partial_roofs(scene: ArchitecturalScene, resolved_ids: set[str]):
 
 
 def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
-    """Project the safe concrete core plus roofs whose construction geometry is complete."""
+    """Project the concrete core plus roofs whose construction geometry is complete."""
     resolved, _ = _selected_partial_volumes(scene)
     resolved_ids = {volume.id for volume in resolved}
     volumes = [
@@ -156,8 +144,8 @@ def _resolved_core_building(scene: ArchitecturalScene) -> BuildingModel:
         metadata=Metadata(
             created_from="photo_analysis",
             notes=(
-                "Conservative partial LEGO preview: safe concrete envelopes and fully specified roofs are shown "
-                "provisionally; unresolved or weak secondary geometry and hidden junctions remain omitted."
+                "Conservative partial LEGO preview: resolved metric envelopes and fully specified roofs are shown "
+                "provisionally; unresolved geometry and hidden junctions remain omitted."
             ),
         ),
     )
@@ -212,7 +200,7 @@ def _metric_uncertainty_issues(scene: ArchitecturalScene) -> list[BrickExportFid
     included_ids = {volume.id for volume in included}
     issues: list[BrickExportFidelityIssue] = []
     for volume, reason in omitted:
-        issues.append(BrickExportFidelityIssue(code="partial_preview_secondary_volume_omitted", severity="warning", object_id=volume.id, message=(f"Secondary volume {volume.id!r} is visible in ArchitecturalScene but is omitted from the first-bricks preview because its envelope is still weakly constrained ({reason}).")))
+        issues.append(BrickExportFidelityIssue(code="partial_preview_secondary_volume_omitted", severity="warning", object_id=volume.id, message=(f"Secondary volume {volume.id!r} is visible in ArchitecturalScene but is omitted from the first-bricks preview because {reason}.")))
     for volume in included:
         for name in ("width", "depth", "height"):
             value = getattr(volume, name)
@@ -265,11 +253,19 @@ def run_partial_scene_pipeline(scene: ArchitecturalScene, *, front_width_studs: 
     selected_width = front_width_studs
     if optimize_scale and recommendation.improvement_fraction >= AUTO_SCALE_MIN_IMPROVEMENT:
         selected_width = recommendation.recommended_front_width_studs
-    bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    try:
+        bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
+    except ValueError:
+        if selected_width == front_width_studs:
+            raise
+        selected_width = front_width_studs
+        bundle = run_m0_pipeline_model(building, front_width_studs=selected_width)
     enriched = augment_brick_model_with_wall_depth(bundle.brick_model, scene, front_width_studs=selected_width)
     exterior_scene, _ = _partial_exterior_selection(scene)
     enriched = augment_brick_model_with_scene_platform_connectivity(enriched, exterior_scene, front_width_studs=selected_width)
     enriched = augment_brick_model_with_scene_shutters(enriched, scene, front_width_studs=selected_width)
+    if enriched.width_studs != selected_width:
+        enriched = enriched.model_copy(update={"width_studs": selected_width})
     if enriched is not bundle.brick_model:
         assembly_plan = generate_assembly_plan(enriched)
         bundle = bundle.model_copy(update={"brick_model": enriched, "bom": generate_bom(enriched), "assembly_plan": assembly_plan, "instruction_plan": generate_instruction_plan(assembly_plan), "bag_plan": generate_bag_plan(assembly_plan)})

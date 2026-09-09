@@ -15,8 +15,9 @@ def test_current_brickhouse_scene_can_build_useful_core_before_roof_is_resolved(
     bundle = run_partial_scene_pipeline(scene, front_width_studs=48)
 
     assert bundle.brick_model.parts
-    assert bundle.brick_model.volume_id == "volume_main"
+    assert bundle.brick_model.volume_id == "composite"
     assert any(part.component == "wall" for part in bundle.brick_model.parts)
+    assert any(part.placement_id.startswith("lower_exterior_volume:") for part in bundle.brick_model.parts)
     assert not any(part.component == "roof" for part in bundle.brick_model.parts)
     assert bundle.bom.total_parts == len(bundle.brick_model.parts)
     assert bundle.assembly_plan is not None
@@ -24,14 +25,9 @@ def test_current_brickhouse_scene_can_build_useful_core_before_roof_is_resolved(
     assert bundle.assembly_plan.steps[0].phase == "Structure"
     codes = {issue.code for issue in bundle.fidelity_issues}
     assert "partial_preview_roof_omitted" in codes
-    assert "partial_preview_secondary_volume_omitted" in codes
+    assert "partial_preview_secondary_volume_omitted" not in codes
     assert "low_confidence_partial_dimension" in codes
     assert "low_confidence_partial_opening_geometry" in codes
-    omitted = [
-        issue for issue in bundle.fidelity_issues
-        if issue.code == "partial_preview_secondary_volume_omitted"
-    ]
-    assert {issue.object_id for issue in omitted} == {"lower_exterior_volume"}
 
 
 def test_partial_preview_recovers_support_safe_platform_and_stair() -> None:

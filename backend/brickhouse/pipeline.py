@@ -78,6 +78,15 @@ def _volume_geometry(geometry, volume_id: str):
     })
 
 
+def _volume_building(building: BuildingModel, volume) -> BuildingModel:
+    """Scope opening and roof planning to the volume whose local shell is being built."""
+    return building.model_copy(update={
+        "volumes": [volume],
+        "openings": [opening for opening in building.openings if opening.volume_id == volume.id],
+        "roofs": [roof for roof in building.roofs if roof.volume_id == volume.id],
+    })
+
+
 def _translate_model(model: BrickModel, *, prefix: str, x: int, y: int, z: int):
     return [part.model_copy(update={
         "placement_id": f"{prefix}:{part.placement_id}",
@@ -212,14 +221,15 @@ def run_m0_pipeline_model(building: BuildingModel, *, front_width_studs: int = D
     if len(building.volumes) == 1: return _single_volume_bundle(building, geometry, front_width_studs, scale_recommendation, ldraw_root=ldraw_root)
     primary=building.volumes[0]; studs_per_meter=front_width_studs/primary.width; plates_per_meter=studs_per_meter*COURSES_PER_STUD_RATIO*3
     min_x=min(v.position.x for v in building.volumes); min_y=min(v.position.y for v in building.volumes); min_z=min(v.position.z for v in building.volumes)
-    roofs_by_volume={roof.volume_id:roof for roof in building.roofs}; all_parts=[]; quality_reports=[]; fidelity_issues=[]; max_x=max_y=max_z=1
+    all_parts=[]; quality_reports=[]; fidelity_issues=[]; max_x=max_y=max_z=1
     for volume in building.volumes:
-        subgeometry=_volume_geometry(geometry,volume.id); shell=generate_building_brick_shell(subgeometry,studs_per_meter=studs_per_meter)
+        local_building=_volume_building(building,volume); subgeometry=_volume_geometry(geometry,volume.id); shell=generate_building_brick_shell(subgeometry,studs_per_meter=studs_per_meter)
         if shell.discretization_quality is not None: quality_reports.append(shell.discretization_quality)
-        shell,opening_plan,anchor_issues=_prepare_opening_shell(building,shell); fidelity_issues.extend(anchor_issues)
-        spatial_shell=generate_spatial_brick_shell(shell); opening_parts,represented_opening_ids,opening_statuses=generate_planned_opening_parts(building,shell,opening_plan); fidelity_issues.extend(_opening_representation_issues(opening_plan,opening_statuses)); facade_details=generate_window_surrounds(building,shell,skip_opening_ids=represented_opening_ids); roof=roofs_by_volume.get(volume.id); fidelity_issues.extend(_roof_raster_issues(subgeometry,shell,roof)); local_model=_build_local_model(building,subgeometry,shell,spatial_shell,roof,facade_details,opening_parts); local_model=_restore_opening_provenance(local_model,opening_parts)
+        shell,opening_plan,anchor_issues=_prepare_opening_shell(local_building,shell); fidelity_issues.extend(anchor_issues)
+        spatial_shell=generate_spatial_brick_shell(shell); opening_parts,represented_opening_ids,opening_statuses=generate_planned_opening_parts(local_building,shell,opening_plan); fidelity_issues.extend(_opening_representation_issues(opening_plan,opening_statuses)); facade_details=generate_window_surrounds(local_building,shell,skip_opening_ids=represented_opening_ids); roof=local_building.roofs[0] if local_building.roofs else None; fidelity_issues.extend(_roof_raster_issues(subgeometry,shell,roof)); local_model=_build_local_model(local_building,subgeometry,shell,spatial_shell,roof,facade_details,opening_parts); local_model=_restore_opening_provenance(local_model,opening_parts)
         x=round((volume.position.x-min_x)*studs_per_meter); y=round((volume.position.y-min_y)*studs_per_meter); z=round((volume.position.z-min_z)*plates_per_meter); all_parts.extend(_translate_model(local_model,prefix=volume.id,x=x,y=y,z=z)); max_x=max(max_x,x+local_model.width_studs); max_y=max(max_y,y+local_model.depth_studs); max_z=max(max_z,z+local_model.height_plates)
-    brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=max_x,depth_studs=max_y,height_plates=max_z,parts=all_parts); _validate_generated_model(brick_model); bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model); fidelity_issues.extend(_geometry_fidelity_issues(brick_model,ldraw_root)); return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance,discretization_quality=quality_reports,scale_recommendation=scale_recommendation,fidelity_issues=fidelity_issues)
+    primary_x=round((primary.position.x-min_x)*studs_per_meter); primary_y=round((primary.position.y-min_y)*studs_per_meter); primary_depth=max(1,round(primary.depth*studs_per_meter))
+    brick_model=BrickModel(building_id=building.id,volume_id="composite",width_studs=front_width_studs,depth_studs=primary_depth,height_plates=max_z,canvas_width_studs=max_x,canvas_depth_studs=max_y,origin_x_studs=primary_x,origin_y_studs=primary_y,parts=all_parts); _validate_generated_model(brick_model); bom=generate_bom(brick_model); assembly_plan=generate_assembly_plan(brick_model); fidelity_issues.extend(_geometry_fidelity_issues(brick_model,ldraw_root)); return create_export_bundle(brick_model,bom,assembly_plan,appearance=building.appearance,discretization_quality=quality_reports,scale_recommendation=scale_recommendation,fidelity_issues=fidelity_issues)
 
 
 def _source_confidence_issue(kind: str, obj) -> BrickExportFidelityIssue | None:
