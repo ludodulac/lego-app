@@ -8,7 +8,7 @@
   "applied_evidence": [
     {
       "kind": "photo_scale_interval",
-      "artifact": "front-width-scale-estimate-v0.1.json",
+      "artifact": "front-width-scale-estimate.json",
       "target": "volume_main.width",
       "decision": "retain_existing_candidate_value",
       "value_m": 7.2,
