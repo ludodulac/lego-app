@@ -4,13 +4,13 @@ const REJECTED_SCENE_KEY = 'brickhouse.lastRejectedSceneCandidate';
 const REJECTED_ERROR_KEY = 'brickhouse.lastSceneValidationError';
 let lastSceneCandidate = '';
 
+function parseJson(raw) {
+  try { return JSON.parse(String(raw || '').trim()); } catch { return null; }
+}
+
 function parseScene(raw) {
-  try {
-    const value = JSON.parse(String(raw || '').trim());
-    return value?.schema_version === '0.2' && Array.isArray(value?.volumes) ? value : null;
-  } catch {
-    return null;
-  }
+  const value = parseJson(raw);
+  return value?.schema_version === '0.2' && Array.isArray(value?.volumes) ? value : null;
 }
 
 function activeSceneState() {
@@ -37,8 +37,8 @@ function clearRejectedState() {
     localStorage.removeItem(REJECTED_SCENE_KEY);
     localStorage.removeItem(REJECTED_ERROR_KEY);
   } catch { /* localStorage unavailable: UI can still continue */ }
+  lastSceneCandidate = '';
   document.querySelector('#shell-scene-correction')?.remove();
-  if (activeSceneState()) setPrimaryLabel('Continuer');
 }
 
 function canonicalSceneHandoffButton() {
@@ -113,13 +113,23 @@ function init() {
   const external = document.querySelector('#external-analysis');
   const status = document.querySelector('#status');
   const primary = document.querySelector('#shell-primary-button');
+  const photosPdfButton = document.querySelector('#download-ai-package');
   if (!importButton || !external || !status || !primary) {
     setTimeout(init, 50);
     return;
   }
 
+  // Starting a genuinely new Photos -> Survey run must not inherit a rejected
+  // Scene from a previous house/session.
+  photosPdfButton?.addEventListener('click', clearRejectedState, { capture: true });
+
   importButton.addEventListener('click', () => {
-    const scene = parseScene(external.value);
+    const value = parseJson(external.value);
+    if (value?.schema_version === '0.1') {
+      clearRejectedState();
+      return;
+    }
+    const scene = value?.schema_version === '0.2' && Array.isArray(value?.volumes) ? value : null;
     if (scene) lastSceneCandidate = JSON.stringify(scene, null, 2);
   }, { capture: true });
 
