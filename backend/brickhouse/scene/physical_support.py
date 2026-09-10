@@ -109,6 +109,28 @@ def _platform_supports_volume(platform, volume) -> SupportState:
     return "proven" if xy_overlap and vertical_contact else "contradicted"
 
 
+def _volume_supports_platform(volume, platform) -> SupportState:
+    """Evaluate directional bearing from a volume top onto a platform surface.
+
+    ``supports`` is not symmetric: this specifically implements volume → platform.
+    Missing volume metrics remain unresolved; complete but incompatible geometry is
+    a contradiction rather than an invitation to invent a hidden support.
+    """
+    dims = _volume_dimensions(volume)
+    if dims is None:
+        return "unresolved"
+    width, depth, height = dims
+    vx0, vx1 = volume.position.x, volume.position.x + width
+    vy0, vy1 = volume.position.y, volume.position.y + depth
+    px0, px1 = platform.position.x, platform.position.x + platform.width
+    py0, py1 = platform.position.y, platform.position.y + platform.depth
+    overlap_x = min(vx1, px1) - max(vx0, px0)
+    overlap_y = min(vy1, py1) - max(vy0, py0)
+    volume_top = volume.position.z + height
+    vertical_contact = abs(platform.position.z - volume_top) <= CONNECTIVITY_TOLERANCE_M
+    return "proven" if overlap_x > 0 and overlap_y > 0 and vertical_contact else "contradicted"
+
+
 def _post_support_state(platform, post) -> SupportState:
     """Reuse the established Scene contract: SupportPost top meets platform level."""
     post_top = post.position.z + post.height
@@ -196,8 +218,6 @@ def _chimney_support_state(scene, chimney) -> tuple[SupportState, str | None]:
 
     if len(proven_roofs) == 1:
         return "proven", proven_roofs[0]
-    # Multiple candidates, pitched/unknown roof planes, and flat roofs that do not
-    # intersect are all ownership-unsafe without an explicit support relation.
     return "unresolved", None
 
 
@@ -342,6 +362,8 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
         state: SupportState = "unresolved"
         if relation.subject_id in platforms and relation.object_id in volumes:
             state = _platform_supports_volume(platforms[relation.subject_id], volumes[relation.object_id])
+        elif relation.subject_id in volumes and relation.object_id in platforms:
+            state = _volume_supports_platform(volumes[relation.subject_id], platforms[relation.object_id])
         elif relation.subject_id in roofs and relation.object_id in chimneys:
             roof = roofs[relation.subject_id]
             volume = volumes.get(roof.volume_id)
@@ -349,11 +371,7 @@ def analyze_physical_support(scene) -> tuple[list[PhysicalSupportFact], list[Phy
                 chimneys[relation.object_id], roof, volume
             )
         elif relation.subject_id in volumes and relation.object_id in chimneys:
-            matching = [
-                roof
-                for roof in scene.roofs
-                if roof.volume_id == relation.subject_id
-            ]
+            matching = [roof for roof in scene.roofs if roof.volume_id == relation.subject_id]
             states = [
                 _chimney_flat_roof_state(chimneys[relation.object_id], roof, volumes[relation.subject_id])
                 for roof in matching
