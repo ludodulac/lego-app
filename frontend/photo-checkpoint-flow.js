@@ -1,60 +1,126 @@
 // User-checkpoint bridge for the phone-first shell.
-// Keeps the canonical Survey/Scene generators untouched and only exposes the
-// already-existing next action at the point where the user expects it.
+// A validated Survey is a completed step: move the user to Maison and expose
+// exactly one next action while delegating PDF generation to the canonical
+// Survey → Scene handoff button maintained by survey-import.js.
+
+let autoAdvancedSurveyId = null;
 
 function ready() {
   return document.body.classList.contains('boldungo-shell-enabled')
-    && document.querySelector('.shell-survey-card');
+    && document.querySelector('.boldungo-cockpit')
+    && document.querySelector('#shell-primary-button');
+}
+
+function currentPayload() {
+  const raw = document.querySelector('#json-preview')?.textContent?.trim();
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
 }
 
 function currentSchema() {
-  const raw = document.querySelector('#json-preview')?.textContent?.trim();
-  if (!raw) return null;
-  try { return JSON.parse(raw)?.schema_version ?? null; } catch { return null; }
+  return currentPayload()?.schema_version ?? null;
 }
 
-function ensureSurveyNextAction() {
-  if (!ready()) return;
-  const card = document.querySelector('.shell-survey-card');
-  const validated = currentSchema() === '0.1'
+function currentSurveyId() {
+  const payload = currentPayload();
+  return payload?.schema_version === '0.1' ? (payload.id || payload.name || 'validated-survey') : null;
+}
+
+function cockpit() {
+  return document.querySelector('.boldungo-cockpit');
+}
+
+function primary() {
+  return document.querySelector('#shell-primary-button');
+}
+
+function goToScene() {
+  document.querySelector('[data-shell-state="scene"]')?.click();
+}
+
+function surveyIsValidated() {
+  return currentSchema() === '0.1'
     && !document.querySelector('#result')?.hidden
     && Boolean(document.querySelector('#download-scene-handoff'));
-  let button = document.querySelector('#shell-survey-next');
+}
 
-  if (!validated) {
-    button?.remove();
+function sceneIsValidated() {
+  return currentSchema() === '0.2' && !document.querySelector('#result')?.hidden;
+}
+
+function setSceneStatus(message) {
+  const status = document.querySelector('#shell-scene-status');
+  if (status) status.textContent = message;
+}
+
+function syncValidatedSurvey() {
+  if (!surveyIsValidated()) return;
+  const id = currentSurveyId();
+  const shell = cockpit();
+  if (!shell || !id) return;
+
+  // BH-225 used a second button on the Relevé card. It made the next action
+  // visible but left two competing CTAs. The shell primary action now owns it.
+  document.querySelector('#shell-survey-next')?.remove();
+
+  if (autoAdvancedSurveyId !== id) {
+    autoAdvancedSurveyId = id;
+    shell.dataset.sceneHandoffCreated = 'false';
+    goToScene();
+  }
+
+  if (shell.dataset.shellState === 'scene' && shell.dataset.sceneHandoffCreated !== 'true') {
+    primary().textContent = 'Créer le PDF Maison';
+    setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
+  }
+}
+
+function syncSceneState() {
+  const shell = cockpit();
+  const button = primary();
+  if (!shell || !button || shell.dataset.shellState !== 'scene') return;
+
+  if (sceneIsValidated()) {
+    delete shell.dataset.sceneHandoffCreated;
     return;
   }
 
-  if (!button) {
-    button = document.createElement('button');
-    button.type = 'button';
-    button.id = 'shell-survey-next';
-    button.className = 'primary big-action';
-    button.textContent = 'Créer le PDF Maison';
-    button.addEventListener('click', () => {
-      const canonical = document.querySelector('#download-scene-handoff');
-      if (!canonical) return;
-      canonical.click();
-      document.querySelector('[data-shell-state="scene"]')?.click();
-    });
-    card.appendChild(button);
-  }
-}
-
-function syncSceneImportLabel() {
-  if (!ready()) return;
-  const cockpit = document.querySelector('.boldungo-cockpit');
-  const primary = document.querySelector('#shell-primary-button');
-  if (!cockpit || !primary) return;
-  if (cockpit.dataset.shellState === 'scene' && currentSchema() !== '0.2') {
-    primary.textContent = 'Importer le JSON Maison';
+  if (surveyIsValidated()) {
+    if (shell.dataset.sceneHandoffCreated === 'true') {
+      button.textContent = 'Importer le JSON Maison';
+      setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
+    } else {
+      button.textContent = 'Créer le PDF Maison';
+      setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
+    }
   }
 }
 
 function sync() {
-  ensureSurveyNextAction();
-  syncSceneImportLabel();
+  if (!ready()) return;
+  if (currentSchema() !== '0.1') autoAdvancedSurveyId = null;
+  syncValidatedSurvey();
+  syncSceneState();
+}
+
+function handlePrimary(event) {
+  const shell = cockpit();
+  if (!shell || shell.dataset.shellState !== 'scene' || !surveyIsValidated()) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  if (shell.dataset.sceneHandoffCreated === 'true') {
+    document.querySelector('#external-analysis-file')?.click();
+    return;
+  }
+
+  const canonical = document.querySelector('#download-scene-handoff');
+  if (!canonical) return;
+  canonical.click();
+  shell.dataset.sceneHandoffCreated = 'true';
+  primary().textContent = 'Importer le JSON Maison';
+  setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
 }
 
 function init() {
@@ -62,6 +128,7 @@ function init() {
     setTimeout(init, 50);
     return;
   }
+  primary().addEventListener('click', handlePrimary, { capture: true });
   sync();
   new MutationObserver(sync).observe(document.body, {
     subtree: true,
