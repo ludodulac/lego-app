@@ -30,6 +30,7 @@ jobs:
           PAGE_URL: https://ludodulac.github.io/lego-app/
         run: |
           python - <<'PY'
+          import json
           import os
           import shutil
           from urllib.parse import urljoin
@@ -76,6 +77,8 @@ jobs:
               },
               'notes': 'Synthetic UI-state fixture only.',
           }
+          stored = json.dumps({'survey': survey, 'issues': [], 'valid_for_scene_fusion': True}, ensure_ascii=False)
+          init_script = f"localStorage.setItem('brickhouse.pendingArchitecturalSurvey', {json.dumps(stored)});"
 
           with sync_playwright() as p:
               browser = p.chromium.launch(
@@ -87,10 +90,7 @@ jobs:
               page = context.new_page()
               runtime_errors = []
               page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
-              page.add_init_script(
-                  """payload => localStorage.setItem('brickhouse.pendingArchitecturalSurvey', JSON.stringify(payload))""",
-                  {'survey': survey, 'issues': [], 'valid_for_scene_fusion': True},
-              )
+              page.add_init_script(init_script)
 
               response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
               assert response and response.ok, f'photo.html HTTP failure: {response.status if response else "no response"}'
