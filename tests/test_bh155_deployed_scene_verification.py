@@ -20,7 +20,8 @@ def test_scene_runtime_workflow_checks_real_house_candidate_without_building_it(
     assert "scene.html?benchmark=real-house-5&stage=scene" in source
     assert "brickhouse-scene-real-house-5-candidate" in source
     assert "data-preloaded-candidate-sha" in source
-    assert "Candidat Scene BH-151 préchargé" in source
+    assert "Candidat Scene BH-222 préchargé" in source
+    assert "82c14deb162ed9d89310dfaa051f38e22df66f2d" in source
     assert "#scene-result-file" in source
     assert "#scene-import-result" in source
     assert "#scene-build-bricks" in source
