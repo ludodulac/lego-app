@@ -13,12 +13,15 @@ def test_scene_handoff_ownership_audit_blocks_external_context_primitives():
     assert "volumes, roofs, chimneys, openings, equipment, stairs or platforms" in text
 
 
-def test_scene_handoff_ownership_audit_blocks_uncertain_ownership_metrification():
+def test_scene_handoff_ownership_audit_preserves_uncertainty_without_erasing_certain_target_linked_objects():
     text = AUDIT.read_text(encoding="utf-8")
 
-    assert 'subject_ownership="unresolved"' in text
     assert "plausible/unproven" in text
-    assert "do not metrify it as target geometry" in text
+    assert "NEVER promote it to target_building" in text
+    assert "do not let that uncertain attribute erase an observation whose object existence is certain" in text
+    assert "certain relation chain anchored to the target building" in text
+    assert "keep the ownership uncertainty explicit" in text
+    assert "Never use this rule for an observation whose ownership is certainly external_context" in text
 
 
 def test_scene_handoff_ownership_audit_is_loaded_after_output_frame():
