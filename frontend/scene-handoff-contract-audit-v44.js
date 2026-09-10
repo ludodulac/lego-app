@@ -12,7 +12,10 @@ This addendum is mandatory and does not replace any v4.3 rule above.
 
 ROOT METADATA — REQUIRED
 - the ArchitecturalScene v0.2 root contains non-empty "id" and "name" fields;
-- use "brickhouse-scene" / "BrickHouse architectural scene" only when the model has no more specific non-empty values; never overwrite a non-empty model value.
+- use "brickhouse-scene" / "BrickHouse architectural scene" only when the model has no more specific non-empty values; never overwrite a non-empty model value;
+- the root MUST contain "appearance" because it is part of the ArchitecturalScene v0.2 backend contract;
+- when no wall/roof/frame appearance fact is established by the accepted inputs, emit exactly "appearance": {}. An empty appearance object means unknown/no claim: NEVER invent colors, materials or style merely to satisfy serialization;
+- when appearance facts are established, include only those supported fields; absence of evidence must remain absence of a claim.
 
 EVIDENCE SERIALIZATION — REQUIRED
 - every Scene evidence item is an OBJECT with photo_index and observation; never serialize a bare string such as "photo:1";
