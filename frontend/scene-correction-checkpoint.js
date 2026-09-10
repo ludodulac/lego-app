@@ -27,12 +27,18 @@ function rejectedState() {
   }
 }
 
+function setPrimaryLabel(label) {
+  const primary = document.querySelector('#shell-primary-button');
+  if (primary && activeSceneState()) primary.textContent = label;
+}
+
 function clearRejectedState() {
   try {
     localStorage.removeItem(REJECTED_SCENE_KEY);
     localStorage.removeItem(REJECTED_ERROR_KEY);
   } catch { /* localStorage unavailable: UI can still continue */ }
   document.querySelector('#shell-scene-correction')?.remove();
+  if (activeSceneState()) setPrimaryLabel('Continuer');
 }
 
 function canonicalSceneHandoffButton() {
@@ -51,6 +57,7 @@ function createCorrectionPdf() {
     return;
   }
   canonical.click();
+  setPrimaryLabel('Importer le JSON Maison corrigé');
   const sceneStatus = document.querySelector('#shell-scene-status');
   if (sceneStatus) sceneStatus.textContent = 'PDF de correction créé · donnez-le à l’IA puis réimportez le JSON Maison';
 }
@@ -73,6 +80,7 @@ function ensureCorrectionUi() {
     card.appendChild(button);
   }
   document.querySelector('[data-shell-state="scene"]')?.click();
+  setPrimaryLabel('Créer le PDF de correction Maison');
 }
 
 function rememberFailure(message) {
@@ -119,6 +127,10 @@ function init() {
     if (!activeSceneState() || !rejectedState()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (primary.textContent.includes('Importer')) {
+      document.querySelector('#external-analysis-file')?.click();
+      return;
+    }
     createCorrectionPdf();
   }, { capture: true });
 
