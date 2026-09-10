@@ -34,6 +34,10 @@ function primary() {
   return document.querySelector('#shell-primary-button');
 }
 
+function setText(node, message) {
+  if (node && node.textContent !== message) node.textContent = message;
+}
+
 function goToScene() {
   document.querySelector('[data-shell-state="scene"]')?.click();
 }
@@ -49,8 +53,7 @@ function sceneIsValidated() {
 }
 
 function setSceneStatus(message) {
-  const status = document.querySelector('#shell-scene-status');
-  if (status) status.textContent = message;
+  setText(document.querySelector('#shell-scene-status'), message);
 }
 
 function syncValidatedSurvey() {
@@ -70,7 +73,7 @@ function syncValidatedSurvey() {
   }
 
   if (shell.dataset.shellState === 'scene' && shell.dataset.sceneHandoffCreated !== 'true') {
-    primary().textContent = 'Créer le PDF Maison';
+    setText(primary(), 'Créer le PDF Maison');
     setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
   }
 }
@@ -87,10 +90,10 @@ function syncSceneState() {
 
   if (surveyIsValidated()) {
     if (shell.dataset.sceneHandoffCreated === 'true') {
-      button.textContent = 'Importer le JSON Maison';
+      setText(button, 'Importer le JSON Maison');
       setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
     } else {
-      button.textContent = 'Créer le PDF Maison';
+      setText(button, 'Créer le PDF Maison');
       setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
     }
   }
@@ -119,7 +122,7 @@ function handlePrimary(event) {
   if (!canonical) return;
   canonical.click();
   shell.dataset.sceneHandoffCreated = 'true';
-  primary().textContent = 'Importer le JSON Maison';
+  setText(primary(), 'Importer le JSON Maison');
   setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
 }
 
@@ -130,11 +133,14 @@ function init() {
   }
   primary().addEventListener('click', handlePrimary, { capture: true });
   sync();
+  // Observe state-producing DOM changes, but keep all writes above idempotent.
+  // Previously sync() rewrote the same status/button text on every callback;
+  // because the observer also watched characterData, that could feed itself
+  // forever after a Survey restore and freeze the whole cockpit.
   new MutationObserver(sync).observe(document.body, {
     subtree: true,
     childList: true,
     attributes: true,
-    characterData: true,
   });
 }
 
