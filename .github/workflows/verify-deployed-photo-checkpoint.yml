@@ -1,0 +1,113 @@
+name: Verify deployed photo checkpoint
+
+on:
+  workflow_run:
+    workflows: ["Deploy viewer to GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-photo-checkpoint:
+    name: Verify deployed Relevé → Maison checkpoint
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install browser driver
+        run: python -m pip install 'playwright>=1.50,<2'
+
+      - name: Verify restored validated Survey advances to Maison
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          PAGE_URL: https://ludodulac.github.io/lego-app/
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          from urllib.parse import urljoin
+
+          from playwright.sync_api import sync_playwright
+
+          base = os.environ['PAGE_URL']
+          deploy_sha = os.environ['DEPLOY_SHA']
+          url = urljoin(base if base.endswith('/') else base + '/', f'photo.html?checkpoint=bh227&runtime-check={deploy_sha}')
+          browser_path = next((shutil.which(name) for name in (
+              'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
+          ) if shutil.which(name)), None)
+          if not browser_path:
+              raise AssertionError('No Chromium/Chrome binary is available on the checkpoint runner')
+
+          survey = {
+              'schema_version': '0.1',
+              'id': 'bh227-deployed-checkpoint-survey',
+              'name': 'BH-227 deployed checkpoint',
+              'canonical_frame': {
+                  'front_facade': 'front',
+                  'x_direction': 'front_view_left_to_right',
+                  'y_direction': 'front_to_rear',
+                  'z_direction': 'bottom_to_top',
+              },
+              'photos': [{
+                  'photo_index': 1,
+                  'capture_role': 'facade_view',
+                  'facade': 'front',
+                  'description': 'Contract-only deployed UI fixture.',
+                  'source': {'kind': 'observed', 'confidence': 1.0},
+                  'image_left_maps_to_facade_offset': 'low',
+                  'user_note': None,
+              }],
+              'known_measurements': [],
+              'observations': [],
+              'relations': [],
+              'representation_policy': {
+                  'preserve_nominal_materials': True,
+                  'preserve_opening_composition': True,
+                  'preserve_architectural_details': True,
+                  'reproduce_weathering': False,
+                  'reproduce_temporary_objects': False,
+              },
+              'notes': 'Synthetic UI-state fixture only.',
+          }
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch(
+                  headless=True,
+                  executable_path=browser_path,
+                  args=['--no-sandbox'],
+              )
+              context = browser.new_context(viewport={'width': 390, 'height': 844})
+              page = context.new_page()
+              runtime_errors = []
+              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
+              page.add_init_script(
+                  """payload => localStorage.setItem('brickhouse.pendingArchitecturalSurvey', JSON.stringify(payload))""",
+                  {'survey': survey, 'issues': [], 'valid_for_scene_fusion': True},
+              )
+
+              response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
+              assert response and response.ok, f'photo.html HTTP failure: {response.status if response else "no response"}'
+              page.wait_for_selector('body.boldungo-shell-enabled', timeout=15000)
+              page.wait_for_function(
+                  """() => document.querySelector('.boldungo-cockpit')?.dataset.shellState === 'scene'""",
+                  timeout=15000,
+              )
+
+              assert page.locator('#shell-state-title').text_content().strip() == '3. Maison'
+              assert page.locator('[data-shell-state="scene"]').get_attribute('aria-current') == 'page'
+              assert page.locator('#shell-primary-button').text_content().strip() == 'Créer le PDF Maison'
+              assert 'Relevé validé' in page.locator('#shell-scene-status').text_content()
+              assert page.locator('#shell-survey-next').count() == 0
+              assert page.locator('#download-scene-handoff').count() == 1
+              assert not runtime_errors, runtime_errors
+              browser.close()
+
+          print(f'deployed photo checkpoint verification passed: {url}')
+          PY
