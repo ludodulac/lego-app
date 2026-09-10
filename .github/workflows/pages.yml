@@ -13,6 +13,7 @@ on:
       - '.github/workflows/pages.yml'
       - '.github/workflows/verify-deployed-scene.yml'
       - '.github/workflows/verify-deployed-scene-api-e2e.yml'
+      - '.github/workflows/verify-deployed-photo-checkpoint.yml'
   workflow_dispatch:
 
 permissions:
