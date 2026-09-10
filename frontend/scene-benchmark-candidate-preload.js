@@ -1,5 +1,5 @@
 const BENCHMARK_ID = 'real-house-5';
-const VALIDATED_CANDIDATE_SHA = '5cf374b0c8a70bb9823c2e69a1367461d75508f9';
+const VALIDATED_CANDIDATE_SHA = '82c14deb162ed9d89310dfaa051f38e22df66f2d';
 const CANDIDATE_URL = `https://raw.githubusercontent.com/ludodulac/lego-app/${VALIDATED_CANDIDATE_SHA}/tests/fixtures/real_house_5_scene_candidate.json`;
 
 const jsonInput = document.querySelector('#scene-result-json');
@@ -15,7 +15,7 @@ async function preloadValidatedCandidate() {
   if (!shouldPreloadCandidate() || !jsonInput) return;
   if (jsonInput.value.trim() || fileInput?.files?.length) return;
 
-  status.textContent = 'Chargement du candidat Scene validé BH-151…';
+  status.textContent = 'Chargement du candidat Scene validé BH-222…';
   try {
     const response = await fetch(CANDIDATE_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -25,12 +25,12 @@ async function preloadValidatedCandidate() {
     }
 
     jsonInput.value = JSON.stringify(scene, null, 2);
-    jsonInput.dataset.preloadedCandidate = 'bh-151';
+    jsonInput.dataset.preloadedCandidate = 'bh-222';
     jsonInput.dataset.preloadedCandidateSha = VALIDATED_CANDIDATE_SHA;
     jsonInput.dataset.sceneApiE2e = 'bh156';
     jsonInput.closest('details')?.setAttribute('open', '');
     jsonInput.dispatchEvent(new Event('input', { bubbles: true }));
-    status.textContent = 'Candidat Scene BH-151 préchargé. Cliquez sur « Importer et vérifier la Scene » pour exécuter les contrôles Survey → Scene.';
+    status.textContent = 'Candidat Scene BH-222 préchargé. Cliquez sur « Importer et vérifier la Scene » pour exécuter les contrôles Survey → Scene.';
   } catch (error) {
     status.textContent = `Candidat Scene validé indisponible : ${error.message}. Vous pouvez toujours importer brickhouse-scene-result.json manuellement.`;
   }
