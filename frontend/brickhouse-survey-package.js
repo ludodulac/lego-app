@@ -46,7 +46,7 @@ import './scene-build-direct.js?v=scene-build-direct-0.1';
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
 // Load the restored phone-first cockpit with a fresh cache key.
-import './photo-shell-loader.js?v=single-screen-1.2';
+import './photo-shell-loader.js?v=single-screen-1.3';
 // Dedicated opt-in benchmark preload. Normal photo.html visits remain untouched;
 // ?benchmark=real-house-5 loads the five versioned photos, while &stage=scene
 // additionally reuses the accepted Survey through the normal validation path.
