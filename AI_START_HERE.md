@@ -2,10 +2,10 @@
 
 ## Contexte transversal — obligatoire en nouvelle conversation
 
-Ce projet appartient à l'écosystème documenté dans le dépôt GitHub **`ludodulac/Grand-p-re-`**. Le nom du dépôt est volontairement sans accents : les caractères accentués de « Grand Père » sont représentés par des tirets dans son slug GitHub.
+Ce projet appartient à l'écosystème documenté dans le dépôt GitHub **`ludodulac/Grand-pere`**. Grand Père est documenté dans le dépôt `ludodulac/Grand-pere`.
 
 Au début d'une nouvelle conversation ou lorsqu'aucun contexte transversal fiable n'est déjà chargé :
-1. ouvrir `ludodulac/Grand-p-re-` sur `main` ;
+1. ouvrir `ludodulac/Grand-pere` sur `main` ;
 2. lire son `AI_START_HERE.md` ;
 3. lire la fiche Boldüngo indiquée par `projects/_INDEX.md` ;
 4. pour un travail itératif/autonome, appliquer `LOOP_ENGINEERING.md` ;
@@ -18,7 +18,7 @@ Ce fichier est le point d’entrée obligatoire de tout agent IA qui reprend ce 
 ## PROMPT OFFICIEL À COPIER DANS UNE NOUVELLE CONVERSATION
 
 > Va dans le dépôt `ludodulac/lego-app`.
-> Lis `AI_START_HERE.md` et suis exactement sa procédure de reprise, y compris le contexte transversal `ludodulac/Grand-p-re-`.
+> Lis `AI_START_HERE.md` et suis exactement sa procédure de reprise, y compris le contexte transversal `ludodulac/Grand-pere`.
 > Vérifie l’état réel de `main`, des PR/issues et de la CI avant d’agir.
 > Reprends ensuite le chantier prioritaire indiqué par le dépôt.
 > Ne repars pas de zéro et préserve l’existant.
