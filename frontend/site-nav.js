@@ -121,8 +121,12 @@ function ensureNav() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureNav, { once: true });
 else ensureNav();
 
-// The shell can move controls after initial load, so keep a small observer. Every
-// normalization above is idempotent: the observer must never mutate the DOM when
-// the requested label/navigation already exists, otherwise it can starve the
-// browser event loop and make the entire deployed page appear unclickable.
-new MutationObserver(ensureNav).observe(document.documentElement, { childList: true, subtree: true });
+// BH-231: do not keep an unbounded document-wide MutationObserver alive here.
+// The photo/scene primary controls already exist when this module is loaded, and
+// moving those controls into the shell does not change their label. A second
+// one-shot normalization at window load covers late DOM initialization without
+// creating a feedback path that can starve ordinary clicks or keep headless
+// Chrome spinning after the page has otherwise settled.
+if (document.readyState !== 'complete') {
+  globalThis.addEventListener('load', ensureNav, { once: true });
+}

@@ -21,6 +21,23 @@ function requestedStage() {
   return params().get('stage');
 }
 
+// A benchmark URL without an explicit stage means “start this benchmark from
+// Photos”, not “resume whatever this browser did last time”. Do this
+// synchronously while the package module is evaluated, before survey-import.js
+// gets its turn to restore pendingArchitecturalSurvey. The explicit
+// &stage=scene checkpoint intentionally keeps its dedicated preload behavior.
+function resetFreshBenchmarkWorkflow() {
+  if (requestedBenchmark() !== BENCHMARK_ID || requestedStage()) return;
+  [
+    'brickhouse.pendingArchitecturalSurvey',
+    'brickhouse.knownFrontWidthM',
+    'brickhouse.lastRejectedArchitecturalScene',
+    'brickhouse.lastSceneValidationError',
+  ].forEach(key => localStorage.removeItem(key));
+}
+
+resetFreshBenchmarkWorkflow();
+
 function inputFor(slot, detail) {
   const className = detail ? 'detail-photo-slot' : 'guided-photo-slot';
   const inputClass = detail ? 'detail-photo-input' : 'guided-photo-input';
@@ -52,10 +69,8 @@ async function loadAcceptedSurveyCheckpoint() {
   textarea.value = JSON.stringify(survey, null, 2);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-  // survey-import.js and photo.js are regular module scripts loaded after the
-  // package module that imports this loader. Yield once so their listeners and
-  // API URL initialization are installed before invoking the normal validation
-  // path. This deliberately does not write pendingArchitecturalSurvey itself.
+  // Yield once so the normal validation listeners are installed before using
+  // the same import path as a user. This does not write pending state itself.
   await new Promise(resolve => setTimeout(resolve, 0));
   importButton.click();
   return true;

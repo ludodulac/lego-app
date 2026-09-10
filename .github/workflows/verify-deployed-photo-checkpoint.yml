@@ -24,7 +24,7 @@ jobs:
       - name: Install browser driver
         run: python -m pip install 'playwright>=1.50,<2'
 
-      - name: Verify fresh five-photo benchmark through PDF generation
+      - name: Verify returning browser resets to fresh five-photo benchmark and stays responsive
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           PAGE_URL: https://ludodulac.github.io/lego-app/
@@ -35,6 +35,7 @@ jobs:
           import shutil
           import time
           from urllib.parse import urljoin
+          from urllib.request import urlopen
 
           from playwright.sync_api import sync_playwright
 
@@ -48,8 +49,19 @@ jobs:
 
           benchmark_url = urljoin(
               base if base.endswith('/') else base + '/',
-              f'photo.html?benchmark=real-house-5&checkpoint=bh230&runtime-check={deploy_sha}',
+              f'photo.html?benchmark=real-house-5&checkpoint=bh231&runtime-check={deploy_sha}',
           )
+          survey_url = urljoin(
+              base if base.endswith('/') else base + '/',
+              'benchmarks/real-house-5/accepted-survey-v0.1.json',
+          )
+          with urlopen(survey_url, timeout=30) as response:
+              accepted_survey = json.load(response)
+          stale_pending = {
+              'survey': accepted_survey,
+              'issues': [],
+              'valid_for_scene_fusion': True,
+          }
 
           with sync_playwright() as p:
               browser = p.chromium.launch(
@@ -58,6 +70,18 @@ jobs:
                   args=['--no-sandbox'],
               )
               context = browser.new_context(viewport={'width': 390, 'height': 844}, accept_downloads=True)
+              context.add_init_script(
+                  script=f"""
+                  (() => {{
+                    if (location.pathname.endsWith('/photo.html')) {{
+                      localStorage.setItem('brickhouse.pendingArchitecturalSurvey', {json.dumps(json.dumps(stale_pending))});
+                      localStorage.setItem('brickhouse.knownFrontWidthM', '12.34');
+                      localStorage.setItem('brickhouse.lastRejectedArchitecturalScene', '{{"stale":true}}');
+                      localStorage.setItem('brickhouse.lastSceneValidationError', 'stale');
+                    }}
+                  }})();
+                  """
+              )
               page = context.new_page()
               runtime_errors = []
               failed_requests = []
@@ -78,13 +102,24 @@ jobs:
 
               assert page.locator('.selected-photo-preview').count() == 5
               assert page.locator('#shell-state-title').text_content().strip() == '1. Photos'
+              assert page.locator('.boldungo-cockpit').get_attribute('data-shell-state') == 'photos'
               assert page.locator('#shell-primary-button').text_content().strip() == 'Créer le PDF'
               assert page.locator('#photo-persistence-note').count() == 1
+              assert page.evaluate("localStorage.getItem('brickhouse.pendingArchitecturalSurvey')") is None
+              assert page.evaluate("localStorage.getItem('brickhouse.knownFrontWidthM')") is None
+              assert page.evaluate("localStorage.getItem('brickhouse.lastRejectedArchitecturalScene')") is None
+              assert page.evaluate("localStorage.getItem('brickhouse.lastSceneValidationError')") is None
+              assert page.evaluate('1 + 1') == 2
               assert not runtime_errors, runtime_errors
               assert not failed_requests, failed_requests
 
+              page.locator('[data-shell-state="survey"]').click(timeout=5000)
+              assert page.locator('.boldungo-cockpit').get_attribute('data-shell-state') == 'survey'
+              page.locator('[data-shell-state="photos"]').click(timeout=5000)
+              assert page.locator('.boldungo-cockpit').get_attribute('data-shell-state') == 'photos'
+
               with page.expect_download(timeout=30000) as download_info:
-                  page.locator('#shell-primary-button').click()
+                  page.locator('#shell-primary-button').click(timeout=5000)
               download = download_info.value
               assert download.suggested_filename == 'BRICKHOUSE-SURVEY-pdf-handoff-0.10.pdf', download.suggested_filename
               page.wait_for_function(
@@ -109,9 +144,9 @@ jobs:
               }""")
               metrics['five_photo_usable_ms'] = usable_ms
               metrics['pdf_filename'] = download.suggested_filename
-              print('BH-230 deployed fresh benchmark metrics:', json.dumps(metrics, sort_keys=True))
+              print('BH-231 deployed returning-browser benchmark metrics:', json.dumps(metrics, sort_keys=True))
               context.close()
               browser.close()
 
-          print(f'deployed photo cockpit fresh-path verification passed: {benchmark_url}')
+          print(f'deployed photo cockpit returning-browser verification passed: {benchmark_url}')
           PY
