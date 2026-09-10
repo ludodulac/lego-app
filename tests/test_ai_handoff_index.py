@@ -6,7 +6,7 @@ def test_ai_start_here_indexes_current_continuity_sources():
     assert "PROGRESSION.md" in text
     assert "docs/_INDEX.md" in text
     assert "PROJECT_PRINCIPLES.md" in text
-    assert "ludodulac/Grand-p-re-" in text
+    assert "ludodulac/Grand-pere" in text
     assert "LOOP_ENGINEERING.md" in text
     assert "Lis AI_START_HERE.md, vérifie l’état réel de main et reprends le projet." in text
 
