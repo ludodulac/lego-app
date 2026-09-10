@@ -8,8 +8,9 @@ def test_certain_chimney_compat_is_loaded_after_scene_normalizer():
     source = (ROOT / "frontend" / "photo.html").read_text()
     scene_index = source.index("scene-handoff-photo-evidence.js")
     chimney_index = source.index("scene-chimney-compat.js")
-    import_index = source.index("photo.js")
-    assert scene_index < chimney_index < import_index
+    build_index = source.index("scene-build.js")
+    assert scene_index < chimney_index < build_index
+    assert 'src="./photo.js"' not in source
 
 
 def test_certain_chimney_recovery_is_exact_id_and_survey_guarded():
