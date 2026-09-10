@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from brickhouse.pipeline import run_m0_pipeline_scene
-from brickhouse.scene.models import ArchitecturalScene
+from brickhouse.scene import ArchitecturalScene
 
 
 REFERENCE = Path("tests/fixtures/bh233-reference-scene.json")
@@ -13,6 +13,14 @@ REFERENCE = Path("tests/fixtures/bh233-reference-scene.json")
 def test_bh233_frozen_reference_scene_reaches_first_real_brick_model():
     raw = REFERENCE.read_text(encoding="utf-8")
     scene = ArchitecturalScene.model_validate_json(raw)
+
+    relation = next(item for item in scene.relations if item.id == "relation-stair-platform")
+    assert relation.kind.value == "connects_to"
+    assert relation.subject_id == "stair-exterior-1"
+    assert relation.object_id == "platform-massive-1"
+    assert relation.certainty.value == "certain"
+    assert relation.geometry_status == "resolved"
+
     bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
     parts = bundle.brick_model.parts
 
@@ -46,9 +54,9 @@ def test_bh233_frozen_reference_scene_reaches_first_real_brick_model():
 
     summary = {
         "architectural_scene_parsed": True,
+        "parsed_relation_ids": [item.id for item in scene.relations],
         "parsed_platform_ids": [item.id for item in scene.platforms],
         "parsed_stair_ids": [item.id for item in scene.stairs],
-        "parsed_has_relations_field": hasattr(scene, "relations"),
         "parsed_has_platform_structure_observations_field": hasattr(scene, "platform_structure_observations"),
         "brick_model_produced": True,
         "total_parts": len(parts),
