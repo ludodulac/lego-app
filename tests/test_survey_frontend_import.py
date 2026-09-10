@@ -8,11 +8,13 @@ def read(name: str) -> str:
     return (FRONTEND / name).read_text(encoding="utf-8")
 
 
-def test_photo_page_loads_survey_import_before_legacy_importer() -> None:
+def test_photo_page_uses_survey_import_without_legacy_photo_analyzer() -> None:
     html = read("photo.html")
     survey_pos = html.index('./survey-import.js')
-    photo_pos = html.index('./photo.js')
-    assert survey_pos < photo_pos
+    scene_pos = html.index('./scene-handoff-photo-evidence.js')
+    assert survey_pos < scene_pos
+    assert './photo.js' not in html
+    assert './photo-capture-runtime.js' in html
 
 
 def test_survey_import_routes_to_validate_survey_and_never_builds_directly() -> None:

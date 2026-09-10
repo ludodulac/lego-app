@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   verify-photo-checkpoint:
-    name: Verify deployed Relevé → Maison checkpoint
+    name: Verify deployed photo cockpit
     if: >-
       ${{ github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'main' }}
@@ -24,7 +24,7 @@ jobs:
       - name: Install browser driver
         run: python -m pip install 'playwright>=1.50,<2'
 
-      - name: Verify restored validated Survey advances to Maison
+      - name: Verify fresh benchmark and restored Survey paths
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           PAGE_URL: https://ludodulac.github.io/lego-app/
@@ -33,13 +33,13 @@ jobs:
           import json
           import os
           import shutil
+          import time
           from urllib.parse import urljoin
 
           from playwright.sync_api import sync_playwright
 
           base = os.environ['PAGE_URL']
           deploy_sha = os.environ['DEPLOY_SHA']
-          url = urljoin(base if base.endswith('/') else base + '/', f'photo.html?checkpoint=bh227&runtime-check={deploy_sha}')
           browser_path = next((shutil.which(name) for name in (
               'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'
           ) if shutil.which(name)), None)
@@ -86,28 +86,77 @@ jobs:
                   executable_path=browser_path,
                   args=['--no-sandbox'],
               )
-              context = browser.new_context(viewport={'width': 390, 'height': 844})
-              page = context.new_page()
-              runtime_errors = []
-              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
-              page.add_init_script(init_script)
 
-              response = page.goto(url, wait_until='domcontentloaded', timeout=30000)
+              # Fresh benchmark: prove the actual five-photo entry point is usable,
+              # has thumbnails, and does not throw blocking browser/network errors.
+              fresh = browser.new_context(viewport={'width': 390, 'height': 844})
+              page = fresh.new_page()
+              runtime_errors = []
+              failed_requests = []
+              page.on('pageerror', lambda error: runtime_errors.append(f'pageerror: {error}'))
+              page.on('requestfailed', lambda request: failed_requests.append(
+                  f'{request.method} {request.url}: {request.failure}'
+              ))
+              benchmark_url = urljoin(
+                  base if base.endswith('/') else base + '/',
+                  f'photo.html?benchmark=real-house-5&checkpoint=bh230&runtime-check={deploy_sha}',
+              )
+              started = time.perf_counter()
+              response = page.goto(benchmark_url, wait_until='domcontentloaded', timeout=30000)
               assert response and response.ok, f'photo.html HTTP failure: {response.status if response else "no response"}'
               page.wait_for_selector('body.boldungo-shell-enabled', timeout=15000)
               page.wait_for_function(
+                  """() => document.querySelectorAll('.selected-photo-preview').length === 5""",
+                  timeout=15000,
+              )
+              usable_ms = round((time.perf_counter() - started) * 1000)
+              assert page.locator('.selected-photo-preview').count() == 5
+              assert page.locator('#shell-state-title').text_content().strip() == '1. Photos'
+              assert page.locator('#shell-primary-button').text_content().strip() == 'Créer le PDF'
+              assert page.locator('#photo-persistence-note').count() == 1
+              assert not runtime_errors, runtime_errors
+              assert not failed_requests, failed_requests
+              metrics = page.evaluate("""() => {
+                const entries = performance.getEntriesByType('resource');
+                const scripts = entries.filter(entry => entry.initiatorType === 'script');
+                return {
+                  resources: entries.length,
+                  scripts: scripts.length,
+                  transfer_bytes: Math.round(entries.reduce((sum, entry) => sum + (entry.transferSize || 0), 0)),
+                  script_transfer_bytes: Math.round(scripts.reduce((sum, entry) => sum + (entry.transferSize || 0), 0)),
+                  dom_content_loaded_ms: Math.round(performance.getEntriesByType('navigation')[0]?.domContentLoadedEventEnd || 0),
+                };
+              }""")
+              metrics['five_photo_usable_ms'] = usable_ms
+              print('BH-230 deployed fresh benchmark metrics:', json.dumps(metrics, sort_keys=True))
+              fresh.close()
+
+              # Restored Survey: preserve the validated Relevé -> Maison transition.
+              restored = browser.new_context(viewport={'width': 390, 'height': 844})
+              restored_page = restored.new_page()
+              restored_errors = []
+              restored_page.on('pageerror', lambda error: restored_errors.append(f'pageerror: {error}'))
+              restored_page.add_init_script(init_script)
+              restored_url = urljoin(
+                  base if base.endswith('/') else base + '/',
+                  f'photo.html?checkpoint=bh230-restored&runtime-check={deploy_sha}',
+              )
+              response = restored_page.goto(restored_url, wait_until='domcontentloaded', timeout=30000)
+              assert response and response.ok, f'photo.html HTTP failure: {response.status if response else "no response"}'
+              restored_page.wait_for_selector('body.boldungo-shell-enabled', timeout=15000)
+              restored_page.wait_for_function(
                   """() => document.querySelector('.boldungo-cockpit')?.dataset.shellState === 'scene'""",
                   timeout=15000,
               )
-
-              assert page.locator('#shell-state-title').text_content().strip() == '3. Maison'
-              assert page.locator('[data-shell-state="scene"]').get_attribute('aria-current') == 'page'
-              assert page.locator('#shell-primary-button').text_content().strip() == 'Créer le PDF Maison'
-              assert 'Relevé validé' in page.locator('#shell-scene-status').text_content()
-              assert page.locator('#shell-survey-next').count() == 0
-              assert page.locator('#download-scene-handoff').count() == 1
-              assert not runtime_errors, runtime_errors
+              assert restored_page.locator('#shell-state-title').text_content().strip() == '3. Maison'
+              assert restored_page.locator('[data-shell-state="scene"]').get_attribute('aria-current') == 'page'
+              assert restored_page.locator('#shell-primary-button').text_content().strip() == 'Créer le PDF Maison'
+              assert 'Relevé validé' in restored_page.locator('#shell-scene-status').text_content()
+              assert restored_page.locator('#shell-survey-next').count() == 0
+              assert restored_page.locator('#download-scene-handoff').count() == 1
+              assert not restored_errors, restored_errors
+              restored.close()
               browser.close()
 
-          print(f'deployed photo checkpoint verification passed: {url}')
+          print(f'deployed photo cockpit verification passed: {benchmark_url}')
           PY
