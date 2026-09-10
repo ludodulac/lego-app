@@ -34,6 +34,10 @@ function primary() {
   return document.querySelector('#shell-primary-button');
 }
 
+function setText(node, value) {
+  if (node && node.textContent !== value) node.textContent = value;
+}
+
 function goToScene() {
   document.querySelector('[data-shell-state="scene"]')?.click();
 }
@@ -49,8 +53,11 @@ function sceneIsValidated() {
 }
 
 function setSceneStatus(message) {
-  const status = document.querySelector('#shell-scene-status');
-  if (status) status.textContent = message;
+  setText(document.querySelector('#shell-scene-status'), message);
+}
+
+function setPrimaryLabel(message) {
+  setText(primary(), message);
 }
 
 function syncValidatedSurvey() {
@@ -65,12 +72,14 @@ function syncValidatedSurvey() {
 
   if (autoAdvancedSurveyId !== id) {
     autoAdvancedSurveyId = id;
-    shell.dataset.sceneHandoffCreated = 'false';
+    if (shell.dataset.sceneHandoffCreated !== 'false') {
+      shell.dataset.sceneHandoffCreated = 'false';
+    }
     goToScene();
   }
 
   if (shell.dataset.shellState === 'scene' && shell.dataset.sceneHandoffCreated !== 'true') {
-    primary().textContent = 'Créer le PDF Maison';
+    setPrimaryLabel('Créer le PDF Maison');
     setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
   }
 }
@@ -81,16 +90,16 @@ function syncSceneState() {
   if (!shell || !button || shell.dataset.shellState !== 'scene') return;
 
   if (sceneIsValidated()) {
-    delete shell.dataset.sceneHandoffCreated;
+    if ('sceneHandoffCreated' in shell.dataset) delete shell.dataset.sceneHandoffCreated;
     return;
   }
 
   if (surveyIsValidated()) {
     if (shell.dataset.sceneHandoffCreated === 'true') {
-      button.textContent = 'Importer le JSON Maison';
+      setPrimaryLabel('Importer le JSON Maison');
       setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
     } else {
-      button.textContent = 'Créer le PDF Maison';
+      setPrimaryLabel('Créer le PDF Maison');
       setSceneStatus('Relevé validé ✓ · créez maintenant le PDF Maison');
     }
   }
@@ -119,7 +128,7 @@ function handlePrimary(event) {
   if (!canonical) return;
   canonical.click();
   shell.dataset.sceneHandoffCreated = 'true';
-  primary().textContent = 'Importer le JSON Maison';
+  setPrimaryLabel('Importer le JSON Maison');
   setSceneStatus('PDF Maison créé ✓ · donnez-le à l’IA puis importez son JSON');
 }
 
