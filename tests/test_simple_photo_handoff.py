@@ -22,13 +22,14 @@ def test_guided_photo_workflow_keeps_required_product_hooks() -> None:
         "status",
     ):
         assert f'id="{element_id}"' in html
-    assert "photo-simple.js" in html
-    assert "brickhouse-survey-package.js?v=pdf-handoff-0.11-orientation-provenance" in html
+    assert "photo-capture-runtime.js?v=photo-capture-1.0" in html
+    assert "photo-simple.js" not in html
+    assert "brickhouse-survey-package.js?v=photo-cockpit-1.0" in html
     assert "brickhouse-single-package.js" not in html
     assert "external-bundle-import.js" in html
 
 
-def test_external_handoff_active_pdf_package_and_result_file() -> None:
+def test_external_handoff_historical_pdf_package_is_preserved() -> None:
     source = (FRONTEND / "brickhouse-survey-package-v04.js").read_text(encoding="utf-8")
     assert "BRICKHOUSE-SURVEY-pdf-handoff-0.4.pdf" in source
     assert "brickhouse-survey-result.json" in source
