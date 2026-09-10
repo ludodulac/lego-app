@@ -28,7 +28,7 @@ jobs:
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
           PAGE_URL: https://ludodulac.github.io/lego-app/
-          CANDIDATE_SHA: 5cf374b0c8a70bb9823c2e69a1367461d75508f9
+          CANDIDATE_SHA: 82c14deb162ed9d89310dfaa051f38e22df66f2d
         run: |
           python - <<'PY'
           import json
@@ -67,7 +67,7 @@ jobs:
               textarea = page.locator('#scene-result-json')
               textarea.wait_for(state='attached', timeout=10000)
               page.wait_for_function(
-                  """() => document.querySelector('#scene-result-json')?.dataset.preloadedCandidate === 'bh-151'""",
+                  """() => document.querySelector('#scene-result-json')?.dataset.preloadedCandidate === 'bh-222'""",
                   timeout=30000,
               )
 
@@ -78,7 +78,7 @@ jobs:
               assert textarea.get_attribute('data-preloaded-candidate-sha') == candidate_sha
 
               status = page.locator('#scene-result-status').text_content().strip()
-              assert 'Candidat Scene BH-151 préchargé' in status, status
+              assert 'Candidat Scene BH-222 préchargé' in status, status
               assert 'indisponible' not in status, status
               assert page.locator('#scene-result-file').count() == 1
               assert page.locator('#scene-import-result').count() == 1
