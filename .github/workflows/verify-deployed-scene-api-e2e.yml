@@ -122,6 +122,16 @@ jobs:
               assert parts, 'deployed build returned no LEGO parts'
               assert total_parts == len(parts), (total_parts, len(parts))
               assert steps, 'deployed build returned no assembly steps'
+              placement_ids = [part.get('placement_id', '') for part in parts]
+              timber_railing_prefix = 'scene-platform:platform-timber-1:'
+              assert any(
+                  value.startswith(timber_railing_prefix) and ':rail-top:' in value
+                  for value in placement_ids
+              ), 'deployed real-house-5 build lost observed timber railing tops'
+              assert any(
+                  value.startswith(timber_railing_prefix) and ':rail-post:' in value
+                  for value in placement_ids
+              ), 'deployed real-house-5 build lost observed timber railing posts'
               assert page.locator('#message').text_content().strip() == 'Votre maquette BrickHouse est prête.'
 
               page.wait_for_timeout(1500)
