@@ -36,6 +36,9 @@ import './scene-handoff-ownership-audit-v47.js?v=scene-handoff-ownership-audit-4
 // Allow normal photo-only workflows to estimate a cautious common Scene scale from
 // several independent architectural cues before requesting a human measurement.
 import './scene-handoff-scale-audit-v48.js?v=scene-handoff-scale-audit-4.8';
+// Make native external connectivity a final explicit preflight and, after a
+// rejected Scene, carry the exact candidate + validator error into the next PDF.
+import './scene-handoff-connectivity-audit-v49.js?v=scene-handoff-connectivity-audit-4.9';
 // Preserve a validated rich Scene through the normal Build button and hand its
 // BrickExportBundle directly to the existing viewer instead of degrading it to M0.
 import './scene-build-direct.js?v=scene-build-direct-0.1';
@@ -43,7 +46,7 @@ import './scene-build-direct.js?v=scene-build-direct-0.1';
 // inserted programmatically by the benchmark preloader.
 import './photo-slot-previews.js?v=photo-slot-previews-0.1';
 // Load the restored phone-first cockpit with a fresh cache key.
-import './photo-shell-loader.js?v=single-screen-1.1';
+import './photo-shell-loader.js?v=single-screen-1.2';
 // Dedicated opt-in benchmark preload. Normal photo.html visits remain untouched;
 // ?benchmark=real-house-5 loads the five versioned photos, while &stage=scene
 // additionally reuses the accepted Survey through the normal validation path.
