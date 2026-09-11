@@ -40,9 +40,12 @@ class RelativeVector3D(BaseModel):
 class RelativeCameraHypothesis(BaseModel):
     """Explicit calibrated camera hypothesis in an arbitrary relative 3D frame.
 
-    Focal length and principal point use normalized-image units. The camera basis
-    follows image convention: ``right`` increases image x, ``up`` decreases image
-    y, and ``forward`` points toward positive depth.
+    Image points remain in the existing ``x/width, y/height`` coordinate space.
+    ``focal_x`` and ``focal_y`` therefore use those same per-axis normalized units
+    and are required for real non-square images. ``focal_length`` is retained as
+    a backwards-compatible isotropic normalized focal for synthetic/square cases.
+    The camera basis follows image convention: ``right`` increases image x,
+    ``up`` decreases image y, and ``forward`` points toward positive depth.
     """
 
     id: str = Field(min_length=1)
@@ -51,7 +54,9 @@ class RelativeCameraHypothesis(BaseModel):
     right: RelativeVector3D
     up: RelativeVector3D
     forward: RelativeVector3D
-    focal_length: float = Field(gt=0)
+    focal_length: float | None = Field(default=None, gt=0)
+    focal_x: float | None = Field(default=None, gt=0)
+    focal_y: float | None = Field(default=None, gt=0)
     principal_x: float = Field(default=0.5, ge=0, le=1)
     principal_y: float = Field(default=0.5, ge=0, le=1)
     source: SourceInfo
@@ -69,6 +74,11 @@ class RelativeCameraHypothesis(BaseModel):
             raise ValueError("relative camera basis must be right-handed")
         if self.source.kind not in {SourceKind.OBSERVED, SourceKind.USER_PROVIDED, SourceKind.INFERRED}:
             raise ValueError("relative camera source must be observed, user_provided or inferred")
+        pair_supplied = self.focal_x is not None or self.focal_y is not None
+        if pair_supplied and (self.focal_x is None or self.focal_y is None):
+            raise ValueError("relative camera focal_x and focal_y must be supplied together")
+        if not pair_supplied and self.focal_length is None:
+            raise ValueError("relative camera requires focal_x/focal_y or legacy focal_length")
         return self
 
 
@@ -172,14 +182,22 @@ def _normalize(a: Vec3) -> Vec3:
     return _mul(a, 1.0 / length)
 
 
+def _focal_xy(camera: RelativeCameraHypothesis) -> tuple[float, float]:
+    if camera.focal_x is not None and camera.focal_y is not None:
+        return camera.focal_x, camera.focal_y
+    assert camera.focal_length is not None
+    return camera.focal_length, camera.focal_length
+
+
 def _camera_basis(camera: RelativeCameraHypothesis) -> tuple[Vec3, Vec3, Vec3]:
     return _normalize(_vec(camera.right)), _normalize(_vec(camera.up)), _normalize(_vec(camera.forward))
 
 
 def _observation_ray(camera: RelativeCameraHypothesis, point: NormalizedImagePoint) -> Vec3:
     right, up, forward = _camera_basis(camera)
-    horizontal = (point.x - camera.principal_x) / camera.focal_length
-    vertical = (point.y - camera.principal_y) / camera.focal_length
+    focal_x, focal_y = _focal_xy(camera)
+    horizontal = (point.x - camera.principal_x) / focal_x
+    vertical = (point.y - camera.principal_y) / focal_y
     direction = _add(forward, _add(_mul(right, horizontal), _mul(up, -vertical)))
     return _normalize(direction)
 
@@ -201,12 +219,13 @@ def _closest_points_on_rays(origin_a: Vec3, ray_a: Vec3, origin_b: Vec3, ray_b: 
 
 def _project(camera: RelativeCameraHypothesis, point: Vec3) -> NormalizedImagePoint | None:
     right, up, forward = _camera_basis(camera)
+    focal_x, focal_y = _focal_xy(camera)
     relative = _sub(point, _vec(camera.origin))
     depth = _dot(relative, forward)
     if depth <= _EPS:
         return None
-    x = camera.principal_x + camera.focal_length * _dot(relative, right) / depth
-    y = camera.principal_y - camera.focal_length * _dot(relative, up) / depth
+    x = camera.principal_x + focal_x * _dot(relative, right) / depth
+    y = camera.principal_y - focal_y * _dot(relative, up) / depth
     if not 0.0 <= x <= 1.0 or not 0.0 <= y <= 1.0:
         return None
     return NormalizedImagePoint(x=x, y=y)

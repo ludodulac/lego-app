@@ -30,11 +30,19 @@ _EPS = 1e-12
 
 
 class CalibratedPhotoIntrinsics(BaseModel):
-    """Explicit fixed pinhole intrinsics in normalized-image units."""
+    """Explicit fixed pinhole intrinsics in the landmark coordinate space.
+
+    Existing landmarks use per-axis normalized coordinates ``x/width, y/height``.
+    Real non-square images must therefore use ``focal_x`` and ``focal_y`` in those
+    same normalized units. ``focal_length`` remains only as backwards-compatible
+    isotropic normalized input for synthetic/square cases.
+    """
 
     id: str = Field(min_length=1)
     photo_index: int = Field(ge=1)
-    focal_length: float = Field(gt=0)
+    focal_length: float | None = Field(default=None, gt=0)
+    focal_x: float | None = Field(default=None, gt=0)
+    focal_y: float | None = Field(default=None, gt=0)
     principal_x: float = Field(default=0.5, ge=0, le=1)
     principal_y: float = Field(default=0.5, ge=0, le=1)
     source: SourceInfo
@@ -44,7 +52,41 @@ class CalibratedPhotoIntrinsics(BaseModel):
     def validate_source(self) -> "CalibratedPhotoIntrinsics":
         if self.source.kind not in {SourceKind.OBSERVED, SourceKind.USER_PROVIDED, SourceKind.INFERRED}:
             raise ValueError("calibrated photo intrinsics must have traceable observed, user_provided or inferred provenance")
+        pair_supplied = self.focal_x is not None or self.focal_y is not None
+        if pair_supplied and (self.focal_x is None or self.focal_y is None):
+            raise ValueError("calibrated focal_x and focal_y must be supplied together")
+        if not pair_supplied and self.focal_length is None:
+            raise ValueError("calibrated intrinsics require focal_x/focal_y or legacy focal_length")
         return self
+
+    @classmethod
+    def from_pixel_intrinsics(
+        cls,
+        *,
+        id: str,
+        photo_index: int,
+        image_width_px: int,
+        image_height_px: int,
+        focal_x_px: float,
+        focal_y_px: float,
+        principal_x_px: float,
+        principal_y_px: float,
+        source: SourceInfo,
+        statement: str,
+    ) -> "CalibratedPhotoIntrinsics":
+        """Convert ordinary pixel intrinsics into the existing x/width,y/height space."""
+        if image_width_px <= 0 or image_height_px <= 0:
+            raise ValueError("image dimensions must be positive")
+        return cls(
+            id=id,
+            photo_index=photo_index,
+            focal_x=focal_x_px / image_width_px,
+            focal_y=focal_y_px / image_height_px,
+            principal_x=principal_x_px / image_width_px,
+            principal_y=principal_y_px / image_height_px,
+            source=source,
+            statement=statement,
+        )
 
 
 class RelativeCameraEstimationResult(BaseModel):
@@ -77,11 +119,19 @@ def _unresolved(ids: list[str], diagnostic: str, *, epipolar_rms: float | None =
     )
 
 
+def _focal_xy(intrinsics: CalibratedPhotoIntrinsics) -> tuple[float, float]:
+    if intrinsics.focal_x is not None and intrinsics.focal_y is not None:
+        return intrinsics.focal_x, intrinsics.focal_y
+    assert intrinsics.focal_length is not None
+    return intrinsics.focal_length, intrinsics.focal_length
+
+
 def _normalized_camera_point(item, intrinsics: CalibratedPhotoIntrinsics) -> np.ndarray:
+    focal_x, focal_y = _focal_xy(intrinsics)
     return np.array(
         [
-            (item.point.x - intrinsics.principal_x) / intrinsics.focal_length,
-            (intrinsics.principal_y - item.point.y) / intrinsics.focal_length,
+            (item.point.x - intrinsics.principal_x) / focal_x,
+            (intrinsics.principal_y - item.point.y) / focal_y,
             1.0,
         ],
         dtype=float,
@@ -141,6 +191,12 @@ def _camera_from_pose(
     confidence: float,
 ) -> RelativeCameraHypothesis:
     center = -(rotation_world_to_camera.T @ translation_world_to_camera)
+    kwargs: dict[str, float | None] = {}
+    if intrinsics.focal_x is not None and intrinsics.focal_y is not None:
+        kwargs["focal_x"] = intrinsics.focal_x
+        kwargs["focal_y"] = intrinsics.focal_y
+    else:
+        kwargs["focal_length"] = intrinsics.focal_length
     return RelativeCameraHypothesis(
         id=f"relative-camera-photo-{photo_index}",
         photo_index=photo_index,
@@ -160,11 +216,11 @@ def _camera_from_pose(
             y=float(rotation_world_to_camera[2, 1]),
             z=float(rotation_world_to_camera[2, 2]),
         ),
-        focal_length=intrinsics.focal_length,
         principal_x=intrinsics.principal_x,
         principal_y=intrinsics.principal_y,
         source=SourceInfo(kind=SourceKind.INFERRED, confidence=confidence),
         statement="Deterministic calibrated two-view relative pose from explicit architectural landmark tracks.",
+        **kwargs,
     )
 
 
