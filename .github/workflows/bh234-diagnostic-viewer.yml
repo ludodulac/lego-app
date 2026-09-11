@@ -1,0 +1,65 @@
+name: BH-234 Frozen Scene Viewer Diagnostic
+
+on:
+  pull_request:
+
+jobs:
+  frozen-scene-viewer:
+    if: github.head_ref == 'bh-234-frozen-scene-viewer-artifact'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+
+      - name: Export frozen real Scene through canonical Scene pipeline
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.pipeline import run_m0_pipeline_scene
+          from brickhouse.scene import ArchitecturalScene
+
+          source = Path('tests/fixtures/bh234-frozen-scene.json')
+          scene = ArchitecturalScene.model_validate_json(source.read_text(encoding='utf-8'))
+          bundle = run_m0_pipeline_scene(scene, front_width_studs=48)
+          parts = bundle.brick_model.parts
+          ids = [part.placement_id for part in parts]
+
+          assert bundle.bom.total_parts == len(parts)
+          assert any(value.startswith('scene-platform:platform-timber-1:') for value in ids)
+          assert any(value.startswith('scene-platform:platform-massive-1:') for value in ids)
+          assert any(value.startswith('scene-stair:stair-exterior-1:') for value in ids)
+
+          output = Path('/tmp/bh234-frozen-scene-viewer-export.json')
+          output.write_text(json.dumps(bundle.model_dump(mode='json'), indent=2), encoding='utf-8')
+
+          print(json.dumps({
+              'total_parts': len(parts),
+              'width_studs': bundle.brick_model.width_studs,
+              'depth_studs': bundle.brick_model.depth_studs,
+              'height_plates': bundle.brick_model.height_plates,
+              'platform_timber_parts': sum(value.startswith('scene-platform:platform-timber-1:') for value in ids),
+              'platform_massive_parts': sum(value.startswith('scene-platform:platform-massive-1:') for value in ids),
+              'stair_parts': sum(value.startswith('scene-stair:stair-exterior-1:') for value in ids),
+          }, sort_keys=True))
+          PY
+
+      - name: Verify viewer export exists
+        run: test -s /tmp/bh234-frozen-scene-viewer-export.json
+
+      - name: Upload frozen real Scene viewer export
+        uses: actions/upload-artifact@v4
+        with:
+          name: bh234-frozen-scene-viewer-export
+          path: /tmp/bh234-frozen-scene-viewer-export.json
+          if-no-files-found: error
+          retention-days: 14
