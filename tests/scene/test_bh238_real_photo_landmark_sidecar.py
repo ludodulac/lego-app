@@ -140,7 +140,10 @@ def _relative_tracks(width, height, fx, fy, cx, cy):
     for index, (x, y, z) in enumerate(POINTS):
         physical = f"corner-{index}"
         observations = []
-        for photo_index, camera_x in ((1, 0.0), (2, 1.0)):
+        # Keep the synthetic calibrated baseline modest enough that every landmark
+        # remains inside both portrait images. The test is about anisotropic image
+        # coordinates at the camera boundary, not about accepting off-image points.
+        for photo_index, camera_x in ((1, 0.0), (2, 0.2)):
             px = cx + fx * (x - camera_x) / z
             py = cy - fy * y / z
             observations.append(ArchitecturalLandmarkObservation(
