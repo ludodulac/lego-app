@@ -1,8 +1,9 @@
 """Explicit architectural landmark correspondences backed by photo/Survey evidence.
 
-This sidecar does not discover or match landmarks. Physical identity is declared
-explicitly by the caller and is validated against immutable Survey evidence before
-being adapted to the BH-236 relative reconstruction contract.
+BH-237 consumes explicit tracks; BH-238 adds the narrow boundary that can accept a
+vision-provider proposal only after physical identity, Survey provenance and local
+localization have each been validated. The provider never creates geometric truth,
+and candidate extra photo evidence never mutates the accepted Survey.
 """
 from __future__ import annotations
 
@@ -12,13 +13,14 @@ from pydantic import BaseModel, Field, model_validator
 
 from brickhouse.building import SourceInfo, SourceKind
 from brickhouse.survey import ArchitecturalSurvey
+from brickhouse.vision.models import VisionArchitecturalLandmarkProposal, VisionPhotoEvidenceCandidate
 
 from .photo_rectification import NormalizedImagePoint
 from .photo_scale_cues import PhotoGeometryAnnotation, validate_photo_geometry_annotations
 from .relative_multiview import RelativeLandmarkObservation, RelativeLandmarkTrack
 
 
-ArchitecturalLandmarkStatus = Literal["EXPLICIT_MATCH"]
+ArchitecturalLandmarkStatus = Literal["EXPLICIT_MATCH", "CANDIDATE_EVIDENCE"]
 
 
 class ArchitecturalLandmarkObservation(BaseModel):
@@ -68,11 +70,190 @@ class ArchitecturalLandmarkTrack(BaseModel):
         return self
 
 
+class LocalLandmarkValidation(BaseModel):
+    """Bounded local localization verdict for one provider-proposed occurrence.
+
+    The validator receives the provider's physical_landmark_id; it may refine or
+    reject the point but is deliberately unable to invent or change that identity.
+    """
+
+    physical_landmark_id: str = Field(min_length=1)
+    photo_index: int = Field(ge=1)
+    status: Literal["ACCEPTED", "AMBIGUOUS", "REJECTED"]
+    refined_point: NormalizedImagePoint | None = None
+    repeatability_px: float | None = Field(default=None, ge=0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    method: str = Field(min_length=1)
+    diagnostic: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_local_result(self) -> "LocalLandmarkValidation":
+        if self.status == "ACCEPTED" and self.refined_point is None:
+            raise ValueError("accepted local landmark validation requires a refined point")
+        if self.status != "ACCEPTED" and self.refined_point is not None:
+            raise ValueError("ambiguous or rejected local landmark validation must not expose a refined point")
+        return self
+
+
+class PhysicalLandmarkIdentityValidation(BaseModel):
+    """Independent acceptance/rejection of a provider's cross-view identity claim."""
+
+    physical_landmark_id: str = Field(min_length=1)
+    status: Literal["CONFIRMED", "AMBIGUOUS", "REJECTED"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    source: SourceInfo
+    statement: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "PhysicalLandmarkIdentityValidation":
+        if self.source.kind not in {SourceKind.OBSERVED, SourceKind.USER_PROVIDED}:
+            raise ValueError("physical identity confirmation must be directly observed or user_provided")
+        return self
+
+
+class PhysicalLandmarkSurveyBinding(BaseModel):
+    """Explicit later binding from a provider landmark to one accepted Survey observation.
+
+    The normal analyze-photos request precedes or is independent of an accepted Survey,
+    so the provider is not required to know Survey IDs. This sidecar supplies that
+    provenance later without guessing or mutating either the provider proposal or Survey.
+    """
+
+    physical_landmark_id: str = Field(min_length=1)
+    survey_observation_id: str = Field(min_length=1)
+    source: SourceInfo
+    statement: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "PhysicalLandmarkSurveyBinding":
+        if self.source.kind not in {SourceKind.OBSERVED, SourceKind.USER_PROVIDED}:
+            raise ValueError("landmark-to-Survey binding must be directly observed or user_provided")
+        return self
+
+
+def _candidate_evidence_keys(candidates: list[VisionPhotoEvidenceCandidate]) -> set[tuple[str, int]]:
+    return {
+        (candidate.survey_observation_id, candidate.photo_index)
+        for candidate in candidates
+        if candidate.status == "PROPOSED"
+    }
+
+
+def build_architectural_landmark_tracks_from_vision(
+    survey: ArchitecturalSurvey,
+    proposals: list[VisionArchitecturalLandmarkProposal],
+    identity_validations: list[PhysicalLandmarkIdentityValidation],
+    local_validations: list[LocalLandmarkValidation],
+    *,
+    survey_bindings: list[PhysicalLandmarkSurveyBinding] | None = None,
+    photo_evidence_candidates: list[VisionPhotoEvidenceCandidate] | None = None,
+) -> list[ArchitecturalLandmarkTrack]:
+    """Promote only fully validated provider proposals into BH-237 track inputs.
+
+    Candidate photo evidence may close a coverage omission for BH-237 while staying
+    explicitly marked CANDIDATE_EVIDENCE. It never changes ``survey`` and is not
+    silently treated as accepted Survey evidence. When analyze-photos had no Survey
+    context, an explicit later ``survey_bindings`` entry supplies the required link.
+    """
+    identity_by_id = {item.physical_landmark_id: item for item in identity_validations}
+    if len(identity_by_id) != len(identity_validations):
+        raise ValueError("physical landmark identity validations must be unique")
+    local_by_key = {(item.physical_landmark_id, item.photo_index): item for item in local_validations}
+    if len(local_by_key) != len(local_validations):
+        raise ValueError("local landmark validations must be unique per physical landmark and photo")
+    binding_by_id = {item.physical_landmark_id: item for item in (survey_bindings or [])}
+    if len(binding_by_id) != len(survey_bindings or []):
+        raise ValueError("landmark-to-Survey bindings must be unique per physical landmark")
+
+    known_photos = {photo.photo_index for photo in survey.photos}
+    survey_observations = {observation.id: observation for observation in survey.observations}
+    candidate_keys = _candidate_evidence_keys(photo_evidence_candidates or [])
+    tracks: list[ArchitecturalLandmarkTrack] = []
+
+    for proposal in sorted(proposals, key=lambda item: item.physical_landmark_id):
+        if proposal.identity_status != "PROPOSED":
+            continue
+        identity = identity_by_id.get(proposal.physical_landmark_id)
+        if identity is None or identity.status != "CONFIRMED":
+            continue
+
+        proposed_survey_ids = {
+            occurrence.survey_observation_id
+            for occurrence in proposal.observations
+            if occurrence.survey_observation_id
+        }
+        if len(proposed_survey_ids) > 1:
+            continue
+        proposed_survey_id = next(iter(proposed_survey_ids)) if proposed_survey_ids else None
+        binding = binding_by_id.get(proposal.physical_landmark_id)
+        if binding is not None and proposed_survey_id is not None and binding.survey_observation_id != proposed_survey_id:
+            continue
+        survey_observation_id = proposed_survey_id or (binding.survey_observation_id if binding is not None else None)
+        if survey_observation_id is None:
+            continue
+        survey_observation = survey_observations.get(survey_observation_id)
+        if survey_observation is None:
+            continue
+        accepted_evidence_photos = {evidence.photo_index for evidence in survey_observation.evidence}
+
+        observations: list[ArchitecturalLandmarkObservation] = []
+        used_candidate_evidence = False
+        failed = False
+        for occurrence in sorted(proposal.observations, key=lambda item: item.photo_index):
+            if occurrence.status != "PROPOSED" or occurrence.photo_index not in known_photos:
+                failed = True
+                break
+            if occurrence.survey_observation_id not in {None, survey_observation_id}:
+                failed = True
+                break
+            local = local_by_key.get((proposal.physical_landmark_id, occurrence.photo_index))
+            if local is None or local.status != "ACCEPTED" or local.refined_point is None:
+                failed = True
+                break
+            if occurrence.photo_index not in accepted_evidence_photos:
+                if (survey_observation_id, occurrence.photo_index) not in candidate_keys:
+                    failed = True
+                    break
+                used_candidate_evidence = True
+            observations.append(
+                ArchitecturalLandmarkObservation(
+                    physical_landmark_id=proposal.physical_landmark_id,
+                    photo_index=occurrence.photo_index,
+                    survey_observation_id=survey_observation_id,
+                    point=local.refined_point,
+                    source=SourceInfo(
+                        kind=SourceKind.OBSERVED,
+                        confidence=min(occurrence.confidence, local.confidence, identity.confidence),
+                    ),
+                    statement=f"{occurrence.statement} Local validation: {local.diagnostic}",
+                )
+            )
+        if failed or len(observations) < 2:
+            continue
+        binding_statement = f" Survey binding: {binding.statement}" if binding is not None else ""
+        tracks.append(
+            ArchitecturalLandmarkTrack(
+                id=f"vision-track-{proposal.physical_landmark_id}",
+                physical_landmark_id=proposal.physical_landmark_id,
+                survey_observation_id=survey_observation_id,
+                observations=observations,
+                status="CANDIDATE_EVIDENCE" if used_candidate_evidence else "EXPLICIT_MATCH",
+                source=SourceInfo(kind=SourceKind.OBSERVED, confidence=min(item.source.confidence for item in observations)),
+                statement=(
+                    f"Validated provider proposal: {proposal.description}. {identity.statement}{binding_statement}"
+                    + (" Includes separately recorded candidate photo evidence; accepted Survey is unchanged." if used_candidate_evidence else "")
+                ),
+            )
+        )
+    return tracks
+
+
 def validate_architectural_landmark_tracks(
     survey: ArchitecturalSurvey,
     tracks: list[ArchitecturalLandmarkTrack],
     *,
     geometry_annotations: list[PhotoGeometryAnnotation] | None = None,
+    photo_evidence_candidates: list[VisionPhotoEvidenceCandidate] | None = None,
 ) -> None:
     """Validate explicit identity, photo provenance and optional existing geometry sidecars."""
     track_ids = [track.id for track in tracks]
@@ -84,6 +265,7 @@ def validate_architectural_landmark_tracks(
 
     known_photos = {photo.photo_index for photo in survey.photos}
     survey_observations = {observation.id: observation for observation in survey.observations}
+    candidate_keys = _candidate_evidence_keys(photo_evidence_candidates or [])
     annotations = geometry_annotations or []
     if annotations:
         validate_photo_geometry_annotations(survey, annotations)
@@ -100,10 +282,11 @@ def validate_architectural_landmark_tracks(
             if item.photo_index not in known_photos:
                 raise ValueError(f"landmark track {track.id!r} references unknown photo {item.photo_index}")
             if item.photo_index not in evidence_photos:
-                raise ValueError(
-                    f"landmark track {track.id!r} is not backed by Survey observation "
-                    f"{track.survey_observation_id!r} on photo {item.photo_index}"
-                )
+                if track.status != "CANDIDATE_EVIDENCE" or (track.survey_observation_id, item.photo_index) not in candidate_keys:
+                    raise ValueError(
+                        f"landmark track {track.id!r} is not backed by accepted Survey evidence or an explicit candidate "
+                        f"for observation {track.survey_observation_id!r} on photo {item.photo_index}"
+                    )
             if item.geometry_annotation_id is None:
                 continue
             annotation = annotation_by_id.get(item.geometry_annotation_id)
@@ -132,12 +315,14 @@ def build_relative_landmark_tracks(
     tracks: list[ArchitecturalLandmarkTrack],
     *,
     geometry_annotations: list[PhotoGeometryAnnotation] | None = None,
+    photo_evidence_candidates: list[VisionPhotoEvidenceCandidate] | None = None,
 ) -> list[RelativeLandmarkTrack]:
-    """Adapt only validated explicit correspondences to the BH-236 track contract."""
+    """Adapt only validated explicit/candidate-provenance correspondences to BH-236 tracks."""
     validate_architectural_landmark_tracks(
         survey,
         tracks,
         geometry_annotations=geometry_annotations,
+        photo_evidence_candidates=photo_evidence_candidates,
     )
     result: list[RelativeLandmarkTrack] = []
     for track in sorted(tracks, key=lambda item: item.physical_landmark_id):
