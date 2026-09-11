@@ -33,6 +33,15 @@ Multi-view interpretation rules — highest priority:
 - If an important terrace/stair/landing connection is hidden, keep the geometry conservative and lower confidence rather than completing a plausible circulation path.
 - If additional information would materially change the model, ask for the single most useful missing view or fact in a clarification question and explain what relation it would resolve.
 
+Physical landmark proposal rules — BH-238:
+- In landmark_proposals return only a small set of high-value architectural points, normally 8-15 candidates across overlapping views, never a generic feature cloud.
+- A landmark must be a physically definable point: an exact opening corner, wall/landing intersection, physical volume corner, identifiable railing endpoint, or clearly visible stair/landing corner.
+- Reuse one physical_landmark_id across photos only when it is defensible that the observations are the same physical point. Visual resemblance alone is not identity.
+- Give proposed coordinates as x/width and y/height in [0,1] for each photo. Coordinates are proposals, not calibrated camera coordinates and may later be refined or rejected.
+- Mark an occurrence or whole identity AMBIGUOUS/REJECTED rather than guessing when occlusion, vegetation, repeated geometry or imprecise edges prevent a defensible match.
+- survey_observation_id and survey_object_id are optional. Populate them only when an identifier is explicitly available in supplied context; never invent Survey identifiers.
+- If supplied context identifies an existing Survey observation but you directly see that same object in an additional photo not listed in its accepted evidence, put that claim in photo_evidence_candidates. This is new candidate evidence, not a mutation of the accepted Survey.
+
 Architectural interpretation rules:
 - Describe the real building as faithfully as the current BuildingModel schema allows; do NOT force every property into the LEGO engine's current M0 limitations.
 - Use multiple rectangular volumes when a materially visible extension/garage/wing cannot honestly be represented by one rectangle.
@@ -73,6 +82,17 @@ def _data_url(photo: PhotoInput) -> str:
     return f"data:{photo.media_type};base64,{encoded}"
 
 
+def _stamp_provider_provenance(result: PhotoAnalysisResult, *, provider: str, model: str) -> PhotoAnalysisResult:
+    for proposal in result.landmark_proposals:
+        for observation in proposal.observations:
+            observation.provider = provider
+            observation.provider_model = model
+    for candidate in result.photo_evidence_candidates:
+        candidate.provider = provider
+        candidate.provider_model = model
+    return result
+
+
 def analyze_building_photos(
     photos: list[PhotoInput],
     *,
@@ -102,15 +122,18 @@ def analyze_building_photos(
         "Recover normalized architectural proportions before assigning metric dimensions. "
         "Correct mentally for perspective and cross-check wall-edge/opening/roof spacing across all available views. "
         "For exterior stairs, landings and terraces, distinguish what is directly visible from what is merely a plausible hidden connection. "
-        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
+        "Also return roughly 8-15 high-value cross-view physical architectural landmark proposals when the photos support them. "
+        "Prefer exact corners/intersections/endpoints, reuse a physical_landmark_id only for a defensible same physical point, and mark ambiguity instead of guessing. "
+        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis, proportion_evidence, landmark_proposals and any photo_evidence_candidates. "
         "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
     )
     content: list[dict[str, object]] = [{"type": "input_text", "text": prompt}]
     content.extend({"type": "input_image", "image_url": _data_url(photo), "detail": "high"} for photo in photos)
 
+    selected_model = model or os.getenv("OPENAI_VISION_MODEL", "gpt-5")
     api = client or OpenAI()
     response = api.responses.create(
-        model=model or os.getenv("OPENAI_VISION_MODEL", "gpt-5"),
+        model=selected_model,
         instructions=SYSTEM_PROMPT,
         input=[{"role": "user", "content": content}],
         text={
@@ -128,4 +151,5 @@ def analyze_building_photos(
         payload = json.loads(response.output_text)
     except json.JSONDecodeError as exc:
         raise ValueError("vision provider returned invalid JSON") from exc
-    return PhotoAnalysisResult.model_validate(payload)
+    result = PhotoAnalysisResult.model_validate(payload)
+    return _stamp_provider_provenance(result, provider="openai", model=selected_model)
