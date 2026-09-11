@@ -2,9 +2,9 @@
 
 Provider identity is a proposal, never sufficient on its own. Every accepted track
 occurrence must pass bounded local geometry and already be backed by accepted
-Survey evidence. Extra photo support omitted by the accepted Survey is preserved
-as an explicit CandidatePhotoEvidence sidecar and is not allowed to masquerade as
-accepted provenance.
+Survey evidence. When the provider does not know Survey IDs, a point may bind only
+through one unambiguous accepted Survey evidence region on that same photo. Extra
+photo support omitted by the accepted Survey is preserved as a separate candidate.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from brickhouse.building import SourceInfo, SourceKind
 from brickhouse.survey import ArchitecturalSurvey
-from brickhouse.vision.models import VisionLandmarkProposal
+from brickhouse.vision.models import VisionLandmarkProposal, VisionLandmarkObservationProposal
 
 from .local_landmark_validation import LocalLandmarkValidation
 from .photo_landmarks import (
@@ -27,6 +27,28 @@ class VisionLandmarkBridgeResult(BaseModel):
     tracks: list[ArchitecturalLandmarkTrack] = Field(default_factory=list)
     evidence_candidates: list[CandidatePhotoEvidence] = Field(default_factory=list)
     rejected: dict[str, str] = Field(default_factory=dict)
+
+
+def _unique_region_binding(
+    survey: ArchitecturalSurvey,
+    occurrence: VisionLandmarkObservationProposal,
+    local: LocalLandmarkValidation,
+) -> str | None:
+    """Bind only when exactly one accepted Survey region contains the refined point."""
+    if occurrence.survey_observation_id is not None:
+        return occurrence.survey_observation_id
+    if local.refined_point is None:
+        return None
+    candidates: list[str] = []
+    for observation in survey.observations:
+        for evidence in observation.evidence:
+            if evidence.photo_index != occurrence.photo_index or evidence.region is None:
+                continue
+            region = evidence.region
+            if region.x0 <= local.refined_point.x <= region.x1 and region.y0 <= local.refined_point.y <= region.y1:
+                candidates.append(observation.id)
+                break
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def bridge_vision_landmarks_to_tracks(
@@ -63,8 +85,7 @@ def bridge_vision_landmarks_to_tracks(
             rejected[landmark_id] = "Provider cross-view physical identity confidence is below the acceptance gate."
             continue
 
-        accepted: list[ArchitecturalLandmarkObservation] = []
-        accepted_survey_ids: set[str] = set()
+        stable: list[tuple[VisionLandmarkObservationProposal, LocalLandmarkValidation, str | None]] = []
         failure_reason: str | None = None
         for occurrence in sorted(proposal.observations, key=lambda item: item.photo_index):
             if occurrence.status != "PROPOSED" or occurrence.confidence < minimum_observation_confidence:
@@ -72,63 +93,72 @@ def bridge_vision_landmarks_to_tracks(
             if occurrence.photo_index not in known_photos:
                 failure_reason = f"Provider proposal references unknown photo {occurrence.photo_index}."
                 break
-            if occurrence.survey_observation_id is None:
-                failure_reason = "Provider proposal lacks exact Survey observation provenance."
-                break
-            survey_observation = known_observations.get(occurrence.survey_observation_id)
-            if survey_observation is None:
-                failure_reason = f"Provider proposal references unknown Survey observation {occurrence.survey_observation_id!r}."
-                break
             local = validation_by_key.get((landmark_id, occurrence.photo_index))
             if local is None or local.status != "ACCEPTED" or local.refined_point is None:
                 continue
+            bound_id = _unique_region_binding(survey, occurrence, local)
+            if bound_id is not None and bound_id not in known_observations:
+                failure_reason = f"Provider proposal references unknown Survey observation {bound_id!r}."
+                break
+            stable.append((occurrence, local, bound_id))
+        if failure_reason is not None:
+            rejected[landmark_id] = failure_reason
+            continue
+
+        direct_ids = {bound_id for _, _, bound_id in stable if bound_id is not None}
+        if len(direct_ids) != 1:
+            rejected[landmark_id] = (
+                "Provider/local evidence does not bind unambiguously to one accepted Survey observation; "
+                "visual similarity is not used to choose one."
+            )
+            continue
+        survey_observation_id = next(iter(direct_ids))
+        survey_observation = known_observations[survey_observation_id]
+        accepted_photos = {item.photo_index for item in survey_observation.evidence}
+        accepted: list[ArchitecturalLandmarkObservation] = []
+
+        for occurrence, local, bound_id in stable:
+            assert local.refined_point is not None
             source_confidence = min(proposal.identity_confidence, occurrence.confidence)
-            accepted_photos = {item.photo_index for item in survey_observation.evidence}
             if occurrence.photo_index not in accepted_photos:
                 if occurrence.confidence >= minimum_candidate_evidence_confidence:
                     evidence_candidates.append(
                         CandidatePhotoEvidence(
                             id=f"candidate-{landmark_id}-photo-{occurrence.photo_index}",
-                            survey_observation_id=occurrence.survey_observation_id,
+                            survey_observation_id=survey_observation_id,
                             physical_landmark_id=landmark_id,
                             photo_index=occurrence.photo_index,
                             point=local.refined_point,
                             source=SourceInfo(kind=SourceKind.INFERRED, confidence=source_confidence),
                             statement=(
-                                "Direct provider/photo evidence candidate for an existing accepted Survey observation; "
-                                "the accepted Survey itself is unchanged and this occurrence does not count as accepted track provenance."
+                                "Provider-proposed extra-photo support for the same physical landmark. It remains a new evidence "
+                                "candidate and does not modify or impersonate accepted Survey evidence."
                             ),
                         )
                     )
                 continue
-            accepted_survey_ids.add(occurrence.survey_observation_id)
+            if bound_id != survey_observation_id:
+                continue
             accepted.append(
                 ArchitecturalLandmarkObservation(
                     physical_landmark_id=landmark_id,
                     photo_index=occurrence.photo_index,
-                    survey_observation_id=occurrence.survey_observation_id,
+                    survey_observation_id=survey_observation_id,
                     point=local.refined_point,
                     source=SourceInfo(kind=SourceKind.INFERRED, confidence=source_confidence),
                     statement=(
-                        f"Provider-proposed physical landmark validated by bounded local geometry. "
+                        f"Provider-proposed physical landmark validated by accepted Survey provenance and bounded local geometry. "
                         f"{occurrence.statement} {local.diagnostic}"
                     ),
                 )
             )
 
-        if failure_reason is not None:
-            rejected[landmark_id] = failure_reason
-            continue
-        if len(accepted_survey_ids) > 1:
-            rejected[landmark_id] = "Accepted cross-view occurrences do not bind to one Survey observation identity."
-            continue
         if len(accepted) < 2:
             rejected[landmark_id] = (
                 "Fewer than two locally stable occurrences with already-accepted Survey photo provenance survived; "
                 "extra-photo support remains a separate evidence candidate."
             )
             continue
-        survey_observation_id = next(iter(accepted_survey_ids))
         tracks.append(
             ArchitecturalLandmarkTrack(
                 id=f"vision-track-{landmark_id}",
