@@ -30,7 +30,11 @@ def _prompt(user_notes: str, known_front_width_m: float | None, photo_count: int
         "Lock the observed opening inventory per physical wall before metric placement. "
         "Use extra/detail views to refine only the relations they actually reveal. Hidden stair, landing or terrace connections must remain uncertain rather than being completed by architectural habit. "
         "Recover normalized proportions before metric dimensions and cross-check them across compatible views. "
-        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
+        "Also return roughly 8-15 high-value cross-view physical architectural landmark proposals when supported. "
+        "Use exact architectural corners/intersections/endpoints, reuse a physical_landmark_id only when it is defensibly the same physical point, and mark ambiguity instead of guessing. "
+        "Coordinates are proposals as x/width and y/height, not camera truth. Survey identifiers are optional and must never be invented. "
+        "If supplied context names an existing Survey observation that is directly visible in an additional photo, record that separately in photo_evidence_candidates rather than mutating accepted Survey evidence. "
+        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis, proportion_evidence, landmark_proposals and photo_evidence_candidates. "
         "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
     )
 
@@ -62,6 +66,17 @@ def _validate_result(text: str) -> PhotoAnalysisResult:
     return PhotoAnalysisResult.model_validate_json(_clean_json_text(text))
 
 
+def _stamp_provider_provenance(result: PhotoAnalysisResult, *, model: str) -> PhotoAnalysisResult:
+    for proposal in result.landmark_proposals:
+        for observation in proposal.observations:
+            observation.provider = "gemini"
+            observation.provider_model = model
+    for candidate in result.photo_evidence_candidates:
+        candidate.provider = "gemini"
+        candidate.provider_model = model
+    return result
+
+
 def _repair_prompt(invalid_text: str, exc: Exception) -> str:
     if isinstance(exc, ValidationError):
         errors = exc.errors(include_url=False, include_context=False)
@@ -69,7 +84,7 @@ def _repair_prompt(invalid_text: str, exc: Exception) -> str:
         errors = [{"error": str(exc)}]
     return (
         "Repair the following BrickHouse photo-analysis candidate so it validates exactly against the supplied JSON schema. "
-        "Preserve all architectural observations, dimensions and uncertainty unless a value itself violates a schema or cross-field constraint. "
+        "Preserve all architectural observations, dimensions, landmark identity claims and uncertainty unless a value itself violates a schema or cross-field constraint. "
         "Do not invent missing observations merely to make validation pass. Return JSON only.\n\n"
         f"VALIDATION ERRORS:\n{json.dumps(errors, ensure_ascii=False)}\n\n"
         f"CANDIDATE:\n{invalid_text}"
@@ -116,14 +131,15 @@ def analyze_building_photos_gemini(
     try:
         text = _post_json(http, url, key, body)
         try:
-            return _validate_result(text)
+            result = _validate_result(text)
         except (json.JSONDecodeError, ValidationError, ValueError) as first_error:
             repair_body = {"system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]}, "contents": [{"role": "user", "parts": [{"text": _repair_prompt(text, first_error)}]}], "generationConfig": generation}
             repaired = _post_json(http, url, key, repair_body)
             try:
-                return _validate_result(repaired)
+                result = _validate_result(repaired)
             except (json.JSONDecodeError, ValidationError, ValueError) as exc:
                 raise ValueError("vision provider returned invalid structured output after repair") from exc
+        return _stamp_provider_provenance(result, model=selected_model)
     finally:
         if owns_client:
             http.close()
