@@ -8,6 +8,9 @@ from dataclasses import dataclass
 
 from openai import OpenAI
 
+from brickhouse.survey import ArchitecturalSurvey
+
+from .landmark_prompt import LANDMARK_INSTRUCTIONS, survey_landmark_context
 from .models import PhotoAnalysisResult
 
 MAX_VISION_PHOTOS = 12
@@ -65,7 +68,8 @@ Evidence and uncertainty rules:
 
 Important separation of responsibilities:
 The downstream BrickHouse compatibility layer decides whether the current LEGO engine can build the proposal. Your job is to understand the photographed architecture honestly, not to make an unsupported house look artificially compatible.
-"""
+
+""" + LANDMARK_INSTRUCTIONS
 
 
 def _data_url(photo: PhotoInput) -> str:
@@ -78,6 +82,7 @@ def analyze_building_photos(
     *,
     user_notes: str = "",
     known_front_width_m: float | None = None,
+    survey: ArchitecturalSurvey | None = None,
     client: OpenAI | None = None,
     model: str | None = None,
 ) -> PhotoAnalysisResult:
@@ -98,12 +103,14 @@ def analyze_building_photos(
         f"There are {len(photos)} supplied views. Do not treat photo count itself as certainty; identify repeated physical objects and wall/corner correspondences first. "
         f"User notes: {user_notes.strip() or 'none provided'}. "
         f"Known front width in meters: {known_front_width_m if known_front_width_m is not None else 'unknown'}. "
+        "Active provider name for landmark provenance: openai. "
         "Lock the observed opening inventory per physical wall before estimating positions or dimensions. "
         "Recover normalized architectural proportions before assigning metric dimensions. "
         "Correct mentally for perspective and cross-check wall-edge/opening/roof spacing across all available views. "
         "For exterior stairs, landings and terraces, distinguish what is directly visible from what is merely a plausible hidden connection. "
-        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis and proportion_evidence. "
-        "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine."
+        "Return the most faithful conservative proposal allowed by the BuildingModel schema, plus questions, assumptions, scale_basis, proportion_evidence and bounded landmark_proposals. "
+        "Never change an observed architectural feature merely to make the proposal compatible with the current LEGO engine.\n\n"
+        f"SURVEY CONTEXT FOR LANDMARK PROVENANCE:\n{survey_landmark_context(survey)}"
     )
     content: list[dict[str, object]] = [{"type": "input_text", "text": prompt}]
     content.extend({"type": "input_image", "image_url": _data_url(photo), "detail": "high"} for photo in photos)
