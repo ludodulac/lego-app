@@ -4,6 +4,7 @@ from brickhouse.building import SourceInfo, SourceKind
 from brickhouse.scene.photo_landmarks import (
     LocalLandmarkValidation,
     PhysicalLandmarkIdentityValidation,
+    PhysicalLandmarkSurveyBinding,
     build_architectural_landmark_tracks_from_vision,
     build_relative_landmark_tracks,
 )
@@ -48,7 +49,8 @@ def _survey(*, second_photo_accepted: bool = True) -> ArchitecturalSurvey:
     })
 
 
-def _proposal(pid: str, p1=(0.35, 0.4), p2=(0.3, 0.42)) -> VisionArchitecturalLandmarkProposal:
+def _proposal(pid: str, p1=(0.35, 0.4), p2=(0.3, 0.42), *, include_survey_id: bool = True) -> VisionArchitecturalLandmarkProposal:
+    survey_id = "architectural-object" if include_survey_id else None
     return VisionArchitecturalLandmarkProposal(
         physical_landmark_id=pid,
         description="Exact upper corner of one physical opening",
@@ -59,14 +61,14 @@ def _proposal(pid: str, p1=(0.35, 0.4), p2=(0.3, 0.42)) -> VisionArchitecturalLa
                 photo_index=1,
                 point=VisionNormalizedImagePoint(x=p1[0], y=p1[1]),
                 confidence=0.94,
-                survey_observation_id="architectural-object",
+                survey_observation_id=survey_id,
                 statement="Proposed corner in view A.",
             ),
             VisionLandmarkObservationProposal(
                 photo_index=2,
                 point=VisionNormalizedImagePoint(x=p2[0], y=p2[1]),
                 confidence=0.91,
-                survey_observation_id="architectural-object",
+                survey_observation_id=survey_id,
                 statement="Proposed same physical corner in view B.",
             ),
         ],
@@ -80,6 +82,15 @@ def _identity(pid: str, status="CONFIRMED") -> PhysicalLandmarkIdentityValidatio
         confidence=0.9,
         source=SourceInfo(kind=SourceKind.OBSERVED, confidence=0.9),
         statement="Cross-view physical identity checked independently of local corner localization.",
+    )
+
+
+def _binding(pid: str) -> PhysicalLandmarkSurveyBinding:
+    return PhysicalLandmarkSurveyBinding(
+        physical_landmark_id=pid,
+        survey_observation_id="architectural-object",
+        source=SourceInfo(kind=SourceKind.OBSERVED, confidence=0.95),
+        statement="Validated photo landmark belongs to the accepted Survey object.",
     )
 
 
@@ -108,6 +119,24 @@ def test_provider_identity_never_becomes_track_without_identity_and_local_valida
     assert build_architectural_landmark_tracks_from_vision(
         survey, [proposal], [_identity(proposal.physical_landmark_id)], _locals(proposal, reject_second=True)
     ) == []
+
+
+def test_provider_does_not_need_to_invent_survey_ids_when_explicit_binding_is_supplied_later():
+    survey = _survey()
+    proposal = _proposal("opening-corner-unbound", include_survey_id=False)
+    identity = _identity(proposal.physical_landmark_id)
+    local = _locals(proposal)
+
+    assert build_architectural_landmark_tracks_from_vision(survey, [proposal], [identity], local) == []
+    tracks = build_architectural_landmark_tracks_from_vision(
+        survey,
+        [proposal],
+        [identity],
+        local,
+        survey_bindings=[_binding(proposal.physical_landmark_id)],
+    )
+    assert len(tracks) == 1
+    assert tracks[0].survey_observation_id == "architectural-object"
 
 
 def test_missing_survey_coverage_stays_explicit_candidate_and_does_not_mutate_survey():
