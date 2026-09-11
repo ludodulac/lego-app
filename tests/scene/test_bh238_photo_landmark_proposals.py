@@ -25,6 +25,7 @@ POINTS = [
     (1.2, -0.2, 7.0), (-0.8, 0.3, 8.0), (0.5, 0.4, 4.5), (1.0, -0.7, 6.5),
     (-0.2, 1.0, 7.5), (1.4, 0.2, 8.5),
 ]
+CAMERA_BASELINE = 0.3
 
 
 def _survey(*, second_photo_accepted: bool = True) -> ArchitecturalSurvey:
@@ -183,7 +184,7 @@ def _relative_track(index: int, world):
     proposal = _proposal(
         f"corner-{index:02d}",
         p1=(_portrait_point(world, 0.0).x, _portrait_point(world, 0.0).y),
-        p2=(_portrait_point(world, 1.0).x, _portrait_point(world, 1.0).y),
+        p2=(_portrait_point(world, CAMERA_BASELINE).x, _portrait_point(world, CAMERA_BASELINE).y),
     )
     architectural = build_architectural_landmark_tracks_from_vision(
         _survey(), [proposal], [_identity(proposal.physical_landmark_id)], _locals(proposal)
