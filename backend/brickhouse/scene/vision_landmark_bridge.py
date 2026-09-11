@@ -1,9 +1,10 @@
 """Bridge bounded vision landmark proposals into BH-237 architectural tracks.
 
-Provider identity is a proposal, never sufficient on its own. Every accepted photo
-occurrence must also pass bounded local geometry and bind to an existing Survey
-observation. Extra photo support omitted by the accepted Survey is preserved as an
-explicit CandidatePhotoEvidence sidecar rather than mutating Survey truth.
+Provider identity is a proposal, never sufficient on its own. Every accepted track
+occurrence must pass bounded local geometry and already be backed by accepted
+Survey evidence. Extra photo support omitted by the accepted Survey is preserved
+as an explicit CandidatePhotoEvidence sidecar and is not allowed to masquerade as
+accepted provenance.
 """
 from __future__ import annotations
 
@@ -37,12 +38,7 @@ def bridge_vision_landmarks_to_tracks(
     minimum_observation_confidence: float = 0.65,
     minimum_candidate_evidence_confidence: float = 0.75,
 ) -> VisionLandmarkBridgeResult:
-    """Accept only traceable, locally stable cross-view proposals.
-
-    This function does not infer identity from image similarity and never changes
-    the supplied Survey. A provider proposal without an exact Survey observation
-    binding remains rejected at this bridge.
-    """
+    """Accept only traceable, locally stable cross-view proposals without Survey mutation."""
     if not 0 <= minimum_identity_confidence <= 1:
         raise ValueError("minimum_identity_confidence must be in [0,1]")
     validation_by_key: dict[tuple[str, int], LocalLandmarkValidation] = {}
@@ -68,8 +64,7 @@ def bridge_vision_landmarks_to_tracks(
             continue
 
         accepted: list[ArchitecturalLandmarkObservation] = []
-        survey_ids: set[str] = set()
-        candidate_start = len(evidence_candidates)
+        accepted_survey_ids: set[str] = set()
         failure_reason: str | None = None
         for occurrence in sorted(proposal.observations, key=lambda item: item.photo_index):
             if occurrence.status != "PROPOSED" or occurrence.confidence < minimum_observation_confidence:
@@ -87,8 +82,26 @@ def bridge_vision_landmarks_to_tracks(
             local = validation_by_key.get((landmark_id, occurrence.photo_index))
             if local is None or local.status != "ACCEPTED" or local.refined_point is None:
                 continue
-            survey_ids.add(occurrence.survey_observation_id)
             source_confidence = min(proposal.identity_confidence, occurrence.confidence)
+            accepted_photos = {item.photo_index for item in survey_observation.evidence}
+            if occurrence.photo_index not in accepted_photos:
+                if occurrence.confidence >= minimum_candidate_evidence_confidence:
+                    evidence_candidates.append(
+                        CandidatePhotoEvidence(
+                            id=f"candidate-{landmark_id}-photo-{occurrence.photo_index}",
+                            survey_observation_id=occurrence.survey_observation_id,
+                            physical_landmark_id=landmark_id,
+                            photo_index=occurrence.photo_index,
+                            point=local.refined_point,
+                            source=SourceInfo(kind=SourceKind.INFERRED, confidence=source_confidence),
+                            statement=(
+                                "Direct provider/photo evidence candidate for an existing accepted Survey observation; "
+                                "the accepted Survey itself is unchanged and this occurrence does not count as accepted track provenance."
+                            ),
+                        )
+                    )
+                continue
+            accepted_survey_ids.add(occurrence.survey_observation_id)
             accepted.append(
                 ArchitecturalLandmarkObservation(
                     physical_landmark_id=landmark_id,
@@ -102,57 +115,38 @@ def bridge_vision_landmarks_to_tracks(
                     ),
                 )
             )
-            accepted_photos = {item.photo_index for item in survey_observation.evidence}
-            if occurrence.photo_index not in accepted_photos:
-                if occurrence.confidence < minimum_candidate_evidence_confidence:
-                    failure_reason = "Extra-photo evidence confidence is below the candidate-evidence gate."
-                    break
-                evidence_candidates.append(
-                    CandidatePhotoEvidence(
-                        id=f"candidate-{landmark_id}-photo-{occurrence.photo_index}",
-                        survey_observation_id=occurrence.survey_observation_id,
-                        physical_landmark_id=landmark_id,
-                        photo_index=occurrence.photo_index,
-                        point=local.refined_point,
-                        source=SourceInfo(kind=SourceKind.INFERRED, confidence=source_confidence),
-                        statement=(
-                            "Direct provider/photo evidence candidate for an existing accepted Survey observation; "
-                            "the accepted Survey itself is unchanged."
-                        ),
-                    )
-                )
 
         if failure_reason is not None:
-            del evidence_candidates[candidate_start:]
             rejected[landmark_id] = failure_reason
             continue
-        if len(survey_ids) != 1:
-            del evidence_candidates[candidate_start:]
-            rejected[landmark_id] = "Cross-view landmark occurrences do not bind to one Survey observation identity."
+        if len(accepted_survey_ids) > 1:
+            rejected[landmark_id] = "Accepted cross-view occurrences do not bind to one Survey observation identity."
             continue
         if len(accepted) < 2:
-            del evidence_candidates[candidate_start:]
-            rejected[landmark_id] = "Fewer than two locally stable, traceable photo occurrences survived."
+            rejected[landmark_id] = (
+                "Fewer than two locally stable occurrences with already-accepted Survey photo provenance survived; "
+                "extra-photo support remains a separate evidence candidate."
+            )
             continue
-        survey_observation_id = next(iter(survey_ids))
-        track = ArchitecturalLandmarkTrack(
-            id=f"vision-track-{landmark_id}",
-            physical_landmark_id=landmark_id,
-            survey_observation_id=survey_observation_id,
-            observations=accepted,
-            status="VALIDATED_PROPOSAL",
-            source=SourceInfo(kind=SourceKind.INFERRED, confidence=min(item.source.confidence for item in accepted)),
-            statement=(
-                f"Vision-proposed physical identity {landmark_id!r} survived Survey provenance and bounded local validation."
-            ),
+        survey_observation_id = next(iter(accepted_survey_ids))
+        tracks.append(
+            ArchitecturalLandmarkTrack(
+                id=f"vision-track-{landmark_id}",
+                physical_landmark_id=landmark_id,
+                survey_observation_id=survey_observation_id,
+                observations=accepted,
+                status="VALIDATED_PROPOSAL",
+                source=SourceInfo(kind=SourceKind.INFERRED, confidence=min(item.source.confidence for item in accepted)),
+                statement=(
+                    f"Vision-proposed physical identity {landmark_id!r} survived accepted Survey provenance and bounded local validation."
+                ),
+            )
         )
-        tracks.append(track)
 
-    validate_architectural_landmark_tracks(
-        survey,
-        tracks,
-        evidence_candidates=evidence_candidates,
-    )
+    validate_architectural_landmark_tracks(survey, tracks)
+    candidate_keys = [(item.physical_landmark_id, item.survey_observation_id, item.photo_index) for item in evidence_candidates]
+    if len(candidate_keys) != len(set(candidate_keys)):
+        raise ValueError("vision bridge emitted duplicate candidate photo evidence")
     return VisionLandmarkBridgeResult(
         tracks=tracks,
         evidence_candidates=evidence_candidates,
