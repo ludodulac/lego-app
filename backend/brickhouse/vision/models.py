@@ -73,9 +73,9 @@ class VisionLandmarkProposal(BaseModel):
 
 
 class PhotoAnalysisResult(BaseModel):
-    # 0.2 adds compatibility metadata; 0.3 adds explicit proportion/scale evidence;
-    # 0.4 adds bounded cross-view landmark proposals. Older payloads stay readable.
-    schema_version: Literal["0.1", "0.2", "0.3", "0.4"] = "0.4"
+    # 0.2 adds compatibility metadata; 0.3 adds explicit proportion/scale evidence.
+    # BH-238 adds an optional landmark sidecar without changing the persisted version.
+    schema_version: Literal["0.1", "0.2", "0.3"] = "0.3"
     building: BuildingModel
     questions: list[ClarificationQuestion] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
