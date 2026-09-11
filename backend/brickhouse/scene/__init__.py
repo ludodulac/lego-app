@@ -37,6 +37,17 @@ from .photo_scale_cues import (
 )
 from .platform_structure import PlatformStructureKind, PlatformStructureObservation
 from .projection import ProjectionIssue, ProjectionResult, ProjectionSeverity
+from .relative_multiview import (
+    RelativeCameraHypothesis,
+    RelativeLandmarkCandidate,
+    RelativeLandmarkObservation,
+    RelativeLandmarkTrack,
+    RelativePoint3D,
+    RelativeReconstructionResult,
+    RelativeReconstructionStatus,
+    RelativeVector3D,
+    reconstruct_relative_landmarks,
+)
 from .scale_estimation import (
     ArchitecturalDimensionPrior,
     ArchitecturalPriorProvenance,
@@ -83,6 +94,6 @@ from .topology_projection import project_scene_to_building
 __all__=[
     "ArchitecturalDimensionPrior","ArchitecturalPriorProvenance","ArchitecturalScaleEstimate","ArchitecturalScene","Chimney","ChimneyBearingAssessment","DeckBoardDirection","EdgeAccessSpan","EdgeTreatment","EquipmentType","Evidence","ExteriorMaterial","FR_OPENING_PRIOR_CATALOG_VERSION","GLASS_BLOCK_PRIOR_CATALOG_VERSION",
     "FacadeEquipment","FacadeVisibility","GableRoofGeometry","GableRoofPlane","GlassBlockGridPriorQuery","GradeProfile","HumanRelativeLevelIssue","HumanRelativeLevelReport","MultiRunStairGeometryFacts","MultiRunStairGeometryReport","NormalizedImagePoint","NormalizedImageQuadrilateral","OpeningPriorQuery","PhotoGeometryAnnotation","PhotoScaleCueBinding","PlanarPhotoRectification","Platform","PlatformEdge","PlatformEdges","PlatformStructureKind","PlatformStructureObservation","ProjectionIssue","ProjectionResult","ReferenceExtentCoverage",
-    "ProjectionSeverity","PropertyValue","RoofGeometryAssessment","RoofLine","RoofPitchRange","ScaleCueVote","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneStairSystemLink","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairRunJunction","StairSpatialReport",
-    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","glass_block_grid_prior_v01","project_scene_to_building","rectified_plane_reference_annotation","rectify_photo_geometry_annotation","rectify_point","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_human_relative_level_facts","validate_scene_against_survey",
+    "ProjectionSeverity","PropertyValue","RelativeCameraHypothesis","RelativeLandmarkCandidate","RelativeLandmarkObservation","RelativeLandmarkTrack","RelativePoint3D","RelativeReconstructionResult","RelativeReconstructionStatus","RelativeVector3D","RoofGeometryAssessment","RoofLine","RoofPitchRange","ScaleCueVote","SceneObjectEnvelope","SceneOpening","SceneRelation","SceneRoof","SceneRoofType","SceneStairSystemLink","SceneSurveyIssue","SceneSurveySeverity","SceneVolume","SpatialPairFacts","SpatialRelationReport","StairCorridor","StairEndpointContact","StairRun","StairRunJunction","StairSpatialReport",
+    "SupportPost","Terrain","VisibilitySpan","VisibilityState","VisualScaleCue","WallProfileObservation","analyze_multi_run_stair_geometry","analyze_scene_spatial_relations","analyze_stair_spatial","build_visual_scale_cues_from_photo_geometry","derive_roof_geometry","derive_scene_roof_geometry","estimate_architectural_scale","france_residential_opening_priors_v01","glass_block_grid_prior_v01","project_scene_to_building","reconstruct_relative_landmarks","rectified_plane_reference_annotation","rectify_photo_geometry_annotation","rectify_point","scene_object_envelopes","validate_photo_geometry_annotations","validate_scene_against_human_relative_level_facts","validate_scene_against_survey",
 ]
