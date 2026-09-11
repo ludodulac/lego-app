@@ -111,6 +111,26 @@ class PhysicalLandmarkIdentityValidation(BaseModel):
         return self
 
 
+class PhysicalLandmarkSurveyBinding(BaseModel):
+    """Explicit later binding from a provider landmark to one accepted Survey observation.
+
+    The normal analyze-photos request precedes or is independent of an accepted Survey,
+    so the provider is not required to know Survey IDs. This sidecar supplies that
+    provenance later without guessing or mutating either the provider proposal or Survey.
+    """
+
+    physical_landmark_id: str = Field(min_length=1)
+    survey_observation_id: str = Field(min_length=1)
+    source: SourceInfo
+    statement: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "PhysicalLandmarkSurveyBinding":
+        if self.source.kind not in {SourceKind.OBSERVED, SourceKind.USER_PROVIDED}:
+            raise ValueError("landmark-to-Survey binding must be directly observed or user_provided")
+        return self
+
+
 def _candidate_evidence_keys(candidates: list[VisionPhotoEvidenceCandidate]) -> set[tuple[str, int]]:
     return {
         (candidate.survey_observation_id, candidate.photo_index)
@@ -125,13 +145,15 @@ def build_architectural_landmark_tracks_from_vision(
     identity_validations: list[PhysicalLandmarkIdentityValidation],
     local_validations: list[LocalLandmarkValidation],
     *,
+    survey_bindings: list[PhysicalLandmarkSurveyBinding] | None = None,
     photo_evidence_candidates: list[VisionPhotoEvidenceCandidate] | None = None,
 ) -> list[ArchitecturalLandmarkTrack]:
     """Promote only fully validated provider proposals into BH-237 track inputs.
 
     Candidate photo evidence may close a coverage omission for BH-237 while staying
     explicitly marked CANDIDATE_EVIDENCE. It never changes ``survey`` and is not
-    silently treated as accepted Survey evidence.
+    silently treated as accepted Survey evidence. When analyze-photos had no Survey
+    context, an explicit later ``survey_bindings`` entry supplies the required link.
     """
     identity_by_id = {item.physical_landmark_id: item for item in identity_validations}
     if len(identity_by_id) != len(identity_validations):
@@ -139,6 +161,9 @@ def build_architectural_landmark_tracks_from_vision(
     local_by_key = {(item.physical_landmark_id, item.photo_index): item for item in local_validations}
     if len(local_by_key) != len(local_validations):
         raise ValueError("local landmark validations must be unique per physical landmark and photo")
+    binding_by_id = {item.physical_landmark_id: item for item in (survey_bindings or [])}
+    if len(binding_by_id) != len(survey_bindings or []):
+        raise ValueError("landmark-to-Survey bindings must be unique per physical landmark")
 
     known_photos = {photo.photo_index for photo in survey.photos}
     survey_observations = {observation.id: observation for observation in survey.observations}
@@ -157,9 +182,15 @@ def build_architectural_landmark_tracks_from_vision(
             for occurrence in proposal.observations
             if occurrence.survey_observation_id
         }
-        if len(proposed_survey_ids) != 1:
+        if len(proposed_survey_ids) > 1:
             continue
-        survey_observation_id = next(iter(proposed_survey_ids))
+        proposed_survey_id = next(iter(proposed_survey_ids)) if proposed_survey_ids else None
+        binding = binding_by_id.get(proposal.physical_landmark_id)
+        if binding is not None and proposed_survey_id is not None and binding.survey_observation_id != proposed_survey_id:
+            continue
+        survey_observation_id = proposed_survey_id or (binding.survey_observation_id if binding is not None else None)
+        if survey_observation_id is None:
+            continue
         survey_observation = survey_observations.get(survey_observation_id)
         if survey_observation is None:
             continue
@@ -194,13 +225,12 @@ def build_architectural_landmark_tracks_from_vision(
                         kind=SourceKind.OBSERVED,
                         confidence=min(occurrence.confidence, local.confidence, identity.confidence),
                     ),
-                    statement=(
-                        f"{occurrence.statement} Local validation: {local.diagnostic}"
-                    ),
+                    statement=f"{occurrence.statement} Local validation: {local.diagnostic}",
                 )
             )
         if failed or len(observations) < 2:
             continue
+        binding_statement = f" Survey binding: {binding.statement}" if binding is not None else ""
         tracks.append(
             ArchitecturalLandmarkTrack(
                 id=f"vision-track-{proposal.physical_landmark_id}",
@@ -210,7 +240,7 @@ def build_architectural_landmark_tracks_from_vision(
                 status="CANDIDATE_EVIDENCE" if used_candidate_evidence else "EXPLICIT_MATCH",
                 source=SourceInfo(kind=SourceKind.OBSERVED, confidence=min(item.source.confidence for item in observations)),
                 statement=(
-                    f"Validated provider proposal: {proposal.description}. {identity.statement}"
+                    f"Validated provider proposal: {proposal.description}. {identity.statement}{binding_statement}"
                     + (" Includes separately recorded candidate photo evidence; accepted Survey is unchanged." if used_candidate_evidence else "")
                 ),
             )
