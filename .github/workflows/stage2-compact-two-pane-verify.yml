@@ -1,0 +1,72 @@
+name: Stage 2 compact two-pane verify
+on: [push]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install -e '.[dev]'
+      - name: Run targeted tests
+        run: pytest -q tests/bricks/test_compact_two_pane_panels.py tests/scene/test_opening_pane_count_fidelity.py tests/scene/test_survey_scene_pane_contract.py
+      - name: Build real micro facade and audit
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import generate_building_brick_shell, build_opening_representation_plan, apply_opening_representation_plan
+          from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
+          from brickhouse.pipeline import run_m0_pipeline_model
+          IDS=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          source=ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json')))
+          vol=next(v for v in source.volumes if v.id=='volume_main')
+          ops=[next(o for o in source.openings if o.id==i) for i in IDS]
+          micro=source.model_copy(update={'volumes':[vol],'openings':ops,'roofs':[],'terrain':None,'chimneys':[],'platforms':[],'stairs':[],'equipment':[],'visibility':[],'relations':[],'platform_structure_observations':[],'wall_profile_observations':[],'stair_system_links':[]})
+          pr=project_scene_to_building(micro); assert pr.building and not pr.blocked
+          b=pr.building
+          shell=generate_building_brick_shell(generate_building_geometry(b),48)
+          plan=build_opening_representation_plan(b,shell)
+          reservations={x.opening_id:x for x in plan.openings if x.opening_id in IDS}
+          assert all(x.status=='reserved' and x.motif_id=='compact_two_pane:transparent_panels' for x in reservations.values())
+          applied=apply_opening_representation_plan(b,shell,plan)
+          assert not applied.rejections
+          bundle=run_m0_pipeline_model(b,front_width_studs=48)
+          validate_model_part_capabilities(bundle.brick_model,create_current_engine_capability_registry())
+          Path('/tmp/compact.json').write_text(bundle.model_dump_json(indent=2,exclude_none=True))
+          counts={oid:len([p for p in bundle.brick_model.parts if p.opening_id==oid]) for oid in IDS}
+          ids={oid:sorted({p.part_id for p in bundle.brick_model.parts if p.opening_id==oid}) for oid in IDS}
+          audit={'reservations':{k:v.model_dump(mode='json') for k,v in reservations.items()},'rejections':[r.model_dump(mode='json') for r in applied.rejections],'parts_per_opening':counts,'part_ids':ids,'total_parts':len(bundle.brick_model.parts)}
+          print(json.dumps(audit,indent=2))
+          Path('/tmp/audit.json').write_text(json.dumps(audit,indent=2))
+          assert counts['obs-front-opening-top-left']==15 and counts['obs-front-opening-top-right']==15
+          assert counts['obs-front-opening-middle-left']==14 and counts['obs-front-opening-middle-right']==14
+          PY
+      - name: Start viewer
+        run: python -m http.server 8000 -d frontend >/tmp/viewer.log 2>&1 &
+      - name: Capture true viewer
+        run: |
+          python - <<'PY'
+          import shutil
+          from playwright.sync_api import sync_playwright
+          path=next((shutil.which(n) for n in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(n)),None); assert path
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,executable_path=path,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader'])
+            page=browser.new_page(viewport={'width':1400,'height':1000})
+            page.goto('http://127.0.0.1:8000/viewer.html',wait_until='networkidle',timeout=60000)
+            page.locator('#file-input').set_input_files('/tmp/compact.json')
+            page.wait_for_function("document.querySelector('#model-summary dd:nth-of-type(2)')?.textContent !== '—'",timeout=30000)
+            page.locator('#view-front').click(); page.wait_for_timeout(1200)
+            page.locator('#viewer').screenshot(path='/tmp/compact.png')
+            browser.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compact-two-pane-verify
+          path: |
+            /tmp/compact.json
+            /tmp/audit.json
+            /tmp/compact.png
+          retention-days: 7
