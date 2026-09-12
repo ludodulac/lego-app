@@ -1,0 +1,67 @@
+name: Stage 2 compact two-pane integrate
+on: [push]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Integrate compact transparent-panel two-pane candidate'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stage2-two-pane-visual-refinement
+      - name: Apply bounded product patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('backend/brickhouse/bricks/opening_representation_plan.py')
+          s=p.read_text()
+          s=s.replace('_GENERIC_TWO_PANE_ASSEMBLY_ID = "generic-two-pane-raster-split"', '_GENERIC_TWO_PANE_ASSEMBLY_ID = "generic-two-pane-raster-split"\n_COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"\n_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-8012"')
+          old='''    return OpeningRepresentationReservation(\n        opening_id=opening.id,\n        facade=opening.facade,\n        architectural_type=opening.type,\n        status="reserved",\n        representation_role="window",\n        motif_id=_GENERIC_TWO_PANE_MOTIF_ID,\n        composition="paired",\n        assembly_id=_GENERIC_TWO_PANE_ASSEMBLY_ID,\n        width_studs=raster.width_studs,\n        height_bricks=raster.height_bricks,'''
+          new='''    compact = raster.width_studs == 9 and 5 <= raster.height_bricks <= 9\n    return OpeningRepresentationReservation(\n        opening_id=opening.id,\n        facade=opening.facade,\n        architectural_type=opening.type,\n        status="reserved",\n        representation_role="window",\n        motif_id=_COMPACT_TWO_PANE_MOTIF_ID if compact else _GENERIC_TWO_PANE_MOTIF_ID,\n        composition="paired",\n        assembly_id=_COMPACT_TWO_PANE_ASSEMBLY_ID if compact else _GENERIC_TWO_PANE_ASSEMBLY_ID,\n        width_studs=raster.width_studs,\n        height_bricks=raster.height_bricks,'''
+          assert old in s
+          s=s.replace(old,new)
+          s=s.replace('reason="observed pane_count=2 represented by a raster-preserving generic two-pane split",','reason=("observed pane_count=2 represented by two compact transparent-panel stacks" if compact else "observed pane_count=2 represented by a raster-preserving generic two-pane split"),')
+          p.write_text(s)
+
+          p=Path('backend/brickhouse/bricks/planned_opening_parts.py')
+          s=p.read_text()
+          s=s.replace('_GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"', '_GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"\n_COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"')
+          marker='''def generate_planned_opening_parts(\n'''
+          helper='''def _compact_panel_heights(height_bricks: int) -> tuple[int, ...] | None:\n    """Use at most three real transparent panels per pane, preferring 3-brick panels."""\n    for count in range(1, 4):\n        for twos in range(count + 1):\n            threes = count - twos\n            if 3 * threes + 2 * twos == height_bricks:\n                return (3,) * threes + (2,) * twos\n    return None\n\n\ndef _emit_compact_two_pane(\n    *, raster, facade: Facade, front: int, depth: int, placements: list[WindowPartPlacement],\n) -> bool:\n    """Build two 4-stud transparent panel stacks with one neutral central mullion."""\n    if raster.width_studs != 9:\n        return False\n    heights = _compact_panel_heights(raster.height_bricks)\n    if heights is None:\n        return False\n    for pane_x in (0, 5):\n        z_offset = 0\n        for panel_height in heights:\n            part_id = "PANEL_1X4X3_60581" if panel_height == 3 else "PANEL_1X4X2_8012"\n            x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)\n            placements.append(WindowPartPlacement(part_id=part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))\n            z_offset += panel_height\n    for dz in range(raster.height_bricks):\n        x, y, z, rotation = _to_global(facade, raster.x_studs + 4, 1, raster.z_bricks + dz, front, depth)\n        placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))\n    return True\n\n\n'''
+          assert marker in s
+          s=s.replace(marker,helper+marker)
+          needle='''            if reservation.motif_id == _GENERIC_TWO_PANE_MOTIF_ID:\n'''
+          branch='''            if reservation.motif_id == _COMPACT_TWO_PANE_MOTIF_ID:\n                if (reservation.width_studs != raster.width_studs or reservation.height_bricks != raster.height_bricks or not _emit_compact_two_pane(raster=raster, facade=facade, front=front, depth=depth, placements=placements)):\n                    statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=False, reason="compact two-pane reservation does not match a representable wall raster"))\n                    continue\n                represented.add(opening.id)\n                statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=True, representation="compact_two_pane", reason=reservation.reason))\n                continue\n\n'''
+          assert needle in s
+          s=s.replace(needle,branch+needle)
+          p.write_text(s)
+
+          p=Path('backend/brickhouse/bricks/piece_capabilities.py')
+          s=p.read_text()
+          needle='''    window_ids = {\n        part_id\n        for assembly in VALIDATED_WINDOW_ASSEMBLIES\n        for part_id in (assembly.frame_part_id, assembly.pane_part_id)\n    }'''
+          replacement=needle+'''\n    window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X2_8012"})'''
+          assert needle in s
+          s=s.replace(needle,replacement)
+          s=s.replace('notes="Validated only as a matched frame/pane window assembly.",','notes="Validated as matched frame/pane assemblies or bounded transparent-panel glazing primitives.",')
+          p.write_text(s)
+
+          p=Path('backend/brickhouse/bricks/geometry_adapter.py')
+          s=p.read_text()
+          needle='''    "GLASS_FOR_WINDOW_1X4X3_60603": LDrawPartMapping("60603", 1, 4, height_plates=9),'''
+          repl=needle+'''\n    "PANEL_1X4X3_60581": LDrawPartMapping("60581", 1, 4, height_plates=9),\n    "PANEL_1X4X2_8012": LDrawPartMapping("8012", 1, 4, height_plates=6),'''
+          assert needle in s
+          s=s.replace(needle,repl)
+          p.write_text(s)
+
+          test=Path('tests/bricks/test_compact_two_pane_panels.py')
+          test.write_text('''import json\nfrom brickhouse.scene import ArchitecturalScene, project_scene_to_building\nfrom brickhouse.pipeline import run_m0_pipeline_model\n\nIDS=("obs-front-opening-top-left","obs-front-opening-top-right","obs-front-opening-middle-left","obs-front-opening-middle-right")\n\ndef test_real_two_pane_windows_use_compact_panel_family():\n    source=ArchitecturalScene.model_validate(json.load(open("tests/fixtures/real_house_scene_pane_count_stage2.json",encoding="utf-8")))\n    volume=next(v for v in source.volumes if v.id=="volume_main")\n    openings=[next(o for o in source.openings if o.id==oid) for oid in IDS]\n    micro=source.model_copy(update={"volumes":[volume],"openings":openings,"roofs":[],"terrain":None,"chimneys":[],"platforms":[],"stairs":[],"equipment":[],"visibility":[],"relations":[],"platform_structure_observations":[],"wall_profile_observations":[],"stair_system_links":[]})\n    projected=project_scene_to_building(micro)\n    assert projected.building is not None and not projected.blocked\n    bundle=run_m0_pipeline_model(projected.building,front_width_studs=48)\n    for oid in IDS:\n        parts=[p for p in bundle.brick_model.parts if p.opening_id==oid]\n        assert len(parts) in {14,15}\n        assert {p.part_id for p in parts} <= {"PANEL_1X4X3_60581","PANEL_1X4X2_8012","BRICK_1X1"}\n        assert sum(p.part_id.startswith("PANEL_") for p in parts)==6\n''')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name 'ludodulac'
+          git config user.email '162371616+ludodulac@users.noreply.github.com'
+          git add backend/brickhouse/bricks/opening_representation_plan.py backend/brickhouse/bricks/planned_opening_parts.py backend/brickhouse/bricks/piece_capabilities.py backend/brickhouse/bricks/geometry_adapter.py tests/bricks/test_compact_two_pane_panels.py
+          git commit -m 'Use compact transparent panels for two-pane windows'
+          git push origin HEAD:stage2-two-pane-visual-refinement
