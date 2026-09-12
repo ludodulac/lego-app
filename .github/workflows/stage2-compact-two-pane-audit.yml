@@ -1,0 +1,33 @@
+name: Stage 2 compact two-pane audit
+on: [push]
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit transparent panels, glass, bars and tiles
+        run: |
+          python - <<'PY'
+          import csv, json, re
+          from pathlib import Path
+          parts=list(csv.DictReader(open('data/raw/parts.csv',encoding='utf-8',newline='')))
+          master=list(csv.DictReader(open('data/processed/piece_types_master.csv',encoding='utf-8',newline='')))
+          # Focus on standard-system glazing/panel/bar candidates useful for a 4-stud-wide x 6-9-brick-high pane.
+          pats=[
+            r'Panel 1 x [34] x [5-9]', r'Glass.*1 x [34] x [5-9]', r'Window.*1 x [34] x [5-9]',
+            r'Windscreen.*[34] x [5-9]', r'Bar .* x [5-9]', r'Tile 1 x [68]', r'Plate 1 x [68]',
+            r'Brick 1 x [68]', r'Panel 1 x [68] x [5-9]'
+          ]
+          def hit(n): return any(re.search(p,n,re.I) for p in pats)
+          rows=[r for r in parts if hit(r['name']) and 'Duplo' not in r['name'] and 'Modulex' not in r['name'] and 'Fabuland' not in r['name']]
+          # Keep master rows with analogous dimensions/categories.
+          mrows=[r for r in master if hit(r.get('name',''))]
+          out={'parts':rows,'master':mrows}
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          Path('/tmp/compact-two-pane-audit.json').write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compact-two-pane-audit
+          path: /tmp/compact-two-pane-audit.json
+          retention-days: 7
