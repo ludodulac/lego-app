@@ -31,6 +31,8 @@ from .opening_motifs import (
 PlanStatus = Literal["reserved", "unsupported", "not_applicable"]
 _GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"
 _GENERIC_TWO_PANE_ASSEMBLY_ID = "generic-two-pane-raster-split"
+_COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"
+_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-8012"
 _GLASS_BLOCK_GLAZING = {
     "glass block",
     "glass blocks",
@@ -207,22 +209,23 @@ def _generic_two_pane_reservation(opening, raster) -> OpeningRepresentationReser
         or raster.height_bricks < 2
     ):
         return None
+    compact = raster.width_studs == 9 and 5 <= raster.height_bricks <= 9
     return OpeningRepresentationReservation(
         opening_id=opening.id,
         facade=opening.facade,
         architectural_type=opening.type,
         status="reserved",
         representation_role="window",
-        motif_id=_GENERIC_TWO_PANE_MOTIF_ID,
+        motif_id=_COMPACT_TWO_PANE_MOTIF_ID if compact else _GENERIC_TWO_PANE_MOTIF_ID,
         composition="paired",
-        assembly_id=_GENERIC_TWO_PANE_ASSEMBLY_ID,
+        assembly_id=_COMPACT_TWO_PANE_ASSEMBLY_ID if compact else _GENERIC_TWO_PANE_ASSEMBLY_ID,
         width_studs=raster.width_studs,
         height_bricks=raster.height_bricks,
         depth_studs=1,
         orientation="vertical_in_facade",
         connection_strategy="stud_bearing_in_wall_opening",
         support_requirement="surrounding_wall_bearing",
-        reason="observed pane_count=2 represented by a raster-preserving generic two-pane split",
+        reason=("observed pane_count=2 represented by two compact transparent-panel stacks" if compact else "observed pane_count=2 represented by a raster-preserving generic two-pane split"),
     )
 
 

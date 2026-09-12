@@ -30,6 +30,7 @@ from .windows import (
 )
 
 _GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"
+_COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"
 
 
 class PlannedOpeningStatus(BaseModel):
@@ -213,6 +214,38 @@ def _emit_generic_two_pane(
     return True
 
 
+def _compact_panel_heights(height_bricks: int) -> tuple[int, ...] | None:
+    """Use at most three real transparent panels per pane, preferring 3-brick panels."""
+    for count in range(1, 4):
+        for twos in range(count + 1):
+            threes = count - twos
+            if 3 * threes + 2 * twos == height_bricks:
+                return (3,) * threes + (2,) * twos
+    return None
+
+
+def _emit_compact_two_pane(
+    *, raster, facade: Facade, front: int, depth: int, placements: list[WindowPartPlacement],
+) -> bool:
+    """Build two 4-stud transparent panel stacks with one neutral central mullion."""
+    if raster.width_studs != 9:
+        return False
+    heights = _compact_panel_heights(raster.height_bricks)
+    if heights is None:
+        return False
+    for pane_x in (0, 5):
+        z_offset = 0
+        for panel_height in heights:
+            part_id = "PANEL_1X4X3_60581" if panel_height == 3 else "PANEL_1X4X2_8012"
+            x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)
+            placements.append(WindowPartPlacement(part_id=part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+            z_offset += panel_height
+    for dz in range(raster.height_bricks):
+        x, y, z, rotation = _to_global(facade, raster.x_studs + 4, 1, raster.z_bricks + dz, front, depth)
+        placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+    return True
+
+
 def generate_planned_opening_parts(
     building: BuildingModel,
     shell: BuildingBrickShell,
@@ -280,6 +313,14 @@ def generate_planned_opening_parts(
                     represented=False,
                     reason=reservation.reason or "opening has no reserved motif",
                 ))
+                continue
+
+            if reservation.motif_id == _COMPACT_TWO_PANE_MOTIF_ID:
+                if (reservation.width_studs != raster.width_studs or reservation.height_bricks != raster.height_bricks or not _emit_compact_two_pane(raster=raster, facade=facade, front=front, depth=depth, placements=placements)):
+                    statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=False, reason="compact two-pane reservation does not match a representable wall raster"))
+                    continue
+                represented.add(opening.id)
+                statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=True, representation="compact_two_pane", reason=reservation.reason))
                 continue
 
             if reservation.motif_id == _GENERIC_TWO_PANE_MOTIF_ID:

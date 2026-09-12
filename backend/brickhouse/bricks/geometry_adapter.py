@@ -55,6 +55,8 @@ CANONICAL_LDRAW_PARTS: Mapping[str, LDrawPartMapping] = {
     "GLASS_FOR_WINDOW_1X2X3_60602": LDrawPartMapping("60602", 1, 2, height_plates=9),
     "WINDOW_1X4X3_60594": LDrawPartMapping("60594", 1, 4, height_plates=9),
     "GLASS_FOR_WINDOW_1X4X3_60603": LDrawPartMapping("60603", 1, 4, height_plates=9),
+    "PANEL_1X4X3_60581": LDrawPartMapping("60581", 1, 4, height_plates=9),
+    "PANEL_1X4X2_8012": LDrawPartMapping("8012", 1, 4, height_plates=6),
     # Flat ridge cover tiles used by the current gable-roof generator.
     "TILE_2X2": LDrawPartMapping("3068b", 2, 2, height_plates=1),
     "TILE_2X3": LDrawPartMapping("26603", 2, 3, height_plates=1),
