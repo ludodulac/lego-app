@@ -1,0 +1,126 @@
+{
+  "schema_version": "0.1",
+  "id": "brickhouse-survey-result",
+  "name": "BrickHouse Architectural Survey",
+  "canonical_frame": {
+    "front_facade": "front",
+    "x_direction": "front_view_left_to_right",
+    "y_direction": "front_to_rear",
+    "z_direction": "bottom_to_top"
+  },
+  "photos": [
+    {
+      "photo_index": 1,
+      "capture_role": "facade_view",
+      "facade": "front",
+      "description": "Vue de la façade de capture avant du bâtiment cible : enveloppe enduite claire, six ouvertures visibles organisées en deux colonnes et trois niveaux, rive de toiture en pignon et sol/voirie au pied du bâtiment.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "low",
+      "user_note": null
+    },
+    {
+      "photo_index": 2,
+      "capture_role": "facade_view",
+      "facade": "right",
+      "description": "Vue oblique de la façade de capture droite : long mur enduit, une ouverture haute étroite, une ouverture basse à blocs de verre, une petite ouverture basse près du pied du mur, descente verticale et voirie montant le long de la façade.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "low",
+      "user_note": null
+    },
+    {
+      "photo_index": 3,
+      "capture_role": "facade_view",
+      "facade": "left",
+      "description": "Vue large de la zone de capture gauche : partie du bâtiment cible enduite claire, terrasse/deck en bois sur supports, escalier extérieur à gauche de la zone cible, plusieurs ouvertures sur le mur clair et bâtiment voisin gris visible à gauche.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "high",
+      "user_note": null
+    },
+    {
+      "photo_index": 4,
+      "capture_role": "facade_view",
+      "facade": "left",
+      "description": "Vue rapprochée de la zone de capture gauche : même mur clair avec fenêtre haute, ouverture verticale inférieure partiellement masquée, escalier extérieur, volume bas enduit avec grande baie/porte ouverte et extrémité du deck bois visible à droite.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "high",
+      "user_note": null
+    },
+    {
+      "photo_index": 5,
+      "capture_role": "facade_view",
+      "facade": "rear",
+      "description": "Vue de la zone de capture arrière : le même ensemble extérieur que sur la vue précédente est recoupé, avec mur clair, fenêtre haute, ouverture verticale inférieure, escalier extérieur, volume bas enduit et bâtiment voisin dégradé avec grande souche de cheminée à gauche.",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "image_left_maps_to_facade_offset": "high",
+      "user_note": null
+    }
+  ],
+  "known_measurements": [],
+  "observations": [
+    {
+      "id": "obs-building-boundary-target",
+      "kind": "building_boundary",
+      "certainty": "certain",
+      "statement": "L'enveloppe du bâtiment cible est certainement visible dans les cinq photos ; aucune dimension globale n'est déduite.",
+      "evidence": [
+        {"photo_index": 1, "observation": "Façade principale claire et ses limites de mur sont directement visibles."},
+        {"photo_index": 2, "observation": "Un long pan latéral clair du bâtiment cible est directement visible."},
+        {"photo_index": 3, "observation": "Le volume clair cible est visible à droite du bâtiment voisin gris."},
+        {"photo_index": 4, "observation": "Le mur clair, son angle et les structures extérieures attenantes sont visibles."},
+        {"photo_index": 5, "observation": "Le même volume clair est visible avec le bâtiment voisin distinct à gauche."}
+      ],
+      "attributes": {
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [1, 2, 3, 4, 5],
+          "cues": ["structural_continuity", "facade_transition", "relative_position"]
+        }
+      },
+      "attribute_certainty": {
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-roof-target",
+      "kind": "roof",
+      "certainty": "certain",
+      "statement": "Une toiture du bâtiment cible est visible sur plusieurs vues ; la façade de capture avant présente un pignon et la forme générale est compatible avec une toiture à deux versants, sans mesure de pente.",
+      "evidence": [
+        {"photo_index": 1, "observation": "Rives inclinées formant un pignon au-dessus de la façade avant."},
+        {"photo_index": 2, "observation": "Un versant incliné et sa rive longitudinale sont visibles sur le côté droit."},
+        {"photo_index": 4, "observation": "Une rive inclinée du même volume clair est visible."},
+        {"photo_index": 5, "observation": "La même rive de toiture du volume clair est recoupée."}
+      ],
+      "attributes": {
+        "roof_type": "gable",
+        "facade_is_gable": true,
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [1, 2, 4, 5],
+          "cues": ["structural_continuity", "facade_transition", "relative_position"]
+        }
+      },
+      "attribute_certainty": {
+        "roof_type": "plausible",
+        "facade_is_gable": "certain",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-front-opening-top-left",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre supérieure gauche de la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Ouverture vitrée rectangulaire clairement visible au niveau supérieur gauche."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
