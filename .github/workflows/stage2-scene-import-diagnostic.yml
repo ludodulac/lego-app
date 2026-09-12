@@ -1,0 +1,55 @@
+name: Stage 2 Scene import diagnostic
+
+on:
+  push:
+    branches: [stage2-real-survey-to-scene]
+    paths:
+      - '.github/workflows/stage2-scene-import-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Reconstruct exact accepted Survey and diagnose exact real Scene
+        run: |
+          cat frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part{1,2,3,4,5} > /tmp/brickhouse-survey-result.json
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
+          from brickhouse.survey import ArchitecturalSurvey
+
+          survey = ArchitecturalSurvey.model_validate(json.load(open('/tmp/brickhouse-survey-result.json', encoding='utf-8')))
+          scene = ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json', encoding='utf-8')))
+          issues = validate_scene_against_survey(survey, scene)
+          report = {
+              'issues': [issue.model_dump(mode='json') for issue in issues],
+              'errors': [issue.model_dump(mode='json') for issue in issues if getattr(issue.severity, 'value', issue.severity) == 'error'],
+              'tracked_openings_before_validation': {
+                  opening.id: opening.model_dump(mode='json')
+                  for opening in scene.openings
+                  if opening.id in {
+                      'obs-front-opening-top-left',
+                      'obs-front-opening-top-right',
+                      'obs-front-opening-middle-left',
+                      'obs-front-opening-middle-right',
+                      'obs-front-opening-lower-left',
+                  }
+              },
+          }
+          Path('/tmp/scene-survey-diagnostic.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage2-scene-import-diagnostic
+          path: /tmp/scene-survey-diagnostic.json
+          if-no-files-found: error
+          retention-days: 7
