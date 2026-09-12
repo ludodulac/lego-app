@@ -1,0 +1,147 @@
+name: Stage 2 pane-count downstream diagnostic
+
+on:
+  push:
+    branches: [stage2-real-survey-to-scene]
+    paths:
+      - '.github/workflows/stage2-pane-downstream-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Build exact real-window micro scenes with and without pane_count
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import (
+              generate_building_brick_shell,
+              build_opening_representation_plan,
+              apply_opening_representation_plan,
+              generate_planned_opening_parts,
+          )
+          from brickhouse.pipeline import run_m0_pipeline_model
+
+          IDS = [
+              'obs-front-opening-top-left',
+              'obs-front-opening-top-right',
+              'obs-front-opening-middle-left',
+              'obs-front-opening-middle-right',
+          ]
+          source = ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json', encoding='utf-8')))
+          volume = next(v for v in source.volumes if v.id == 'volume_main')
+          exact = [next(o for o in source.openings if o.id == oid) for oid in IDS]
+
+          def make_scene(label, pane_count):
+              openings=[]
+              for opening in exact:
+                  visual = opening.opening_visual
+                  assert visual is not None and visual.pane_count == 2
+                  openings.append(opening.model_copy(update={
+                      'opening_visual': visual.model_copy(update={'pane_count': pane_count})
+                  }))
+              return source.model_copy(update={
+                  'id': f'pane-diagnostic-{label}',
+                  'name': f'Pane diagnostic {label}',
+                  'volumes': [volume],
+                  'openings': openings,
+                  'roofs': [], 'terrain': None, 'chimneys': [], 'platforms': [], 'stairs': [],
+                  'equipment': [], 'visibility': [], 'relations': [],
+                  'platform_structure_observations': [], 'wall_profile_observations': [], 'stair_system_links': [],
+                  'notes': 'Diagnostic micro-scene: exact real main volume and four exact front openings only.'
+              })
+
+          def run(label, pane_count):
+              scene = make_scene(label, pane_count)
+              projection = project_scene_to_building(scene)
+              assert projection.building is not None and not projection.blocked, [i.model_dump(mode='json') for i in projection.issues]
+              building = projection.building
+              geometry = generate_building_geometry(building)
+              shell = generate_building_brick_shell(geometry, 48)
+              plan = build_opening_representation_plan(building, shell)
+              application = apply_opening_representation_plan(building, shell, plan)
+              parts, represented, statuses = generate_planned_opening_parts(building, application.shell, plan)
+              bundle = run_m0_pipeline_model(building, front_width_studs=48)
+              Path(f'/tmp/{label}-export.json').write_text(bundle.model_dump_json(indent=2, exclude_none=True), encoding='utf-8')
+              reservations={r.opening_id:r.model_dump(mode='json') for r in plan.openings if r.opening_id in IDS}
+              status_by={s.opening_id:s.model_dump(mode='json') for s in statuses if s.opening_id in IDS}
+              planned_parts={oid:[p.model_dump(mode='json') for p in parts if p.opening_id == oid] for oid in IDS}
+              brick_parts={oid:[p.model_dump(mode='json') for p in bundle.brick_model.parts if p.opening_id == oid] for oid in IDS}
+              return {
+                  'scene_openings': {o.id:o.model_dump(mode='json') for o in scene.openings},
+                  'projection_issues':[i.model_dump(mode='json') for i in projection.issues],
+                  'reservations':reservations,
+                  'anchor_rejections':[r.model_dump(mode='json') for r in application.rejections],
+                  'statuses':status_by,
+                  'planned_parts':planned_parts,
+                  'brick_parts':brick_parts,
+                  'represented_ids':sorted(represented),
+                  'bundle_fidelity_issues':[i.model_dump(mode='json') for i in bundle.fidelity_issues],
+                  'total_parts':len(bundle.brick_model.parts),
+              }
+
+          null = run('pane-null', None)
+          two = run('pane-two', 2)
+          report={'ids':IDS,'pane_null':null,'pane_two':two}
+          Path('/tmp/pane-downstream-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print('===PANE_DOWNSTREAM_REPORT===')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          print('===END_PANE_DOWNSTREAM_REPORT===')
+          PY
+
+      - name: Start viewer
+        run: |
+          python -m http.server 8000 -d frontend >/tmp/pane-viewer-http.log 2>&1 &
+          echo $! >/tmp/pane-viewer-http.pid
+
+      - name: Capture real viewer front views
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          from playwright.sync_api import sync_playwright
+
+          browser_path = next((shutil.which(name) for name in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(name)), None)
+          assert browser_path, 'No Chrome/Chromium binary available'
+          with sync_playwright() as p:
+              browser=p.chromium.launch(headless=True, executable_path=browser_path, args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader'])
+              for label in ('pane-null','pane-two'):
+                  page=browser.new_page(viewport={'width':1400,'height':1000})
+                  errors=[]
+                  page.on('pageerror', lambda error: errors.append(str(error)))
+                  page.goto('http://127.0.0.1:8000/viewer.html', wait_until='networkidle', timeout=60000)
+                  page.locator('#file-input').set_input_files(f'/tmp/{label}-export.json')
+                  page.wait_for_function("document.querySelector('#model-summary dd:nth-of-type(2)')?.textContent !== '—'", timeout=30000)
+                  page.locator('#view-front').click()
+                  page.wait_for_timeout(1200)
+                  page.locator('#viewer').screenshot(path=f'/tmp/{label}-front.png')
+                  Path(f'/tmp/{label}-viewer-message.txt').write_text(page.locator('#message').inner_text(), encoding='utf-8')
+                  assert not errors, errors
+                  page.close()
+              browser.close()
+          PY
+
+      - name: Upload diagnostic artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pane-count-downstream-diagnostic
+          path: |
+            /tmp/pane-downstream-report.json
+            /tmp/pane-null-export.json
+            /tmp/pane-two-export.json
+            /tmp/pane-null-front.png
+            /tmp/pane-two-front.png
+            /tmp/pane-null-viewer-message.txt
+            /tmp/pane-two-viewer-message.txt
+          if-no-files-found: error
+          retention-days: 7
