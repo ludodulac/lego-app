@@ -6,7 +6,9 @@ import './photo-slot-previews.js?v=scene-runtime-bh147';
 import './scene-handoff-photo-evidence.js?v=scene-runtime-bh147';
 
 const BENCHMARK_ID = 'real-house-5';
-const ACCEPTED_SURVEY_URL = `./benchmarks/${BENCHMARK_ID}/accepted-survey-v0.1.json`;
+const ACCEPTED_SURVEY_PARTS = [1, 2, 3, 4, 5].map(index =>
+  `./benchmarks/${BENCHMARK_ID}/accepted-survey-real-v0.1.part${index}`
+);
 const MANIFEST_URL = `./benchmarks/${BENCHMARK_ID}/manifest.json`;
 const SLOT_MAPPING = new Map([
   [1, 'front'],
@@ -28,6 +30,15 @@ async function fetchAsFile(path) {
   return new File([blob], path, { type: blob.type || 'image/jpeg' });
 }
 
+async function fetchAcceptedSurvey() {
+  const responses = await Promise.all(ACCEPTED_SURVEY_PARTS.map(url => fetch(url, { cache: 'no-store' })));
+  responses.forEach((response, index) => {
+    if (!response.ok) throw new Error(`accepted Survey part ${index + 1}: HTTP ${response.status}`);
+  });
+  const raw = (await Promise.all(responses.map(response => response.text()))).join('');
+  return JSON.parse(raw);
+}
+
 function setInputFiles(input, files) {
   const transfer = new DataTransfer();
   files.forEach(file => transfer.items.add(file));
@@ -47,16 +58,14 @@ async function seedSceneBenchmark() {
 
   try {
     if (button) button.disabled = true;
-    if (packageStatus) packageStatus.textContent = 'Chargement du Survey accepté et des cinq photos…';
+    if (packageStatus) packageStatus.textContent = 'Chargement du Survey réel accepté et des cinq photos…';
 
-    const [surveyResponse, manifestResponse] = await Promise.all([
-      fetch(ACCEPTED_SURVEY_URL, { cache: 'no-store' }),
+    const [survey, manifestResponse] = await Promise.all([
+      fetchAcceptedSurvey(),
       fetch(MANIFEST_URL, { cache: 'no-store' }),
     ]);
-    if (!surveyResponse.ok) throw new Error(`accepted Survey: HTTP ${surveyResponse.status}`);
     if (!manifestResponse.ok) throw new Error(`manifest: HTTP ${manifestResponse.status}`);
 
-    const survey = await surveyResponse.json();
     const manifest = await manifestResponse.json();
     if (survey?.schema_version !== '0.1' || !Array.isArray(survey?.observations)) {
       throw new Error('checkpoint Survey invalide');
@@ -83,10 +92,10 @@ async function seedSceneBenchmark() {
       survey,
       valid_for_scene_fusion: true,
       issues: [],
-      source: 'accepted_repo_checkpoint',
+      source: 'accepted_real_survey_checkpoint_stage2',
     }));
 
-    if (packageStatus) packageStatus.textContent = 'Survey accepté chargé · 5 photos prêtes.';
+    if (packageStatus) packageStatus.textContent = 'Survey réel accepté chargé · 5 photos prêtes.';
     if (status) status.textContent = 'Prêt : créez le PDF Relevé → Scene 3D.';
     if (button) button.disabled = false;
   } catch (error) {
