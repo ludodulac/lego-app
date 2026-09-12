@@ -1,0 +1,41 @@
+name: Stage 2 exact anchor fix
+on: [push]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Fix exact-footprint opening anchor no-op'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stage2-two-pane-visual-refinement
+      - name: Patch exact-footprint no-op anchoring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('backend/brickhouse/bricks/opening_plan_anchors.py')
+          s=p.read_text()
+          needle='''        opening_ids = sorted(wall_reservations)\n        if not _identity_is_preserved(wall, openings, wall_reservations):'''
+          insert='''        opening_ids = sorted(wall_reservations)\n        if not _identity_is_preserved(wall, openings, wall_reservations):'''
+          assert needle in s
+          # Add exact-footprint fast path after identity validation block, immediately before vertical_records.
+          marker='''        vertical_records: list[tuple[object, WallOpeningGrid, int]] = []\n'''
+          block='''        # A representation that keeps the wall raster footprint exactly unchanged\n        # needs no anchoring solve. Re-solving metric centers can collapse tiny\n        # sub-stud offsets between vertically aligned openings even though this\n        # representation proposes no geometric change at all. Preserve the\n        # already validated raster and report explicit unchanged anchors instead.\n        exact_footprint = all(\n            reservation.width_studs == raster.width_studs\n            and reservation.height_bricks == raster.height_bricks\n            for raster in wall.grid.openings\n            if (reservation := wall_reservations.get(raster.id)) is not None\n        )\n        if exact_footprint:\n            facade_anchors = []\n            for raster in wall.grid.openings:\n                reservation = wall_reservations.get(raster.id)\n                opening = openings.get(raster.id)\n                if reservation is None or opening is None:\n                    continue\n                assert reservation.representation_role is not None\n                assert reservation.motif_id is not None\n                assert reservation.assembly_id is not None\n                assert reservation.width_studs is not None\n                assert reservation.height_bricks is not None\n                facade_anchors.append(AppliedOpeningAnchor(\n                    opening_id=opening.id, facade=wall.facade,\n                    representation_role=reservation.representation_role,\n                    motif_id=reservation.motif_id, assembly_id=reservation.assembly_id,\n                    source_x_studs=raster.x_studs, source_z_bricks=raster.z_bricks,\n                    source_width_studs=raster.width_studs, source_height_bricks=raster.height_bricks,\n                    anchored_x_studs=raster.x_studs, anchored_z_bricks=raster.z_bricks,\n                    anchored_width_studs=raster.width_studs, anchored_height_bricks=raster.height_bricks,\n                ))\n            updated_walls.append(wall)\n            applied.extend(facade_anchors)\n            adjustments.extend(OpeningRepresentationAdjustment.from_anchor(a) for a in facade_anchors)\n            continue\n\n'''
+          assert marker in s
+          s=s.replace(marker,block+marker,1)
+          p.write_text(s)
+
+          t=Path('tests/bricks/test_compact_two_pane_panels.py')
+          s=t.read_text()
+          s += '''\n\ndef test_exact_compact_reservations_do_not_move_real_rasters():\n    from brickhouse.geometry import generate_building_geometry\n    from brickhouse.bricks import generate_building_brick_shell, build_opening_representation_plan, apply_opening_representation_plan\n    source=ArchitecturalScene.model_validate(json.load(open("tests/fixtures/real_house_scene_pane_count_stage2.json",encoding="utf-8")))\n    volume=next(v for v in source.volumes if v.id=="volume_main")\n    openings=[next(o for o in source.openings if o.id==oid) for oid in IDS]\n    micro=source.model_copy(update={"volumes":[volume],"openings":openings,"roofs":[],"terrain":None,"chimneys":[],"platforms":[],"stairs":[],"equipment":[],"visibility":[],"relations":[],"platform_structure_observations":[],"wall_profile_observations":[],"stair_system_links":[]})\n    projected=project_scene_to_building(micro); assert projected.building is not None\n    shell=generate_building_brick_shell(generate_building_geometry(projected.building),48)\n    before={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in shell.walls for r in w.grid.openings if r.id in IDS}\n    plan=build_opening_representation_plan(projected.building,shell)\n    result=apply_opening_representation_plan(projected.building,shell,plan)\n    after={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in result.shell.walls for r in w.grid.openings if r.id in IDS}\n    assert not result.rejections\n    assert before == after\n    assert all(not a.geometry_changed for a in result.anchors if a.opening_id in IDS)\n'''
+          t.write_text(s)
+          PY
+      - run: python -m pip install -e '.[dev]' && pytest -q tests/bricks/test_compact_two_pane_panels.py
+      - name: Commit
+        run: |
+          git config user.name 'ludodulac'
+          git config user.email '162371616+ludodulac@users.noreply.github.com'
+          git add backend/brickhouse/bricks/opening_plan_anchors.py tests/bricks/test_compact_two_pane_panels.py
+          git commit -m 'Preserve exact opening footprints during representation anchoring'
+          git push origin HEAD:stage2-two-pane-visual-refinement
