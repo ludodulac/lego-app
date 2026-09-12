@@ -1,0 +1,44 @@
+name: Stage 2 transparent panel proof
+on: [push]
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find transparent autonomous panels near target pane size
+        run: |
+          python - <<'PY'
+          import csv,json,re
+          from pathlib import Path
+          colors={r['id']:r for r in csv.DictReader(open('data/raw/colors.csv',encoding='utf-8',newline=''))}
+          parts={r['part_num']:r for r in csv.DictReader(open('data/raw/parts.csv',encoding='utf-8',newline=''))}
+          # Candidate autonomous panel/window-like bodies near 3-4 studs wide and 5-9 high,
+          # plus larger panels that might become one pane by orientation.
+          cands={}
+          for pn,r in parts.items():
+            n=r['name']
+            if any(x in n for x in ('Panel 1 x 4 x','Panel 1 x 3 x','Panel 1 x 6 x','Panel 1 x 8 x')) and not any(x in n for x in ('Duplo','Modulex','Fabuland')):
+              cands[pn]=r
+          # Elements prove actual color availability. Transparent color IDs are identified by color metadata is_trans=1.
+          seen={pn:set() for pn in cands}
+          examples={pn:[] for pn in cands}
+          with open('data/raw/elements.csv',encoding='utf-8',newline='') as f:
+            for e in csv.DictReader(f):
+              pn=e['part_num']
+              if pn not in cands: continue
+              cid=e['color_id']; c=colors.get(cid,{})
+              if str(c.get('is_trans','')).lower() in ('1','true','t'):
+                seen[pn].add(cid)
+                if len(examples[pn])<5: examples[pn].append({'element_id':e.get('element_id'),'color_id':cid,'color':c.get('name')})
+          out=[]
+          for pn,r in cands.items():
+            if seen[pn]: out.append({'part_num':pn,'name':r['name'],'category':r['part_cat_id'],'transparent_colors':sorted(seen[pn]),'examples':examples[pn]})
+          out.sort(key=lambda x:x['name'])
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          Path('/tmp/transparent-panels.json').write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transparent-panel-proof
+          path: /tmp/transparent-panels.json
+          retention-days: 7
