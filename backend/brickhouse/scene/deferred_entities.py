@@ -71,9 +71,20 @@ def _survey_kind(kind: DeferredEntityKind) -> ObservationKind:
     return ObservationKind.CHIMNEY
 
 
-def _semantic_type_is_certain(observation) -> bool:
+def _semantic_type_explicitly_uncertain(observation) -> bool:
+    """Only explicit plausible/unproven certainty relaxes the legacy type gate.
+
+    Older accepted Surveys may have no per-attribute certainty metadata at all;
+    those retain the historical strict semantic_type behavior.
+    """
+
     certainty = observation.attribute_certainty.get("semantic_type")
-    return certainty is Certainty.CERTAIN or certainty == Certainty.CERTAIN.value
+    return certainty in {
+        Certainty.PLAUSIBLE,
+        Certainty.UNPROVEN,
+        Certainty.PLAUSIBLE.value,
+        Certainty.UNPROVEN.value,
+    }
 
 
 def validate_scene_against_survey(
@@ -131,10 +142,10 @@ def validate_scene_against_survey(
         if (
             issue.code == "opening_type_drift"
             and observation is not None
-            and not _semantic_type_is_certain(observation)
+            and _semantic_type_explicitly_uncertain(observation)
         ):
-            # Object existence may be certain while semantic_type is only plausible.
-            # In that case Scene type=unknown is conservative and must not be rejected.
+            # Object existence may be certain while semantic_type is only plausible
+            # or unproven. Scene type=unknown is then the conservative result.
             continue
         if (
             issue.code == "certain_opening_missing"
