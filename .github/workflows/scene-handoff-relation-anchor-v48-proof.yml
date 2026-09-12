@@ -61,6 +61,7 @@ jobs:
           path = '/tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf'
           text = '\n'.join(page.extract_text() or '' for page in PdfReader(path).pages)
           normalized = unicodedata.normalize('NFKD', text).replace('—', '-').replace('–', '-')
+          normalized = ' '.join(normalized.split())
           required = [
               'SCENE RELATION ANCHOR CONTRACT v4.8',
               'semantic_anchor_volume_id',
