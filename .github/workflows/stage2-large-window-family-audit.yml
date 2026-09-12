@@ -1,0 +1,43 @@
+name: Stage 2 large window family audit
+
+on:
+  push:
+    branches: [stage2-two-pane-visual-refinement]
+    paths:
+      - '.github/workflows/stage2-large-window-family-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit large frames and glazing
+        run: |
+          python - <<'PY'
+          import csv, json, re
+          from pathlib import Path
+          rows=list(csv.DictReader(open('data/raw/parts.csv',encoding='utf-8',newline='')))
+          needles=('Window 1 x 4 x 5','Glass for Window 1 x 4 x 5','Window 1 x 4 x 6','Glass for Window 1 x 4 x 6','Frame 1 x 6 x 6','Glass for Frame 1 x 6 x 6','Frame 1 x 6 x 7','Glass for Frame 1 x 6 x 7','Window 2 x 4 x 3 Frame','Window 1 x 6 x 2')
+          hits=[]
+          for r in rows:
+              n=r['name']
+              if any(k.lower() in n.lower() for k in needles): hits.append(r)
+          # Also include all 4-7-wide window/glass candidates for context, excluding doors.
+          broad=[]
+          for r in rows:
+              n=r['name']
+              if ('window' in n.lower() or 'glass for frame' in n.lower()) and 'door' not in n.lower():
+                  if re.search(r'1 x (4|5|6) x (3|4|5|6|7)', n, re.I) or re.search(r'2 x (4|5|6) x (3|4|5|6|7)', n, re.I):
+                      broad.append(r)
+          report={'exact_hits':hits,'broad_hits':broad}
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          Path('/tmp/large-window-family-audit.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: large-window-family-audit
+          path: /tmp/large-window-family-audit.json
+          retention-days: 7
