@@ -1,0 +1,30 @@
+name: Stage 2 compact 8x8 anchor
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install -e '.[dev]'
+      - name: Test true planner anchor for four real windows
+        run: |
+          python - <<'PY'
+          import json
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import generate_building_brick_shell, LEGORepresentationPlan, OpeningRepresentationReservation, apply_opening_representation_plan
+          IDS=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          s=ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json')))
+          v=next(x for x in s.volumes if x.id=='volume_main')
+          ops=[next(o for o in s.openings if o.id==i) for i in IDS]
+          micro=s.model_copy(update={'volumes':[v],'openings':ops,'roofs':[],'terrain':None,'chimneys':[],'platforms':[],'stairs':[],'equipment':[],'visibility':[],'relations':[],'platform_structure_observations':[],'wall_profile_observations':[],'stair_system_links':[]})
+          p=project_scene_to_building(micro); assert p.building and not p.blocked
+          b=p.building; shell=generate_building_brick_shell(generate_building_geometry(b),48)
+          before={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in shell.walls for r in w.grid.openings if r.id in IDS}
+          rs=[OpeningRepresentationReservation(opening_id=o.id,facade=o.facade,architectural_type=o.type,status='reserved',representation_role='window',motif_id='diagnostic:compact-transparent-panel-8x8',composition='paired',assembly_id='diagnostic-60581-8012',width_studs=8,height_bricks=8,depth_studs=1,orientation='vertical_in_facade',connection_strategy='stud_bearing_in_wall_opening',support_requirement='surrounding_wall_bearing') for o in b.openings if o.id in IDS]
+          a=apply_opening_representation_plan(b,shell,LEGORepresentationPlan(building_id=b.id,volume_id=shell.volume_id,openings=rs))
+          after={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in a.shell.walls for r in w.grid.openings if r.id in IDS}
+          print(json.dumps({'before':before,'after':after,'anchors':[x.model_dump(mode='json') for x in a.anchors],'rejections':[x.model_dump(mode='json') for x in a.rejections]},indent=2))
+          assert not a.rejections
+          assert set(after)==set(IDS) and all(v[2:]==(8,8) for v in after.values())
+          PY
