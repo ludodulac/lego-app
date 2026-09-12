@@ -1,0 +1,135 @@
+      "evidence": [{"photo_index": 2, "observation": "Rectangle bas subdivisé en blocs translucides visible près du pied du mur."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-right-opening-low-small",
+      "kind": "opening",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Petite ouverture basse près de l'extrémité avant visible du mur droit.",
+      "evidence": [{"photo_index": 2, "observation": "Petite ouverture rectangulaire sombre visible au niveau du soubassement vers la gauche de l'image."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-side-opening-upper-shared",
+      "kind": "opening",
+      "certainty": "certain",
+      "statement": "Même fenêtre haute du mur clair recoupée dans les photos 3, 4 et 5 ; son affectation architecturale exacte à left ou rear reste non résolue car les métadonnées de capture 3/4 et 5 se contredisent visuellement sur ce même pan.",
+      "evidence": [
+        {"photo_index": 3, "observation": "Fenêtre verticale haute visible sur le volume clair au-dessus de la terrasse."},
+        {"photo_index": 4, "observation": "Même fenêtre haute reconnaissable par sa forme et sa position par rapport à l'escalier et au bord de toiture."},
+        {"photo_index": 5, "observation": "Même fenêtre haute recoupée avec la même relation au mur, à l'escalier et à la toiture."}
+      ],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [3, 4, 5],
+          "cues": ["shape_detail", "relative_position", "structural_continuity", "occlusion_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-side-opening-lower-shared",
+      "kind": "opening",
+      "certainty": "certain",
+      "statement": "Ouverture verticale inférieure du même mur clair, partiellement occultée par l'escalier et la végétation, recoupée dans les photos 4 et 5 ; son type précis n'est pas établi.",
+      "evidence": [
+        {"photo_index": 4, "observation": "Bande verticale sombre correspondant à une ouverture derrière le palmier et le mur d'escalier."},
+        {"photo_index": 5, "observation": "La même ouverture verticale est visible au même emplacement sous la fenêtre haute."}
+      ],
+      "attributes": {
+        "physical_object_count": 1,
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [4, 5],
+          "cues": ["relative_position", "occlusion_continuity", "structural_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-left-opening-deck-left",
+      "kind": "opening",
+      "facade": "left",
+      "certainty": "certain",
+      "statement": "Ouverture située au niveau du deck, dans la partie gauche du mur clair visible sur la photo 3, partiellement masquée par le garde-corps.",
+      "evidence": [{"photo_index": 3, "observation": "Ouverture sombre rectangulaire visible juste au-dessus du garde-corps, à gauche de la zone de deck."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-left-opening-deck-right",
+      "kind": "opening",
+      "facade": "left",
+      "certainty": "certain",
+      "statement": "Fenêtre située au niveau du deck dans la partie droite du mur clair visible sur la photo 3, partiellement masquée par le garde-corps.",
+      "evidence": [{"photo_index": 3, "observation": "Ouverture vitrée rectangulaire à deux zones visibles derrière le garde-corps, vers la droite du mur clair."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-volume-low-attached",
+      "kind": "volume",
+      "certainty": "certain",
+      "statement": "Volume bas enduit clair, physiquement attenant au bâtiment cible, visible devant/au pied du mur clair dans les photos 4 et 5 ; il comporte une grande ouverture frontale sombre.",
+      "evidence": [
+        {"photo_index": 4, "observation": "Volume rectangulaire bas avec parois enduites et grande baie ouverte, accolé au mur principal."},
+        {"photo_index": 5, "observation": "Même volume recoupé au même emplacement à droite de l'escalier."}
+      ],
+      "attributes": {
+        "subject_ownership": "target_building",
+        "multiview_identity": {
