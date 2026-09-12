@@ -233,6 +233,43 @@ def apply_opening_representation_plan(
             updated_walls.append(wall)
             continue
 
+        # A representation that keeps the wall raster footprint exactly unchanged
+        # needs no anchoring solve. Re-solving metric centers can collapse tiny
+        # sub-stud offsets between vertically aligned openings even though this
+        # representation proposes no geometric change at all. Preserve the
+        # already validated raster and report explicit unchanged anchors instead.
+        exact_footprint = all(
+            reservation.width_studs == raster.width_studs
+            and reservation.height_bricks == raster.height_bricks
+            for raster in wall.grid.openings
+            if (reservation := wall_reservations.get(raster.id)) is not None
+        )
+        if exact_footprint:
+            facade_anchors = []
+            for raster in wall.grid.openings:
+                reservation = wall_reservations.get(raster.id)
+                opening = openings.get(raster.id)
+                if reservation is None or opening is None:
+                    continue
+                assert reservation.representation_role is not None
+                assert reservation.motif_id is not None
+                assert reservation.assembly_id is not None
+                assert reservation.width_studs is not None
+                assert reservation.height_bricks is not None
+                facade_anchors.append(AppliedOpeningAnchor(
+                    opening_id=opening.id, facade=wall.facade,
+                    representation_role=reservation.representation_role,
+                    motif_id=reservation.motif_id, assembly_id=reservation.assembly_id,
+                    source_x_studs=raster.x_studs, source_z_bricks=raster.z_bricks,
+                    source_width_studs=raster.width_studs, source_height_bricks=raster.height_bricks,
+                    anchored_x_studs=raster.x_studs, anchored_z_bricks=raster.z_bricks,
+                    anchored_width_studs=raster.width_studs, anchored_height_bricks=raster.height_bricks,
+                ))
+            updated_walls.append(wall)
+            applied.extend(facade_anchors)
+            adjustments.extend(OpeningRepresentationAdjustment.from_anchor(a) for a in facade_anchors)
+            continue
+
         vertical_records: list[tuple[object, WallOpeningGrid, int]] = []
         for raster in wall.grid.openings:
             reservation = wall_reservations.get(raster.id)
