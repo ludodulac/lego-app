@@ -3,6 +3,7 @@ import './scene-handoff-contract-audit-v44.js?v=scene-runtime-bh147';
 import './scene-handoff-stage-lock-v45.js?v=scene-runtime-bh147';
 import './scene-handoff-output-frame-v46.js?v=scene-runtime-bh147';
 import './scene-handoff-deferred-entities-v47.js?v=scene-runtime-bh147';
+import './scene-handoff-relation-anchor-v48.js?v=scene-runtime-bh147';
 import './photo-slot-previews.js?v=scene-runtime-bh147';
 import './scene-handoff-photo-evidence.js?v=scene-runtime-bh147';
 
