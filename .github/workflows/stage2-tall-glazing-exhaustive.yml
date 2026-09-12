@@ -1,0 +1,29 @@
+name: Stage 2 tall glazing exhaustive
+on: [push]
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find all standard tall transparent/window glazing candidates
+        run: |
+          python - <<'PY'
+          import csv,json,re
+          from pathlib import Path
+          rows=list(csv.DictReader(open('data/raw/parts.csv',encoding='utf-8',newline='')))
+          out=[]
+          for r in rows:
+            n=r['name']
+            if any(k in n.lower() for k in ('glass','panel','windscreen','window pane','windowpane')) and not any(k in n.lower() for k in ('duplo','modulex','fabuland')):
+              # Only candidates whose textual dimensions expose a 4-10 span and 6-10 height/span.
+              nums=[int(x) for x in re.findall(r'(?<!\d)(\d+)(?!\d)', n)]
+              if any(4<=x<=10 for x in nums) and any(6<=x<=10 for x in nums):
+                out.append(r)
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          Path('/tmp/tall-glazing.json').write_text(json.dumps(out,indent=2,ensure_ascii=False),encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tall-glazing-exhaustive
+          path: /tmp/tall-glazing.json
+          retention-days: 7
