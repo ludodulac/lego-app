@@ -1,0 +1,134 @@
+          "status": "same_physical_object",
+          "photo_indexes": [4, 5],
+          "cues": ["shape_detail", "relative_position", "structural_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-volume-opening",
+      "kind": "opening",
+      "certainty": "certain",
+      "statement": "Grande ouverture verticale sombre dans le volume bas attenant, visible dans les photos 4 et 5 ; l'existence de l'ouverture est certaine mais le type de fermeture n'est pas établi.",
+      "evidence": [
+        {"photo_index": 4, "observation": "Grande baie/entrée sombre rectangulaire dans la face du volume bas."},
+        {"photo_index": 5, "observation": "Même baie du volume bas recoupée depuis un angle différent."}
+      ],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "door",
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [4, 5],
+          "cues": ["shape_detail", "relative_position", "structural_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "plausible",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-platform-timber-deck",
+      "kind": "platform",
+      "certainty": "certain",
+      "statement": "Terrasse/deck en bois surélevé, avec garde-corps bois et supports visibles, appartenant au bâtiment cible et recoupé dans les photos 3 et 4.",
+      "evidence": [
+        {"photo_index": 3, "observation": "Plateforme horizontale en bois avec garde-corps, poteau vertical et contreventement diagonal visibles."},
+        {"photo_index": 4, "observation": "Extrémité et garde-corps du même deck visibles à droite, avec structure porteuse sous la plateforme."}
+      ],
+      "attributes": {
+        "exterior_material": "timber",
+        "supports": ["poteaux verticaux en bois visibles sous la plateforme", "contreventements diagonaux en bois visibles sous la plateforme"],
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [3, 4],
+          "cues": ["shape_detail", "relative_position", "structural_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "exterior_material": "certain",
+        "supports": "certain",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-stair-exterior",
+      "kind": "stair",
+      "certainty": "certain",
+      "statement": "Escalier extérieur maçonné/enduit longeant le bâtiment cible, visible de façon cohérente dans les photos 3, 4 et 5 ; aucune volée cachée ni retournement non visible n'est ajouté.",
+      "evidence": [
+        {"photo_index": 3, "observation": "Escalier extérieur clair montant le long de la zone de jonction avec le bâtiment voisin."},
+        {"photo_index": 4, "observation": "Partie basse et mur latéral de l'escalier visibles au premier plan à gauche."},
+        {"photo_index": 5, "observation": "La volée et son mur latéral sont visibles sur une plus grande longueur et recoupent la même position relative au bâtiment."}
+      ],
+      "attributes": {
+        "exterior_material": "masonry",
+        "subject_ownership": "target_building",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [3, 4, 5],
+          "cues": ["shape_detail", "relative_position", "structural_continuity", "occlusion_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "exterior_material": "plausible",
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-terrain-right-slope",
+      "kind": "terrain",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "La voirie et le pied du mur montrent une montée nette le long de la façade de capture droite, de l'avant vers l'arrière, sans métrique de pente.",
+      "evidence": [{"photo_index": 2, "observation": "Le bord de voirie et la ligne de contact au pied du bâtiment montent continûment de la gauche vers la droite de l'image, correspondant de l'avant vers l'arrière sur ce côté."}],
+      "attributes": {
+        "slope_direction": "front_to_rear_up",
+        "subject_ownership": "external_context"
+      },
+      "attribute_certainty": {
+        "slope_direction": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-context-adjacent-building",
+      "kind": "context",
+      "certainty": "certain",
+      "statement": "Un bâtiment voisin distinct du bâtiment cible est visible à gauche dans les vues 3 et 5 et ne doit pas être reconstruit comme partie de la cible.",
+      "evidence": [
+        {"photo_index": 3, "observation": "Façade grise avec ses propres ouvertures et toiture, séparée visuellement du volume clair cible."},
+        {"photo_index": 5, "observation": "Mur ancien dégradé et grande souche de cheminée appartenant au volume voisin à gauche du volume clair cible."}
+      ],
+      "attributes": {
+        "subject_ownership": "external_context",
+        "multiview_identity": {
+          "status": "same_physical_object",
+          "photo_indexes": [3, 5],
+          "cues": ["relative_position", "structural_continuity", "occlusion_continuity"]
+        }
+      },
+      "attribute_certainty": {
+        "subject_ownership": "certain",
+        "multiview_identity": "certain"
+      },
