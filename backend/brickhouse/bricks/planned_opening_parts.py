@@ -25,8 +25,12 @@ from .windows import (
     _emit_joinery_free_glazing,
     _emit_pair,
     _selected_layout,
+    _to_global,
     choose_window_layout,
 )
+
+_GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"
+_COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"
 
 
 class PlannedOpeningStatus(BaseModel):
@@ -143,6 +147,109 @@ def _emit_legacy_window_fallback(
     return False
 
 
+def _emit_generic_two_pane(
+    *,
+    raster,
+    facade: Facade,
+    front: int,
+    depth: int,
+    placements: list[WindowPartPlacement],
+) -> bool:
+    """Fill the exact raster as two glazed zones separated by one neutral mullion.
+
+    The surrounding wall remains the jamb/lintel/sill support already owned by the
+    wall raster. Only the central subdivision is added, so pane_count=2 is visible
+    without inventing leaf count or a window style. The same placement-approved
+    BRICK_1X1 primitive used by joinery-free glazing is reused for the mullion.
+    """
+    if raster.width_studs < 5 or raster.height_bricks < 2:
+        return False
+    mullion_local_x = raster.width_studs // 2
+    left_width = mullion_local_x
+    right_width = raster.width_studs - mullion_local_x - 1
+    if left_width < 1 or right_width < 1:
+        return False
+
+    _emit_joinery_free_glazing(
+        placements,
+        facade=facade,
+        local_x=raster.x_studs,
+        z_bricks=raster.z_bricks,
+        width_studs=left_width,
+        height_bricks=raster.height_bricks,
+        front=front,
+        depth=depth,
+        opening_id=raster.id,
+    )
+    _emit_joinery_free_glazing(
+        placements,
+        facade=facade,
+        local_x=raster.x_studs + mullion_local_x + 1,
+        z_bricks=raster.z_bricks,
+        width_studs=right_width,
+        height_bricks=raster.height_bricks,
+        front=front,
+        depth=depth,
+        opening_id=raster.id,
+    )
+    for dz in range(raster.height_bricks):
+        x, y, z, rotation = _to_global(
+            facade,
+            raster.x_studs + mullion_local_x,
+            1,
+            raster.z_bricks + dz,
+            front,
+            depth,
+        )
+        placements.append(WindowPartPlacement(
+            part_id="BRICK_1X1",
+            category="window_frame",
+            facade=facade,
+            x_studs=x,
+            y_studs=y,
+            z_plates=z,
+            rotation_quarter_turns=rotation,
+            opening_id=raster.id,
+        ))
+    return True
+
+
+def _compact_panel_heights(height_bricks: int) -> tuple[int, ...] | None:
+    """Partition height into 3-brick panels and 2-brick slots; 2-brick slots use two clear 1-brick panels."""
+    for count in range(1, 4):
+        for twos in range(count + 1):
+            threes = count - twos
+            if 3 * threes + 2 * twos == height_bricks:
+                return (3,) * threes + (2,) * twos
+    return None
+
+
+def _emit_compact_two_pane(
+    *, raster, facade: Facade, front: int, depth: int, placements: list[WindowPartPlacement],
+) -> bool:
+    """Build two 4-stud transparent panel stacks with one neutral central mullion."""
+    if raster.width_studs != 9:
+        return False
+    heights = _compact_panel_heights(raster.height_bricks)
+    if heights is None:
+        return False
+    for pane_x in (0, 5):
+        z_offset = 0
+        for panel_height in heights:
+            if panel_height == 3:
+                x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)
+                placements.append(WindowPartPlacement(part_id="PANEL_1X4X3_60581", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+            else:
+                for one_high in range(2):
+                    x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset + one_high, front, depth)
+                    placements.append(WindowPartPlacement(part_id="PANEL_1X4X1_43337", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+            z_offset += panel_height
+    for dz in range(raster.height_bricks):
+        x, y, z, rotation = _to_global(facade, raster.x_studs + 4, 1, raster.z_bricks + dz, front, depth)
+        placements.append(WindowPartPlacement(part_id="BRICK_1X1", category="window_frame", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+    return True
+
+
 def generate_planned_opening_parts(
     building: BuildingModel,
     shell: BuildingBrickShell,
@@ -209,6 +316,41 @@ def generate_planned_opening_parts(
                     opening_id=opening.id,
                     represented=False,
                     reason=reservation.reason or "opening has no reserved motif",
+                ))
+                continue
+
+            if reservation.motif_id == _COMPACT_TWO_PANE_MOTIF_ID:
+                if (reservation.width_studs != raster.width_studs or reservation.height_bricks != raster.height_bricks or not _emit_compact_two_pane(raster=raster, facade=facade, front=front, depth=depth, placements=placements)):
+                    statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=False, reason="compact two-pane reservation does not match a representable wall raster"))
+                    continue
+                represented.add(opening.id)
+                statuses.append(PlannedOpeningStatus(opening_id=opening.id, represented=True, representation="compact_two_pane", reason=reservation.reason))
+                continue
+
+            if reservation.motif_id == _GENERIC_TWO_PANE_MOTIF_ID:
+                if (
+                    reservation.width_studs != raster.width_studs
+                    or reservation.height_bricks != raster.height_bricks
+                    or not _emit_generic_two_pane(
+                        raster=raster,
+                        facade=facade,
+                        front=front,
+                        depth=depth,
+                        placements=placements,
+                    )
+                ):
+                    statuses.append(PlannedOpeningStatus(
+                        opening_id=opening.id,
+                        represented=False,
+                        reason="generic two-pane reservation does not match a representable wall raster",
+                    ))
+                    continue
+                represented.add(opening.id)
+                statuses.append(PlannedOpeningStatus(
+                    opening_id=opening.id,
+                    represented=True,
+                    representation="generic_two_pane",
+                    reason=reservation.reason,
                 ))
                 continue
 
