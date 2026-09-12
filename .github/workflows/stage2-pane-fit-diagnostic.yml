@@ -1,0 +1,98 @@
+name: Stage 2 pane fit diagnostic
+
+on:
+  push:
+    branches: [stage2-real-survey-to-scene]
+    paths:
+      - '.github/workflows/stage2-pane-fit-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Diagnose exact paired motif fit
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import generate_building_brick_shell
+          from brickhouse.bricks.architectural_solutions import rank_window_solutions
+          from brickhouse.bricks.opening_motifs import opening_motifs_for_topology
+
+          IDS = [
+              'obs-front-opening-top-left',
+              'obs-front-opening-top-right',
+              'obs-front-opening-middle-left',
+              'obs-front-opening-middle-right',
+          ]
+          source = ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json', encoding='utf-8')))
+          volume = next(v for v in source.volumes if v.id == 'volume_main')
+          openings = [next(o for o in source.openings if o.id == oid) for oid in IDS]
+          scene = source.model_copy(update={
+              'id':'pane-fit-diagnostic','name':'Pane fit diagnostic','volumes':[volume],'openings':openings,
+              'roofs':[], 'terrain':None, 'chimneys':[], 'platforms':[], 'stairs':[], 'equipment':[], 'visibility':[],
+              'relations':[], 'platform_structure_observations':[], 'wall_profile_observations':[], 'stair_system_links':[],
+          })
+          projection = project_scene_to_building(scene)
+          assert projection.building is not None
+          building = projection.building
+          shell = generate_building_brick_shell(generate_building_geometry(building), 48)
+          front = next(w for w in shell.walls if w.facade.value == 'front')
+          rasters = {r.id:r for r in front.grid.openings}
+          motifs = opening_motifs_for_topology(leaf_count=None, pane_count=2)
+          report = {
+              'front_wall': {
+                  'width_studs': front.grid.width_studs,
+                  'height_bricks': front.grid.height_bricks,
+                  'studs_per_meter': front.grid.studs_per_meter,
+                  'courses_per_meter': front.grid.courses_per_meter,
+              },
+              'motifs': [m.model_dump(mode='json') for m in motifs],
+              'openings': {},
+          }
+          for opening in openings:
+              raster = rasters[opening.id]
+              selection = rank_window_solutions(
+                  architectural_width_m=opening.width,
+                  architectural_height_m=opening.height,
+                  raster_width_studs=raster.width_studs,
+                  raster_height_bricks=raster.height_bricks,
+                  observed_leaf_count=None,
+                  observed_pane_count=2,
+              )
+              reasons=[]
+              for motif in motifs:
+                  dx=abs(motif.width_studs-raster.width_studs)
+                  dz=abs(motif.height_bricks-raster.height_bricks)
+                  reasons.append({
+                      'motif_id':motif.id,
+                      'motif_width_studs':motif.width_studs,
+                      'motif_height_bricks':motif.height_bricks,
+                      'dx_studs':dx,'dz_bricks':dz,
+                      'passes_width_bound':dx <= 1,
+                      'passes_height_bound':dz <= 1,
+                      'accepted_by_ranker':any(c.motif_id == motif.id for c in selection.candidates),
+                      'rejection_reason': None if dx <= 1 and dz <= 1 else ('width adjustment exceeds 1 stud' if dx > 1 and dz <= 1 else 'height adjustment exceeds 1 brick' if dz > 1 and dx <= 1 else 'width and height adjustments exceed local bounds'),
+                  })
+              report['openings'][opening.id]={
+                  'scene':{'width_m':opening.width,'height_m':opening.height,'offset_horizontal_m':opening.offset_horizontal,'offset_vertical_m':opening.offset_vertical},
+                  'raster':raster.model_dump(mode='json'),
+                  'ranked_candidates':[c.model_dump(mode='json') for c in selection.candidates],
+                  'motif_fit':reasons,
+              }
+          Path('/tmp/pane-fit-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pane-fit-diagnostic
+          path: /tmp/pane-fit-report.json
+          retention-days: 7
