@@ -215,7 +215,7 @@ def _emit_generic_two_pane(
 
 
 def _compact_panel_heights(height_bricks: int) -> tuple[int, ...] | None:
-    """Use at most three real transparent panels per pane, preferring 3-brick panels."""
+    """Partition height into 3-brick panels and 2-brick slots; 2-brick slots use two clear 1-brick panels."""
     for count in range(1, 4):
         for twos in range(count + 1):
             threes = count - twos
@@ -236,9 +236,13 @@ def _emit_compact_two_pane(
     for pane_x in (0, 5):
         z_offset = 0
         for panel_height in heights:
-            part_id = "PANEL_1X4X3_60581" if panel_height == 3 else "PANEL_1X4X2_8012"
-            x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)
-            placements.append(WindowPartPlacement(part_id=part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+            if panel_height == 3:
+                x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)
+                placements.append(WindowPartPlacement(part_id="PANEL_1X4X3_60581", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
+            else:
+                for one_high in range(2):
+                    x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset + one_high, front, depth)
+                    placements.append(WindowPartPlacement(part_id="PANEL_1X4X1_43337", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))
             z_offset += panel_height
     for dz in range(raster.height_bricks):
         x, y, z, rotation = _to_global(facade, raster.x_studs + 4, 1, raster.z_bricks + dz, front, depth)

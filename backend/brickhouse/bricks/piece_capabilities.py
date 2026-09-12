@@ -174,7 +174,7 @@ def create_current_engine_capability_registry(
         for assembly in VALIDATED_WINDOW_ASSEMBLIES
         for part_id in (assembly.frame_part_id, assembly.pane_part_id)
     }
-    window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X2_8012"})
+    window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X2_8012", "PANEL_1X4X1_43337"})
     registry = promote_capabilities(
         registry,
         window_ids,

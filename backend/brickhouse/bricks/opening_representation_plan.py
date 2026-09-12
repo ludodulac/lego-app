@@ -32,7 +32,7 @@ PlanStatus = Literal["reserved", "unsupported", "not_applicable"]
 _GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"
 _GENERIC_TWO_PANE_ASSEMBLY_ID = "generic-two-pane-raster-split"
 _COMPACT_TWO_PANE_MOTIF_ID = "compact_two_pane:transparent_panels"
-_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-8012"
+_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-43337"
 _GLASS_BLOCK_GLAZING = {
     "glass block",
     "glass blocks",
