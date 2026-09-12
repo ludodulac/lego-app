@@ -34,6 +34,11 @@ jobs:
           print('real Survey checkpoint verified')
           PY
 
+      - name: Verify generic Scene pane contract and serialization
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m pytest -q tests/scene/test_survey_scene_pane_contract.py
+
       - name: Install browser driver
         run: python -m pip install 'playwright>=1.50,<2'
 
@@ -90,8 +95,14 @@ jobs:
               download.save_as(str(output))
               assert output.exists() and output.stat().st_size > 100000, output.stat().st_size if output.exists() else 0
               raw = output.read_bytes()
-              for token in (b'pane_count', b'obs-front-opening-top-left', b'obs-front-opening-middle-right'):
-                  assert token in raw, f'missing Survey truth token in handoff PDF: {token!r}'
+              for token in (
+                  b'pane_count',
+                  b'obs-front-opening-top-left',
+                  b'obs-front-opening-middle-right',
+                  b'SCENEOPENING OBSERVABLE TOPOLOGY',
+                  b'MUST preserve that exact observed integer',
+              ):
+                  assert token in raw, f'missing corrected contract/Survey token in handoff PDF: {token!r}'
               assert not runtime_errors, runtime_errors
               browser.close()
 
