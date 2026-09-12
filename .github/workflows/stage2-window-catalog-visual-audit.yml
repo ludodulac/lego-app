@@ -1,0 +1,162 @@
+name: Stage 2 window catalog visual audit
+
+on:
+  push:
+    branches: [stage2-two-pane-visual-refinement]
+    paths:
+      - '.github/workflows/stage2-window-catalog-visual-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Build fallback, raster, and real-window-family variants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import csv, json
+
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import (
+              LEGORepresentationPlan, OpeningRepresentationReservation,
+              apply_opening_representation_plan, generate_building_brick_shell,
+              generate_spatial_brick_shell,
+          )
+          from brickhouse.bricks.windows import VALIDATED_WINDOW_ASSEMBLIES, _emit_pair
+          from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
+          from brickhouse.bricks.bom import generate_bom
+          from brickhouse.bricks.assembly import generate_assembly_plan
+          from brickhouse.bricks.export import create_export_bundle
+          from brickhouse.pipeline import run_m0_pipeline_model, _build_local_model, _restore_opening_provenance
+          from brickhouse.building.models import Facade
+
+          IDS=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          source=ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json',encoding='utf-8')))
+          volume=next(v for v in source.volumes if v.id=='volume_main')
+          exact=[next(o for o in source.openings if o.id==oid) for oid in IDS]
+
+          def scene_with(label,pane_count):
+              openings=[]
+              for opening in exact:
+                  visual=opening.opening_visual
+                  openings.append(opening.model_copy(update={'opening_visual':visual.model_copy(update={'pane_count':pane_count})}))
+              return source.model_copy(update={
+                  'id':f'catalog-audit-{label}','name':f'Catalog audit {label}',
+                  'volumes':[volume],'openings':openings,
+                  'roofs':[],'terrain':None,'chimneys':[],'platforms':[],'stairs':[],
+                  'equipment':[],'visibility':[],'relations':[],
+                  'platform_structure_observations':[],'wall_profile_observations':[],'stair_system_links':[],
+                  'notes':'Diagnostic micro-scene only.'
+              })
+
+          def building_for(label,pane_count):
+              projection=project_scene_to_building(scene_with(label,pane_count))
+              assert projection.building is not None and not projection.blocked
+              return projection.building
+
+          fallback_building=building_for('fallback',None)
+          raster_building=building_for('raster',2)
+          fallback=run_m0_pipeline_model(fallback_building,front_width_studs=48)
+          raster=run_m0_pipeline_model(raster_building,front_width_studs=48)
+          Path('/tmp/fallback.json').write_text(fallback.model_dump_json(indent=2,exclude_none=True),encoding='utf-8')
+          Path('/tmp/raster.json').write_text(raster.model_dump_json(indent=2,exclude_none=True),encoding='utf-8')
+
+          # Diagnostic catalogue candidate: six placement-approved 4x3 frame+pane assemblies
+          # arranged 2 columns x 3 rows in an 8x9 representation footprint.
+          building=raster_building
+          geometry=generate_building_geometry(building)
+          shell=generate_building_brick_shell(geometry,48)
+          source_rasters={r.id:(wall,r) for wall in shell.walls for r in wall.grid.openings if r.id in IDS}
+          assembly=next(a for a in VALIDATED_WINDOW_ASSEMBLIES if a.id=='window-1x4x3-60594-60603')
+          reservations=[]
+          for opening in building.openings:
+              if opening.id not in IDS: continue
+              reservations.append(OpeningRepresentationReservation(
+                  opening_id=opening.id,facade=opening.facade,architectural_type=opening.type,status='reserved',
+                  representation_role='window',motif_id='diagnostic:catalog_2x3_60594',composition='paired',
+                  assembly_id=assembly.id,width_studs=8,height_bricks=9,depth_studs=1,
+                  orientation='vertical_in_facade',connection_strategy='stud_bearing_in_wall_opening',
+                  support_requirement='surrounding_wall_bearing',
+                  reason='diagnostic composition of placement-approved real 4x3 window assemblies'
+              ))
+          plan=LEGORepresentationPlan(building_id=building.id,volume_id=shell.volume_id,openings=reservations)
+          application=apply_opening_representation_plan(building,shell,plan)
+          assert not application.rejections, [r.model_dump(mode='json') for r in application.rejections]
+          adjusted=application.shell
+          walls={w.facade:w for w in adjusted.walls}
+          front=walls[Facade.FRONT].grid.width_studs; depth=walls[Facade.RIGHT].grid.width_studs
+          placements=[]
+          anchored={r.id:r for w in adjusted.walls for r in w.grid.openings if r.id in IDS}
+          for oid in IDS:
+              r=anchored[oid]
+              assert (r.width_studs,r.height_bricks)==(8,9)
+              for row in range(3):
+                  for col in range(2):
+                      _emit_pair(placements,assembly,Facade.FRONT,r.x_studs+col*4,r.z_bricks+row*3,front,depth,opening_id=oid)
+          spatial=generate_spatial_brick_shell(adjusted)
+          model=_build_local_model(building,geometry,adjusted,spatial,None,[],placements)
+          model=_restore_opening_provenance(model,placements)
+          validate_model_part_capabilities(model,create_current_engine_capability_registry())
+          bundle=create_export_bundle(model,generate_bom(model),generate_assembly_plan(model),appearance=building.appearance)
+          Path('/tmp/catalog.json').write_text(bundle.model_dump_json(indent=2,exclude_none=True),encoding='utf-8')
+
+          def counts(bundle):
+              return {oid:len([p for p in bundle.brick_model.parts if p.opening_id==oid]) for oid in IDS}
+          audit={
+              'validated_assemblies':[a.__dict__ for a in VALIDATED_WINDOW_ASSEMBLIES],
+              'capabilities':[
+                  p.model_dump(mode='json') for p in create_current_engine_capability_registry().pieces
+                  if p.engine_id in {a.frame_part_id for a in VALIDATED_WINDOW_ASSEMBLIES}|{a.pane_part_id for a in VALIDATED_WINDOW_ASSEMBLIES}
+              ],
+              'source_rasters':{oid:[source_rasters[oid][1].width_studs,source_rasters[oid][1].height_bricks] for oid in IDS},
+              'catalog_anchors':[a.model_dump(mode='json') for a in application.anchors],
+              'catalog_adjustments':[a.model_dump(mode='json') for a in application.adjustments],
+              'parts':{'fallback':counts(fallback),'raster':counts(raster),'catalog':counts(bundle)},
+              'total_parts':{'fallback':len(fallback.brick_model.parts),'raster':len(raster.brick_model.parts),'catalog':len(bundle.brick_model.parts)},
+          }
+          Path('/tmp/catalog-audit.json').write_text(json.dumps(audit,indent=2,ensure_ascii=False),encoding='utf-8')
+          print(json.dumps(audit,indent=2,ensure_ascii=False))
+          assert all(v==12 for v in audit['parts']['catalog'].values()), audit
+          assert all(abs(a['delta_width_studs'])<=1 and abs(a['delta_height_bricks'])<=1 for a in audit['catalog_adjustments'])
+          PY
+      - name: Start viewer
+        run: python -m http.server 8000 -d frontend >/tmp/viewer.log 2>&1 &
+      - name: Capture comparable viewer images
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          from playwright.sync_api import sync_playwright
+          browser_path=next((shutil.which(n) for n in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(n)),None)
+          assert browser_path
+          with sync_playwright() as p:
+              browser=p.chromium.launch(headless=True,executable_path=browser_path,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader'])
+              for label in ('fallback','raster','catalog'):
+                  page=browser.new_page(viewport={'width':1400,'height':1000})
+                  page.goto('http://127.0.0.1:8000/viewer.html',wait_until='networkidle',timeout=60000)
+                  page.locator('#file-input').set_input_files(f'/tmp/{label}.json')
+                  page.wait_for_function("document.querySelector('#model-summary dd:nth-of-type(2)')?.textContent !== '—'",timeout=30000)
+                  page.locator('#view-front').click(); page.wait_for_timeout(1000)
+                  page.locator('#viewer').screenshot(path=f'/tmp/{label}.png')
+                  page.close()
+              browser.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: window-catalog-visual-audit
+          path: |
+            /tmp/catalog-audit.json
+            /tmp/fallback.json
+            /tmp/raster.json
+            /tmp/catalog.json
+            /tmp/fallback.png
+            /tmp/raster.png
+            /tmp/catalog.png
+          retention-days: 7
