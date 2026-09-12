@@ -1,0 +1,88 @@
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-chimney-ownership-unresolved",
+      "kind": "chimney",
+      "certainty": "certain",
+      "statement": "Une petite souche de cheminée avec antenne est visible au voisinage de la toiture du volume clair dans plusieurs vues, mais son appartenance exacte au bâtiment cible n'est pas suffisamment établie pour être affirmée.",
+      "evidence": [
+        {"photo_index": 1, "observation": "Petite souche claire avec antenne visible derrière la rive gauche de la toiture."},
+        {"photo_index": 4, "observation": "Petite souche claire avec antenne visible au-delà de la rive du volume clair."},
+        {"photo_index": 5, "observation": "Petite souche claire avec antenne visible à droite de la fenêtre haute, derrière la toiture."}
+      ],
+      "attributes": {
+        "subject_ownership": "unresolved",
+        "multiview_identity": {
+          "status": "unresolved",
+          "photo_indexes": [1, 4, 5],
+          "cues": ["relative_position"]
+        }
+      },
+      "attribute_certainty": {
+        "subject_ownership": "unproven",
+        "multiview_identity": "unproven"
+      },
+      "appearance": null,
+      "opening_visual": null
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-deck-connects-building",
+      "kind": "connects_to",
+      "subject_id": "obs-platform-timber-deck",
+      "object_id": "obs-building-boundary-target",
+      "certainty": "certain",
+      "statement": "Le deck en bois rejoint physiquement l'enveloppe du bâtiment cible.",
+      "evidence": [
+        {"photo_index": 3, "observation": "Le bord arrière du deck est continûment raccordé au mur clair du bâtiment."},
+        {"photo_index": 4, "observation": "L'extrémité du deck est visible contre le volume clair depuis un autre angle."}
+      ]
+    },
+    {
+      "id": "rel-stair-connects-building",
+      "kind": "connects_to",
+      "subject_id": "obs-stair-exterior",
+      "object_id": "obs-building-boundary-target",
+      "certainty": "certain",
+      "statement": "L'escalier extérieur est physiquement raccordé à l'enveloppe du bâtiment cible le long de son parcours visible.",
+      "evidence": [
+        {"photo_index": 4, "observation": "Le mur latéral de l'escalier est accolé au mur clair du bâtiment."},
+        {"photo_index": 5, "observation": "Le même raccord est visible sur une portion plus longue de la volée."}
+      ]
+    },
+    {
+      "id": "rel-volume-connects-building",
+      "kind": "connects_to",
+      "subject_id": "obs-volume-low-attached",
+      "object_id": "obs-building-boundary-target",
+      "certainty": "certain",
+      "statement": "Le volume bas enduit est physiquement attenant à l'enveloppe du bâtiment cible.",
+      "evidence": [
+        {"photo_index": 4, "observation": "Jonction continue visible entre le volume bas et le mur principal clair."},
+        {"photo_index": 5, "observation": "La même jonction est recoupée depuis un autre angle."}
+      ]
+    },
+    {
+      "id": "rel-volume-opening-part-of-volume",
+      "kind": "part_of",
+      "subject_id": "obs-volume-opening",
+      "object_id": "obs-volume-low-attached",
+      "certainty": "certain",
+      "statement": "La grande ouverture sombre appartient au volume bas attenant.",
+      "evidence": [
+        {"photo_index": 4, "observation": "L'ouverture est découpée directement dans la face visible du volume bas."},
+        {"photo_index": 5, "observation": "La même relation ouverture-volume est recoupée."}
+      ]
+    }
+  ],
+  "representation_policy": {
+    "preserve_nominal_materials": true,
+    "preserve_opening_composition": true,
+    "preserve_architectural_details": true,
+    "reproduce_weathering": false,
+    "reproduce_temporary_objects": false
+  },
+  "notes": "Les identités de capture sont conservées exactement comme fournies : front, right, left, left, rear. Les photos 3, 4 et 5 recoupent visuellement au moins un même pan et les mêmes objets extérieurs alors que la photo 5 porte le capture_hint rear ; conformément au contrat, cette divergence est signalée sans réécrire photos[].facade. La largeur réelle de la façade avant est inconnue, donc known_measurements est vide. Aucune métrique, zone cachée, volée d'escalier occultée ni appartenance de cheminée non prouvée n'a été inventée."
+}
