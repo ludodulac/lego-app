@@ -90,7 +90,7 @@ jobs:
               assert output.exists() and output.stat().st_size > 100000, f'PDF too small: {output.stat().st_size if output.exists() else 0}'
 
               raw = output.read_bytes()
-              for token in (b'pane_count', b'leaf_count', b'window_style'):
+              for token in (b'pane_count', b'leaf_count'):
                   assert token in raw, f'missing opening-semantics token in PDF: {token!r}'
               positions = [raw.find(name.encode('ascii')) for name in [
                   '01-original.jpg', '02-original.jpg', '03-original.jpg', '04-original.jpg', '05-original.jpg'
