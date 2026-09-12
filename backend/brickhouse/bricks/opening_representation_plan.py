@@ -29,6 +29,8 @@ from .opening_motifs import (
 
 
 PlanStatus = Literal["reserved", "unsupported", "not_applicable"]
+_GENERIC_TWO_PANE_MOTIF_ID = "generic_two_pane:raster_split"
+_GENERIC_TWO_PANE_ASSEMBLY_ID = "generic-two-pane-raster-split"
 _GLASS_BLOCK_GLAZING = {
     "glass block",
     "glass blocks",
@@ -100,8 +102,6 @@ def _structured_glazing_present(opening) -> bool | None:
     if not value:
         return False
     if value in _GLASS_BLOCK_GLAZING:
-        # Glass-block masonry has its own Scene representation path. Treating it
-        # as a framed window/door motif would invent architectural joinery.
         return False
     negative_tokens = (
         "none", "no glazing", "no glass", "not glazed", "unglazed",
@@ -190,6 +190,42 @@ def _reserved(opening, motif: OpeningMotif) -> OpeningRepresentationReservation:
     )
 
 
+def _generic_two_pane_reservation(opening, raster) -> OpeningRepresentationReservation | None:
+    """Reserve the existing opening raster for an observed two-pane split.
+
+    This representation-only fallback is used only after curated paired motifs fail.
+    It preserves the full wall void and expresses exactly one observed fact: two
+    glazed subdivisions. It does not infer operable leaves or architectural style.
+    """
+    visual = opening.opening_visual
+    if (
+        opening.type is not OpeningType.WINDOW
+        or visual is None
+        or visual.pane_count != 2
+        or visual.leaf_count is not None
+        or raster.width_studs < 5
+        or raster.height_bricks < 2
+    ):
+        return None
+    return OpeningRepresentationReservation(
+        opening_id=opening.id,
+        facade=opening.facade,
+        architectural_type=opening.type,
+        status="reserved",
+        representation_role="window",
+        motif_id=_GENERIC_TWO_PANE_MOTIF_ID,
+        composition="paired",
+        assembly_id=_GENERIC_TWO_PANE_ASSEMBLY_ID,
+        width_studs=raster.width_studs,
+        height_bricks=raster.height_bricks,
+        depth_studs=1,
+        orientation="vertical_in_facade",
+        connection_strategy="stud_bearing_in_wall_opening",
+        support_requirement="surrounding_wall_bearing",
+        reason="observed pane_count=2 represented by a raster-preserving generic two-pane split",
+    )
+
+
 def _unsupported(opening, role: OpeningRepresentationRole | None, reason: str) -> OpeningRepresentationReservation:
     return OpeningRepresentationReservation(
         opening_id=opening.id,
@@ -215,9 +251,6 @@ def build_opening_representation_plan(
     }
     reservations: dict[str, OpeningRepresentationReservation] = {}
 
-    # Preserve the existing facade-coherent window selection rather than
-    # regressing to independent per-window choices. Glass-block openings are
-    # excluded because their visible grid is material, not framed joinery.
     framed_candidates = [
         opening for opening in building.openings
         if not _is_structured_glass_block(opening)
@@ -259,12 +292,17 @@ def build_opening_representation_plan(
             )
             continue
 
+        wall, raster = wall_and_raster
         if opening.type is OpeningType.WINDOW:
-            reservations[opening.id] = _unsupported(
-                opening,
-                "window",
-                "no curated window motif fits the bounded local raster and known composition",
-            )
+            generic = _generic_two_pane_reservation(opening, raster)
+            if generic is not None:
+                reservations[opening.id] = generic
+            else:
+                reservations[opening.id] = _unsupported(
+                    opening,
+                    "window",
+                    "no curated window motif fits the bounded local raster and known composition",
+                )
             continue
 
         if role is None:
@@ -283,7 +321,6 @@ def build_opening_representation_plan(
             )
             continue
 
-        wall, raster = wall_and_raster
         motif = _best_non_window_motif(opening, raster, wall)
         if motif is None:
             reservations[opening.id] = _unsupported(
