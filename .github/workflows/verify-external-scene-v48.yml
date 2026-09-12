@@ -1,0 +1,55 @@
+name: Verify raw external Scene v4.8
+on:
+  push:
+    branches: [verify-external-scene-v48]
+    paths: ['.github/workflows/verify-external-scene-v48.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install -e '.[dev]'
+      - name: Materialize exact raw producer JSON and accepted Survey
+        run: |
+          cat > /tmp/scene.json.gz.b64 <<'EOF'
+          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
+          EOF
+          base64 -d /tmp/scene.json.gz.b64 | gzip -d > /tmp/brickhouse-scene-result.json
+          echo '833918375fa1303b164e229992f05552d646be768f087427d7f5f65227aa526c  /tmp/brickhouse-scene-result.json' | sha256sum -c -
+          git fetch origin stage2-real-survey-to-scene
+          : > /tmp/brickhouse-survey-result.json
+          for n in 1 2 3 4 5; do git show origin/stage2-real-survey-to-scene:frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part${n} >> /tmp/brickhouse-survey-result.json; done
+      - name: Parse Pydantic then gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from brickhouse.survey import ArchitecturalSurvey
+          from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey, project_scene_to_building
+          scene_path=Path('/tmp/brickhouse-scene-result.json')
+          survey_path=Path('/tmp/brickhouse-survey-result.json')
+          scene=ArchitecturalScene.model_validate_json(scene_path.read_text())
+          print('PYDANTIC_ARCHITECTURAL_SCENE=PASS')
+          survey=ArchitecturalSurvey.model_validate_json(survey_path.read_text())
+          issues=list(validate_scene_against_survey(survey, scene))
+          errors=[i for i in issues if getattr(i.severity,'value',i.severity)=='error']
+          print('GATE_ERROR_COUNT='+str(len(errors)))
+          for i in issues:
+              print('GATE_ISSUE', getattr(i.severity,'value',i.severity), i.code, i.object_id, i.message)
+          print('GATE_SURVEY_SCENE=' + ('PASS' if not errors else 'FAIL'))
+          proj=project_scene_to_building(scene)
+          blockers=[i for i in proj.issues if getattr(i.severity,'value',i.severity)=='blocker']
+          print('PROJECTION_BLOCKER_COUNT='+str(len(blockers)))
+          for i in blockers: print('PROJECTION_BLOCKER', i.code, i.object_id)
+          targets=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          by={o.id:o for o in scene.openings}
+          print('PANE_COUNTS', {x:(by[x].opening_visual.pane_count if by[x].opening_visual else None) for x in targets})
+          print('LOWER_TYPES', by['obs-front-opening-lower-left'].type, by['obs-front-opening-lower-right'].type)
+          print('DEFERRED', [(d.survey_id,getattr(d.kind,'value',d.kind)) for d in scene.deferred_entities])
+          print('RELATIONS', [(r.id,r.subject_id,r.object_id,getattr(r.geometry_status,'value',r.geometry_status),r.semantic_anchor_volume_id) for r in scene.relations])
+          raise SystemExit(0 if not errors else 2)
+          PY
