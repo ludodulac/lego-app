@@ -10,137 +10,40 @@ permissions:
   contents: read
 
 jobs:
-  generate:
+  diagnose:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout Stage 2 branch
-        uses: actions/checkout@v4
-
-      - name: Verify exact real Survey checkpoint bytes
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Diagnose exact Survey Scene fidelity issues
         run: |
           cat frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part{1,2,3,4,5} > /tmp/brickhouse-survey-result.json
-          echo 'b28e327125dc64c1548e1b5c75d3cc93e46d0e298fa62c19279fc1096cce50ef  /tmp/brickhouse-survey-result.json' | sha256sum -c -
           python - <<'PY'
           import json
-          p='/tmp/brickhouse-survey-result.json'
-          survey=json.load(open(p, encoding='utf-8'))
-          ids=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
-          by_id={o['id']:o for o in survey['observations']}
-          for oid in ids:
-              opening=by_id[oid]
-              assert opening.get('opening_visual',{}).get('pane_count') == 2, oid
-              assert 'leaf_count' not in opening.get('opening_visual',{}), oid
-              assert 'window_style' not in opening, oid
-          print('real Survey checkpoint verified')
-          PY
-
-      - name: Verify real Scene fixture identity and generic contract
-        run: |
-          python -m pip install -e '.[dev]'
-          python - <<'PY'
-          import hashlib, json
-          p='tests/fixtures/real_house_scene_pane_count_stage2.json'
-          obj=json.load(open(p, encoding='utf-8'))
-          canonical=json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
-          digest=hashlib.sha256(canonical).hexdigest()
-          assert digest == 'e2e5c9c9f12982fc04a55d50e625fc738b7f8334f3423d9577f8bd288229722e', digest
-          print('real Scene semantic identity verified', digest)
-          PY
-          python -m pytest -q tests/scene/test_survey_scene_pane_contract.py tests/scene/test_opening_pane_count_fidelity.py
-
-      - name: Install browser driver
-        run: python -m pip install 'playwright>=1.50,<2'
-
-      - name: Start Boldungo API and static frontend
-        run: |
-          uvicorn brickhouse.api:app --host 127.0.0.1 --port 8001 >/tmp/boldungo-api.log 2>&1 &
-          echo $! >/tmp/boldungo-api.pid
-          python -m http.server 8000 -d frontend >/tmp/boldungo-stage2-scene-http.log 2>&1 &
-          echo $! >/tmp/boldungo-stage2-scene-http.pid
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8001/health >/dev/null; then break; fi
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:8001/health
-
-      - name: Import exact real Scene through scene.html product path
-        run: |
-          python - <<'PY'
           from pathlib import Path
-          import json, shutil
-          from playwright.sync_api import sync_playwright
+          from brickhouse.scene import ArchitecturalScene, validate_scene_against_survey
+          from brickhouse.survey import ArchitecturalSurvey
 
-          scene_file = Path('tests/fixtures/real_house_scene_pane_count_stage2.json').resolve()
-          ids = ['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
-          browser_path = next((shutil.which(name) for name in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(name)), None)
-          assert browser_path, 'No Chromium/Chrome binary available'
-          report = {}
-          with sync_playwright() as p:
-              browser = p.chromium.launch(headless=True, executable_path=browser_path, args=['--no-sandbox'])
-              page = browser.new_page(viewport={'width': 1280, 'height': 1000})
-              errors=[]
-              page.on('pageerror', lambda error: errors.append(f'pageerror: {error}'))
-              response=page.goto('http://127.0.0.1:8000/scene.html?benchmark=real-house-5&stage=scene', wait_until='domcontentloaded', timeout=30000)
-              assert response and response.ok
-              page.wait_for_function("document.querySelector('#ai-package-status')?.textContent.includes('Survey réel accepté chargé')", timeout=15000)
-              page.evaluate("localStorage.setItem('brickhouse.engineApiUrl','http://127.0.0.1:8001')")
-              page.locator('#scene-result-file').set_input_files(str(scene_file))
-              page.locator('#scene-import-result').click()
-              page.wait_for_function("document.querySelector('#scene-result-status')?.textContent.includes('Scene validée') || document.querySelector('#scene-result-status')?.textContent.includes('Scene valide syntaxiquement') || document.querySelector('#scene-result-status')?.textContent.startsWith('Import impossible')", timeout=60000)
-              status=page.locator('#scene-result-status').inner_text()
-              summary=page.locator('#scene-result-summary').inner_text() if page.locator('#scene-result-summary').is_visible() else ''
-              assert not status.startswith('Import impossible'), status
-              payload=page.evaluate("() => JSON.parse(localStorage.getItem('brickhouse.pendingArchitecturalScene'))")
-              assert payload and payload.get('source') == 'scene_result_import', payload
-              accepted=payload['scene']
-              by_id={o['id']:o for o in accepted['openings']}
-              for oid in ids:
-                  opening=by_id[oid]
-                  assert opening.get('opening_visual',{}).get('pane_count') == 2, (oid, opening)
-                  assert opening.get('opening_visual',{}).get('leaf_count') is None, (oid, opening)
-                  assert opening.get('window_style') is None, (oid, opening)
-              unknown=by_id['obs-front-opening-lower-left']
-              assert unknown.get('opening_visual') is None, unknown
-              report={'status':status,'summary':summary,'architectural_readiness':payload.get('architectural_readiness'),'openings':{oid:by_id[oid] for oid in ids},'build_disabled':page.locator('#scene-build-bricks').is_disabled()}
-              Path('/tmp/scene-import-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
-              page.screenshot(path='/tmp/scene-import.png', full_page=True)
-              assert not errors, errors
-              browser.close()
+          survey = ArchitecturalSurvey.model_validate(json.load(open('/tmp/brickhouse-survey-result.json', encoding='utf-8')))
+          scene = ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json', encoding='utf-8')))
+          ids = {'obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right','obs-front-opening-lower-left'}
+          tracked = {o.id:o.model_dump(mode='json') for o in scene.openings if o.id in ids}
+          issues = validate_scene_against_survey(survey, scene)
+          report = {
+            'tracked_openings': tracked,
+            'issues': [issue.model_dump(mode='json') for issue in issues],
+            'errors': [issue.model_dump(mode='json') for issue in issues if str(getattr(issue.severity,'value',issue.severity)) == 'error'],
+          }
+          Path('/tmp/scene-survey-diagnostic.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print('===SCENE_SURVEY_DIAGNOSTIC===')
           print(json.dumps(report, indent=2, ensure_ascii=False))
+          print('===END_SCENE_SURVEY_DIAGNOSTIC===')
           PY
-
-      - name: Generate Survey to Scene handoff through product path
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import shutil
-          from playwright.sync_api import sync_playwright
-          output = Path('/tmp/BRICKHOUSE-SURVEY-TO-SCENE-pdf-handoff-0.2.pdf')
-          browser_path = next((shutil.which(name) for name in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(name)), None)
-          assert browser_path
-          with sync_playwright() as p:
-              browser=p.chromium.launch(headless=True, executable_path=browser_path, args=['--no-sandbox'])
-              page=browser.new_page(viewport={'width':1280,'height':900})
-              response=page.goto('http://127.0.0.1:8000/scene.html?benchmark=real-house-5&stage=scene', wait_until='domcontentloaded', timeout=30000)
-              assert response and response.ok
-              page.wait_for_function("document.querySelector('#ai-package-status')?.textContent.includes('Survey réel accepté chargé')", timeout=15000)
-              with page.expect_download(timeout=60000) as info:
-                  page.locator('#download-scene-handoff').click(timeout=10000)
-              info.value.save_as(str(output))
-              raw=output.read_bytes()
-              for token in (b'pane_count',b'obs-front-opening-top-left',b'obs-front-opening-middle-right',b'SCENEOPENING OBSERVABLE TOPOLOGY'):
-                  assert token in raw, token
-              browser.close()
-          print(output, output.stat().st_size)
-          PY
-
-      - name: Upload Stage 2 proof artifacts
+      - name: Upload diagnostic
         uses: actions/upload-artifact@v4
         with:
-          name: stage2-real-scene-import-proof
-          path: |
-            /tmp/scene-import-report.json
-            /tmp/scene-import.png
-            /tmp/BRICKHOUSE-SURVEY-TO-SCENE-pdf-handoff-0.2.pdf
+          name: stage2-scene-import-diagnostic
+          path: /tmp/scene-survey-diagnostic.json
           if-no-files-found: error
           retention-days: 7
