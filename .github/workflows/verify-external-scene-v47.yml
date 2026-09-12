@@ -1,0 +1,44 @@
+name: Verify external Scene v4.7
+on:
+  push:
+    branches: [verify-external-scene-v47]
+    paths: ['.github/workflows/verify-external-scene-v47.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m pip install -e '.[dev]'
+      - name: Validate raw external Scene against exact accepted Survey
+        run: |
+          git fetch origin stage2-real-survey-to-scene
+          : > /tmp/survey.json
+          for n in 1 2 3 4 5; do git show origin/stage2-real-survey-to-scene:frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part${n} >> /tmp/survey.json; done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building, validate_scene_against_survey
+          from brickhouse.survey import ArchitecturalSurvey
+          survey=ArchitecturalSurvey.model_validate_json(Path('/tmp/survey.json').read_text())
+          scene=ArchitecturalScene.model_validate_json(Path('tests/fixtures/external_scene_v47_raw.json').read_text())
+          issues=validate_scene_against_survey(survey,scene)
+          errors=[i.model_dump(mode='json') for i in issues if i.severity.value=='error']
+          by={o.id:o for o in scene.openings}
+          tracked=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          assert all(by[x].opening_visual and by[x].opening_visual.pane_count==2 for x in tracked)
+          assert by['obs-front-opening-lower-left'].type.value=='unknown'
+          assert by['obs-front-opening-lower-right'].type.value=='unknown'
+          assert errors==[], errors
+          projection=project_scene_to_building(scene)
+          unresolved={i.object_id for i in projection.issues if i.code=='certain_entity_geometry_unresolved'}
+          assert projection.blocked
+          assert unresolved=={'obs-side-opening-upper-shared','obs-side-opening-lower-shared','obs-chimney-ownership-unresolved'}, unresolved
+          print('SURVEY_SCENE_GLOBAL=PASS')
+          print('PROJECTION_LEGO=BLOCKED')
+          print('DEFERRED='+','.join(sorted(unresolved)))
+          PY
