@@ -1,0 +1,83 @@
+name: Scene handoff relation anchor v4.8 proof
+
+on:
+  push:
+    branches: [scene-handoff-relation-anchor-v48-proof]
+    paths:
+      - '.github/workflows/scene-handoff-relation-anchor-v48-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install project
+        run: python -m pip install -e '.[dev]' pypdf
+      - name: Generic relation-anchor proof
+        run: |
+          pytest -q \
+            tests/scene/test_scene_relation_anchor_handoff_contract.py \
+            tests/scene/test_semantic_anchor_secondary_volume.py \
+            tests/scene/test_unresolved_semantic_anchor.py \
+            tests/scene/test_scene_topological_relations.py
+      - name: Materialize exact accepted real Survey
+        run: |
+          git fetch origin stage2-real-survey-to-scene
+          : > /tmp/brickhouse-survey-result.json
+          for n in 1 2 3 4 5; do
+            git show origin/stage2-real-survey-to-scene:frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part${n} >> /tmp/brickhouse-survey-result.json
+          done
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Regenerate and verify real Survey to Scene handoff v4.8
+        run: |
+          cp /tmp/brickhouse-survey-result.json frontend/benchmarks/real-house-5/accepted-survey-v0.1.json
+          python -m http.server 8000 --directory frontend >/tmp/http.log 2>&1 &
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page(accept_downloads=True)
+              page.goto('http://127.0.0.1:8000/scene.html?benchmark=real-house-5&stage=scene', wait_until='networkidle')
+              button = page.locator('#download-scene-handoff')
+              button.wait_for(state='visible')
+              page.wait_for_function("!document.querySelector('#download-scene-handoff').disabled")
+              with page.expect_download(timeout=60000) as info:
+                  button.click()
+              info.value.save_as('/tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf')
+              browser.close()
+          PY
+          python - <<'PY'
+          import unicodedata
+          from pypdf import PdfReader
+          path = '/tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf'
+          text = '\n'.join(page.extract_text() or '' for page in PdfReader(path).pages)
+          normalized = unicodedata.normalize('NFKD', text).replace('—', '-').replace('–', '-')
+          required = [
+              'SCENE RELATION ANCHOR CONTRACT v4.8',
+              'semantic_anchor_volume_id',
+              'if BOTH subject_id and object_id already identify concrete Scene primitives',
+              'OMIT semantic_anchor_volume_id',
+              'exactly one endpoint remains a semantic/non-materialized',
+              'geometry_status:"unresolved"',
+              'DEFERRED CERTAIN ENTITIES v4.7',
+          ]
+          missing = [item for item in required if item not in normalized]
+          assert not missing, missing
+          print('HANDOFF_V48=PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scene-handoff-relation-anchor-v48-proof
+          path: /tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf
+          if-no-files-found: warn
+          retention-days: 7
