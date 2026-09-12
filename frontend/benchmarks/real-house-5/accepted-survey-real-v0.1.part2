@@ -1,0 +1,162 @@
+        "facade_horizontal_rank": 1,
+        "facade_vertical_rank": 3,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-front-opening-top-right",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre supérieure droite de la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Ouverture vitrée rectangulaire clairement visible au niveau supérieur droit."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_horizontal_rank": 2,
+        "facade_vertical_rank": 3,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-front-opening-middle-left",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre médiane gauche de la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Ouverture vitrée rectangulaire clairement visible au niveau médian gauche."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_horizontal_rank": 1,
+        "facade_vertical_rank": 2,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-front-opening-middle-right",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Fenêtre médiane droite de la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Ouverture vitrée rectangulaire clairement visible au niveau médian droit."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_horizontal_rank": 2,
+        "facade_vertical_rank": 2,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 2}
+    },
+    {
+      "id": "obs-front-opening-lower-left",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Petite ouverture basse située à gauche de la façade avant.",
+      "evidence": [{"photo_index": 1, "observation": "Petite ouverture rectangulaire sombre clairement visible près du soubassement gauche."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_horizontal_rank": 1,
+        "facade_vertical_rank": 1,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "plausible",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-front-opening-lower-right",
+      "kind": "opening",
+      "facade": "front",
+      "certainty": "certain",
+      "statement": "Grande ouverture basse vitrée à droite de la façade avant, avec composition de type porte vitrée.",
+      "evidence": [{"photo_index": 1, "observation": "Ouverture verticale vitrée avec cadre blanc et traverses, clairement visible au niveau bas droit."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "door_or_glazed_door",
+        "facade_horizontal_rank": 2,
+        "facade_vertical_rank": 1,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "plausible",
+        "facade_horizontal_rank": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": {"pane_count": 4}
+    },
+    {
+      "id": "obs-right-opening-upper",
+      "kind": "opening",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Ouverture haute étroite sur la façade de capture droite.",
+      "evidence": [{"photo_index": 2, "observation": "Ouverture verticale vitrée visible dans la moitié arrière du mur latéral."}],
+      "attributes": {
+        "physical_object_count": 1,
+        "semantic_type": "window",
+        "facade_vertical_rank": 2,
+        "subject_ownership": "target_building"
+      },
+      "attribute_certainty": {
+        "physical_object_count": "certain",
+        "semantic_type": "certain",
+        "facade_vertical_rank": "certain",
+        "subject_ownership": "certain"
+      },
+      "appearance": null,
+      "opening_visual": null
+    },
+    {
+      "id": "obs-right-opening-low-glassblock",
+      "kind": "opening",
+      "facade": "right",
+      "certainty": "certain",
+      "statement": "Ouverture basse à blocs de verre sur la façade de capture droite.",
