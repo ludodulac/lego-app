@@ -1,98 +1,97 @@
-name: Stage 2 compact two-pane consolidate
+name: Stage 2 compact two-pane final verify
 on: [push]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  consolidate:
+  verify:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install -e '.[dev]'
-      - name: Apply proven 43337 product change
+      - name: Prove 43337 Trans-Clear catalogue evidence
         run: |
           python - <<'PY'
-          from pathlib import Path
-
-          p=Path('backend/brickhouse/bricks/planned_opening_parts.py')
-          s=p.read_text()
-          s=s.replace(
-              '"""Use at most three real transparent panels per pane, preferring 3-brick panels."""',
-              '"""Partition height into 3-brick panels and 2-brick slots; 2-brick slots use two clear 1-brick panels."""',
-          )
-          old='''        for panel_height in heights:\n            part_id = "PANEL_1X4X3_60581" if panel_height == 3 else "PANEL_1X4X2_8012"\n            x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)\n            placements.append(WindowPartPlacement(part_id=part_id, category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))\n            z_offset += panel_height\n'''
-          new='''        for panel_height in heights:\n            if panel_height == 3:\n                x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset, front, depth)\n                placements.append(WindowPartPlacement(part_id="PANEL_1X4X3_60581", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))\n            else:\n                for one_high in range(2):\n                    x, y, z, rotation = _to_global(facade, raster.x_studs + pane_x, 4, raster.z_bricks + z_offset + one_high, front, depth)\n                    placements.append(WindowPartPlacement(part_id="PANEL_1X4X1_43337", category="window_pane", facade=facade, x_studs=x, y_studs=y, z_plates=z, rotation_quarter_turns=rotation, opening_id=raster.id))\n            z_offset += panel_height\n'''
-          assert old in s
-          p.write_text(s.replace(old,new))
-
-          p=Path('backend/brickhouse/bricks/piece_capabilities.py')
-          s=p.read_text()
-          old='window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X2_8012"})'
-          assert old in s
-          p.write_text(s.replace(old,'window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X2_8012", "PANEL_1X4X1_43337"})'))
-
-          p=Path('backend/brickhouse/bricks/opening_representation_plan.py')
-          s=p.read_text()
-          old='_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-8012"'
-          assert old in s
-          p.write_text(s.replace(old,'_COMPACT_TWO_PANE_ASSEMBLY_ID = "compact-two-pane-60581-43337"'))
+          import csv, json
+          parts={r['part_num']:r for r in csv.DictReader(open('data/raw/parts.csv',encoding='utf-8',newline=''))}
+          colors={r['id']:r for r in csv.DictReader(open('data/raw/colors.csv',encoding='utf-8',newline=''))}
+          assert parts['43337']['name']=='Panel 1 x 4 x 1 with Rounded Corners [Thick Wall]'
+          assert colors['47']['name']=='Trans-Clear' and str(colors['47']['is_trans']).lower() in {'1','true','t'}
+          elems=[]
+          with open('data/raw/elements.csv',encoding='utf-8',newline='') as f:
+            for row in csv.DictReader(f):
+              if row['part_num']=='43337' and row['color_id']=='47': elems.append(row['element_id'])
+          assert elems
+          proof={'part_num':'43337','name':parts['43337']['name'],'color_id':'47','color':'Trans-Clear','elements':elems}
+          print(json.dumps(proof,indent=2))
+          open('/tmp/catalog-proof.json','w').write(json.dumps(proof,indent=2))
           PY
-      - name: Lock exact compact BOM test
+      - name: Run consolidated tests
+        run: pytest -q tests/bricks/test_compact_two_pane_panels.py tests/scene/test_opening_pane_count_fidelity.py tests/scene/test_survey_scene_pane_contract.py
+      - name: Build exact four-window model and validate capabilities
         run: |
-          cat > tests/bricks/test_compact_two_pane_panels.py <<'PY'
+          python - <<'PY'
           import json
           from collections import Counter
+          from pathlib import Path
           from brickhouse.scene import ArchitecturalScene, project_scene_to_building
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.bricks import generate_building_brick_shell, build_opening_representation_plan, apply_opening_representation_plan
+          from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry, validate_model_part_capabilities
           from brickhouse.pipeline import run_m0_pipeline_model
-
-          IDS=("obs-front-opening-top-left","obs-front-opening-top-right","obs-front-opening-middle-left","obs-front-opening-middle-right")
-          TOP=IDS[:2]
-          MID=IDS[2:]
-
-          def _micro_building():
-              source=ArchitecturalScene.model_validate(json.load(open("tests/fixtures/real_house_scene_pane_count_stage2.json",encoding="utf-8")))
-              volume=next(v for v in source.volumes if v.id=="volume_main")
-              openings=[next(o for o in source.openings if o.id==oid) for oid in IDS]
-              micro=source.model_copy(update={"volumes":[volume],"openings":openings,"roofs":[],"terrain":None,"chimneys":[],"platforms":[],"stairs":[],"equipment":[],"visibility":[],"relations":[],"platform_structure_observations":[],"wall_profile_observations":[],"stair_system_links":[]})
-              projected=project_scene_to_building(micro)
-              assert projected.building is not None and not projected.blocked
-              return projected.building
-
-          def test_real_two_pane_windows_use_clear_compact_panel_family():
-              bundle=run_m0_pipeline_model(_micro_building(),front_width_studs=48)
-              bom={}
-              for oid in IDS:
-                  parts=[p for p in bundle.brick_model.parts if p.opening_id==oid]
-                  bom[oid]=Counter(p.part_id for p in parts)
-              for oid in TOP:
-                  assert bom[oid] == Counter({"PANEL_1X4X3_60581":6,"BRICK_1X1":9})
-              for oid in MID:
-                  assert bom[oid] == Counter({"PANEL_1X4X3_60581":4,"PANEL_1X4X1_43337":4,"BRICK_1X1":8})
-              assert all("PANEL_1X4X2_8012" not in bom[oid] for oid in IDS)
-
-          def test_exact_compact_reservations_do_not_move_real_rasters():
-              from brickhouse.geometry import generate_building_geometry
-              from brickhouse.bricks import generate_building_brick_shell, build_opening_representation_plan, apply_opening_representation_plan
-              building=_micro_building()
-              shell=generate_building_brick_shell(generate_building_geometry(building),48)
-              before={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in shell.walls for r in w.grid.openings if r.id in IDS}
-              plan=build_opening_representation_plan(building,shell)
-              result=apply_opening_representation_plan(building,shell,plan)
-              after={r.id:(r.x_studs,r.z_bricks,r.width_studs,r.height_bricks) for w in result.shell.walls for r in w.grid.openings if r.id in IDS}
-              assert not result.rejections
-              assert before == after
-              assert all(not a.geometry_changed for a in result.anchors if a.opening_id in IDS)
-              reservations={x.opening_id:x for x in plan.openings if x.opening_id in IDS}
-              assert all(x.status=="reserved" for x in reservations.values())
-              assert all(x.motif_id=="compact_two_pane:transparent_panels" for x in reservations.values())
-              assert all(x.assembly_id=="compact-two-pane-60581-43337" for x in reservations.values())
+          IDS=['obs-front-opening-top-left','obs-front-opening-top-right','obs-front-opening-middle-left','obs-front-opening-middle-right']
+          TOP=IDS[:2]; MID=IDS[2:]
+          source=ArchitecturalScene.model_validate(json.load(open('tests/fixtures/real_house_scene_pane_count_stage2.json')))
+          vol=next(v for v in source.volumes if v.id=='volume_main')
+          ops=[next(o for o in source.openings if o.id==i) for i in IDS]
+          micro=source.model_copy(update={'volumes':[vol],'openings':ops,'roofs':[],'terrain':None,'chimneys':[],'platforms':[],'stairs':[],'equipment':[],'visibility':[],'relations':[],'platform_structure_observations':[],'wall_profile_observations':[],'stair_system_links':[]})
+          pr=project_scene_to_building(micro); assert pr.building and not pr.blocked
+          b=pr.building
+          shell=generate_building_brick_shell(generate_building_geometry(b),48)
+          plan=build_opening_representation_plan(b,shell)
+          reservations={x.opening_id:x for x in plan.openings if x.opening_id in IDS}
+          assert set(reservations)==set(IDS)
+          assert all(x.status=='reserved' and x.motif_id=='compact_two_pane:transparent_panels' for x in reservations.values())
+          assert all(x.assembly_id=='compact-two-pane-60581-43337' for x in reservations.values())
+          assert all((x.width_studs,x.height_bricks)==(9,9) for oid,x in reservations.items() if oid in TOP)
+          assert all((x.width_studs,x.height_bricks)==(9,8) for oid,x in reservations.items() if oid in MID)
+          applied=apply_opening_representation_plan(b,shell,plan); assert not applied.rejections
+          bundle=run_m0_pipeline_model(b,front_width_studs=48)
+          validate_model_part_capabilities(bundle.brick_model,create_current_engine_capability_registry())
+          bom={}
+          for oid in IDS:
+            bom[oid]=dict(Counter(p.part_id for p in bundle.brick_model.parts if p.opening_id==oid))
+          for oid in TOP: assert bom[oid]=={'PANEL_1X4X3_60581':6,'BRICK_1X1':9}
+          for oid in MID: assert bom[oid]=={'PANEL_1X4X3_60581':4,'PANEL_1X4X1_43337':4,'BRICK_1X1':8}
+          assert all('PANEL_1X4X2_8012' not in bom[oid] for oid in IDS)
+          Path('/tmp/compact-final.json').write_text(bundle.model_dump_json(indent=2,exclude_none=True))
+          audit={'bom':bom,'parts_per_opening':{k:sum(v.values()) for k,v in bom.items()},'rejections':[],'total_parts':len(bundle.brick_model.parts)}
+          print(json.dumps(audit,indent=2))
+          Path('/tmp/audit-final.json').write_text(json.dumps(audit,indent=2))
           PY
-      - name: Verify consolidated slice
-        run: pytest -q tests/bricks/test_compact_two_pane_panels.py tests/scene/test_opening_pane_count_fidelity.py tests/scene/test_survey_scene_pane_contract.py
-      - name: Commit consolidated product change
+      - name: Start viewer
+        run: python -m http.server 8000 -d frontend >/tmp/viewer.log 2>&1 &
+      - name: Capture true viewer
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add backend/brickhouse/bricks/planned_opening_parts.py backend/brickhouse/bricks/piece_capabilities.py backend/brickhouse/bricks/opening_representation_plan.py tests/bricks/test_compact_two_pane_panels.py
-          git diff --cached --check
-          git commit -m "Use clear 43337 panels for compact 9x8 glazing"
-          git push origin HEAD:stage2-two-pane-visual-refinement
+          python - <<'PY'
+          import shutil
+          from playwright.sync_api import sync_playwright
+          path=next((shutil.which(n) for n in ('google-chrome','google-chrome-stable','chromium','chromium-browser') if shutil.which(n)),None); assert path
+          with sync_playwright() as p:
+            browser=p.chromium.launch(headless=True,executable_path=path,args=['--no-sandbox','--use-gl=angle','--use-angle=swiftshader'])
+            page=browser.new_page(viewport={'width':1400,'height':1000})
+            page.goto('http://127.0.0.1:8000/viewer.html',wait_until='networkidle',timeout=60000)
+            page.locator('#file-input').set_input_files('/tmp/compact-final.json')
+            page.wait_for_function("document.querySelector('#model-summary dd:nth-of-type(2)')?.textContent !== '—'",timeout=30000)
+            page.locator('#view-front').click(); page.wait_for_timeout(1200)
+            page.locator('#viewer').screenshot(path='/tmp/compact-final.png')
+            browser.close()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compact-two-pane-consolidated-proof
+          path: |
+            /tmp/catalog-proof.json
+            /tmp/compact-final.json
+            /tmp/audit-final.json
+            /tmp/compact-final.png
+          retention-days: 7
