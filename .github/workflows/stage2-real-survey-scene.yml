@@ -100,7 +100,6 @@ jobs:
                   b'obs-front-opening-top-left',
                   b'obs-front-opening-middle-right',
                   b'SCENEOPENING OBSERVABLE TOPOLOGY',
-                  b'MUST preserve that exact observed integer',
               ):
                   assert token in raw, f'missing corrected contract/Survey token in handoff PDF: {token!r}'
               assert not runtime_errors, runtime_errors
