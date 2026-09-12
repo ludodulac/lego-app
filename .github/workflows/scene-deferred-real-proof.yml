@@ -1,0 +1,136 @@
+name: Scene deferred entity real-house proof
+
+on:
+  push:
+    branches: [scene-deferred-real-proof]
+    paths:
+      - '.github/workflows/scene-deferred-real-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install project
+        run: python -m pip install -e '.[dev]' pypdf
+      - name: Generic proof
+        run: |
+          pytest -q \
+            tests/scene/test_deferred_certain_entities.py \
+            tests/scene/test_opening_pane_count_fidelity.py \
+            tests/scene/test_survey_scene_pane_contract.py
+      - name: Materialize exact real Survey and raw producer Scene
+        run: |
+          git fetch origin stage2-real-survey-to-scene
+          : > /tmp/brickhouse-survey-result.json
+          for n in 1 2 3 4 5; do
+            git show origin/stage2-real-survey-to-scene:frontend/benchmarks/real-house-5/accepted-survey-real-v0.1.part${n} >> /tmp/brickhouse-survey-result.json
+          done
+          git show origin/stage2-real-survey-to-scene:tests/fixtures/real_house_scene_pane_count_stage2.json > /tmp/raw-brickhouse-scene-result.json
+      - name: Exact real contract replay
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from brickhouse.scene import ArchitecturalScene, project_scene_to_building, validate_scene_against_survey
+          from brickhouse.survey import ArchitecturalSurvey
+
+          survey_data = json.loads(Path('/tmp/brickhouse-survey-result.json').read_text(encoding='utf-8'))
+          raw_scene = json.loads(Path('/tmp/raw-brickhouse-scene-result.json').read_text(encoding='utf-8'))
+          raw_by_id = {item['id']: item for item in raw_scene['openings']}
+          for oid in ('obs-front-opening-lower-left', 'obs-front-opening-lower-right'):
+              assert raw_by_id[oid]['type'] == 'unknown'
+          tracked = (
+              'obs-front-opening-top-left', 'obs-front-opening-top-right',
+              'obs-front-opening-middle-left', 'obs-front-opening-middle-right',
+          )
+          assert all(raw_by_id[oid].get('opening_visual', {}).get('pane_count') == 2 for oid in tracked)
+
+          replay = dict(raw_scene)
+          replay['deferred_entities'] = [
+              {'survey_id': 'obs-side-opening-upper-shared', 'kind': 'opening', 'geometry_status': 'unresolved', 'reason': 'canonical facade unresolved'},
+              {'survey_id': 'obs-side-opening-lower-shared', 'kind': 'opening', 'geometry_status': 'unresolved', 'reason': 'canonical facade unresolved'},
+              {'survey_id': 'obs-volume-opening', 'kind': 'opening', 'geometry_status': 'unresolved', 'reason': 'host face geometry unresolved'},
+              {'survey_id': 'obs-chimney-ownership-unresolved', 'kind': 'chimney', 'geometry_status': 'unresolved', 'reason': 'target ownership and metric geometry unresolved'},
+          ]
+
+          survey = ArchitecturalSurvey.model_validate(survey_data)
+          scene = ArchitecturalScene.model_validate(replay)
+          issues = validate_scene_against_survey(survey, scene)
+          errors = [issue.model_dump(mode='json') for issue in issues if issue.severity.value == 'error']
+          projection = project_scene_to_building(scene)
+          deferred_blockers = {
+              issue.object_id for issue in projection.issues
+              if issue.code == 'certain_entity_geometry_unresolved'
+          }
+          expected = {
+              'obs-side-opening-upper-shared', 'obs-side-opening-lower-shared',
+              'obs-volume-opening', 'obs-chimney-ownership-unresolved',
+          }
+          assert errors == [], errors
+          assert projection.blocked
+          assert deferred_blockers == expected
+          Path('/tmp/real-contract-replay-scene.json').write_text(json.dumps(replay, indent=2, ensure_ascii=False), encoding='utf-8')
+          report = {
+              'survey_scene_status': 'PASS',
+              'survey_scene_errors': errors,
+              'pane_count_2_preserved': {oid: raw_by_id[oid]['opening_visual']['pane_count'] for oid in tracked},
+              'lower_opening_types': {oid: raw_by_id[oid]['type'] for oid in ('obs-front-opening-lower-left','obs-front-opening-lower-right')},
+              'deferred_entities': sorted(expected),
+              'projection_blocked': projection.blocked,
+              'projection_blockers': [issue.model_dump(mode='json') for issue in projection.issues if issue.severity.value == 'blocker'],
+              'proof_kind': 'contract_replay_not_external_producer_output',
+          }
+          Path('/tmp/real-contract-replay-report.json').write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+          PY
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Regenerate real Survey to Scene handoff
+        run: |
+          cp /tmp/brickhouse-survey-result.json frontend/benchmarks/real-house-5/accepted-survey-v0.1.json
+          python -m http.server 8000 --directory frontend >/tmp/http.log 2>&1 &
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              page = browser.new_page(accept_downloads=True)
+              page.goto('http://127.0.0.1:8000/scene.html?benchmark=real-house-5&stage=scene', wait_until='networkidle')
+              button = page.locator('#download-scene-handoff')
+              button.wait_for(state='visible')
+              page.wait_for_function("!document.querySelector('#download-scene-handoff').disabled")
+              with page.expect_download(timeout=60000) as info:
+                  button.click()
+              download = info.value
+              download.save_as('/tmp/BRICKHOUSE-SURVEY-TO-SCENE-v47.pdf')
+              browser.close()
+          PY
+      - name: Verify handoff contract text
+        run: |
+          python - <<'PY'
+          from pypdf import PdfReader
+          text = '\n'.join(page.extract_text() or '' for page in PdfReader('/tmp/BRICKHOUSE-SURVEY-TO-SCENE-v47.pdf').pages)
+          assert 'BRICKHOUSE — DEFERRED CERTAIN ENTITIES v4.7' in text
+          assert 'deferred_entities' in text
+          assert 'attribute_certainty.semantic_type="certain"' in text
+          assert 'obs-side-opening-upper-shared' in text
+          assert 'obs-chimney-ownership-unresolved' in text
+          print('HANDOFF_V47=PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scene-deferred-real-proof
+          path: |
+            /tmp/BRICKHOUSE-SURVEY-TO-SCENE-v47.pdf
+            /tmp/real-contract-replay-report.json
+            /tmp/real-contract-replay-scene.json
+          if-no-files-found: error
+          retention-days: 7
