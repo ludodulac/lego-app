@@ -174,12 +174,13 @@ def create_current_engine_capability_registry(
         for assembly in VALIDATED_WINDOW_ASSEMBLIES
         for part_id in (assembly.frame_part_id, assembly.pane_part_id)
     }
+    window_ids.update({"PANEL_1X4X3_60581", "PANEL_1X4X1_43337"})
     registry = promote_capabilities(
         registry,
         window_ids,
         stage=PieceCapabilityStage.PLACEMENT_APPROVED,
         category="Windows and Doors",
-        notes="Validated only as a matched frame/pane window assembly.",
+        notes="Validated as matched frame/pane assemblies or bounded transparent-panel glazing primitives.",
     )
     return registry
 

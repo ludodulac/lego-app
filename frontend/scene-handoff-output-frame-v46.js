@@ -16,6 +16,16 @@ OUTPUT_TARGET=ArchitecturalScene v0.2
 OUTPUT_FILE=brickhouse-scene-result.json
 OUTPUT_SCHEMA_VERSION=0.2
 
+SCENEOPENING OBSERVABLE TOPOLOGY — AUTHORITATIVE CONTRACT EXTENSION
+The SceneOpening contract below also permits the field "opening_visual" already supported by ArchitecturalScene.
+For each SceneOpening matched to an ArchitecturalSurvey opening by id:
+- if the accepted Survey has a non-null opening_visual.pane_count, the SceneOpening MUST preserve that exact observed integer as "opening_visual": {"pane_count": <same integer>};
+- pane_count means only directly observable glazed subdivisions / zones; it is not an operable-leaf count and not an architectural style;
+- NEVER derive or strengthen leaf_count, pane_layout, window_style, or architectural PAIRED from pane_count;
+- when those values are unknown in the Survey, keep them absent or null in the Scene;
+- when the Survey has no observed opening topology, do not invent one.
+This extension preserves Survey evidence only; it does not authorize new semantic inference.
+
 WRONG_STAGE_OUTPUT — NEVER RETURN
 - ArchitecturalSurvey v0.1;
 - brickhouse-survey-result.json;
