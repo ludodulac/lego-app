@@ -79,6 +79,12 @@ jobs:
         if: always()
         with:
           name: scene-handoff-relation-anchor-v48-proof
-          path: /tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf
+          path: |
+            /tmp/BRICKHOUSE-SURVEY-TO-SCENE-v48.pdf
+            frontend/benchmarks/real-house-5/01-original.jpg
+            frontend/benchmarks/real-house-5/02-original.jpg
+            frontend/benchmarks/real-house-5/03-original.jpg
+            frontend/benchmarks/real-house-5/04-original.jpg
+            frontend/benchmarks/real-house-5/05-original.jpg
           if-no-files-found: warn
           retention-days: 7
