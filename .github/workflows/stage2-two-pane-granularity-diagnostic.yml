@@ -1,0 +1,95 @@
+name: Stage 2 two-pane granularity diagnostic
+
+on:
+  push:
+    branches: [stage2-two-pane-visual-refinement]
+    paths:
+      - '.github/workflows/stage2-two-pane-granularity-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install package
+        run: python -m pip install -e '.[dev]'
+      - name: Diagnose generic raster coverage and approved widths
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from brickhouse.building import BuildingModel, Metadata, Opening, OpeningType, Volume, VolumeShape, Facade
+          from brickhouse.bricks import (
+              apply_opening_representation_plan,
+              build_opening_representation_plan,
+              generate_building_brick_shell,
+              generate_planned_opening_parts,
+          )
+          from brickhouse.bricks.piece_capabilities import create_current_engine_capability_registry
+          from brickhouse.geometry import generate_building_geometry
+          from brickhouse.building.models import OpeningVisual
+
+          source = {"kind": "inferred", "confidence": 0.8}
+          raster_cases = [
+              (0.84, 0.72),
+              (1.16, 0.96),
+              (1.50, 1.20),
+              (1.82, 1.44),
+          ]
+          results=[]
+          for index,(width_m,height_m) in enumerate(raster_cases):
+              building=BuildingModel(
+                  schema_version='0.1', id=f'generic-two-pane-{index}', name='generic', building_type='building', units='m',
+                  volumes=[Volume(id='main', shape=VolumeShape.RECTANGULAR_PRISM, position={"x":0,"y":0,"z":0}, width=8, depth=6, height=5, floors=2, source=source)],
+                  openings=[Opening(id='w', type=OpeningType.WINDOW, volume_id='main', facade=Facade.FRONT,
+                                    offset_horizontal=2.5, offset_vertical=1.2, width=width_m, height=height_m,
+                                    source=source, opening_visual=OpeningVisual(pane_count=2))],
+                  roofs=[], appearance={}, metadata=Metadata(created_from='photo_analysis')
+              )
+              shell=generate_building_brick_shell(generate_building_geometry(building),48)
+              wall=next(w for w in shell.walls if w.facade is Facade.FRONT)
+              raster=next(r for r in wall.grid.openings if r.id=='w')
+              plan=build_opening_representation_plan(building,shell)
+              app=apply_opening_representation_plan(building,shell,plan)
+              parts,represented,statuses=generate_planned_opening_parts(building,app.shell,plan)
+              reservation=plan.reservation('w')
+              results.append({
+                  'metric':[width_m,height_m],
+                  'raster':[raster.width_studs,raster.height_bricks],
+                  'reservation':reservation.model_dump(mode='json'),
+                  'status':next(s for s in statuses if s.opening_id=='w').model_dump(mode='json'),
+                  'part_count':len([p for p in parts if p.opening_id=='w']),
+                  'frame_count':len([p for p in parts if p.opening_id=='w' and p.category=='window_frame']),
+                  'pane_count':len([p for p in parts if p.opening_id=='w' and p.category=='window_pane']),
+                  'represented':'w' in represented,
+              })
+
+          registry=create_current_engine_capability_registry()
+          approved=[p.model_dump(mode='json') for p in registry.pieces if p.auto_placeable]
+          narrower=[p for p in approved if p.get('width_studs') is not None and p['width_studs'] < 1]
+          width_values=sorted({p['width_studs'] for p in approved if p.get('width_studs') is not None})
+          report={
+              'raster_cases':results,
+              'approved_width_values':width_values,
+              'approved_parts_narrower_than_one_stud':narrower,
+              'minimum_approved_width_studs':min(width_values),
+          }
+          print(json.dumps(report,indent=2,ensure_ascii=False))
+          Path('/tmp/two-pane-granularity.json').write_text(json.dumps(report,indent=2,ensure_ascii=False),encoding='utf-8')
+          assert len({tuple(item['raster']) for item in results}) >= 3, results
+          assert all(item['reservation']['status']=='reserved' for item in results), results
+          assert all(item['reservation']['motif_id']=='generic_two_pane:raster_split' for item in results), results
+          assert all(item['status']['representation']=='generic_two_pane' for item in results), results
+          assert all(item['represented'] for item in results), results
+          assert report['minimum_approved_width_studs'] == 1.0, report
+          assert narrower == [], report
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: two-pane-granularity-diagnostic
+          path: /tmp/two-pane-granularity.json
+          retention-days: 7
