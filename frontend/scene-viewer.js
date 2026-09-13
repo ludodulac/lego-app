@@ -110,6 +110,37 @@ function renderPlatforms() {
   }
 }
 
+function renderPartialWallSegments() {
+  for (const wall of currentScene.partial_wall_segments ?? []) {
+    const start = wall.start, end = wall.end;
+    const height = metric(wall.height);
+    if (!start || !end || !knownNumber(height)) continue;
+    const values = [start.x, start.y, start.z, end.x, end.y, end.z].map(Number);
+    if (!values.every(Number.isFinite)) continue;
+    const [sx, sy, sz, ex, ey, ez] = values;
+    const vertices = new Float32Array([
+      sx, sz, sy,
+      ex, ez, ey,
+      ex, ez + height, ey,
+      sx, sz, sy,
+      ex, ez + height, ey,
+      sx, sz + height, sy,
+    ]);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+    geometry.computeVertexNormals();
+    const base = exteriorMaterial(wall.material);
+    const material = base.clone();
+    material.side = THREE.DoubleSide;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData.architecturalObjectId = wall.id;
+    mesh.userData.architecturalThickness = metric(wall.thickness);
+    mesh.userData.renderingConvention = 'zero-thickness visible plane when architectural thickness is unknown';
+    addEdges(mesh);
+    group.add(mesh);
+  }
+}
+
 function renderStairs() {
   for (const stair of currentScene.stairs ?? []) {
     const start = stair.start, end = stair.end;
@@ -270,8 +301,8 @@ currentScene = loadScene();
 if (!currentScene) {
   messageEl.textContent = 'Aucune ArchitecturalScene disponible. Revenez au parcours Photos et validez d’abord la reconstruction.';
 } else {
-  renderVolumes(); renderOpenings(); renderPlatforms(); renderStairs(); renderTerrain(); renderRoofs(); updateSummary(); frame();
-  const exteriorCount = (currentScene.platforms?.length ?? 0) + (currentScene.stairs?.length ?? 0);
+  renderVolumes(); renderOpenings(); renderPlatforms(); renderPartialWallSegments(); renderStairs(); renderTerrain(); renderRoofs(); updateSummary(); frame();
+  const exteriorCount = (currentScene.platforms?.length ?? 0) + (currentScene.partial_wall_segments?.length ?? 0) + (currentScene.stairs?.length ?? 0);
   const baseMessage = exteriorCount
     ? `Aperçu architectural chargé, avec ${exteriorCount} élément(s) extérieur(s) métriquement défini(s). Les détails non mesurés ne sont pas inventés.`
     : 'Aperçu architectural chargé. Cette vue ne remplace pas la validation nécessaire avant la construction LEGO.';
