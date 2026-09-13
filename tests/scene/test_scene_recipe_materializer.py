@@ -61,7 +61,7 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
     assert parts
     assert bundle["bom"]["total_parts"] == len(parts)
     assert bundle["assembly_plan"]["steps"]
-    assert any(value.startswith("volume-exterior-1:") for value in placement_ids)
+    assert not any(value.startswith("volume-exterior-1:") for value in placement_ids)
     assert any(value.startswith("scene-platform:platform-timber-1:") for value in placement_ids)
     assert any("stair-exterior-1-run-lower-v1" in value for value in placement_ids)
     assert any("stair-exterior-1-run-upper-v1" in value for value in placement_ids)
@@ -83,7 +83,6 @@ def test_materialized_scene_emits_viewer_compatible_partial_export_bundle(tmp_pa
         and part["category"] == "masonry"
         for part in parts
     )
-    assert ("partial_preview_secondary_volume_omitted", "volume-exterior-1") not in fidelity
     assert ("partial_preview_roof_omitted", "roof-1") not in fidelity
     assert ("partial_preview_exterior_object_omitted", "chimney-1") not in fidelity
 
