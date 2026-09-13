@@ -74,6 +74,15 @@ def materialize_scene_recipe(recipe_path: Path) -> ArchitecturalScene:
                 opening.setdefault("evidence", []).extend(deepcopy(update.get("evidence", [])))
             continue
 
+        if operation == "append_partial_wall_segments":
+            existing_ids = {item["id"] for item in payload.get("partial_wall_segments", [])}
+            additions = deepcopy(overlay.get("partial_wall_segments", []))
+            duplicate_ids = existing_ids.intersection(item["id"] for item in additions)
+            if duplicate_ids:
+                raise ValueError(f"partial wall overlay duplicates existing IDs: {sorted(duplicate_ids)!r}")
+            payload.setdefault("partial_wall_segments", []).extend(additions)
+            continue
+
         raise ValueError(f"Unsupported benchmark Scene overlay operation: {operation!r}")
 
     payload["id"] = recipe["scene_id"]

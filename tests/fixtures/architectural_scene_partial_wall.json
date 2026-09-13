@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.2",
+  "id": "scene-partial-wall-synthetic",
+  "name": "Synthetic partial wall beside open covered space",
+  "units": "m",
+  "volumes": [
+    {
+      "id": "volume_main",
+      "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+      "width": {"value": 4.0, "source": {"kind": "observed", "confidence": 1.0}, "evidence": []},
+      "depth": {"value": 5.0, "source": {"kind": "observed", "confidence": 1.0}, "evidence": []},
+      "height": {"value": 3.0, "source": {"kind": "observed", "confidence": 1.0}, "evidence": []},
+      "floors": 1,
+      "source": {"kind": "observed", "confidence": 1.0},
+      "evidence": []
+    }
+  ],
+  "openings": [],
+  "roofs": [],
+  "terrain": null,
+  "chimneys": [],
+  "platforms": [
+    {
+      "id": "landing-1",
+      "host_volume_id": "volume_main",
+      "position": {"x": -2.0, "y": 3.0, "z": 1.4},
+      "width": 2.0,
+      "depth": 2.0,
+      "thickness": 0.18,
+      "supports": [],
+      "material": "masonry",
+      "deck_board_direction": null,
+      "edges": null,
+      "source": {"kind": "observed", "confidence": 1.0},
+      "evidence": []
+    }
+  ],
+  "stairs": [],
+  "equipment": [],
+  "visibility": [],
+  "relations": [],
+  "partial_wall_segments": [
+    {
+      "id": "partial-wall-1",
+      "start": {"x": -2.0, "y": 4.3, "z": 0.0},
+      "end": {"x": -2.0, "y": 5.0, "z": 0.0},
+      "height": {"value": 1.4, "source": {"kind": "observed", "confidence": 1.0}, "evidence": []},
+      "thickness": null,
+      "material": "masonry",
+      "source": {"kind": "observed", "confidence": 1.0},
+      "evidence": []
+    }
+  ],
+  "appearance": {"walls": {"color": "off_white"}, "roof": {"color": "dark_gray"}, "frames": null},
+  "notes": "Synthetic contract proof: one partial wall frames an adjacent open region without creating a second volume or hidden closure."
+}

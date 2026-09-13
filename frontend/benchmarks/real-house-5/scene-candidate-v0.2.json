@@ -7,7 +7,8 @@
     "turning-stair-scene-overlay-v0.1.json",
     "relative-level-scene-overlay-v0.1.json",
     "confirmed-opening-semantics-overlay-v0.1.json",
-    "observed-front-window-surrounds-overlay-v0.1.json"
+    "observed-front-window-surrounds-overlay-v0.1.json",
+    "observed-covered-void-wall-overlay-v0.1.json"
   ],
   "retained_metric_values": {
     "volume_main.width_m": 7.2,

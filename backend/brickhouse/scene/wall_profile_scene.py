@@ -6,20 +6,23 @@ from pydantic import Field
 from brickhouse.survey import RelationKind
 
 from .models import CONNECTIVITY_TOLERANCE_M, EPSILON
+from .partial_wall import PartialWallSegment
 from .stair_system_links import SceneStairSystemLink
 from .topology import ArchitecturalScene as _TopologyArchitecturalScene
 from .wall_profile import WallProfileObservation
 
 
 class ArchitecturalScene(_TopologyArchitecturalScene):
-    """ArchitecturalScene with evidence-backed facade depth observations.
+    """ArchitecturalScene with evidence-backed partial wall and facade observations.
 
     Existing v0.2 JSON remains valid because appended collections default to empty.
     The inherited Scene validator calls overridden audit methods dynamically, so
-    append-only wall-profile, stair provenance and structural-support contracts can
-    participate in canonical validation without weakening older topology contracts.
+    append-only wall-profile, partial-wall, stair provenance and structural-support
+    contracts can participate in canonical validation without weakening older
+    topology contracts.
     """
 
+    partial_wall_segments: list[PartialWallSegment] = Field(default_factory=list)
     wall_profile_observations: list[WallProfileObservation] = Field(default_factory=list)
     stair_system_links: list[SceneStairSystemLink] = Field(default_factory=list)
 
@@ -39,11 +42,19 @@ class ArchitecturalScene(_TopologyArchitecturalScene):
                 *self.equipment,
             ]
         }
+        object_ids.update(support.id for platform in self.platforms for support in platform.supports)
+
+        wall_ids = [wall.id for wall in self.partial_wall_segments]
+        if len(wall_ids) != len(set(wall_ids)):
+            raise ValueError("partial wall segment IDs must be unique")
+        if object_ids.intersection(wall_ids):
+            raise ValueError("partial wall segment IDs must not collide with Scene object IDs")
+
         profile_ids = [profile.id for profile in self.wall_profile_observations]
         if len(profile_ids) != len(set(profile_ids)):
             raise ValueError("wall profile observation IDs must be unique")
-        if object_ids.intersection(profile_ids):
-            raise ValueError("wall profile observation IDs must not collide with Scene object IDs")
+        if object_ids.intersection(profile_ids) or set(wall_ids).intersection(profile_ids):
+            raise ValueError("wall profile observation IDs must not collide with Scene object or partial-wall IDs")
 
         scopes = []
         for profile in self.wall_profile_observations:
@@ -58,8 +69,12 @@ class ArchitecturalScene(_TopologyArchitecturalScene):
         link_ids = [link.id for link in self.stair_system_links]
         if len(link_ids) != len(set(link_ids)):
             raise ValueError("stair-system link IDs must be unique")
-        if object_ids.intersection(link_ids) or set(profile_ids).intersection(link_ids):
-            raise ValueError("stair-system link IDs must not collide with Scene object or wall-profile IDs")
+        if (
+            object_ids.intersection(link_ids)
+            or set(wall_ids).intersection(link_ids)
+            or set(profile_ids).intersection(link_ids)
+        ):
+            raise ValueError("stair-system link IDs must not collide with Scene object, partial-wall or wall-profile IDs")
         linked_runs: set[str] = set()
         for link in self.stair_system_links:
             if link.stair_run_id not in stair_ids:

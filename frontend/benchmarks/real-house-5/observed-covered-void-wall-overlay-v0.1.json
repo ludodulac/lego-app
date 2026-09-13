@@ -1,0 +1,34 @@
+{
+  "schema_version": "brickhouse-benchmark-scene-overlay-0.1",
+  "benchmark_id": "real-house-5",
+  "operation": "append_partial_wall_segments",
+  "partial_wall_segments": [
+    {
+      "id": "covered-void-right-masonry-wall-1",
+      "start": {"x": -2.2, "y": 7.15, "z": 0.0},
+      "end": {"x": -2.2, "y": 7.8, "z": 0.0},
+      "height": {
+        "value": 2.3,
+        "source": {"kind": "inferred", "confidence": 0.18},
+        "evidence": [
+          {"photo_index": 4, "observation": "The observed right masonry face rises from courtyard level to the underside/top region of the massive landing; 2.3 m reuses the existing inferred landing level rather than introducing a new measurement."},
+          {"photo_index": 5, "observation": "The same masonry face is visible beside the covered opening and reaches the landing-level top."}
+        ]
+      },
+      "thickness": null,
+      "material": "masonry",
+      "source": {"kind": "inferred", "confidence": 0.18},
+      "evidence": [
+        {"photo_index": 4, "observation": "A large positive white masonry face is directly visible on the right side of the covered void. Its existence is observed; its metric placement is only coarsely aligned to the already inferred massive landing."},
+        {"photo_index": 5, "observation": "The same positive masonry face is recut from the rear/oblique view beside the open covered zone."}
+      ]
+    }
+  ],
+  "inference_notes": [
+    "This segment represents only the observed positive masonry face at the right edge of the covered void.",
+    "Its baseline is a low-confidence placement aligned to the existing inferred platform-massive-1 envelope; it is not a Survey measurement.",
+    "Architectural thickness remains unknown and is deliberately null.",
+    "No back wall, hidden lateral closure, room, support or closed exterior volume is introduced.",
+    "The upper band/rim is not materialized in this first slice because its geometry distinct from the existing landing slab is not sufficiently constrained."
+  ]
+}
