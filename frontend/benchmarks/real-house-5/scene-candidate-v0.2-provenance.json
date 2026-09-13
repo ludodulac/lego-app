@@ -27,6 +27,13 @@
       "target": "platform-timber-1",
       "decision": "place_below_platform-massive-1",
       "statement": "Only the ordering is user-confirmed. The nominal timber z and support height remain low-confidence revisable Scene inference."
+    },
+    {
+      "kind": "photo_derived_scene_overlay",
+      "artifact": "timber-deck-extent-scene-overlay-v0.1.json",
+      "target": "platform-timber-1",
+      "decision": "extend_longitudinal_footprint_conservatively",
+      "statement": "Photos 3 and 4 support a longer lateral timber terrace than the previous candidate. The front edge is moved only from y=6.7 m to y=6.0 m while the existing rear termination, vertical level and outward projection are retained; the resulting 3.0 m depth is an inferred minimum visual correction, not a measurement."
     }
   ],
   "unresolved_metric_axes": [

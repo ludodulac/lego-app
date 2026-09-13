@@ -49,12 +49,24 @@ def materialize_scene_recipe(recipe_path: Path) -> ArchitecturalScene:
                 update = platform_updates.get(platform["id"])
                 if update is None:
                     continue
-                platform["position"]["z"] = update["position_z"]
-                platform["source"] = deepcopy(update["source"])
-                platform["evidence"] = deepcopy(update["evidence"])
+                if "position_z" in update:
+                    platform["position"]["z"] = update["position_z"]
+                if "position_y" in update:
+                    platform["position"]["y"] = update["position_y"]
+                if "depth" in update:
+                    platform["depth"] = update["depth"]
+                if "source" in update:
+                    platform["source"] = deepcopy(update["source"])
+                if "evidence" in update:
+                    platform["evidence"] = deepcopy(update["evidence"])
+                support_positions_y = update.get("support_positions_y", {})
                 for support in platform.get("supports", []):
-                    support["height"] = update["support_height"]
-                    support["source"] = deepcopy(update["source"])
+                    if "support_height" in update:
+                        support["height"] = update["support_height"]
+                    if support["id"] in support_positions_y:
+                        support["position"]["y"] = support_positions_y[support["id"]]
+                    if "source" in update:
+                        support["source"] = deepcopy(update["source"])
             continue
 
         if operation == "update_opening_semantics":
