@@ -64,4 +64,3 @@ def test_real_house_5_orientation_truth_does_not_promote_hidden_rear_content() -
     }
     assert "stair-exterior-1" in photo_5_evidence_ids
     assert "platform-massive-1" in photo_5_evidence_ids
-    assert "volume-exterior-1" in photo_5_evidence_ids

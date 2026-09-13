@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1",
+  "kind": "survey_audit",
+  "survey_id": "brickhouse-survey",
+  "summary": {"status": "needs_correction", "issue_count": 2},
+  "findings": [
+    {
+      "id": "audit-volume-exterior-overpromoted",
+      "status": "contradiction",
+      "target_type": "observation",
+      "target_id": "volume-exterior-1",
+      "severity": "error",
+      "photo_evidence": [
+        {"photo_index": 4, "observation": "Le grand secteur sombre est un espace couvert sous l'ouvrage superieur; les surfaces blanches visibles ne prouvent pas un volume ferme plein."},
+        {"photo_index": 5, "observation": "L'escalier et le palier recoupent l'ouvrage sans etablir une fermeture volumique complete."}
+      ],
+      "message": "L'observation certaine 'volume-exterior-1' sur-promouvait des surfaces maconnees autour d'un espace couvert en volume massif ferme distinct. La clarification utilisateur confirme que cette lecture cubique est fausse.",
+      "suggested_action": "remove"
+    },
+    {
+      "id": "audit-volume-support-relation-invalid",
+      "status": "contradiction",
+      "target_type": "relation",
+      "target_id": "relation-volume-supports-platform",
+      "severity": "error",
+      "photo_evidence": [
+        {"photo_index": 4, "observation": "Le palier est visible au-dessus de l'espace couvert, mais le support ne peut plus etre attribue a un unique volume massif ferme."}
+      ],
+      "message": "La relation supports depend de l'identite volumique retiree et ne doit pas survivre comme verite certaine.",
+      "suggested_action": "remove"
+    }
+  ]
+}

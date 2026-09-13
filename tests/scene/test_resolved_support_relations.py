@@ -1,13 +1,8 @@
-import json
-from pathlib import Path
-
 import pytest
 
 from brickhouse.scene import ArchitecturalScene
 
 SOURCE = {"kind": "inferred", "confidence": 0.7}
-ROOT = Path(__file__).resolve().parents[2]
-REAL_HOUSE_SCENE = ROOT / "tests" / "fixtures" / "real_house_5_scene_candidate.json"
 
 
 def _payload(*, platform_x=0.5, platform_z=2.0, geometry_status="resolved") -> dict:
@@ -88,12 +83,3 @@ def test_incomplete_support_volume_does_not_fabricate_a_contradiction():
     payload["platforms"][0]["position"]["x"] = 2.0
     scene = ArchitecturalScene.model_validate(payload)
     assert scene.volumes[0].height.value is None
-
-
-def test_real_house_massive_landing_support_relation_has_metric_bearing():
-    payload = json.loads(REAL_HOUSE_SCENE.read_text(encoding="utf-8"))
-    scene = ArchitecturalScene.model_validate(payload)
-    relation = next(item for item in scene.relations if item.id == "relation-volume-supports-platform")
-    assert relation.geometry_status == "resolved"
-    assert relation.subject_id == "volume-exterior-1"
-    assert relation.object_id == "platform-massive-1"
